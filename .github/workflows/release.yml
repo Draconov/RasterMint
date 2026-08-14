@@ -1,6 +1,7 @@
-name: Release
+name: Build & Release
 
 on:
+  push:
   workflow_dispatch:
     inputs:
       version:
@@ -15,12 +16,33 @@ on:
         type: boolean
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: rastermint-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'push' }}
 
 jobs:
-  release:
-    name: Build and publish Windows EXE
-    runs-on: windows-latest
+  build:
+    name: Build ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows
+            os: windows-latest
+            artifact_name: RasterMint-Windows
+            artifact_path: release/RasterMint.exe
+          - name: Linux
+            os: ubuntu-latest
+            artifact_name: RasterMint-Linux
+            artifact_path: release/RasterMint-linux-x86_64.tar.gz
+          - name: macOS
+            os: macos-latest
+            artifact_name: RasterMint-macOS
+            artifact_path: release/RasterMint-macOS.zip
+
+    runs-on: ${{ matrix.os }}
 
     steps:
       - name: Checkout
@@ -32,47 +54,93 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      - name: Install test dependencies
-        shell: pwsh
-        run: python -m pip install -e ".[dev]"
-
+      # One test run is enough. Keeping it inside the Linux build means a normal
+      # push has only the three platform build jobs, not a fourth duplicate job.
       - name: Run tests
-        shell: pwsh
-        run: python -m pytest
+        if: runner.os == 'Linux'
+        run: |
+          python -m pip install -e ".[dev]"
+          python -m pytest
 
-      - name: Build single EXE
+      - name: Build Windows
+        if: runner.os == 'Windows'
         shell: pwsh
         run: ./scripts/build_windows.ps1
 
+      - name: Build Linux
+        if: runner.os == 'Linux'
+        shell: bash
+        run: bash scripts/build_linux.sh
+
+      - name: Build macOS
+        if: runner.os == 'macOS'
+        shell: bash
+        run: bash scripts/build_macos.sh
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_path }}
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
+  publish:
+    name: Publish release
+    if: github.event_name == 'workflow_dispatch'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all platform builds
+        uses: actions/download-artifact@v8
+        with:
+          pattern: RasterMint-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Verify release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f release-assets/RasterMint.exe
+          test -f release-assets/RasterMint-linux-x86_64.tar.gz
+          test -f release-assets/RasterMint-macOS.zip
+          ls -lh release-assets
+
       - name: Publish GitHub Release
-        shell: pwsh
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ inputs.version }}
           PRERELEASE: ${{ inputs.prerelease }}
         run: |
-          $tag = $env:VERSION
-          if (-not $tag.StartsWith("v")) { $tag = "v$tag" }
+          set -euo pipefail
 
-          $releaseJson = & gh release list --repo $env:GITHUB_REPOSITORY --limit 1000 --json tagName
-          if ($LASTEXITCODE -ne 0) {
-            throw "Could not query existing GitHub Releases."
-          }
-          $existing = $releaseJson | ConvertFrom-Json | Where-Object { $_.tagName -eq $tag }
-          if ($existing) {
-            throw "Release $tag already exists. Delete that release/tag first or choose another version."
-          }
+          tag="$VERSION"
+          [[ "$tag" == v* ]] || tag="v$tag"
 
-          $args = @(
-            "release", "create", $tag,
-            "release/RasterMint.exe",
-            "--repo", $env:GITHUB_REPOSITORY,
-            "--target", $env:GITHUB_SHA,
-            "--generate-notes",
-            "--title", "RasterMint $tag"
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $tag already exists. Delete it first or choose another version."
+            exit 1
+          fi
+
+          args=(
+            release create "$tag"
+            release-assets/RasterMint.exe
+            release-assets/RasterMint-linux-x86_64.tar.gz
+            release-assets/RasterMint-macOS.zip
+            --repo "$GITHUB_REPOSITORY"
+            --target "$GITHUB_SHA"
+            --generate-notes
+            --title "RasterMint $tag"
           )
-          if ($env:PRERELEASE -eq "true") { $args += "--prerelease" }
-          & gh @args
-          if ($LASTEXITCODE -ne 0) {
-            throw "GitHub Release creation failed with exit code $LASTEXITCODE"
-          }
+
+          if [[ "$PRERELEASE" == "true" ]]; then
+            args+=(--prerelease)
+          fi
+
+          gh "${args[@]}"

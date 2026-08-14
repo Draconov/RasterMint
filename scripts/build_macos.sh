@@ -8,7 +8,13 @@ PYTHON="python3"
 
 "$PYTHON" -m pip install -e '.[build]'
 "$PYTHON" -m PyInstaller build/rastermint.spec --noconfirm --clean
+
+if [[ ! -d dist/RasterMint.app ]]; then
+    echo "PyInstaller did not create dist/RasterMint.app" >&2
+    exit 1
+fi
+
 mkdir -p release
-rm -f release/RasterMint-macos.zip
-ditto -c -k --sequesterRsrc --keepParent dist/RasterMint release/RasterMint-macos.zip
-echo "Built release/RasterMint-macos.zip"
+rm -f release/RasterMint-macOS.zip
+ditto -c -k --sequesterRsrc --keepParent dist/RasterMint.app release/RasterMint-macOS.zip
+echo "Built release/RasterMint-macOS.zip"

@@ -3,6 +3,7 @@
 
 # -*- mode: python ; coding: utf-8 -*-
 from pathlib import Path
+import sys
 
 from PyInstaller.utils.hooks import collect_submodules
 
@@ -44,3 +45,14 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
 )
+
+
+# On macOS, wrap the GUI executable in a normal .app bundle. Windows and
+# Linux keep the one-file executable produced above.
+if sys.platform == "darwin":
+    app = BUNDLE(
+        exe,
+        name="RasterMint.app",
+        icon=None,
+        bundle_identifier="io.github.draconov.rastermint",
+    )

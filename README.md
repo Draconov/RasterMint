@@ -37,12 +37,12 @@ RasterMint is a desktop image-processing playground focused on palette reduction
 - Save/load `.rmpreset` JSON presets.
 - PNG, JPEG, WebP, BMP, and TIFF export.
 - Command-line processor for automation.
-- Single-file Windows release build.
+- Cross-platform release builds: single-file Windows EXE, Linux archive, and macOS app bundle.
 
 ## Requirements
 
 - Python 3.10 or newer for source development.
-- Windows 10/11 for the current GitHub binary release.
+- Windows 10/11, Linux, or macOS for GitHub binary releases.
 
 ## Development setup
 
@@ -109,40 +109,66 @@ pytest
 
 The core tests do not require opening a GUI window.
 
-## Local Windows release build
+## Local release builds
+
+Windows:
 
 ```powershell
 .\scripts\build_windows.ps1
 ```
 
-The result is exactly:
+Linux:
+
+```bash
+bash scripts/build_linux.sh
+```
+
+macOS:
+
+```bash
+bash scripts/build_macos.sh
+```
+
+Outputs:
 
 ```text
 release/RasterMint.exe
+release/RasterMint-linux-x86_64.tar.gz
+release/RasterMint-macOS.zip
 ```
 
-PyInstaller one-file builds temporarily unpack their embedded dependencies when the program starts, so a single EXE can start a little more slowly than the old EXE + `_internal` folder layout. Rendering performance after startup is independent of that packaging choice.
+The Windows and Linux builds use PyInstaller one-file executables. The macOS build is wrapped as `RasterMint.app` and zipped for distribution. PyInstaller one-file builds temporarily unpack embedded dependencies at startup; rendering performance after startup is independent of that packaging choice.
 
-## Manual GitHub release
+## Automatic builds and manual releases
 
-`.github/workflows/ci.yml` runs one test job on normal pushes and pull requests.
+`.github/workflows/release.yml` builds **Windows, Linux, and macOS on every push**. The completed files appear in that workflow run under **Artifacts** and are retained for 14 days. The Linux build also runs the core test suite before packaging.
 
-Releases are manual:
+GitHub Releases remain manual:
 
 1. Open **Actions** in the repository.
-2. Select **Release**.
+2. Select **Build & Release**.
 3. Click **Run workflow**.
 4. Enter `v0.1.0` (the application version remains 0.1.0).
 5. Run the workflow.
 
-The release workflow runs on Windows, verifies the tests, builds a one-file PyInstaller executable, and uploads **only `RasterMint.exe`** as the custom GitHub Release asset. GitHub itself also shows its automatic `Source code (zip)` / `Source code (tar.gz)` links for tagged releases; those are not extra build artifacts from RasterMint.
+The manual run rebuilds all three platforms. Only after all builds succeed does it create the GitHub Release with:
+
+```text
+RasterMint.exe
+RasterMint-linux-x86_64.tar.gz
+RasterMint-macOS.zip
+```
+
+GitHub also adds its own automatic `Source code (zip)` and `Source code (tar.gz)` links to tagged releases.
+
+`.github/workflows/ci.yml` is intentionally limited to pull requests, so ordinary pushes do not create a redundant fourth test job.
 
 ## Project layout
 
 ```text
 RasterMint/
-├─ .github/workflows/       CI and manual Windows release
-├─ build/                   PyInstaller one-file spec
+├─ .github/workflows/       PR tests, automatic builds, manual releases
+├─ build/                   Cross-platform PyInstaller spec
 ├─ scripts/                 local setup/build scripts
 ├─ src/rastermint/
 │  ├─ core/                 algorithms, palettes, presets, processing
