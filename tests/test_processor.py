@@ -1,3 +1,6 @@
+# Copyright © 2026 Draconov
+# SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+
 from PIL import Image
 
 from rastermint.core.processor import make_preview_source, process_image

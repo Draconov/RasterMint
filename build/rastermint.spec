@@ -1,3 +1,6 @@
+# Copyright © 2026 Draconov
+# SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+
 # -*- mode: python ; coding: utf-8 -*-
 from pathlib import Path
 import sys

@@ -1,3 +1,6 @@
+# Copyright © 2026 Draconov
+# SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+
 import numpy as np
 
 from rastermint.core.dither import ALGORITHMS, apply_dither

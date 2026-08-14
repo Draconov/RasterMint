@@ -1,5 +1,7 @@
 # RasterMint
 
+**Author:** [Draconov](https://github.com/Draconov)
+
 RasterMint is a desktop image-processing playground focused on palette reduction, classic dithering, pixel scaling, and fast visual experimentation.
 
 ## Current feature set
@@ -148,4 +150,8 @@ Error-diffusion algorithms are inherently sequential because each output pixel a
 
 ## License
 
-MIT. See `LICENSE`.
+RasterMint is **source-available for noncommercial use** under the
+[PolyForm Noncommercial License 1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0).
+Commercial use outside the permissions of that license requires a separate commercial license from Draconov.
+
+Copyright © 2026 Draconov. See `LICENSE` and `COMMERCIAL-LICENSE.md`.
