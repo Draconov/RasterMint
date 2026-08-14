@@ -10,9 +10,5 @@ PYTHON="python3"
 "$PYTHON" -m PyInstaller build/rastermint.spec --noconfirm --clean
 mkdir -p release
 rm -f release/RasterMint-macos.zip
-if [[ -d dist/RasterMint.app ]]; then
-  ditto -c -k --sequesterRsrc --keepParent dist/RasterMint.app release/RasterMint-macos.zip
-else
-  ditto -c -k --sequesterRsrc --keepParent dist/RasterMint release/RasterMint-macos.zip
-fi
+ditto -c -k --sequesterRsrc --keepParent dist/RasterMint release/RasterMint-macos.zip
 echo "Built release/RasterMint-macos.zip"

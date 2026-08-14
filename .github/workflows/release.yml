@@ -18,26 +18,9 @@ permissions:
   contents: write
 
 jobs:
-  build:
-    name: Build ${{ matrix.name }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: Windows
-            os: windows-latest
-            artifact: RasterMint-windows-x64
-            package: release/RasterMint-windows-x64.zip
-          - name: Linux
-            os: ubuntu-latest
-            artifact: RasterMint-linux-x86_64
-            package: release/RasterMint-linux-x86_64.tar.gz
-          - name: macOS
-            os: macos-latest
-            artifact: RasterMint-macos
-            package: release/RasterMint-macos.zip
-
-    runs-on: ${{ matrix.os }}
+  release:
+    name: Build and publish Windows EXE
+    runs-on: windows-latest
 
     steps:
       - name: Checkout
@@ -49,67 +32,47 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      - name: Build Windows
-        if: runner.os == 'Windows'
+      - name: Install test dependencies
+        shell: pwsh
+        run: python -m pip install -e ".[dev]"
+
+      - name: Run tests
+        shell: pwsh
+        run: python -m pytest
+
+      - name: Build single EXE
         shell: pwsh
         run: ./scripts/build_windows.ps1
 
-      - name: Build Linux
-        if: runner.os == 'Linux'
-        shell: bash
-        run: bash scripts/build_linux.sh
-
-      - name: Build macOS
-        if: runner.os == 'macOS'
-        shell: bash
-        run: bash scripts/build_macos.sh
-
-      - name: Upload package
-        uses: actions/upload-artifact@v7
-        with:
-          name: ${{ matrix.artifact }}
-          path: ${{ matrix.package }}
-          if-no-files-found: error
-
-  publish:
-    name: Publish release
-    needs: build
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Download packages
-        uses: actions/download-artifact@v8
-        with:
-          path: artifacts
-          merge-multiple: true
-
-      - name: Create GitHub Release
-        shell: bash
+      - name: Publish GitHub Release
+        shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ inputs.version }}
           PRERELEASE: ${{ inputs.prerelease }}
         run: |
-          TAG="$VERSION"
-          if [[ "$TAG" != v* ]]; then
-            TAG="v$TAG"
-          fi
+          $tag = $env:VERSION
+          if (-not $tag.StartsWith("v")) { $tag = "v$tag" }
 
-          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "Release $TAG already exists."
-            exit 1
-          fi
+          $releaseJson = & gh release list --repo $env:GITHUB_REPOSITORY --limit 1000 --json tagName
+          if ($LASTEXITCODE -ne 0) {
+            throw "Could not query existing GitHub Releases."
+          }
+          $existing = $releaseJson | ConvertFrom-Json | Where-Object { $_.tagName -eq $tag }
+          if ($existing) {
+            throw "Release $tag already exists. Delete that release/tag first or choose another version."
+          }
 
-          args=(
-            release create "$TAG" artifacts/*
-            --repo "$GITHUB_REPOSITORY"
-            --target "$GITHUB_SHA"
-            --generate-notes
-            --title "RasterMint $TAG"
+          $args = @(
+            "release", "create", $tag,
+            "release/RasterMint.exe",
+            "--repo", $env:GITHUB_REPOSITORY,
+            "--target", $env:GITHUB_SHA,
+            "--generate-notes",
+            "--title", "RasterMint $tag"
           )
-
-          if [[ "$PRERELEASE" == "true" ]]; then
-            args+=(--prerelease)
-          fi
-
-          gh "${args[@]}"
+          if ($env:PRERELEASE -eq "true") { $args += "--prerelease" }
+          & gh @args
+          if ($LASTEXITCODE -ne 0) {
+            throw "GitHub Release creation failed with exit code $LASTEXITCODE"
+          }

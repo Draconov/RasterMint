@@ -29,7 +29,9 @@ class ProcessingWorker(QRunnable):
         super().__init__()
         self.job_id = job_id
         self.purpose = purpose
-        self.image = image.copy()
+        # Processing never mutates the source image, so a full image copy per
+        # preview/export job is unnecessary and expensive for large inputs.
+        self.image = image
         self.settings = ProcessingSettings.from_dict(settings.to_dict())
         self.context = context
         self.signals = WorkerSignals()

@@ -10,6 +10,12 @@
     "dither_strength": 1.0,
     "pixel_size": 2,
     "serpentine": true,
-    "palette": ["#101217", "#4A4F59", "#A9AFB9", "#F4F6F8"]
+    "palette": [
+      "#101217",
+      "#4A4F59",
+      "#A9AFB9",
+      "#F4F6F8"
+    ],
+    "output_divisor": 1
   }
 }

@@ -10,13 +10,11 @@ from PIL import Image
 from PySide6.QtCore import QSettings, Qt, QThreadPool, QTimer
 from PySide6.QtGui import QAction, QCloseEvent, QImage, QKeySequence, QPixmap
 from PySide6.QtWidgets import (
-    QApplication,
     QCheckBox,
     QComboBox,
     QDoubleSpinBox,
     QFileDialog,
     QFormLayout,
-    QFrame,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -24,7 +22,6 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QScrollArea,
-    QSizePolicy,
     QSlider,
     QSpinBox,
     QSplitter,
@@ -37,9 +34,9 @@ from rastermint import __app_name__, __version__
 from rastermint.core.dither import ALGORITHMS
 from rastermint.core.palette import BUILTIN_PALETTES, extract_palette
 from rastermint.core.presets import load_preset, save_preset
-from rastermint.core.processor import make_preview_source
+from rastermint.core.processor import make_preview_source, scaled_output_size
 from rastermint.core.settings import ProcessingSettings
-from rastermint.ui.image_view import ImageView
+from rastermint.ui.image_view import ImageView, SUPPORTED_IMAGE_SUFFIXES
 from rastermint.ui.palette_editor import PaletteEditor
 from rastermint.ui.worker import ProcessingWorker
 
@@ -49,9 +46,9 @@ PRESET_FILTER = "RasterMint preset (*.rmpreset);;JSON (*.json)"
 
 
 def pil_to_pixmap(image: Image.Image) -> QPixmap:
-    rgba = image.convert("RGBA")
-    data = rgba.tobytes("raw", "RGBA")
-    qimg = QImage(data, rgba.width, rgba.height, rgba.width * 4, QImage.Format.Format_RGBA8888).copy()
+    rgb = image if image.mode == "RGB" else image.convert("RGB")
+    data = rgb.tobytes("raw", "RGB")
+    qimg = QImage(data, rgb.width, rgb.height, rgb.width * 3, QImage.Format.Format_RGB888).copy()
     return QPixmap.fromImage(qimg)
 
 
@@ -93,21 +90,24 @@ class MainWindow(QMainWindow):
         self.setAcceptDrops(True)
 
         self.original_image: Image.Image | None = None
-        self.preview_source: Image.Image | None = None
         self.preview_result: Image.Image | None = None
+        self._preview_source_cache: dict[int, Image.Image] = {}
         self.current_file: Path | None = None
         self.settings = ProcessingSettings()
         self._job_counter = 0
         self._latest_preview_job = 0
         self._export_jobs: set[int] = set()
         self._loading_controls = False
+        self._preview_running = False
+        self._preview_pending = False
+        self._source_revision = 0
 
         self.thread_pool = QThreadPool(self)
-        self.thread_pool.setMaxThreadCount(max(2, min(4, QThreadPool.globalInstance().maxThreadCount())))
+        self.thread_pool.setMaxThreadCount(2)
 
         self.preview_timer = QTimer(self)
         self.preview_timer.setSingleShot(True)
-        self.preview_timer.setInterval(130)
+        self.preview_timer.setInterval(100)
         self.preview_timer.timeout.connect(self.render_preview)
 
         self.app_settings = QSettings("RasterMint", "RasterMint")
@@ -138,7 +138,7 @@ class MainWindow(QMainWindow):
         self.save_preset_action.setShortcut("Ctrl+Shift+S")
         self.save_preset_action.triggered.connect(self.save_preset_dialog)
 
-        self.fit_action = QAction("Fit Views", self)
+        self.fit_action = QAction("Fit Preview", self)
         self.fit_action.setShortcut("F")
         self.fit_action.triggered.connect(self.fit_views)
 
@@ -179,33 +179,24 @@ class MainWindow(QMainWindow):
         root_splitter.setChildrenCollapsible(False)
         self.setCentralWidget(root_splitter)
 
-        views_splitter = QSplitter(Qt.Orientation.Horizontal)
-        views_splitter.setChildrenCollapsible(False)
-        views_splitter.addWidget(self._make_view_panel("Original", "original"))
-        views_splitter.addWidget(self._make_view_panel("Processed", "processed"))
-        views_splitter.setSizes([520, 520])
-        root_splitter.addWidget(views_splitter)
-
+        root_splitter.addWidget(self._make_view_panel())
         controls = self._make_controls()
         root_splitter.addWidget(controls)
         root_splitter.setStretchFactor(0, 1)
         root_splitter.setStretchFactor(1, 0)
-        root_splitter.setSizes([1050, 330])
+        root_splitter.setSizes([1040, 340])
 
-    def _make_view_panel(self, title: str, kind: str) -> QWidget:
+    def _make_view_panel(self) -> QWidget:
         panel = QWidget()
         layout = QVBoxLayout(panel)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
-        label = QLabel(title)
+        label = QLabel("Processed Preview")
         label.setObjectName("viewTitle")
         layout.addWidget(label)
-        view = ImageView()
-        layout.addWidget(view, 1)
-        if kind == "original":
-            self.original_view = view
-        else:
-            self.processed_view = view
+        self.processed_view = ImageView()
+        self.processed_view.file_dropped.connect(self.load_image)
+        layout.addWidget(self.processed_view, 1)
         return panel
 
     def _make_controls(self) -> QWidget:
@@ -239,6 +230,9 @@ class MainWindow(QMainWindow):
         dither_form.addRow("Pixel size", self.pixel_spin)
 
         self.serpentine_check = QCheckBox("Alternate scan direction")
+        self.serpentine_check.setToolTip(
+            "Alternate the diffusion scan direction on every row."
+        )
         self.serpentine_check.toggled.connect(self._controls_changed)
         dither_form.addRow("", self.serpentine_check)
         layout.addWidget(dither_box)
@@ -286,13 +280,28 @@ class MainWindow(QMainWindow):
         palette_layout.addLayout(extract_row)
         layout.addWidget(palette_box)
 
+        output_box = QGroupBox("Output")
+        output_form = QFormLayout(output_box)
+        self.output_scale_combo = QComboBox()
+        self.output_scale_combo.addItem("Original (1:1)", 1)
+        for divisor in range(2, 17):
+            self.output_scale_combo.addItem(f"Smaller ÷{divisor}", divisor)
+        self.output_scale_combo.setToolTip(
+            "Downscale before processing/export. Smaller output renders much faster."
+        )
+        self.output_scale_combo.currentIndexChanged.connect(self._controls_changed)
+        output_form.addRow("Size", self.output_scale_combo)
+        layout.addWidget(output_box)
+
         info_box = QGroupBox("Image")
         info_layout = QFormLayout(info_box)
         self.file_label = QLabel("—")
         self.file_label.setWordWrap(True)
-        self.size_label = QLabel("—")
+        self.input_size_label = QLabel("—")
+        self.output_size_label = QLabel("—")
         info_layout.addRow("File", self.file_label)
-        info_layout.addRow("Size", self.size_label)
+        info_layout.addRow("Input", self.input_size_label)
+        info_layout.addRow("Output", self.output_size_label)
         layout.addWidget(info_box)
 
         render_button = QPushButton("Render now")
@@ -314,6 +323,7 @@ class MainWindow(QMainWindow):
             dither_strength=self.strength_spin.value(),
             pixel_size=self.pixel_spin.value(),
             serpentine=self.serpentine_check.isChecked(),
+            output_divisor=int(self.output_scale_combo.currentData() or 1),
             palette=self.palette_editor.colors(),
         )
 
@@ -329,12 +339,15 @@ class MainWindow(QMainWindow):
             self.strength_spin.setValue(settings.dither_strength)
             self.pixel_spin.setValue(settings.pixel_size)
             self.serpentine_check.setChecked(settings.serpentine)
+            scale_index = self.output_scale_combo.findData(settings.output_divisor)
+            self.output_scale_combo.setCurrentIndex(max(0, scale_index))
             self.palette_editor.set_colors(settings.palette, emit=False)
             match = next((name for name, colors in BUILTIN_PALETTES.items() if colors == settings.palette), None)
             self.palette_combo.setCurrentText(match or "Custom")
         finally:
             self._loading_controls = False
         self.settings = self._settings_from_controls()
+        self._update_output_size_label()
         if self.original_image is not None:
             self.schedule_preview()
 
@@ -342,6 +355,7 @@ class MainWindow(QMainWindow):
         if self._loading_controls:
             return
         self.settings = self._settings_from_controls()
+        self._update_output_size_label()
         self.schedule_preview()
 
     def _palette_preset_changed(self, name: str) -> None:
@@ -362,6 +376,15 @@ class MainWindow(QMainWindow):
         self._loading_controls = False
         self._controls_changed()
 
+    def _update_output_size_label(self) -> None:
+        if self.original_image is None:
+            self.output_size_label.setText("—")
+            return
+        divisor = int(self.output_scale_combo.currentData() or 1)
+        width, height = scaled_output_size(self.original_image.size, divisor)
+        suffix = " (original)" if divisor == 1 else f" (÷{divisor})"
+        self.output_size_label.setText(f"{width} × {height}{suffix}")
+
     # ---------- image loading ----------
     def open_image_dialog(self) -> None:
         start_dir = self.app_settings.value("lastOpenDir", str(Path.home()))
@@ -375,12 +398,13 @@ class MainWindow(QMainWindow):
                 img.load()
                 self.original_image = img.convert("RGB")
             self.current_file = Path(path)
-            self.preview_source = make_preview_source(self.original_image)
             self.preview_result = None
-            self.original_view.set_pixmap(pil_to_pixmap(self.preview_source))
+            self._preview_source_cache.clear()
+            self._source_revision += 1
             self.processed_view.clear_image()
             self.file_label.setText(self.current_file.name)
-            self.size_label.setText(f"{self.original_image.width} × {self.original_image.height}")
+            self.input_size_label.setText(f"{self.original_image.width} × {self.original_image.height}")
+            self._update_output_size_label()
             self.export_action.setEnabled(True)
             self.extract_button.setEnabled(True)
             self.app_settings.setValue("lastOpenDir", str(self.current_file.parent))
@@ -391,19 +415,28 @@ class MainWindow(QMainWindow):
 
     def dragEnterEvent(self, event) -> None:
         urls = event.mimeData().urls() if event.mimeData().hasUrls() else []
-        if any(url.isLocalFile() for url in urls):
+        if any(
+            url.isLocalFile() and Path(url.toLocalFile()).suffix.lower() in SUPPORTED_IMAGE_SUFFIXES
+            for url in urls
+        ):
             event.acceptProposedAction()
+        else:
+            event.ignore()
 
     def dropEvent(self, event) -> None:
         for url in event.mimeData().urls():
-            if url.isLocalFile():
-                self.load_image(url.toLocalFile())
+            if not url.isLocalFile():
+                continue
+            path = Path(url.toLocalFile())
+            if path.suffix.lower() in SUPPORTED_IMAGE_SUFFIXES:
+                self.load_image(path)
                 event.acceptProposedAction()
                 return
+        event.ignore()
 
     # ---------- rendering ----------
     def schedule_preview(self, immediate: bool = False) -> None:
-        if self.preview_source is None:
+        if self.original_image is None:
             return
         if immediate:
             self.preview_timer.stop()
@@ -416,28 +449,65 @@ class MainWindow(QMainWindow):
         return self._job_counter
 
     def render_preview(self) -> None:
-        if self.preview_source is None:
+        if self.original_image is None:
             return
+
         self.settings = self._settings_from_controls()
+        if self._preview_running:
+            self._preview_pending = True
+            return
+
+        divisor = self.settings.output_divisor
+        preview_source = self._preview_source_cache.get(divisor)
+        if preview_source is None:
+            preview_source = make_preview_source(
+                self.original_image,
+                output_divisor=divisor,
+            )
+            self._preview_source_cache[divisor] = preview_source
+
+        # make_preview_source already folds the selected output divisor into
+        # its dimensions, so applying the divisor again would double-scale.
+        preview_settings = ProcessingSettings.from_dict(self.settings.to_dict())
+        preview_settings.output_divisor = 1
+
         job_id = self._next_job_id()
         self._latest_preview_job = job_id
+        self._preview_running = True
+        self._preview_pending = False
+        context = {
+            "revision": self._source_revision,
+            "algorithm": self.settings.algorithm,
+        }
         self.statusBar().showMessage("Rendering preview…")
-        worker = ProcessingWorker(job_id, "preview", self.preview_source, self.settings)
+        worker = ProcessingWorker(job_id, "preview", preview_source, preview_settings, context)
         worker.signals.finished.connect(self._worker_finished)
         worker.signals.failed.connect(self._worker_failed)
         self.thread_pool.start(worker)
 
+    def _start_pending_preview(self) -> None:
+        if self._preview_pending:
+            self._preview_pending = False
+            QTimer.singleShot(0, self.render_preview)
+
     def _worker_finished(self, job_id: int, purpose: str, result: object, context: object) -> None:
         if purpose == "preview":
-            if job_id != self._latest_preview_job:
-                return
-            if isinstance(result, Image.Image):
+            self._preview_running = False
+            preview_context = context if isinstance(context, dict) else {}
+            revision = int(preview_context.get("revision", -1))
+            algorithm = str(preview_context.get("algorithm", self.settings.algorithm))
+            if (
+                job_id == self._latest_preview_job
+                and revision == self._source_revision
+                and isinstance(result, Image.Image)
+            ):
                 self.preview_result = result
                 self.processed_view.set_pixmap(pil_to_pixmap(result))
                 self.statusBar().showMessage(
-                    f"Preview ready · {result.width} × {result.height} · {self.settings.algorithm}",
+                    f"Preview ready · {result.width} × {result.height} · {algorithm}",
                     2500,
                 )
+            self._start_pending_preview()
             return
 
         if purpose == "export":
@@ -456,13 +526,20 @@ class MainWindow(QMainWindow):
                 QMessageBox.critical(self, "Export failed", str(exc))
 
     def _worker_failed(self, job_id: int, purpose: str, trace: str, context: object) -> None:
-        if purpose == "preview" and job_id != self._latest_preview_job:
-            return
+        if purpose == "preview":
+            self._preview_running = False
+            preview_context = context if isinstance(context, dict) else {}
+            revision = int(preview_context.get("revision", -1))
+            if job_id != self._latest_preview_job or revision != self._source_revision:
+                self._start_pending_preview()
+                return
         if purpose == "export":
             self._export_jobs.discard(job_id)
         short = trace.strip().splitlines()[-1] if trace.strip() else "Unknown processing error"
         self.statusBar().showMessage(short, 6000)
         QMessageBox.critical(self, "Processing error", trace)
+        if purpose == "preview":
+            self._start_pending_preview()
 
     # ---------- export ----------
     def export_image_dialog(self) -> None:
@@ -490,7 +567,10 @@ class MainWindow(QMainWindow):
         self.settings = self._settings_from_controls()
         job_id = self._next_job_id()
         self._export_jobs.add(job_id)
-        self.statusBar().showMessage(f"Rendering full-resolution export: {target.name}…")
+        out_width, out_height = scaled_output_size(self.original_image.size, self.settings.output_divisor)
+        self.statusBar().showMessage(
+            f"Rendering {out_width} × {out_height} export: {target.name}…"
+        )
         worker = ProcessingWorker(job_id, "export", self.original_image, self.settings, str(target))
         worker.signals.finished.connect(self._worker_finished)
         worker.signals.failed.connect(self._worker_failed)
@@ -544,7 +624,6 @@ class MainWindow(QMainWindow):
 
     # ---------- window ----------
     def fit_views(self) -> None:
-        self.original_view.fit_image()
         self.processed_view.fit_image()
 
     def _restore_geometry(self) -> None:

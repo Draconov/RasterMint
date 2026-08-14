@@ -3,14 +3,12 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
-
+from array import array
 import numpy as np
 
-from .palette import nearest_palette_index, quantize_nearest
+from .palette import quantize_nearest
 
 Kernel = list[tuple[int, int, float]]
-
 
 ERROR_DIFFUSION_KERNELS: dict[str, tuple[Kernel, float]] = {
     "Floyd-Steinberg": (
@@ -72,7 +70,6 @@ ERROR_DIFFUSION_KERNELS: dict[str, tuple[Kernel, float]] = {
     ),
 }
 
-
 BAYER_MATRICES: dict[str, np.ndarray] = {
     "Bayer 2x2": np.array([[0, 2], [3, 1]], dtype=np.float32),
     "Bayer 4x4": np.array(
@@ -99,13 +96,11 @@ ALGORITHMS = [
     *ERROR_DIFFUSION_KERNELS.keys(),
 ]
 
-
 def ordered_dither(image: np.ndarray, palette: np.ndarray, matrix: np.ndarray, strength: float) -> np.ndarray:
     h, w, _ = image.shape
     n = matrix.shape[0]
     normalized = (matrix + 0.5) / (n * n) - 0.5
     tiled = np.tile(normalized, (int(np.ceil(h / n)), int(np.ceil(w / n))))[:h, :w]
-    # Perturb all channels together; this preserves hue better than independent channel thresholds.
     adjusted = np.clip(image + tiled[:, :, None] * (128.0 * strength), 0, 255)
     return quantize_nearest(adjusted, palette)
 
@@ -117,7 +112,6 @@ def random_dither(image: np.ndarray, palette: np.ndarray, strength: float, seed:
 
 
 def threshold_dither(image: np.ndarray, palette: np.ndarray, threshold: float = 0.5) -> np.ndarray:
-    # Intentionally binary: select darkest/lightest colors in the current palette.
     lum_palette = 0.2126 * palette[:, 0] + 0.7152 * palette[:, 1] + 0.0722 * palette[:, 2]
     dark = palette[int(np.argmin(lum_palette))]
     light = palette[int(np.argmax(lum_palette))]
@@ -134,28 +128,69 @@ def error_diffusion(
     strength: float = 1.0,
     serpentine: bool = True,
 ) -> np.ndarray:
-    work = image.astype(np.float32, copy=True)
-    h, w, _ = work.shape
+    h, w, _ = image.shape
+    if h == 0 or w == 0:
+        return image.astype(np.float32, copy=True)
+
+    # Keep the original nearest-color math exact, but do it with scalar Python
+    # floats instead of creating several tiny NumPy arrays for every pixel.
+    # array('f') preserves the float32 working buffer used by the original
+    # implementation while making scalar reads/writes much cheaper.
+    palette_values = tuple(
+        tuple(float(channel) for channel in color)
+        for color in np.asarray(palette, dtype=np.float32)
+    )
+    if not palette_values:
+        raise ValueError("Palette must contain at least one color")
+
+    normalized_kernel = tuple((dx, dy, float(weight) / divisor) for dx, dy, weight in kernel)
+    data = array("f", np.asarray(image, dtype=np.float32).reshape(-1))
 
     for y in range(h):
-        reverse = serpentine and (y % 2 == 1)
+        reverse = bool(serpentine and (y & 1))
         xs = range(w - 1, -1, -1) if reverse else range(w)
         direction = -1 if reverse else 1
 
         for x in xs:
-            old = np.clip(work[y, x], 0, 255)
-            idx = nearest_palette_index(old, palette)
-            new = palette[idx]
-            work[y, x] = new
-            error = (old - new) * strength
+            base = (y * w + x) * 3
+            p0 = data[base]
+            p1 = data[base + 1]
+            p2 = data[base + 2]
 
-            for dx, dy, weight in kernel:
+            old0 = 0.0 if p0 < 0.0 else 255.0 if p0 > 255.0 else p0
+            old1 = 0.0 if p1 < 0.0 else 255.0 if p1 > 255.0 else p1
+            old2 = 0.0 if p2 < 0.0 else 255.0 if p2 > 255.0 else p2
+
+            best_index = 0
+            best_distance = float("inf")
+            for index, (red, green, blue) in enumerate(palette_values):
+                dr = red - old0
+                dg = green - old1
+                db = blue - old2
+                distance = dr * dr + dg * dg + db * db
+                if distance < best_distance:
+                    best_distance = distance
+                    best_index = index
+
+            new0, new1, new2 = palette_values[best_index]
+            data[base] = new0
+            data[base + 1] = new1
+            data[base + 2] = new2
+
+            error0 = (old0 - new0) * strength
+            error1 = (old1 - new1) * strength
+            error2 = (old2 - new2) * strength
+
+            for dx, dy, factor in normalized_kernel:
                 nx = x + dx * direction
                 ny = y + dy
                 if 0 <= nx < w and 0 <= ny < h:
-                    work[ny, nx] += error * (weight / divisor)
+                    target = (ny * w + nx) * 3
+                    data[target] += error0 * factor
+                    data[target + 1] += error1 * factor
+                    data[target + 2] += error2 * factor
 
-    return np.clip(work, 0, 255)
+    return np.frombuffer(data, dtype=np.float32).reshape(h, w, 3).copy()
 
 
 def apply_dither(

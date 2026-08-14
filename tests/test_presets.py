@@ -15,6 +15,7 @@ def test_preset_roundtrip(tmp_path):
         dither_strength=0.75,
         pixel_size=3,
         serpentine=False,
+        output_divisor=3,
         palette=["#112233", "#445566", "#FFFFFF"],
     )
     path = tmp_path / "test.rmpreset"

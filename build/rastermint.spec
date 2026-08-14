@@ -3,7 +3,6 @@
 
 # -*- mode: python ; coding: utf-8 -*-
 from pathlib import Path
-import sys
 
 from PyInstaller.utils.hooks import collect_submodules
 
@@ -25,11 +24,14 @@ a = Analysis(
 )
 pyz = PYZ(a.pure)
 
+# One-file build: no COLLECT stage. PyInstaller embeds Qt/Python dependencies
+# inside the executable and extracts them to a temporary directory at launch.
 exe = EXE(
     pyz,
     a.scripts,
+    a.binaries,
+    a.datas,
     [],
-    exclude_binaries=True,
     name="RasterMint",
     debug=False,
     bootloader_ignore_signals=False,
@@ -42,26 +44,3 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
 )
-
-coll = COLLECT(
-    exe,
-    a.binaries,
-    a.datas,
-    strip=False,
-    upx=True,
-    upx_exclude=[],
-    name="RasterMint",
-)
-
-if sys.platform == "darwin":
-    app = BUNDLE(
-        coll,
-        name="RasterMint.app",
-        bundle_identifier="app.rastermint.desktop",
-        info_plist={
-            "CFBundleName": "RasterMint",
-            "CFBundleDisplayName": "RasterMint",
-            "CFBundleShortVersionString": "0.1.0",
-            "NSHighResolutionCapable": True,
-        },
-    )

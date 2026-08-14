@@ -19,6 +19,7 @@ class ProcessingSettings:
     dither_strength: float = 1.0
     pixel_size: int = 1
     serpentine: bool = True
+    output_divisor: int = 1
     palette: list[str] = field(default_factory=lambda: DEFAULT_PALETTE.copy())
 
     def to_dict(self) -> dict[str, Any]:
@@ -35,6 +36,7 @@ class ProcessingSettings:
             "dither_strength",
             "pixel_size",
             "serpentine",
+            "output_divisor",
             "palette",
         }
         clean = {k: v for k, v in data.items() if k in allowed}
@@ -45,6 +47,8 @@ class ProcessingSettings:
         obj.gamma = max(0.1, min(4.0, float(obj.gamma)))
         obj.dither_strength = max(0.0, min(2.0, float(obj.dither_strength)))
         obj.pixel_size = max(1, min(32, int(obj.pixel_size)))
+        obj.output_divisor = max(1, min(16, int(obj.output_divisor)))
+        obj.serpentine = bool(obj.serpentine)
         if not obj.palette:
             obj.palette = DEFAULT_PALETTE.copy()
         return obj

@@ -6,11 +6,18 @@ $Root = Split-Path $PSScriptRoot -Parent
 Set-Location $Root
 
 $Python = if (Test-Path ".venv\Scripts\python.exe") { ".venv\Scripts\python.exe" } else { "python" }
-& $Python -m pip install -e ".[build]"
-& $Python -m PyInstaller build\rastermint.spec --noconfirm --clean
 
-New-Item -ItemType Directory -Force -Path release | Out-Null
-$Zip = "release\RasterMint-windows-x64.zip"
-if (Test-Path $Zip) { Remove-Item $Zip -Force }
-Compress-Archive -Path "dist\RasterMint\*" -DestinationPath $Zip -CompressionLevel Optimal
-Write-Host "Built $Zip"
+& $Python -m pip install -e ".[build]"
+if ($LASTEXITCODE -ne 0) { throw "Dependency installation failed with exit code $LASTEXITCODE" }
+
+& $Python -m PyInstaller build\rastermint.spec --noconfirm --clean
+if ($LASTEXITCODE -ne 0) { throw "PyInstaller failed with exit code $LASTEXITCODE" }
+
+if (-not (Test-Path "dist\RasterMint.exe")) {
+    throw "PyInstaller did not create dist\RasterMint.exe"
+}
+
+if (Test-Path "release") { Remove-Item "release" -Recurse -Force }
+New-Item -ItemType Directory -Force -Path "release" | Out-Null
+Copy-Item "dist\RasterMint.exe" "release\RasterMint.exe"
+Write-Host "Built release\RasterMint.exe"

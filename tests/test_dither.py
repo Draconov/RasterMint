@@ -3,8 +3,8 @@
 
 import numpy as np
 
-from rastermint.core.dither import ALGORITHMS, apply_dither
-from rastermint.core.palette import palette_array
+from rastermint.core.dither import ALGORITHMS, ERROR_DIFFUSION_KERNELS, apply_dither, error_diffusion
+from rastermint.core.palette import nearest_palette_index, palette_array
 
 
 def make_gradient() -> np.ndarray:
@@ -32,3 +32,34 @@ def test_dither_is_deterministic_including_random_mode():
         a = apply_dither(image, palette, algorithm)
         b = apply_dither(image, palette, algorithm)
         assert np.array_equal(a, b), algorithm
+
+
+def _reference_error_diffusion(image, palette, kernel, divisor, strength=1.0, serpentine=True):
+    work = image.astype(np.float32, copy=True)
+    h, w, _ = work.shape
+    for y in range(h):
+        reverse = serpentine and (y % 2 == 1)
+        xs = range(w - 1, -1, -1) if reverse else range(w)
+        direction = -1 if reverse else 1
+        for x in xs:
+            old = np.clip(work[y, x], 0, 255)
+            idx = nearest_palette_index(old, palette)
+            new = palette[idx]
+            work[y, x] = new
+            error = (old - new) * strength
+            for dx, dy, weight in kernel:
+                nx = x + dx * direction
+                ny = y + dy
+                if 0 <= nx < w and 0 <= ny < h:
+                    work[ny, nx] += error * (weight / divisor)
+    return np.clip(work, 0, 255)
+
+
+def test_optimized_error_diffusion_matches_reference():
+    image = np.random.default_rng(44).uniform(0, 255, (8, 11, 3)).astype(np.float32)
+    palette = palette_array(["#101217", "#4A4F59", "#A9AFB9", "#F4F6F8"])
+    for name, (kernel, divisor) in ERROR_DIFFUSION_KERNELS.items():
+        for serpentine in (False, True):
+            expected = _reference_error_diffusion(image, palette, kernel, divisor, 0.85, serpentine)
+            actual = error_diffusion(image, palette, kernel, divisor, 0.85, serpentine)
+            assert np.array_equal(actual, expected), (name, serpentine)

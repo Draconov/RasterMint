@@ -7,10 +7,12 @@ RasterMint is a desktop image-processing playground focused on palette reduction
 ## Current feature set
 
 - Native desktop GUI with PySide6 / Qt 6.
-- Drag-and-drop and file-dialog image loading.
-- Original and processed views with pan, zoom, and fit-to-view.
-- Debounced live preview processed on background worker threads.
-- Full-resolution background export.
+- Drag-and-drop directly onto the preview plus file-dialog loading.
+- Single processed preview with pan, zoom, and fit-to-view; the app does not waste time drawing a second original viewport.
+- Debounced, serialized background previews capped at 640 px on the longest side.
+- Full-size background export when output size is set to Original.
+- Output downscale control from Original through `÷16`; scaling happens before processing for large speed gains.
+- Optimized exact scalar error-diffusion engine for the remaining kernels.
 - 16 processing modes:
   - Nearest Palette
   - Threshold
@@ -31,17 +33,16 @@ RasterMint is a desktop image-processing playground focused on palette reduction
 - Arbitrary 1–32 color palettes.
 - Built-in palettes and editable swatches.
 - Palette extraction from the loaded image using median-cut quantization.
-- Brightness, contrast, saturation, gamma, dither strength, pixel size, and serpentine scan controls.
+- Brightness, contrast, saturation, gamma, dither strength, pixel size, and optional serpentine scan.
 - Save/load `.rmpreset` JSON presets.
 - PNG, JPEG, WebP, BMP, and TIFF export.
 - Command-line processor for automation.
-- Cross-platform PyInstaller build scripts.
-- GitHub Actions CI and tagged release workflow.
+- Single-file Windows release build.
 
 ## Requirements
 
-- Python 3.10 or newer.
-- Windows 10/11, a modern Linux desktop, or macOS.
+- Python 3.10 or newer for source development.
+- Windows 10/11 for the current GitHub binary release.
 
 ## Development setup
 
@@ -78,8 +79,11 @@ rastermint-cli input.png output.png \
   --algorithm "Atkinson" \
   --palette "Graphite 4" \
   --pixel-size 2 \
+  --downscale 2 \
   --strength 1.0
 ```
+
+`--downscale 1` preserves the input dimensions. `--downscale 2` outputs half the width and height, `3` outputs one third, and so on through `16`.
 
 Custom palette:
 
@@ -89,6 +93,14 @@ rastermint-cli input.png output.png \
   --colors "#111827" "#F59E0B" "#F9FAFB"
 ```
 
+Serpentine error diffusion is optional:
+
+```bash
+rastermint-cli input.png output.png --serpentine
+```
+
+Serpentine scanning remains enabled by default for compatibility with previous RasterMint output.
+
 ## Tests
 
 ```bash
@@ -97,41 +109,40 @@ pytest
 
 The core tests do not require opening a GUI window.
 
-## Local release builds
+## Local Windows release build
 
-Install build dependencies first:
-
-```bash
-pip install -e '.[build]'
+```powershell
+.\scripts\build_windows.ps1
 ```
 
-Then use the platform script:
+The result is exactly:
 
-- Windows: `scripts\build_windows.bat` or `scripts\build_windows.ps1`
-- Linux: `./scripts/build_linux.sh`
-- macOS: `./scripts/build_macos.sh`
-
-Packaged artifacts are written to `release/`.
-
-## GitHub releases
-
-`.github/workflows/ci.yml` runs tests on pushes and pull requests.
-
-`.github/workflows/release.yml` builds Windows, Linux, and macOS packages whenever a tag matching `v*` is pushed. Example:
-
-```bash
-git tag v0.1.0
-git push origin v0.1.0
+```text
+release/RasterMint.exe
 ```
 
-The release workflow builds the three platform packages, uploads them as workflow artifacts, and creates a GitHub Release for the tag.
+PyInstaller one-file builds temporarily unpack their embedded dependencies when the program starts, so a single EXE can start a little more slowly than the old EXE + `_internal` folder layout. Rendering performance after startup is independent of that packaging choice.
+
+## Manual GitHub release
+
+`.github/workflows/ci.yml` runs one test job on normal pushes and pull requests.
+
+Releases are manual:
+
+1. Open **Actions** in the repository.
+2. Select **Release**.
+3. Click **Run workflow**.
+4. Enter `v0.1.0` (the application version remains 0.1.0).
+5. Run the workflow.
+
+The release workflow runs on Windows, verifies the tests, builds a one-file PyInstaller executable, and uploads **only `RasterMint.exe`** as the custom GitHub Release asset. GitHub itself also shows its automatic `Source code (zip)` / `Source code (tar.gz)` links for tagged releases; those are not extra build artifacts from RasterMint.
 
 ## Project layout
 
 ```text
 RasterMint/
-├─ .github/workflows/       CI and release builds
-├─ build/                   PyInstaller spec
+├─ .github/workflows/       CI and manual Windows release
+├─ build/                   PyInstaller one-file spec
 ├─ scripts/                 local setup/build scripts
 ├─ src/rastermint/
 │  ├─ core/                 algorithms, palettes, presets, processing
@@ -143,10 +154,6 @@ RasterMint/
 ├─ pyproject.toml
 └─ README.md
 ```
-
-## Notes on performance
-
-Error-diffusion algorithms are inherently sequential because each output pixel affects later pixels. RasterMint therefore uses a reduced preview source for interactive work and processes the original image only for export. Ordered and nearest-palette modes are vectorized with NumPy.
 
 ## License
 
