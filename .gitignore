@@ -7,6 +7,8 @@ __pycache__/
 venv/
 
 # Build
+build/*
+!build/rastermint.spec
 build-temp/
 dist/
 release/

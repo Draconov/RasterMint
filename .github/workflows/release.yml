@@ -2,25 +2,18 @@ name: Build & Release
 
 on:
   push:
+    branches:
+      - main
   workflow_dispatch:
-    inputs:
-      version:
-        description: "Release version (for example v0.1.0)"
-        required: true
-        default: "v0.1.0"
-        type: string
-      prerelease:
-        description: "Mark as prerelease"
-        required: false
-        default: false
-        type: boolean
 
 permissions:
   contents: read
 
+# Do not cancel a run while it may be replacing release assets. New pushes wait,
+# then refresh the same version again with the newest successful build.
 concurrency:
-  group: rastermint-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'push' }}
+  group: rastermint-rolling-release
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -54,8 +47,8 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      # One test run is enough. Keeping it inside the Linux build means a normal
-      # push has only the three platform build jobs, not a fourth duplicate job.
+      # One test run is enough. Keeping it inside the Linux build avoids a
+      # separate fourth job on every push.
       - name: Run tests
         if: runner.os == 'Linux'
         run: |
@@ -87,14 +80,16 @@ jobs:
           retention-days: 14
 
   publish:
-    name: Publish release
-    if: github.event_name == 'workflow_dispatch'
+    name: Publish / update release
     needs: build
     runs-on: ubuntu-latest
     permissions:
       contents: write
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
       - name: Download all platform builds
         uses: actions/download-artifact@v8
         with:
@@ -111,36 +106,96 @@ jobs:
           test -f release-assets/RasterMint-macOS.zip
           ls -lh release-assets
 
-      - name: Publish GitHub Release
+      - name: Read version from VERSION
+        id: version
         shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ inputs.version }}
-          PRERELEASE: ${{ inputs.prerelease }}
         run: |
           set -euo pipefail
 
-          tag="$VERSION"
-          [[ "$tag" == v* ]] || tag="v$tag"
-
-          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "Release $tag already exists. Delete it first or choose another version."
+          if [[ ! -f VERSION ]]; then
+            echo "VERSION file is missing" >&2
             exit 1
           fi
 
-          args=(
-            release create "$tag"
+          version="$(tr -d '\r\n' < VERSION)"
+          if [[ -z "$version" || "$version" =~ [[:space:]] ]]; then
+            echo "VERSION must contain one non-empty version string with no spaces" >&2
+            exit 1
+          fi
+
+          tag="v$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "RasterMint version: $version"
+          echo "Rolling release tag: $tag"
+
+      - name: Move or create release tag at this commit
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" >/dev/null 2>&1; then
+            echo "Moving existing $TAG to $GITHUB_SHA"
+            gh api \
+              --method PATCH \
+              "repos/$GITHUB_REPOSITORY/git/refs/tags/$TAG" \
+              -f sha="$GITHUB_SHA" \
+              -F force=true >/dev/null
+          else
+            echo "Creating $TAG at $GITHUB_SHA"
+            gh api \
+              --method POST \
+              "repos/$GITHUB_REPOSITORY/git/refs" \
+              -f ref="refs/tags/$TAG" \
+              -f sha="$GITHUB_SHA" >/dev/null
+          fi
+
+      - name: Create or refresh GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          short_sha="${GITHUB_SHA::7}"
+          printf -v notes '%s\n\n%s' \
+            "Rolling build for RasterMint v${VERSION}." \
+            "Automatically rebuilt from commit \`${short_sha}\`. Every successful push to main replaces the application files for this version."
+
+          assets=(
             release-assets/RasterMint.exe
             release-assets/RasterMint-linux-x86_64.tar.gz
             release-assets/RasterMint-macOS.zip
-            --repo "$GITHUB_REPOSITORY"
-            --target "$GITHUB_SHA"
-            --generate-notes
-            --title "RasterMint $tag"
           )
 
-          if [[ "$PRERELEASE" == "true" ]]; then
-            args+=(--prerelease)
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Refreshing existing release $TAG"
+
+            gh release edit "$TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "RasterMint $TAG" \
+              --target "$GITHUB_SHA" \
+              --notes "$notes" \
+              --latest
+
+            # --clobber replaces assets that already have these names.
+            gh release upload "$TAG" "${assets[@]}" \
+              --repo "$GITHUB_REPOSITORY" \
+              --clobber
+          else
+            echo "Creating release $TAG"
+
+            gh release create "$TAG" "${assets[@]}" \
+              --repo "$GITHUB_REPOSITORY" \
+              --verify-tag \
+              --title "RasterMint $TAG" \
+              --notes "$notes" \
+              --latest
           fi
 
-          gh "${args[@]}"
+          echo "Published RasterMint $TAG from $GITHUB_SHA"

@@ -4,7 +4,14 @@
 import numpy as np
 from PIL import Image
 
-from rastermint.core.processor import make_preview_source, process_image, scaled_output_size
+from rastermint.core.processor import (
+    FAST_PREVIEW_MAX_SIDE,
+    PREVIEW_MAX_SIDE,
+    make_preview_settings,
+    make_preview_source,
+    process_image,
+    scaled_output_size,
+)
 from rastermint.core.settings import ProcessingSettings
 
 
@@ -57,3 +64,49 @@ def test_preview_respects_output_divisor_before_preview_cap():
     # ÷2 would be 960×540, so only the preview cap reduces it further.
     preview = make_preview_source(img, output_divisor=2)
     assert preview.size == (640, 360)
+
+
+def test_fast_and_refined_preview_budgets():
+    img = Image.new("RGB", (2400, 1200), "white")
+    draft = make_preview_source(img, max_side=FAST_PREVIEW_MAX_SIDE)
+    refined = make_preview_source(img, max_side=PREVIEW_MAX_SIDE)
+    assert draft.size == (320, 160)
+    assert refined.size == (640, 320)
+
+
+def test_filters_are_part_of_the_full_processing_pipeline():
+    img = Image.new("RGB", (4, 4), (10, 20, 30))
+    settings = ProcessingSettings(
+        algorithm="Nearest Palette",
+        invert=True,
+        palette=["#000000", "#FFFFFF"],
+    )
+    out = process_image(img, settings)
+    # Inverted (245,235,225) is closer to white than black.
+    assert {tuple(pixel) for pixel in np.asarray(out).reshape(-1, 3)} == {(255, 255, 255)}
+
+
+def test_preview_settings_scale_pixel_based_effects():
+    settings = ProcessingSettings(pixel_size=6, blur_radius=3.0, sharpen=1.7)
+    preview = make_preview_settings(settings, (1920, 1080), (640, 360))
+    assert preview.output_divisor == 1
+    assert preview.pixel_size == 2
+    assert preview.blur_radius == 1.0
+    assert preview.sharpen == 1.7
+    # The original settings object must stay untouched.
+    assert settings.pixel_size == 6
+    assert settings.blur_radius == 3.0
+
+
+def test_adaptive_preview_budget_reduces_only_expensive_interactive_algorithms():
+    from rastermint.core.effect_stack import default_effect_stack
+    from rastermint.core.processor import adaptive_preview_max_side
+
+    settings = ProcessingSettings()
+    settings.effect_stack = default_effect_stack(settings)
+    dither = next(step for step in settings.effect_stack if step["kind"] == "Dither")
+    dither["params"]["algorithm"] = "Riemersma"
+    assert adaptive_preview_max_side(settings, FAST_PREVIEW_MAX_SIDE) == 180
+    assert adaptive_preview_max_side(settings, PREVIEW_MAX_SIDE) == 360
+    # Full-resolution preview mode is an explicit user request and is not capped.
+    assert adaptive_preview_max_side(settings, 1200) == 1200

@@ -3,14 +3,37 @@
 
 from __future__ import annotations
 
-import numpy as np
-from PIL import Image, ImageEnhance
+from PIL import Image
 
-from .dither import apply_dither
-from .palette import palette_array
+from .effect_stack import apply_effect_stack, normalize_effect_stack, scale_stack_for_preview
 from .settings import ProcessingSettings
 
 PREVIEW_MAX_SIDE = 640
+FAST_PREVIEW_MAX_SIDE = 320
+
+
+def adaptive_preview_max_side(settings: ProcessingSettings, requested: int) -> int:
+    """Lower interactive budgets for algorithms/palettes with heavy per-pixel work.
+
+    Full preview requests (> PREVIEW_MAX_SIDE) are never reduced. The function
+    only affects the draft/refined interactive proxy, not exported output.
+    """
+    requested = max(64, int(requested))
+    if requested > PREVIEW_MAX_SIDE:
+        return requested
+    stack = normalize_effect_stack(settings.effect_stack, settings)
+    algorithm = ""
+    for step in stack:
+        if step.get("enabled", True) and step.get("kind") == "Dither":
+            algorithm = str(step.get("params", {}).get("algorithm", ""))
+    expensive = algorithm in {"Dot Diffusion", "Riemersma"}
+    large_palette_diffusion = len(settings.palette) > 64 and algorithm not in {
+        "Nearest Palette", "Threshold", "Random", "Interleaved Gradient Noise",
+        "Blue Noise", "Halftone",
+    }
+    if expensive or large_palette_diffusion:
+        return min(requested, 180 if requested <= FAST_PREVIEW_MAX_SIDE else 360)
+    return requested
 
 
 def scaled_output_size(size: tuple[int, int], divisor: int) -> tuple[int, int]:
@@ -20,59 +43,56 @@ def scaled_output_size(size: tuple[int, int], divisor: int) -> tuple[int, int]:
 
 
 def _apply_output_scale(image: Image.Image, divisor: int) -> Image.Image:
-    divisor = max(1, int(divisor))
     target = scaled_output_size(image.size, divisor)
     if target == image.size:
         return image
     return image.resize(target, Image.Resampling.LANCZOS)
 
 
-def _apply_adjustments(image: Image.Image, s: ProcessingSettings) -> Image.Image:
-    img = image if image.mode == "RGB" else image.convert("RGB")
-    if s.brightness:
-        img = ImageEnhance.Brightness(img).enhance(max(0.0, 1.0 + s.brightness / 100.0))
-    if s.contrast:
-        img = ImageEnhance.Contrast(img).enhance(max(0.0, 1.0 + s.contrast / 100.0))
-    if s.saturation:
-        img = ImageEnhance.Color(img).enhance(max(0.0, 1.0 + s.saturation / 100.0))
-    if abs(s.gamma - 1.0) > 1e-6:
-        inv_gamma = 1.0 / s.gamma
-        lut = [round(255 * ((i / 255) ** inv_gamma)) for i in range(256)]
-        img = img.point(lut * 3)
-    return img
-
-
-def _pixelate_for_processing(image: Image.Image, pixel_size: int) -> tuple[Image.Image, tuple[int, int]]:
-    output_size = image.size
-    if pixel_size <= 1:
-        return image, output_size
-    width, height = output_size
-    small = image.resize(
-        (max(1, width // pixel_size), max(1, height // pixel_size)),
-        Image.Resampling.BOX,
-    )
-    return small, output_size
-
-
-def process_image(image: Image.Image, settings: ProcessingSettings) -> Image.Image:
+def process_image(
+    image: Image.Image,
+    settings: ProcessingSettings,
+    *,
+    frame_time: float = 0.0,
+    frame_index: int = 0,
+) -> Image.Image:
     source = image if image.mode == "RGB" else image.convert("RGB")
     source = _apply_output_scale(source, settings.output_divisor)
-    adjusted = _apply_adjustments(source, settings)
-    working, output_size = _pixelate_for_processing(adjusted, settings.pixel_size)
-    palette = palette_array(settings.palette)
-    arr = np.asarray(working, dtype=np.float32)
-    result = apply_dither(
-        arr,
-        palette,
-        settings.algorithm,
-        strength=settings.dither_strength,
-        serpentine=settings.serpentine,
-    ).astype(np.uint8)
-    out = Image.fromarray(result, mode="RGB")
+    stack = normalize_effect_stack(settings.effect_stack, settings)
+    return apply_effect_stack(
+        source,
+        stack,
+        settings.palette,
+        frame_time=frame_time,
+        frame_index=frame_index,
+    )
 
-    if out.size != output_size:
-        out = out.resize(output_size, Image.Resampling.NEAREST)
-    return out
+
+def make_preview_settings(
+    settings: ProcessingSettings,
+    final_size: tuple[int, int],
+    preview_size: tuple[int, int],
+) -> ProcessingSettings:
+    """Clone settings and scale pixel-based effect parameters for previews."""
+    preview = ProcessingSettings.from_dict(settings.to_dict())
+    preview.output_divisor = 1
+    preview.effect_stack = normalize_effect_stack(preview.effect_stack, preview)
+
+    final_w, final_h = final_size
+    preview_w, preview_h = preview_size
+    if final_w <= 0 or final_h <= 0:
+        return preview
+
+    scale = min(preview_w / final_w, preview_h / final_h, 1.0)
+    preview.effect_stack = scale_stack_for_preview(preview.effect_stack, scale)
+
+    # Keep old presets visually consistent if they are rendered without a new
+    # effect stack for any reason.
+    if scale < 1.0:
+        preview.blur_radius *= scale
+        if preview.pixel_size > 1:
+            preview.pixel_size = max(1, round(preview.pixel_size * scale))
+    return preview
 
 
 def make_preview_source(
@@ -80,22 +100,12 @@ def make_preview_source(
     max_side: int = PREVIEW_MAX_SIDE,
     output_divisor: int = 1,
 ) -> Image.Image:
-    """Create a bounded RGB preview of the *final output dimensions*.
-
-    Output scaling is folded into the preview source itself.  The caller should
-    therefore render this image with ``output_divisor=1``.  This avoids the
-    accidental double-downscale that would otherwise turn, for example, a
-    1920 px image at ÷4 into a 160 px preview instead of a 480 px preview.
-    """
     max_side = max(64, int(max_side))
     target = scaled_output_size(image.size, output_divisor)
     largest = max(target)
     if largest > max_side:
         scale = max_side / largest
-        target = (
-            max(1, round(target[0] * scale)),
-            max(1, round(target[1] * scale)),
-        )
+        target = (max(1, round(target[0] * scale)), max(1, round(target[1] * scale)))
 
     source = image if image.mode == "RGB" else image.convert("RGB")
     if source.size == target:

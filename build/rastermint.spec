@@ -2,19 +2,31 @@
 # SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
 # -*- mode: python ; coding: utf-8 -*-
+from importlib.metadata import version as distribution_version
 from pathlib import Path
 import sys
 
-from PyInstaller.utils.hooks import collect_submodules
+import imageio_ffmpeg
+from PyInstaller.utils.hooks import collect_submodules, copy_metadata
 
 ROOT = Path(SPECPATH).parent
-hiddenimports = collect_submodules("PIL")
+APP_VERSION = distribution_version("rastermint")
+hiddenimports = collect_submodules("PIL") + collect_submodules("imageio_ffmpeg")
+metadata = copy_metadata("rastermint") + copy_metadata("imageio-ffmpeg")
+
+# Ship the platform-specific ffmpeg executable as a binary so one-file builds
+# keep its executable permission when PyInstaller extracts it at runtime.
+ffmpeg_exe = Path(imageio_ffmpeg.get_ffmpeg_exe())
+ffmpeg_binaries = []
+if ffmpeg_exe.is_file() and ffmpeg_exe.parent.name == "binaries":
+    ffmpeg_binaries.append((str(ffmpeg_exe), "imageio_ffmpeg/binaries"))
+
 
 a = Analysis(
     [str(ROOT / "launcher.py")],
     pathex=[str(ROOT / "src")],
-    binaries=[],
-    datas=[],
+    binaries=ffmpeg_binaries,
+    datas=metadata,
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
@@ -26,7 +38,7 @@ a = Analysis(
 pyz = PYZ(a.pure)
 
 # One-file build: no COLLECT stage. PyInstaller embeds Qt/Python dependencies
-# inside the executable and extracts them to a temporary directory at launch.
+# and the platform ffmpeg executable inside the application.
 exe = EXE(
     pyz,
     a.scripts,
@@ -46,13 +58,13 @@ exe = EXE(
     entitlements_file=None,
 )
 
-
-# On macOS, wrap the GUI executable in a normal .app bundle. Windows and
-# Linux keep the one-file executable produced above.
+# macOS users receive a normal .app bundle. Windows and Linux keep the one-file
+# executable produced above.
 if sys.platform == "darwin":
     app = BUNDLE(
         exe,
         name="RasterMint.app",
         icon=None,
         bundle_identifier="io.github.draconov.rastermint",
+        version=APP_VERSION,
     )

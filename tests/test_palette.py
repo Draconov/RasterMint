@@ -28,3 +28,19 @@ def test_extract_palette_returns_requested_range():
 def test_builtin_palettes_have_colors():
     assert BUILTIN_PALETTES
     assert all(len(colors) >= 2 for colors in BUILTIN_PALETTES.values())
+
+
+def test_palette_file_import_hex_gpl_and_jasc(tmp_path):
+    from rastermint.core.palette import read_palette_file
+
+    hex_file = tmp_path / "sample.hex"
+    hex_file.write_text("112233\n#AABBCC\n", encoding="utf-8")
+    assert read_palette_file(hex_file) == ["#112233", "#AABBCC"]
+
+    gpl = tmp_path / "sample.gpl"
+    gpl.write_text("GIMP Palette\nName: Sample\n255 0 0 Red\n0 255 0 Green\n", encoding="utf-8")
+    assert read_palette_file(gpl) == ["#FF0000", "#00FF00"]
+
+    pal = tmp_path / "sample.pal"
+    pal.write_text("JASC-PAL\n0100\n2\n0 0 255\n255 255 255\n", encoding="utf-8")
+    assert read_palette_file(pal) == ["#0000FF", "#FFFFFF"]

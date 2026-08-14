@@ -10,6 +10,8 @@ from PySide6.QtGui import QBrush, QColor, QFont, QPixmap, QWheelEvent
 from PySide6.QtWidgets import QGraphicsPixmapItem, QGraphicsScene, QGraphicsSimpleTextItem, QGraphicsView
 
 SUPPORTED_IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".bmp", ".webp", ".tif", ".tiff"}
+SUPPORTED_VIDEO_SUFFIXES = {".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v"}
+SUPPORTED_MEDIA_SUFFIXES = SUPPORTED_IMAGE_SUFFIXES | SUPPORTED_VIDEO_SUFFIXES
 
 
 class ImageView(QGraphicsView):
@@ -19,7 +21,7 @@ class ImageView(QGraphicsView):
         super().__init__(parent)
         self._scene = QGraphicsScene(self)
         self._pixmap_item = QGraphicsPixmapItem()
-        self._placeholder = QGraphicsSimpleTextItem("Drop an image here\nor use Open Image")
+        self._placeholder = QGraphicsSimpleTextItem("Drop an image or video here\nor use Open Image / Open Video")
         placeholder_font = QFont()
         placeholder_font.setPointSize(13)
         self._placeholder.setFont(placeholder_font)
@@ -79,7 +81,7 @@ class ImageView(QGraphicsView):
             if not url.isLocalFile():
                 continue
             path = Path(url.toLocalFile())
-            if path.suffix.lower() in SUPPORTED_IMAGE_SUFFIXES:
+            if path.suffix.lower() in SUPPORTED_MEDIA_SUFFIXES:
                 return str(path)
         return None
 

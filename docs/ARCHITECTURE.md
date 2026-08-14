@@ -1,76 +1,190 @@
-# Architecture
+# RasterMint Architecture
 
-RasterMint is split into a Qt-free processing core and a PySide6 presentation layer.
+RasterMint keeps processing code independent from Qt. The GUI builds immutable-ish `ProcessingSettings` snapshots, then sends those snapshots to worker jobs. Export uses the same core functions as the viewport.
 
-## Processing flow
+## High-level flow
 
 ```text
-PIL input image
-   ↓
-optional output downscale (÷1 … ÷16)
-   ↓
-brightness / contrast / saturation / gamma
-   ↓
-optional pixel-size downsample
-   ↓
-selected dithering / palette quantization
-   ↓
-nearest-neighbor pixel upscale when pixel-size > 1
-   ↓
-PIL output image
+Image / decoded video frame
+        ↓
+Output resize (÷1 … ÷16)
+        ↓
+Reorderable effect stack
+        ├─ adjustments / color
+        ├─ spatial filters
+        ├─ glitch / display effects
+        ├─ pixelate
+        └─ dither / palette quantization
+        ↓
+Processed RGB frame
+        ├─ live viewport
+        ├─ raster export
+        ├─ SVG run-vectorization
+        ├─ animation encoder
+        ├─ video encoder
+        └─ batch output
 ```
 
-Interactive previews represent the selected final output size and are capped at 640 pixels on the longest side. The preview source is cached per output divisor; the full input image is retained for export and palette extraction.
+## Core modules
 
-## Performance design
-
-RasterMint deliberately avoids rendering a second copy of the original image in the GUI. The viewport contains only the processed preview.
-
-Preview jobs are debounced and serialized: at most one preview render is actively consuming CPU. If settings change while a preview is running, RasterMint remembers only the newest pending state and renders that next instead of filling the thread pool with obsolete work.
-
-All error-diffusion kernels use an optimized exact engine with nearest-palette math on a flat float buffer, avoiding tiny NumPy allocations inside the per-pixel loop while preserving the previous diffusion output.
-
-Output downscaling happens before adjustments and dithering. Choosing `÷2` processes one quarter as many final pixels; `÷4` processes one sixteenth as many final pixels.
-
-## Core
-
-- `core/settings.py`: serializable processing state, including output divisor.
-- `core/palette.py`: color conversion, nearest-palette mapping, built-in palettes, palette extraction.
-- `core/dither.py`: ordered, stochastic, threshold, nearest, and optimized error-diffusion processing.
-- `core/processor.py`: output resizing, adjustments, preview sizing, and processing pipeline.
-- `core/presets.py`: versioned JSON preset format.
-
-The core intentionally has no Qt imports. It is used by both the GUI and CLI and can be unit-tested headlessly.
-
-## UI
-
-- `ui/main_window.py`: application state, controls, drag/drop, file IO, export, preset actions, preview scheduling.
-- `ui/image_view.py`: processed preview with drop target, zoom, pan, and fit-to-view.
-- `ui/palette_editor.py`: palette swatch editing.
-- `ui/worker.py`: background render tasks without unnecessary source-image copies.
-- `ui/style.py`: application stylesheet.
-
-## Adding an error-diffusion algorithm
-
-Add a new entry to `ERROR_DIFFUSION_KERNELS` in `core/dither.py`:
-
-```python
-"My Algorithm": (
-    [(1, 0, 4), (-1, 1, 1), (0, 1, 3)],
-    8,
-),
+```text
+core/settings.py       serialized project/preset state
+core/dither.py         dithering algorithms and diffusion kernels
+core/effect_stack.py   effect definitions, validation, ordering, execution
+core/animation.py      track validation, easing, parameter interpolation
+core/palette.py        palette parsing, extraction, mapping, file I/O
+core/lospec.py         official Lospec per-palette JSON integration
+core/processor.py      output scaling and preview proxy sizing
+core/svg_export.py     horizontal-run SVG conversion
+core/batch.py          multi-image processing
+core/media.py          FFmpeg-backed video/still-animation I/O
+core/presets.py        .rmpreset serialization
 ```
 
-The tuple is `(kernel, divisor)`. Kernel entries are `(dx, dy, weight)`.
+## Effect stack contract
 
-Then run:
+An effect is plain serializable data:
 
-```bash
-pytest
+```json
+{
+  "id": "dither",
+  "kind": "Dither",
+  "enabled": true,
+  "params": {
+    "algorithm": "Floyd-Steinberg",
+    "strength": 1.0,
+    "threshold": 0.5,
+    "serpentine": true
+  }
+}
 ```
 
-The algorithm automatically appears in the GUI and CLI because `ALGORITHMS` is built from the registered kernels.
+`EFFECT_DEFINITIONS` in `core/effect_stack.py` is the schema consumed by both the core validator and the dynamic Qt parameter form. That prevents the UI and renderer from having separate definitions of parameter ranges/defaults.
 
-## Adding a built-in palette
+The processing order is literally list order. Dragging a row changes that list order. Disabled rows remain in presets but are bypassed at render time.
 
-Add a named hex-color list to `BUILTIN_PALETTES` in `core/palette.py`. It automatically becomes available in the palette drop-down and CLI.
+## Live preview
+
+RasterMint has three UI preview behaviors:
+
+### Live
+
+```text
+control change
+   ↓ short debounce
+fast draft proxy (normally ≤320 px)
+   ↓ once editing settles
+refined proxy (normally ≤640 px)
+```
+
+### Still
+
+The draft is skipped. A refined proxy is generated after input settles.
+
+### Full
+
+The viewport processes the selected output resolution. This is intentionally optional because full-resolution error diffusion or video frames can be expensive.
+
+### Adaptive budgets
+
+`adaptive_preview_max_side()` further reduces only the interactive proxy for particularly expensive algorithms such as Dot Diffusion/Riemersma and for large palettes combined with per-pixel diffusion. It never changes export resolution and never reduces an explicit Full request.
+
+### Stale result protection
+
+Only one preview render is active at a time. If controls change during a render, RasterMint records the newest pending quality request instead of filling the thread pool with obsolete jobs.
+
+Each worker also carries:
+
+- source revision;
+- settings revision;
+- preview quality/budget.
+
+If a worker finishes after its source/settings revision became obsolete, its result is discarded.
+
+## Animation
+
+Animation tracks target effect parameters by stable effect ID:
+
+```text
+effect:<effect-id>:<parameter>
+```
+
+Example:
+
+```text
+effect:glow:intensity
+```
+
+A track contains:
+
+```json
+{
+  "target": "effect:glow:intensity",
+  "from": 0.1,
+  "to": 0.8,
+  "start": 0.5,
+  "end": 3.0,
+  "easing": "Ease In Out",
+  "enabled": true
+}
+```
+
+`settings_at_time()` clones settings and applies all enabled tracks for a requested time. Preview/export therefore share the same interpolation logic. Numeric parameters under enabled tracks are disabled in the normal effect editor while animated.
+
+## Video
+
+`core/media.py` intentionally speaks to FFmpeg through `imageio-ffmpeg` subprocess pipes rather than making the image core depend on a native video binding.
+
+```text
+source video
+   ↓ FFmpeg decode
+RGB frame bytes
+   ↓ PIL / RasterMint pipeline
+processed RGB frame
+   ↓ FFmpeg encode
+video-only MP4
+   ↓ optional audio mux from source
+final MP4
+```
+
+The viewport seeks frames in background workers. Quick playback is capped to a practical preview frame rate and uses draft proxies; final video export processes every decoded frame at the selected output size.
+
+## Palettes
+
+RasterMint stores palettes as hex RGB strings and allows up to 256 entries. `quantize_nearest()` uses chunked matrix algebra to avoid allocating an enormous height×width×palette×RGB tensor for larger palettes.
+
+Lospec integration stores both colors and attribution metadata:
+
+```text
+palette_name
+palette_author
+palette_source
+```
+
+These fields survive presets.
+
+## SVG export
+
+Current SVG export vectorizes horizontal runs of identical output pixels into `<rect>` elements with `shape-rendering="crispEdges"`. It is exact for the processed raster appearance, not an attempt to reconstruct semantic vector shapes from the original photo.
+
+## Batch
+
+Batch processing clones one settings snapshot across multiple input images. It currently writes PNG outputs sequentially; this avoids multiple full-resolution diffusion jobs competing for memory/CPU.
+
+## UI layer
+
+```text
+ui/main_window.py          application coordination and worker scheduler
+ui/effect_stack_widget.py  reorder/bypass/duplicate + dynamic parameter editor
+ui/animation_panel.py      timeline and parameter-track editing
+ui/palette_editor.py       swatches, locks, shuffle/randomization
+ui/lospec_dialog.py        async palette API request
+ui/image_view.py           pan/zoom/drop viewport
+ui/worker.py               QRunnable jobs
+```
+
+## Packaging
+
+`VERSION` is the only version source. `pyproject.toml` uses dynamic version metadata from that file. PyInstaller copies RasterMint package metadata and bundles the platform FFmpeg executable supplied by `imageio-ffmpeg` when available.
+
+See `THIRD_PARTY_NOTICES.md` before redistributing binaries.
