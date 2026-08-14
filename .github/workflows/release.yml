@@ -1,0 +1,69 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            artifact: RasterMint-windows-x64
+            package: release/RasterMint-windows-x64.zip
+          - os: ubuntu-latest
+            artifact: RasterMint-linux-x86_64
+            package: release/RasterMint-linux-x86_64.tar.gz
+          - os: macos-latest
+            artifact: RasterMint-macos
+            package: release/RasterMint-macos.zip
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install
+        run: python -m pip install -e ".[dev,build]"
+      - name: Verify release version
+        shell: bash
+        run: python scripts/check_version.py --tag "${GITHUB_REF_NAME}"
+      - name: Test
+        run: pytest
+      - name: Build Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/build_windows.ps1
+      - name: Build Linux
+        if: runner.os == 'Linux'
+        shell: bash
+        run: ./scripts/build_linux.sh
+      - name: Build macOS
+        if: runner.os == 'macOS'
+        shell: bash
+        run: ./scripts/build_macos.sh
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.package }}
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${GITHUB_REF_NAME}" artifacts/* --repo "${GITHUB_REPOSITORY}" --generate-notes --title "RasterMint ${GITHUB_REF_NAME}"

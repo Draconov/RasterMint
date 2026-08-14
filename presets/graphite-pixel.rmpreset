@@ -1,0 +1,15 @@
+{
+  "format": "rastermint-preset",
+  "version": 1,
+  "settings": {
+    "algorithm": "Atkinson",
+    "brightness": 0,
+    "contrast": 8,
+    "saturation": -20,
+    "gamma": 1.0,
+    "dither_strength": 1.0,
+    "pixel_size": 2,
+    "serpentine": true,
+    "palette": ["#101217", "#4A4F59", "#A9AFB9", "#F4F6F8"]
+  }
+}
