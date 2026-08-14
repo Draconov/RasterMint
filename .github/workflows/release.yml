@@ -57,12 +57,12 @@ jobs:
       - name: Build Linux
         if: runner.os == 'Linux'
         shell: bash
-        run: ./scripts/build_linux.sh
+        run: bash scripts/build_linux.sh
 
       - name: Build macOS
         if: runner.os == 'macOS'
         shell: bash
-        run: ./scripts/build_macos.sh
+        run: bash scripts/build_macos.sh
 
       - name: Upload package
         uses: actions/upload-artifact@v7
