@@ -3,19 +3,22 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import QUrl, Signal
+from PySide6.QtCore import Qt, QUrl, Signal
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtNetwork import QNetworkAccessManager, QNetworkReply, QNetworkRequest
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QFormLayout,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QMessageBox,
     QPushButton,
+    QScrollArea,
     QVBoxLayout,
+    QWidget,
 )
 
 from rastermint import __version__
@@ -28,7 +31,7 @@ class LospecPaletteDialog(QDialog):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self.setWindowTitle("Import palette from Lospec")
-        self.resize(520, 250)
+        self.resize(570, 420)
         self._palette = None
         self.network = QNetworkAccessManager(self)
 
@@ -49,9 +52,7 @@ class LospecPaletteDialog(QDialog):
 
         row = QHBoxLayout()
         self.browse_button = QPushButton("Browse Lospec")
-        self.browse_button.clicked.connect(
-            lambda: QDesktopServices.openUrl(QUrl(LOSPEC_PALETTE_LIST))
-        )
+        self.browse_button.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(LOSPEC_PALETTE_LIST)))
         self.fetch_button = QPushButton("Fetch")
         self.fetch_button.clicked.connect(self.fetch_palette)
         row.addWidget(self.browse_button)
@@ -63,6 +64,20 @@ class LospecPaletteDialog(QDialog):
         self.result_label.setWordWrap(True)
         root.addWidget(self.result_label)
 
+        self.swatch_scroll = QScrollArea()
+        self.swatch_scroll.setWidgetResizable(True)
+        self.swatch_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.swatch_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.swatch_scroll.setMinimumHeight(140)
+        self.swatch_scroll.setMaximumHeight(180)
+        self.swatch_host = QWidget()
+        self.swatch_grid = QGridLayout(self.swatch_host)
+        self.swatch_grid.setContentsMargins(6, 6, 6, 6)
+        self.swatch_grid.setSpacing(4)
+        self.swatch_scroll.setWidget(self.swatch_host)
+        root.addWidget(self.swatch_scroll)
+        self._rebuild_swatches([])
+
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel | QDialogButtonBox.StandardButton.Ok)
         self.import_button = buttons.button(QDialogButtonBox.StandardButton.Ok)
         self.import_button.setText("Import palette")
@@ -70,6 +85,29 @@ class LospecPaletteDialog(QDialog):
         buttons.accepted.connect(self._accept_palette)
         buttons.rejected.connect(self.reject)
         root.addWidget(buttons)
+
+    def _rebuild_swatches(self, colors: list[str]) -> None:
+        while self.swatch_grid.count():
+            item = self.swatch_grid.takeAt(0)
+            widget = item.widget()
+            if widget:
+                widget.deleteLater()
+        if not colors:
+            empty = QLabel("Palette colors will appear here after Fetch.")
+            empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            empty.setStyleSheet("color: #929AA8; padding: 24px;")
+            self.swatch_grid.addWidget(empty, 0, 0, 1, 12)
+            return
+        columns = 12
+        for i, color in enumerate(colors):
+            swatch = QLabel()
+            swatch.setFixedSize(36, 28)
+            swatch.setToolTip(f"{i + 1}: {color}")
+            swatch.setStyleSheet(
+                f"background: {color}; border: 1px solid #6B7483; border-radius: 3px;"
+            )
+            self.swatch_grid.addWidget(swatch, i // columns, i % columns)
+        self.swatch_grid.setColumnStretch(columns, 1)
 
     def fetch_palette(self) -> None:
         try:
@@ -79,6 +117,7 @@ class LospecPaletteDialog(QDialog):
             return
         self.fetch_button.setEnabled(False)
         self.result_label.setText("Downloading palette…")
+        self._rebuild_swatches([])
         request = QNetworkRequest(QUrl(url))
         request.setRawHeader(b"User-Agent", f"RasterMint/{__version__}".encode("ascii", "ignore"))
         reply = self.network.get(request)
@@ -95,11 +134,13 @@ class LospecPaletteDialog(QDialog):
                 f"<b>{palette.name}</b> · {len(palette.colors)} colors<br>"
                 f"Author: {palette.author}<br>{palette.source_url}"
             )
+            self._rebuild_swatches(palette.colors)
             self.import_button.setEnabled(True)
         except Exception as exc:
             self._palette = None
             self.import_button.setEnabled(False)
             self.result_label.setText("Palette could not be loaded.")
+            self._rebuild_swatches([])
             QMessageBox.warning(self, "Lospec import failed", str(exc))
         finally:
             reply.deleteLater()

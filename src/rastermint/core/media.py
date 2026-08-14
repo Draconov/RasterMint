@@ -18,7 +18,8 @@ from .animation import settings_at_time
 from .processor import process_image
 from .settings import ProcessingSettings
 
-SUPPORTED_VIDEO_SUFFIXES = {".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v"}
+SUPPORTED_VIDEO_SUFFIXES = {".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v", ".gif"}
+ANIMATED_IMAGE_SUFFIXES = {".gif"}
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,6 +30,75 @@ class VideoInfo:
     duration: float
     frames: int
 
+
+
+def _gif_frame_durations(path: str | Path) -> tuple[list[int], tuple[int, int]]:
+    durations: list[int] = []
+    with Image.open(path) as img:
+        size = img.size
+        count = int(getattr(img, "n_frames", 1))
+        for index in range(count):
+            img.seek(index)
+            durations.append(max(10, int(img.info.get("duration", 100) or 100)))
+    return durations, size
+
+
+def _probe_gif(path: str | Path) -> VideoInfo:
+    durations, size = _gif_frame_durations(path)
+    duration = sum(durations) / 1000.0
+    frames = len(durations)
+    fps = frames / duration if duration > 0 else 10.0
+    return VideoInfo(size[0], size[1], fps, duration, frames)
+
+
+def _read_gif_frame(path: str | Path, time_seconds: float = 0.0) -> Image.Image:
+    durations, _ = _gif_frame_durations(path)
+    if not durations:
+        raise RuntimeError("GIF has no frames")
+    total_ms = max(1, sum(durations))
+    target_ms = min(total_ms - 1, int(max(0.0, float(time_seconds)) * 1000.0))
+    elapsed = 0
+    frame_index = 0
+    for i, duration in enumerate(durations):
+        if target_ms < elapsed + duration:
+            frame_index = i
+            break
+        elapsed += duration
+    with Image.open(path) as img:
+        img.seek(frame_index)
+        return img.convert("RGB").copy()
+
+
+class _GifByteIterator:
+    def __init__(self, path: str | Path) -> None:
+        self._image = Image.open(path)
+        self._count = int(getattr(self._image, "n_frames", 1))
+        self._index = 0
+
+    def __iter__(self):
+        return self
+
+    def __next__(self) -> bytes:
+        if self._index >= self._count:
+            self.close()
+            raise StopIteration
+        self._image.seek(self._index)
+        frame = self._image.convert("RGB")
+        self._index += 1
+        return np.asarray(frame, dtype=np.uint8).tobytes()
+
+    def close(self) -> None:
+        if self._image is not None:
+            try:
+                self._image.close()
+            finally:
+                self._image = None  # type: ignore[assignment]
+
+
+def _iter_gif_frames(path: str | Path) -> tuple[dict, Iterator[bytes]]:
+    info = _probe_gif(path)
+    meta = {"size": (info.width, info.height), "fps": info.fps, "duration": info.duration}
+    return meta, _GifByteIterator(path)
 
 def _imageio_ffmpeg():
     try:
@@ -47,6 +117,8 @@ def video_support_available() -> bool:
 
 
 def probe_video(path: str | Path) -> VideoInfo:
+    if Path(path).suffix.lower() == ".gif":
+        return _probe_gif(path)
     ff = _imageio_ffmpeg()
     generator = ff.read_frames(str(path), pix_fmt="rgb24")
     try:
@@ -63,6 +135,8 @@ def probe_video(path: str | Path) -> VideoInfo:
 
 
 def read_video_frame(path: str | Path, time_seconds: float = 0.0) -> Image.Image:
+    if Path(path).suffix.lower() == ".gif":
+        return _read_gif_frame(path, time_seconds)
     ff = _imageio_ffmpeg()
     params = ["-ss", f"{max(0.0, float(time_seconds)):.6f}"] if time_seconds > 0 else []
     generator = ff.read_frames(
@@ -84,6 +158,8 @@ def read_video_frame(path: str | Path, time_seconds: float = 0.0) -> Image.Image
 
 
 def iter_video_frames(path: str | Path) -> tuple[dict, Iterator[bytes]]:
+    if Path(path).suffix.lower() == ".gif":
+        return _iter_gif_frames(path)
     ff = _imageio_ffmpeg()
     generator = ff.read_frames(str(path), pix_fmt="rgb24")
     meta = next(generator)
@@ -155,7 +231,7 @@ def export_image_animation(
         for index in range(frame_count):
             t = index / fps
             animated = settings_at_time(settings, t)
-            frame = process_image(image, animated, frame_time=t, frame_index=index)
+            frame = process_image(image, animated, frame_time=t, frame_index=index, display_mode=settings.display_mode if settings.display_export else "raw", include_grid=settings.grid_export)
             frames.append(frame.convert("P", palette=Image.Palette.ADAPTIVE, colors=256))
             if progress:
                 progress(index + 1, frame_count)
@@ -177,7 +253,7 @@ def export_image_animation(
         for index in range(frame_count):
             t = index / fps
             animated = settings_at_time(settings, t)
-            frame = process_image(image, animated, frame_time=t, frame_index=index).convert("RGB")
+            frame = process_image(image, animated, frame_time=t, frame_index=index, display_mode=settings.display_mode if settings.display_export else "raw", include_grid=settings.grid_export).convert("RGB")
             frame = _prepare_h264_frame(frame)
             if writer is None:
                 writer = _open_mp4_writer(target, frame.size, fps)
@@ -190,6 +266,52 @@ def export_image_animation(
     return target
 
 
+
+def export_processed_gif(
+    source_path: str | Path,
+    settings: ProcessingSettings,
+    output: str | Path,
+    *,
+    progress: Callable[[int, int], None] | None = None,
+) -> Path:
+    source = Path(source_path)
+    target = Path(output)
+    target = target.with_suffix(".gif") if target.suffix.lower() != ".gif" else target
+    target.parent.mkdir(parents=True, exist_ok=True)
+    durations, _ = _gif_frame_durations(source)
+    frames: list[Image.Image] = []
+    elapsed = 0.0
+    with Image.open(source) as gif:
+        count = int(getattr(gif, "n_frames", 1))
+        for index in range(count):
+            gif.seek(index)
+            source_frame = gif.convert("RGB")
+            animated = settings_at_time(settings, elapsed)
+            result = process_image(
+                source_frame,
+                animated,
+                frame_time=elapsed,
+                frame_index=index,
+                display_mode=settings.display_mode if settings.display_export else "raw",
+                include_grid=settings.grid_export,
+            )
+            frames.append(result.convert("P", palette=Image.Palette.ADAPTIVE, colors=256))
+            elapsed += durations[index] / 1000.0
+            if progress:
+                progress(index + 1, count)
+    if not frames:
+        raise RuntimeError("GIF has no frames")
+    frames[0].save(
+        target,
+        save_all=True,
+        append_images=frames[1:],
+        duration=durations,
+        loop=0,
+        optimize=False,
+        disposal=2,
+    )
+    return target
+
 def export_processed_video(
     source_path: str | Path,
     settings: ProcessingSettings,
@@ -200,6 +322,8 @@ def export_processed_video(
 ) -> Path:
     source = Path(source_path)
     target = Path(output)
+    if source.suffix.lower() == ".gif" and target.suffix.lower() == ".gif":
+        return export_processed_gif(source, settings, target, progress=progress)
     target = target.with_suffix(".mp4") if target.suffix.lower() != ".mp4" else target
     target.parent.mkdir(parents=True, exist_ok=True)
 
@@ -218,7 +342,7 @@ def export_processed_video(
             source_frame = Image.fromarray(arr, "RGB")
             t = index / fps
             animated = settings_at_time(settings, t)
-            result = process_image(source_frame, animated, frame_time=t, frame_index=index).convert("RGB")
+            result = process_image(source_frame, animated, frame_time=t, frame_index=index, display_mode=settings.display_mode if settings.display_export else "raw", include_grid=settings.grid_export).convert("RGB")
             result = _prepare_h264_frame(result)
             if writer is None:
                 writer = _open_mp4_writer(video_only, result.size, fps)

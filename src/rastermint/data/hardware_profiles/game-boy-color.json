@@ -1,0 +1,52 @@
+{
+  "id": "game-boy-color",
+  "name": "Nintendo Game Boy Color",
+  "category": "Handheld",
+  "summary": "160×144 color handheld profile with RGB555-style color depth.",
+  "raster": {
+    "width": 160,
+    "height": 144,
+    "pixel_aspect": [
+      1,
+      1
+    ],
+    "tile": [
+      8,
+      8
+    ],
+    "fit_mode": "fit"
+  },
+  "palette": {
+    "type": "native-depth",
+    "name": "GBC RGB555",
+    "description": "15-bit RGB hardware color depth; no single fixed game palette."
+  },
+  "recommended_dither": "Nearest Palette",
+  "visual": {
+    "display": {
+      "kind": "lcd",
+      "gamma": 1.0,
+      "blur": 0.12,
+      "color_bleed": 0.0,
+      "scanlines": 0.0,
+      "lcd_grid": 0.08
+    }
+  },
+  "strict": {
+    "supported": true,
+    "constraints": {
+      "channel_bits": [
+        5,
+        5,
+        5
+      ],
+      "max_colors_global": 32,
+      "tile_width": 8,
+      "tile_height": 8,
+      "tile_max_colors": 4
+    }
+  },
+  "sources": [
+    "https://archive.org/download/GameBoyProgManVer1.1/GameBoyProgManVer1.1.pdf"
+  ]
+}

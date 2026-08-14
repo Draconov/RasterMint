@@ -1,0 +1,59 @@
+{
+  "id": "game-boy",
+  "name": "Nintendo Game Boy",
+  "category": "Handheld",
+  "summary": "Original DMG LCD framebuffer look with four shades and 8×8 tile geometry.",
+  "raster": {
+    "width": 160,
+    "height": 144,
+    "pixel_aspect": [
+      1,
+      1
+    ],
+    "tile": [
+      8,
+      8
+    ],
+    "fit_mode": "fit"
+  },
+  "palette": {
+    "type": "fixed",
+    "name": "Game Boy DMG LCD",
+    "colors": [
+      "#0F380F",
+      "#306230",
+      "#8BAC0F",
+      "#9BBC0F"
+    ],
+    "description": "Four-shade green LCD approximation."
+  },
+  "recommended_dither": "Bayer 4x4",
+  "visual": {
+    "display": {
+      "kind": "lcd",
+      "gamma": 1.0,
+      "blur": 0.15,
+      "color_bleed": 0.0,
+      "scanlines": 0.0,
+      "lcd_grid": 0.1
+    }
+  },
+  "strict": {
+    "supported": true,
+    "constraints": {
+      "fixed_palette": [
+        "#0F380F",
+        "#306230",
+        "#8BAC0F",
+        "#9BBC0F"
+      ],
+      "max_colors_global": 4,
+      "tile_width": 8,
+      "tile_height": 8,
+      "tile_max_colors": 4
+    }
+  },
+  "sources": [
+    "https://archive.org/download/GameBoyProgManVer1.1/GameBoyProgManVer1.1.pdf"
+  ]
+}

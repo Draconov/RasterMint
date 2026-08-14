@@ -26,7 +26,7 @@ def process_batch(
     total = len(inputs)
     for index, path in enumerate(inputs, start=1):
         with Image.open(path) as source:
-            result = process_image(source.convert("RGB"), settings)
+            result = process_image(source.convert("RGB"), settings, display_mode=settings.display_mode if settings.display_export else "raw", include_grid=settings.grid_enabled and settings.grid_export)
         target = destination / f"{path.stem}-rastermint.png"
         result.save(target)
         written.append(target)

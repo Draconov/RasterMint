@@ -1,0 +1,56 @@
+{
+  "id": "cga-320",
+  "name": "IBM PC CGA 320×200",
+  "category": "Computer",
+  "summary": "Classic 320×200 four-color RGBI graphics profile with 4:3 display-fit pixel aspect.",
+  "raster": {
+    "width": 320,
+    "height": 200,
+    "pixel_aspect": [
+      5,
+      6
+    ],
+    "tile": [
+      8,
+      8
+    ],
+    "fit_mode": "fit"
+  },
+  "palette": {
+    "type": "fixed",
+    "name": "CGA Palette 1 High",
+    "description": "Black, cyan, magenta, white.",
+    "colors": [
+      "#000000",
+      "#55FFFF",
+      "#FF55FF",
+      "#FFFFFF"
+    ]
+  },
+  "recommended_dither": "Bayer 4x4",
+  "visual": {
+    "display": {
+      "kind": "crt",
+      "gamma": 1.05,
+      "blur": 0.45,
+      "color_bleed": 0.75,
+      "scanlines": 0.12,
+      "lcd_grid": 0.0
+    }
+  },
+  "strict": {
+    "supported": true,
+    "constraints": {
+      "fixed_palette": [
+        "#000000",
+        "#55FFFF",
+        "#FF55FF",
+        "#FFFFFF"
+      ],
+      "max_colors_global": 4
+    }
+  },
+  "sources": [
+    "https://minuszerodegrees.net/manuals/Persyst/PERSYST%20Color%20Graphics%20Display%20Adaptor%20-%20Installation%20and%20Tech%20Reference%20Guide%20-%201983.pdf"
+  ]
+}

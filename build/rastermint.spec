@@ -7,12 +7,14 @@ from pathlib import Path
 import sys
 
 import imageio_ffmpeg
-from PyInstaller.utils.hooks import collect_submodules, copy_metadata
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules, copy_metadata
 
 ROOT = Path(SPECPATH).parent
 APP_VERSION = distribution_version("rastermint")
 hiddenimports = collect_submodules("PIL") + collect_submodules("imageio_ffmpeg")
 metadata = copy_metadata("rastermint") + copy_metadata("imageio-ffmpeg")
+package_data = collect_data_files("rastermint", includes=["data/hardware_profiles/*.json", "data/icons/*"])
+ICON_DIR = ROOT / "src" / "rastermint" / "data" / "icons"
 
 # Ship the platform-specific ffmpeg executable as a binary so one-file builds
 # keep its executable permission when PyInstaller extracts it at runtime.
@@ -26,7 +28,7 @@ a = Analysis(
     [str(ROOT / "launcher.py")],
     pathex=[str(ROOT / "src")],
     binaries=ffmpeg_binaries,
-    datas=metadata,
+    datas=metadata + package_data,
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
@@ -56,6 +58,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon=str(ICON_DIR / "rastermint.ico") if (ICON_DIR / "rastermint.ico").is_file() else None,
 )
 
 # macOS users receive a normal .app bundle. Windows and Linux keep the one-file
@@ -64,7 +67,7 @@ if sys.platform == "darwin":
     app = BUNDLE(
         exe,
         name="RasterMint.app",
-        icon=None,
+        icon=str(ICON_DIR / "rastermint.icns") if (ICON_DIR / "rastermint.icns").is_file() else None,
         bundle_identifier="io.github.draconov.rastermint",
         version=APP_VERSION,
     )

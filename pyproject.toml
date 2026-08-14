@@ -45,6 +45,9 @@ package-dir = {"" = "src"}
 [tool.setuptools.dynamic]
 version = {file = ["VERSION"]}
 
+[tool.setuptools.package-data]
+rastermint = ["data/hardware_profiles/*.json", "data/icons/*"]
+
 [tool.setuptools.packages.find]
 where = ["src"]
 

@@ -1,0 +1,80 @@
+{
+  "id": "c64-multicolor",
+  "name": "Commodore 64 Multicolor Bitmap",
+  "category": "Computer",
+  "summary": "160×200 effective multicolor bitmap pixels with the C64 16-color palette. Strict mode approximates four colors per 4×8 pixel cell.",
+  "raster": {
+    "width": 160,
+    "height": 200,
+    "pixel_aspect": [
+      5,
+      3
+    ],
+    "tile": [
+      4,
+      8
+    ],
+    "fit_mode": "fit"
+  },
+  "palette": {
+    "type": "fixed",
+    "name": "C64 16",
+    "description": "Common modern RGB approximation of the C64 fixed color set.",
+    "colors": [
+      "#000000",
+      "#FFFFFF",
+      "#813338",
+      "#75CEC8",
+      "#8E3C97",
+      "#56AC4D",
+      "#2E2C9B",
+      "#EDF171",
+      "#8E5029",
+      "#553800",
+      "#C46C71",
+      "#4A4A4A",
+      "#7B7B7B",
+      "#A9FF9F",
+      "#706DEB",
+      "#B2B2B2"
+    ]
+  },
+  "recommended_dither": "Bayer 4x4",
+  "visual": {
+    "display": {
+      "kind": "crt",
+      "gamma": 1.05,
+      "blur": 0.5,
+      "color_bleed": 0.9,
+      "scanlines": 0.12,
+      "lcd_grid": 0.0
+    }
+  },
+  "strict": {
+    "supported": true,
+    "constraints": {
+      "fixed_palette": [
+        "#000000",
+        "#FFFFFF",
+        "#813338",
+        "#75CEC8",
+        "#8E3C97",
+        "#56AC4D",
+        "#2E2C9B",
+        "#EDF171",
+        "#8E5029",
+        "#553800",
+        "#C46C71",
+        "#4A4A4A",
+        "#7B7B7B",
+        "#A9FF9F",
+        "#706DEB",
+        "#B2B2B2"
+      ],
+      "tile_width": 4,
+      "tile_height": 8,
+      "tile_max_colors": 4
+    }
+  },
+  "sources": []
+}

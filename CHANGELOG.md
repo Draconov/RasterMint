@@ -12,12 +12,12 @@ RasterMint remains on version **0.1.0** while the initial feature set is being b
 - Added adaptive preview budgets for expensive algorithms and large palettes.
 - Added source/settings revision guards so stale background jobs cannot replace newer results.
 - Kept export processing independent from preview resolution so exports still use the selected output size.
-- Added output downscaling from original size through ÷16.
+- Added exact target raster controls (plus legacy ÷1…÷16 compatibility), source crop/flip/rotate, Fit/Fill/Stretch placement, pixel-aspect-corrected views, and independent preview/export grids.
 - Optimized classic error-diffusion processing while preserving the previous pixel output.
 
 ### Effects
 
-- Added Adjustments, Hue Rotate, Grayscale, Invert, Gaussian Blur, Median Denoise, Sharpen, Glow, JPEG Compression, Chromatic Shift, Posterize, Scanlines, Noise, Temporal Flicker, Pixelate, and Dither stack nodes.
+- Added Local Contrast plus a broad creative/glitch set: RGB Split, Interlace, Pixel Sort, Screen Melt, Block Shuffle, Pixel Scatter, Data/Row/Column Shift, Cellular Automata, Databend-style processing, Channel Swap, Pixel Material, Text Overlay, and the existing color/spatial/dither nodes.
 - Added schema-driven effect parameters so new effects can be exposed in the UI without hard-coding another form in the main window.
 - Added preview-aware scaling for pixel-sized effect parameters.
 
@@ -33,7 +33,8 @@ RasterMint remains on version **0.1.0** while the initial feature set is being b
 - Added palette swatch locking, shuffle-unlocked, and randomize-unlocked tools.
 - Added GIMP GPL, JASC PAL, HEX, and text palette import.
 - Added palette export to HEX.
-- Added Lospec palette import by slug or palette URL using Lospec's documented palette JSON endpoint.
+- Added Lospec palette import by slug or palette URL using Lospec's documented palette JSON endpoint, including a fetched swatch preview before import.
+- Added Median Cut, deterministic K-Means, Octree, and Wu-style optimized palette extraction up to 256 colors.
 - Added palette name, author, and source metadata to settings and presets.
 
 ### Animation and video
@@ -42,10 +43,20 @@ RasterMint remains on version **0.1.0** while the initial feature set is being b
 - Added timeline preview/playback for animatable effect parameters.
 - Animated effect controls are locked while an enabled animation track owns that parameter.
 - Added temporal noise and temporal flicker behavior.
-- Added video input, background frame seeking, processed video preview, and MP4 export.
+- Added video and animated-GIF input, background frame seeking, processed timed-media preview, GIF/MP4 export paths, and MP4 export for normal video.
 - Added still-image animation export to MP4 and animated GIF.
 - Added optional source-audio preservation when exporting processed video.
 - Added `imageio-ffmpeg` integration and PyInstaller bundling for the platform FFmpeg executable.
+
+### Target raster and hardware profiles
+
+- Added first-class exact target width/height controls with common retro raster presets.
+- Added framebuffer pixel-aspect ratios with Raw, Corrected, and Display Simulation views.
+- Added data-driven Visual/Strict hardware profiles for 12 initial handheld/console/computer targets.
+- Added generic fixed-palette, channel-depth, global-color, per-tile color, and grouped attribute-palette constraints.
+- Added separate display treatment for gamma, bleed, blur, scanlines, and LCD grid.
+- Added selective profile application switches for raster, palette, PAR, limits, and display.
+- Added Creative Randomize locks plus Previous/Next history.
 
 ### Export and batch
 
@@ -56,6 +67,7 @@ RasterMint remains on version **0.1.0** while the initial feature set is being b
 ### Developer and repository
 
 - Added `docs/EXTENDING_RASTERMINT.md` with concrete extension instructions.
+- Added `docs/HARDWARE_PROFILES.md` with the profile JSON schema, Visual/Strict behavior, framebuffer/display separation, and extension rules.
 - Added `docs/FEATURE_RESEARCH.md` describing the Lospec integration and external-project research boundaries.
 - Updated `docs/ARCHITECTURE.md` for the effect-stack, animation, palette, media, batch, and export architecture.
 - Added `THIRD_PARTY_NOTICES.md`.

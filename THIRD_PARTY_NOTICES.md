@@ -48,11 +48,3 @@ RasterMint connects to Lospec's documented palette API. Lospec is an external se
 
 - https://lospec.com/palettes/api
 - https://lospec.com/palette-list
-
-## dither-guy research boundary
-
-The public `manoelpiovesan/dither-guy` repository was reviewed for high-level feature/architecture research. It is GPL-3.0 licensed. No source code from that repository is intentionally included in RasterMint.
-
-- https://github.com/manoelpiovesan/dither-guy
-
-This notice is informational and is not legal advice.

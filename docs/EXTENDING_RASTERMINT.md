@@ -5,11 +5,15 @@ RasterMint is split into a Qt-free core and a PySide6 UI. New rendering behavior
 ## Current pipeline
 
 ```text
-input image / decoded video frame
+input image / decoded GIF/video frame
    ↓
-output resize
+source transform + exact target framebuffer
    ↓
 ordered effect stack
+   ↓
+optional hardware constraints
+   ↓
+pixel-aspect/display/grid presentation
    ↓
 preview / still export / SVG / animation / video / batch
 ```
@@ -93,6 +97,9 @@ int
 float
 bool
 choice
+text
+color
+file
 ```
 
 Useful flags:
@@ -189,6 +196,16 @@ An effect is video-compatible if it can process an individual PIL RGB frame with
 ## Batch behavior
 
 `core/batch.py` processes inputs sequentially using one settings snapshot. If parallel batch processing is added later, use a bounded worker count; multiple full-resolution diffusion jobs can consume significant CPU and RAM.
+
+## Hardware profiles
+
+Hardware profiles live under `src/rastermint/data/hardware_profiles/` and are loaded by `core/hardware.py`. Add new machines as data rather than profile-name branches in Qt code. See [`HARDWARE_PROFILES.md`](HARDWARE_PROFILES.md) for the JSON contract and strict-mode rules.
+
+A custom profile should be conservative about what it labels Strict. Image-space palette, bit-depth, global-color, and tile/attribute limits are appropriate; CPU/PPU scheduling or analog electrical behavior is not implemented by the profile engine.
+
+## GIF compatibility
+
+Animated GIF is treated as timed media. Frame timing/decoding belongs in `core/media.py`; effects continue to process ordinary PIL RGB frames. GIF-to-GIF export preserves per-frame source durations, while still-image animation can also export GIF.
 
 ## Checklist
 

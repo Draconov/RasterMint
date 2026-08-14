@@ -1,0 +1,102 @@
+{
+  "id": "zx-spectrum",
+  "name": "ZX Spectrum",
+  "category": "Computer",
+  "summary": "256×192 display with 8×8 attribute cells. Strict mode approximates classic two-color attribute clash.",
+  "raster": {
+    "width": 256,
+    "height": 192,
+    "pixel_aspect": [
+      1,
+      1
+    ],
+    "tile": [
+      8,
+      8
+    ],
+    "fit_mode": "fit"
+  },
+  "palette": {
+    "type": "fixed",
+    "name": "ZX Spectrum",
+    "description": "Normal and BRIGHT RGB primaries plus black.",
+    "colors": [
+      "#000000",
+      "#0000D7",
+      "#D70000",
+      "#D700D7",
+      "#00D700",
+      "#00D7D7",
+      "#D7D700",
+      "#D7D7D7",
+      "#0000FF",
+      "#FF0000",
+      "#FF00FF",
+      "#00FF00",
+      "#00FFFF",
+      "#FFFF00",
+      "#FFFFFF"
+    ]
+  },
+  "recommended_dither": "Bayer 4x4",
+  "visual": {
+    "display": {
+      "kind": "crt",
+      "gamma": 1.05,
+      "blur": 0.35,
+      "color_bleed": 0.7,
+      "scanlines": 0.1,
+      "lcd_grid": 0.0
+    }
+  },
+  "strict": {
+    "supported": true,
+    "constraints": {
+      "fixed_palette": [
+        "#000000",
+        "#0000D7",
+        "#D70000",
+        "#D700D7",
+        "#00D700",
+        "#00D7D7",
+        "#D7D700",
+        "#D7D7D7",
+        "#0000FF",
+        "#FF0000",
+        "#FF00FF",
+        "#00FF00",
+        "#00FFFF",
+        "#FFFF00",
+        "#FFFFFF"
+      ],
+      "tile_width": 8,
+      "tile_height": 8,
+      "tile_max_colors": 2,
+      "tile_palette_groups": [
+        [
+          "#000000",
+          "#0000D7",
+          "#D70000",
+          "#D700D7",
+          "#00D700",
+          "#00D7D7",
+          "#D7D700",
+          "#D7D7D7"
+        ],
+        [
+          "#000000",
+          "#0000FF",
+          "#FF0000",
+          "#FF00FF",
+          "#00FF00",
+          "#00FFFF",
+          "#FFFF00",
+          "#FFFFFF"
+        ]
+      ]
+    }
+  },
+  "sources": [
+    "https://worldofspectrum.net/ZXBasicManual/zxmanappc.html"
+  ]
+}

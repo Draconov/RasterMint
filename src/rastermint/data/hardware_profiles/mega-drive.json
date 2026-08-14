@@ -1,0 +1,47 @@
+{
+  "id": "mega-drive",
+  "name": "Sega Mega Drive / Genesis",
+  "category": "Console",
+  "summary": "320×224 profile with 3-bit-per-channel master colors and a 64-color on-screen approximation.",
+  "raster": {
+    "width": 320,
+    "height": 224,
+    "pixel_aspect": [
+      14,
+      15
+    ],
+    "tile": [
+      8,
+      8
+    ],
+    "fit_mode": "fit"
+  },
+  "palette": {
+    "type": "native-depth",
+    "name": "Mega Drive RGB333",
+    "description": "3-bit-per-channel hardware color space; games supply palettes."
+  },
+  "recommended_dither": "Nearest Palette",
+  "visual": {
+    "display": {
+      "kind": "crt",
+      "gamma": 1.05,
+      "blur": 0.4,
+      "color_bleed": 0.8,
+      "scanlines": 0.12,
+      "lcd_grid": 0.0
+    }
+  },
+  "strict": {
+    "supported": true,
+    "constraints": {
+      "channel_bits": [
+        3,
+        3,
+        3
+      ],
+      "max_colors_global": 64
+    }
+  },
+  "sources": []
+}

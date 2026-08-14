@@ -4,12 +4,14 @@
 from __future__ import annotations
 
 import os
+import random
 from pathlib import Path
 
 from PIL import Image
 from PySide6.QtCore import QSettings, Qt, QThreadPool, QTimer
 from PySide6.QtGui import QAction, QCloseEvent, QImage, QKeySequence, QPixmap
 from PySide6.QtWidgets import (
+    QAbstractScrollArea,
     QCheckBox,
     QComboBox,
     QFileDialog,
@@ -31,11 +33,14 @@ from PySide6.QtWidgets import (
 
 from rastermint import __app_name__, __version__
 from rastermint.core.animation import settings_at_time
-from rastermint.core.effect_stack import default_effect_stack, normalize_effect_stack
+from rastermint.core.dither import ALGORITHMS
+from rastermint.core.effect_stack import EFFECT_DEFINITIONS, default_effect_stack, new_effect, normalize_effect_stack
+from rastermint.core.hardware import HardwareProfile, apply_profile_to_settings
 from rastermint.core.lospec import LospecPalette
 from rastermint.core.media import SUPPORTED_VIDEO_SUFFIXES, VideoInfo, probe_video, video_support_available
 from rastermint.core.palette import (
     BUILTIN_PALETTES,
+    PALETTE_OPTIMIZERS,
     extract_palette,
     read_palette_file,
     write_hex_palette,
@@ -47,19 +52,23 @@ from rastermint.core.processor import (
     adaptive_preview_max_side,
     make_preview_settings,
     make_preview_source,
-    scaled_output_size,
+    display_output_size,
+    target_raster_size,
 )
 from rastermint.core.settings import ProcessingSettings
 from rastermint.core.svg_export import save_svg
 from rastermint.ui.animation_panel import AnimationPanel
+from rastermint.ui.hardware_panel import HardwarePanel
 from rastermint.ui.effect_stack_widget import EffectStackWidget
 from rastermint.ui.image_view import ImageView, SUPPORTED_IMAGE_SUFFIXES
 from rastermint.ui.lospec_dialog import LospecPaletteDialog
 from rastermint.ui.palette_editor import PaletteEditor
+from rastermint.ui.source_transform_widget import SourceTransformWidget
+from rastermint.ui.target_raster_widget import TargetRasterWidget
 from rastermint.ui.worker import BatchWorker, MediaExportWorker, ProcessingWorker, VideoFrameWorker
 
-IMAGE_FILTER = "Images (*.png *.jpg *.jpeg *.bmp *.webp *.tif *.tiff);;All files (*.*)"
-VIDEO_FILTER = "Videos (*.mp4 *.mov *.mkv *.webm *.avi *.m4v);;All files (*.*)"
+MEDIA_FILTER = "Supported media (*.png *.jpg *.jpeg *.bmp *.webp *.tif *.tiff *.gif *.mp4 *.mov *.mkv *.webm *.avi *.m4v);;Images (*.png *.jpg *.jpeg *.bmp *.webp *.tif *.tiff *.gif);;Video (*.mp4 *.mov *.mkv *.webm *.avi *.m4v);;All files (*.*)"
+IMAGE_FILTER = "Still images (*.png *.jpg *.jpeg *.bmp *.webp *.tif *.tiff);;All files (*.*)"
 EXPORT_FILTER = "PNG (*.png);;JPEG (*.jpg *.jpeg);;WebP (*.webp);;BMP (*.bmp);;TIFF (*.tif *.tiff);;SVG (*.svg)"
 ANIMATION_FILTER = "MP4 video (*.mp4);;Animated GIF (*.gif)"
 PALETTE_FILTER = "Palette files (*.hex *.txt *.gpl *.pal);;All files (*.*)"
@@ -107,6 +116,8 @@ class MainWindow(QMainWindow):
         self._preview_pending_max_side = 0
         self._source_revision = 0
         self._settings_revision = 0
+        self._random_history: list[dict] = []
+        self._random_history_index = -1
 
         self.thread_pool = QThreadPool(self)
         self.thread_pool.setMaxThreadCount(max(2, min(4, QThreadPool.globalInstance().maxThreadCount())))
@@ -130,17 +141,13 @@ class MainWindow(QMainWindow):
         self._build_ui()
         self._restore_geometry()
         self._apply_settings_to_controls(self.settings)
-        self.statusBar().showMessage("Open or drop an image/video to begin")
+        self.statusBar().showMessage("Open or drop an image, GIF, or video to begin")
 
     # ---------- UI ----------
     def _build_actions(self) -> None:
-        self.open_action = QAction("Open Image…", self)
+        self.open_action = QAction("Open File…", self)
         self.open_action.setShortcut(QKeySequence.StandardKey.Open)
-        self.open_action.triggered.connect(self.open_image_dialog)
-
-        self.open_video_action = QAction("Open Video…", self)
-        self.open_video_action.setShortcut("Ctrl+Shift+O")
-        self.open_video_action.triggered.connect(self.open_video_dialog)
+        self.open_action.triggered.connect(self.open_file_dialog)
 
         self.export_action = QAction("Export Current Frame…", self)
         self.export_action.setShortcut(QKeySequence.StandardKey.SaveAs)
@@ -173,7 +180,6 @@ class MainWindow(QMainWindow):
 
         file_menu = self.menuBar().addMenu("File")
         file_menu.addAction(self.open_action)
-        file_menu.addAction(self.open_video_action)
         file_menu.addSeparator()
         file_menu.addAction(self.export_action)
         file_menu.addAction(self.export_media_action)
@@ -190,7 +196,6 @@ class MainWindow(QMainWindow):
         bar = QToolBar("Main", self)
         bar.setMovable(False)
         bar.addAction(self.open_action)
-        bar.addAction(self.open_video_action)
         bar.addSeparator()
         bar.addAction(self.export_action)
         bar.addAction(self.export_media_action)
@@ -206,16 +211,13 @@ class MainWindow(QMainWindow):
         root.addWidget(self._make_controls())
         root.setStretchFactor(0, 1)
         root.setStretchFactor(1, 0)
-        root.setSizes([1050, 390])
+        root.setSizes([900, 540])
 
     def _make_view_panel(self) -> QWidget:
         panel = QWidget()
         layout = QVBoxLayout(panel)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
-        title = QLabel("Live Processed Preview")
-        title.setObjectName("viewTitle")
-        layout.addWidget(title)
         self.processed_view = ImageView()
         self.processed_view.file_dropped.connect(self._load_dropped_path)
         layout.addWidget(self.processed_view, 1)
@@ -224,9 +226,13 @@ class MainWindow(QMainWindow):
     def _make_controls(self) -> QWidget:
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setMinimumWidth(345)
-        scroll.setMaximumWidth(450)
+        scroll.setSizeAdjustPolicy(QAbstractScrollArea.SizeAdjustPolicy.AdjustToContents)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setMinimumWidth(530)
+        scroll.setMaximumWidth(660)
         body = QWidget()
+        body.setMinimumWidth(505)
         layout = QVBoxLayout(body)
         layout.setContentsMargins(12, 12, 12, 20)
         layout.setSpacing(12)
@@ -250,6 +256,27 @@ class MainWindow(QMainWindow):
         refresh.clicked.connect(self._request_refined_preview)
         pv.addWidget(refresh)
         layout.addWidget(preview_box)
+
+        transform_box = QGroupBox("Source Transform")
+        transform_layout = QVBoxLayout(transform_box)
+        self.source_transform = SourceTransformWidget()
+        self.source_transform.changed.connect(self._controls_changed)
+        transform_layout.addWidget(self.source_transform)
+        layout.addWidget(transform_box)
+
+        raster_box = QGroupBox("Target Raster")
+        raster_layout = QVBoxLayout(raster_box)
+        self.target_raster = TargetRasterWidget()
+        self.target_raster.changed.connect(self._controls_changed)
+        raster_layout.addWidget(self.target_raster)
+        layout.addWidget(raster_box)
+
+        hardware_box = QGroupBox("Hardware Profile")
+        hardware_layout = QVBoxLayout(hardware_box)
+        self.hardware_panel = HardwarePanel()
+        self.hardware_panel.apply_requested.connect(self._apply_hardware_profile)
+        hardware_layout.addWidget(self.hardware_panel)
+        layout.addWidget(hardware_box)
 
         effects_box = QGroupBox("Effect Stack")
         effects_layout = QVBoxLayout(effects_box)
@@ -297,14 +324,44 @@ class MainWindow(QMainWindow):
         self.extract_count = QSpinBox()
         self.extract_count.setRange(2, 256)
         self.extract_count.setValue(8)
-        self.extract_button = QPushButton("Extract from image")
+        self.extract_method = QComboBox()
+        self.extract_method.addItems(PALETTE_OPTIMIZERS)
+        self.extract_button = QPushButton("Optimize from image")
         self.extract_button.clicked.connect(self.extract_palette_from_image)
         self.extract_button.setEnabled(False)
         extract_row.addWidget(QLabel("Colors"))
         extract_row.addWidget(self.extract_count)
-        extract_row.addWidget(self.extract_button, 1)
+        extract_row.addWidget(self.extract_method, 1)
+        extract_row.addWidget(self.extract_button)
         pal.addLayout(extract_row)
         layout.addWidget(palette_box)
+
+        random_box = QGroupBox("Creative Randomize")
+        random_layout = QVBoxLayout(random_box)
+        lock_row = QHBoxLayout()
+        self.random_lock_checks: dict[str, QCheckBox] = {}
+        for key, label in [("palette", "Palette"), ("dither", "Dither"), ("effects", "Effects"), ("resolution", "Raster"), ("parameters", "Params")]:
+            check = QCheckBox(label)
+            check.setToolTip(f"Lock {label.lower()} while randomizing")
+            check.toggled.connect(self._random_lock_changed)
+            self.random_lock_checks[key] = check
+            lock_row.addWidget(check)
+        random_layout.addWidget(QLabel("Lock while randomizing"))
+        random_layout.addLayout(lock_row)
+        nav = QHBoxLayout()
+        self.random_prev_button = QPushButton("← Previous")
+        self.random_button = QPushButton("🎲 Randomize")
+        self.random_next_button = QPushButton("Next →")
+        self.random_prev_button.clicked.connect(lambda: self._random_history_move(-1))
+        self.random_button.clicked.connect(self.randomize_unlocked)
+        self.random_next_button.clicked.connect(lambda: self._random_history_move(1))
+        nav.addWidget(self.random_prev_button); nav.addWidget(self.random_button); nav.addWidget(self.random_next_button)
+        random_layout.addLayout(nav)
+        self.random_save_button = QPushButton("Save current as preset…")
+        self.random_save_button.clicked.connect(self.save_preset_dialog)
+        random_layout.addWidget(self.random_save_button)
+        layout.addWidget(random_box)
+        self._update_random_history_buttons()
 
         animation_box = QGroupBox("Animation")
         animation_layout = QVBoxLayout(animation_box)
@@ -338,25 +395,15 @@ class MainWindow(QMainWindow):
         source_layout.addWidget(self.video_controls)
         layout.addWidget(source_box)
 
-        output_box = QGroupBox("Output")
-        output_form = QFormLayout(output_box)
-        self.output_scale_combo = QComboBox()
-        self.output_scale_combo.addItem("Original (1:1)", 1)
-        for divisor in range(2, 17):
-            self.output_scale_combo.addItem(f"Smaller ÷{divisor}", divisor)
-        self.output_scale_combo.currentIndexChanged.connect(self._controls_changed)
-        output_form.addRow("Size", self.output_scale_combo)
-        self.output_size_label = QLabel("—")
-        output_form.addRow("Result", self.output_size_label)
-        layout.addWidget(output_box)
-
         info_box = QGroupBox("Media")
         info = QFormLayout(info_box)
         self.file_label = QLabel("—")
         self.file_label.setWordWrap(True)
         self.input_size_label = QLabel("—")
+        self.output_size_label = QLabel("—")
         info.addRow("File", self.file_label)
         info.addRow("Input", self.input_size_label)
+        info.addRow("Output", self.output_size_label)
         layout.addWidget(info_box)
         layout.addStretch(1)
         scroll.setWidget(body)
@@ -364,40 +411,51 @@ class MainWindow(QMainWindow):
 
     # ---------- settings ----------
     def _settings_from_controls(self) -> ProcessingSettings:
-        return ProcessingSettings(
-            output_divisor=int(self.output_scale_combo.currentData() or 1),
-            palette=self.palette_editor.colors(),
-            palette_locks=self.palette_editor.locks(),
-            palette_name=self._palette_name,
-            palette_author=self._palette_author,
-            palette_source=self._palette_source,
-            effect_stack=self.effect_stack.stack(),
-            animation_duration=self.animation_panel.duration(),
-            animation_fps=self.animation_panel.fps(),
-            animation_tracks=self.animation_panel.tracks(),
-        )
+        # Start with the last canonical snapshot so data that has no direct
+        # editor widget (hardware constraints/display profile/random locks)
+        # is preserved instead of being accidentally reset on every control.
+        result = ProcessingSettings.from_dict(self.settings.to_dict())
+        result.palette = self.palette_editor.colors()
+        result.palette_locks = self.palette_editor.locks()
+        result.palette_name = self._palette_name
+        result.palette_author = self._palette_author
+        result.palette_source = self._palette_source
+        result.effect_stack = self.effect_stack.stack()
+        result.animation_duration = self.animation_panel.duration()
+        result.animation_fps = self.animation_panel.fps()
+        result.animation_tracks = self.animation_panel.tracks()
+        result.random_locks = {key: check.isChecked() for key, check in self.random_lock_checks.items()}
+        self.source_transform.apply_to_settings(result)
+        self.target_raster.apply_to_settings(result)
+        return ProcessingSettings.from_dict(result.to_dict())
 
     def _apply_settings_to_controls(self, settings: ProcessingSettings) -> None:
+        canonical = ProcessingSettings.from_dict(settings.to_dict())
+        canonical.effect_stack = normalize_effect_stack(canonical.effect_stack, canonical)
         self._loading_controls = True
         try:
-            settings.effect_stack = normalize_effect_stack(settings.effect_stack, settings)
-            self.effect_stack.set_stack(settings.effect_stack)
-            scale_index = self.output_scale_combo.findData(settings.output_divisor)
-            self.output_scale_combo.setCurrentIndex(max(0, scale_index))
-            self.palette_editor.set_colors(settings.palette, settings.palette_locks, emit=False)
-            self._palette_name = settings.palette_name or "Custom"
-            self._palette_author = settings.palette_author
-            self._palette_source = settings.palette_source
-            match = next((name for name, colors in BUILTIN_PALETTES.items() if colors == settings.palette), None)
+            self.settings = canonical
+            self.source_transform.set_from_settings(canonical)
+            self.target_raster.set_from_settings(canonical)
+            self.hardware_panel.select_profile(canonical.hardware_profile_id, canonical.hardware_mode)
+            self.effect_stack.set_stack(canonical.effect_stack)
+            self.palette_editor.set_colors(canonical.palette, canonical.palette_locks, emit=False)
+            self._palette_name = canonical.palette_name or "Custom"
+            self._palette_author = canonical.palette_author
+            self._palette_source = canonical.palette_source
+            match = next((name for name, colors in BUILTIN_PALETTES.items() if colors == canonical.palette), None)
             self.palette_combo.setCurrentText(match or "Custom")
             self.animation_panel.set_targets(self.effect_stack.animatable_targets())
-            self.animation_panel.set_animation(settings.animation_duration, settings.animation_fps, settings.animation_tracks)
+            self.animation_panel.set_animation(canonical.animation_duration, canonical.animation_fps, canonical.animation_tracks)
             self.effect_stack.set_animated_targets(self.animation_panel.animated_target_ids())
+            for key, check in self.random_lock_checks.items():
+                check.setChecked(bool(canonical.random_locks.get(key, False)))
             self._refresh_palette_source_label()
         finally:
             self._loading_controls = False
         self.settings = self._settings_from_controls()
         self._settings_revision += 1
+        self._preview_source_cache.clear()
         self._update_output_size_label()
         if self.original_image is not None:
             self.schedule_preview()
@@ -407,6 +465,9 @@ class MainWindow(QMainWindow):
             return
         self.settings = self._settings_from_controls()
         self._settings_revision += 1
+        # Source crop/rotation/raster settings can alter the preview proxy, so
+        # never reuse a stale proxy after any control change.
+        self._preview_source_cache.clear()
         self._update_output_size_label()
         self.schedule_preview()
 
@@ -449,6 +510,119 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage("Live preview paused · use Refresh preview now", 3500)
         elif self.original_image is not None:
             self.schedule_preview(immediate=True, force=True)
+
+    def _apply_hardware_profile(self, profile: HardwareProfile, mode: str, options: object) -> None:
+        if not isinstance(options, dict):
+            return
+        try:
+            updated = apply_profile_to_settings(self._settings_from_controls(), profile, mode=mode, **options)
+            self._apply_settings_to_controls(updated)
+            self.statusBar().showMessage(f"Applied {profile.name} · {mode.title()} profile", 4000)
+        except Exception as exc:
+            QMessageBox.critical(self, "Could not apply hardware profile", str(exc))
+
+    # ---------- randomize / history ----------
+    def _random_lock_changed(self, *_args) -> None:
+        if not self._loading_controls:
+            self._controls_changed()
+
+    def _update_random_history_buttons(self) -> None:
+        if not hasattr(self, "random_prev_button"):
+            return
+        self.random_prev_button.setEnabled(self._random_history_index > 0)
+        self.random_next_button.setEnabled(0 <= self._random_history_index < len(self._random_history) - 1)
+
+    def _record_random_snapshot(self, settings: ProcessingSettings) -> None:
+        snapshot = settings.to_dict()
+        if self._random_history_index >= 0 and self._random_history[self._random_history_index] == snapshot:
+            return
+        if self._random_history_index < len(self._random_history) - 1:
+            self._random_history = self._random_history[: self._random_history_index + 1]
+        self._random_history.append(snapshot)
+        self._random_history = self._random_history[-50:]
+        self._random_history_index = len(self._random_history) - 1
+        self._update_random_history_buttons()
+
+    def _random_history_move(self, delta: int) -> None:
+        if not self._random_history:
+            return
+        index = max(0, min(len(self._random_history) - 1, self._random_history_index + int(delta)))
+        if index == self._random_history_index:
+            return
+        self._random_history_index = index
+        self._apply_settings_to_controls(ProcessingSettings.from_dict(self._random_history[index]))
+        self._update_random_history_buttons()
+
+    def randomize_unlocked(self) -> None:
+        current = self._settings_from_controls()
+        if not self._random_history:
+            self._record_random_snapshot(current)
+        locks = current.random_locks
+        randomized = ProcessingSettings.from_dict(current.to_dict())
+
+        if not locks.get("palette", False):
+            colors = randomized.palette.copy()
+            palette_locks = randomized.palette_locks or [False] * len(colors)
+            for i, locked in enumerate(palette_locks):
+                if not locked:
+                    colors[i] = f"#{random.randint(0, 0xFFFFFF):06X}"
+            randomized.palette = colors
+            randomized.palette_name = "Random"
+            randomized.palette_author = ""
+            randomized.palette_source = ""
+
+        stack = normalize_effect_stack(randomized.effect_stack, randomized)
+        if not locks.get("dither", False):
+            for step in stack:
+                if step.get("kind") == "Dither":
+                    step["enabled"] = True
+                    step.setdefault("params", {})["algorithm"] = random.choice(ALGORITHMS)
+                    step["params"]["strength"] = round(random.uniform(0.55, 1.35), 2)
+                    break
+
+        if not locks.get("effects", False):
+            # Preserve core adjustments/dither, but explore a small number of
+            # creative nodes rather than generating an unusable giant stack.
+            creative = [
+                "Local Contrast", "Hue Rotate", "Gaussian Blur", "Glow", "RGB Split",
+                "Posterize", "Scanlines", "Noise", "Pixel Sort", "Screen Melt",
+                "Pixel Scatter", "Data Shift", "Channel Swap", "Pixel Material",
+            ]
+            stack = [s for s in stack if s.get("kind") in {"Adjustments", "Pixelate", "Dither"}]
+            for kind in random.sample(creative, k=random.randint(1, min(3, len(creative)))):
+                stack.insert(max(1, len(stack) - 1), new_effect(kind))
+
+        if not locks.get("parameters", False):
+            for step in stack:
+                definition = EFFECT_DEFINITIONS.get(str(step.get("kind")), {})
+                params = step.setdefault("params", {})
+                for key, spec in definition.get("params", {}).items():
+                    typ = spec.get("type")
+                    if typ in {"int", "float"} and key != "seed":
+                        lo, hi = float(spec.get("min", 0)), float(spec.get("max", 1))
+                        # Avoid pathological extrema; random creative states are
+                        # sampled from the useful middle 80% of a control.
+                        a, b = lo + (hi - lo) * 0.1, lo + (hi - lo) * 0.9
+                        value = random.uniform(a, b)
+                        params[key] = int(round(value)) if typ == "int" else round(value, int(spec.get("decimals", 2)))
+                    elif typ == "choice" and spec.get("options"):
+                        params[key] = random.choice(list(spec["options"]))
+                    elif typ == "bool" and key == "temporal":
+                        params[key] = random.choice([False, True])
+
+        randomized.effect_stack = normalize_effect_stack(stack, randomized)
+
+        if not locks.get("resolution", True):
+            width, height = random.choice([(160, 144), (240, 160), (256, 224), (256, 240), (320, 200), (320, 240), (640, 480)])
+            randomized.target_enabled = True
+            randomized.target_width = width
+            randomized.target_height = height
+            randomized.keep_aspect = False
+
+        randomized.random_locks = dict(locks)
+        self._apply_settings_to_controls(randomized)
+        self._record_random_snapshot(self._settings_from_controls())
+        self._update_random_history_buttons()
 
     # ---------- palette ----------
     def _palette_preset_changed(self, name: str) -> None:
@@ -542,24 +716,18 @@ class MainWindow(QMainWindow):
         if self.original_image is None:
             return
         try:
-            colors = extract_palette(self.original_image, self.extract_count.value())
+            colors = extract_palette(self.original_image, self.extract_count.value(), self.extract_method.currentText())
             self.palette_editor.set_colors(colors)
             self.statusBar().showMessage(f"Extracted {len(colors)} colors", 2500)
         except Exception as exc:
             QMessageBox.critical(self, "Palette extraction failed", str(exc))
 
     # ---------- loading ----------
-    def open_image_dialog(self) -> None:
+    def open_file_dialog(self) -> None:
         start_dir = self.app_settings.value("lastOpenDir", str(Path.home()))
-        path, _ = QFileDialog.getOpenFileName(self, "Open image", start_dir, IMAGE_FILTER)
+        path, _ = QFileDialog.getOpenFileName(self, "Open file", start_dir, MEDIA_FILTER)
         if path:
-            self.load_image(path)
-
-    def open_video_dialog(self) -> None:
-        start_dir = self.app_settings.value("lastOpenDir", str(Path.home()))
-        path, _ = QFileDialog.getOpenFileName(self, "Open video", start_dir, VIDEO_FILTER)
-        if path:
-            self.load_video(path)
+            self._load_dropped_path(path)
 
     def _load_dropped_path(self, path: str) -> None:
         suffix = Path(path).suffix.lower()
@@ -596,7 +764,8 @@ class MainWindow(QMainWindow):
             self.video_play_button.setChecked(False)
             self.video_play_button.setText("▶")
             self.video_play_button.blockSignals(False)
-        if not video_support_available():
+        source_path = Path(path)
+        if source_path.suffix.lower() != ".gif" and not video_support_available():
             QMessageBox.critical(self, "Video support unavailable", "FFmpeg support could not be initialized.")
             return
         try:
@@ -614,7 +783,7 @@ class MainWindow(QMainWindow):
             self.processed_view.clear_image()
             self.file_label.setText(self.video_path.name)
             self.input_size_label.setText(f"{info.width} × {info.height} · {info.fps:.2f} fps · {info.duration:.2f} s")
-            self.source_type_label.setText("Video source")
+            self.source_type_label.setText("Animated GIF source" if self.video_path.suffix.lower() == ".gif" else "Video source")
             self.video_controls.setVisible(True)
             self.export_action.setEnabled(False)
             self.export_media_action.setEnabled(True)
@@ -623,6 +792,7 @@ class MainWindow(QMainWindow):
             self.video_slider.setValue(0)
             self.video_slider.blockSignals(False)
             self.video_time_label.setText("0.00 s")
+            self.target_raster.set_source_size((info.width, info.height))
             self._update_output_size_label()
             self.app_settings.setValue("lastOpenDir", str(self.video_path.parent))
             self._request_video_frame(0.0)
@@ -632,6 +802,7 @@ class MainWindow(QMainWindow):
 
     def _set_image_source(self, image: Image.Image, path: Path | None, *, is_video: bool) -> None:
         self.original_image = image
+        self.target_raster.set_source_size(image.size)
         if not is_video:
             self.video_path = None
             self.video_info = None
@@ -729,8 +900,7 @@ class MainWindow(QMainWindow):
             return
         mode = self._preview_mode()
         if mode == "full":
-            divisor = int(self.output_scale_combo.currentData() or 1)
-            full_size = scaled_output_size(self.original_image.size, divisor)
+            full_size = target_raster_size(self.original_image.size, self._settings_from_controls())
             side = max(full_size)
         else:
             side = PREVIEW_MAX_SIDE
@@ -792,13 +962,8 @@ class MainWindow(QMainWindow):
             self._preview_pending_max_side = max(self._preview_pending_max_side, max_side)
             return
 
-        divisor = settings.output_divisor
-        cache_key = (divisor, max_side)
-        preview_source = self._preview_source_cache.get(cache_key)
-        if preview_source is None:
-            preview_source = make_preview_source(self.original_image, max_side=max_side, output_divisor=divisor)
-            self._preview_source_cache[cache_key] = preview_source
-        final_size = scaled_output_size(self.original_image.size, divisor)
+        final_size = target_raster_size(self.original_image.size, settings)
+        preview_source = make_preview_source(self.original_image, max_side=max_side, settings=settings)
         preview_settings = make_preview_settings(settings, final_size, preview_source.size)
 
         job_id = self._next_job_id()
@@ -822,6 +987,8 @@ class MainWindow(QMainWindow):
             context,
             frame_time=render_time,
             frame_index=frame_index,
+            display_mode=preview_settings.display_mode,
+            include_grid=preview_settings.grid_enabled and preview_settings.grid_preview,
         )
         worker.signals.finished.connect(self._worker_finished)
         worker.signals.failed.connect(self._worker_failed)
@@ -933,7 +1100,9 @@ class MainWindow(QMainWindow):
             settings,
             str(target),
             frame_time=self.video_time if self.video_path else self.animation_panel.current_time(),
-            frame_index=round(self.animation_panel.current_time() * base_settings.animation_fps),
+            frame_index=round(parameter_time * base_settings.animation_fps),
+            display_mode=settings.display_mode if settings.display_export else "raw",
+            include_grid=settings.grid_enabled and settings.grid_export,
         )
         worker.signals.finished.connect(self._worker_finished)
         worker.signals.failed.connect(self._worker_failed)
@@ -947,7 +1116,12 @@ class MainWindow(QMainWindow):
         base_dir = Path(self.app_settings.value("lastExportDir", str(Path.home())))
         stem = self.current_file.stem if self.current_file else "animation"
         if self.video_path:
-            path, _ = QFileDialog.getSaveFileName(self, "Export processed video", str(base_dir / f"{stem}-rastermint.mp4"), "MP4 video (*.mp4)")
+            if self.video_path.suffix.lower() == ".gif":
+                path, selected = QFileDialog.getSaveFileName(self, "Export processed animation", str(base_dir / f"{stem}-rastermint.gif"), ANIMATION_FILTER)
+                if path and not Path(path).suffix:
+                    path += ".gif" if selected.startswith("Animated GIF") else ".mp4"
+            else:
+                path, _ = QFileDialog.getSaveFileName(self, "Export processed video", str(base_dir / f"{stem}-rastermint.mp4"), "MP4 video (*.mp4)")
         else:
             path, selected = QFileDialog.getSaveFileName(self, "Export animation", str(base_dir / f"{stem}-rastermint.mp4"), ANIMATION_FILTER)
             if path and not Path(path).suffix:
@@ -1027,9 +1201,13 @@ class MainWindow(QMainWindow):
         if self.original_image is None:
             self.output_size_label.setText("—")
             return
-        divisor = int(self.output_scale_combo.currentData() or 1)
-        width, height = scaled_output_size(self.original_image.size, divisor)
-        self.output_size_label.setText(f"{width} × {height}" + ("" if divisor == 1 else f" (÷{divisor})"))
+        settings = self._settings_from_controls() if hasattr(self, "target_raster") else self.settings
+        raw = target_raster_size(self.original_image.size, settings)
+        displayed = display_output_size(self.original_image.size, settings)
+        if settings.display_mode != "raw" and displayed != raw:
+            self.output_size_label.setText(f"{raw[0]} × {raw[1]} framebuffer → {displayed[0]} × {displayed[1]} display")
+        else:
+            self.output_size_label.setText(f"{raw[0]} × {raw[1]}")
 
     def fit_views(self) -> None:
         self.processed_view.fit_image()

@@ -5,22 +5,29 @@ RasterMint keeps processing code independent from Qt. The GUI builds immutable-i
 ## High-level flow
 
 ```text
-Image / decoded video frame
+Image / decoded GIF/video frame
         ↓
-Output resize (÷1 … ÷16)
+Source transform (crop · flip · rotate)
+        ↓
+Target framebuffer raster (exact size / legacy divisor)
         ↓
 Reorderable effect stack
-        ├─ adjustments / color
-        ├─ spatial filters
-        ├─ glitch / display effects
+        ├─ adjustments / local contrast / color
+        ├─ spatial / glitch / material / text effects
         ├─ pixelate
         └─ dither / palette quantization
+        ↓
+Optional strict hardware constraints
+        ↓
+Raw framebuffer
+        ↓
+Pixel-aspect correction / display simulation / grid (view or export)
         ↓
 Processed RGB frame
         ├─ live viewport
         ├─ raster export
         ├─ SVG run-vectorization
-        ├─ animation encoder
+        ├─ animation / GIF encoder
         ├─ video encoder
         └─ batch output
 ```
@@ -34,10 +41,11 @@ core/effect_stack.py   effect definitions, validation, ordering, execution
 core/animation.py      track validation, easing, parameter interpolation
 core/palette.py        palette parsing, extraction, mapping, file I/O
 core/lospec.py         official Lospec per-palette JSON integration
-core/processor.py      output scaling and preview proxy sizing
+core/processor.py      source transform, target raster, preview proxies, final orchestration
+core/hardware.py       data-driven hardware constraints, pixel aspect, display/grid
 core/svg_export.py     horizontal-run SVG conversion
 core/batch.py          multi-image processing
-core/media.py          FFmpeg-backed video/still-animation I/O
+core/media.py          GIF + FFmpeg-backed timed-media/still-animation I/O
 core/presets.py        .rmpreset serialization
 ```
 
@@ -178,7 +186,10 @@ ui/main_window.py          application coordination and worker scheduler
 ui/effect_stack_widget.py  reorder/bypass/duplicate + dynamic parameter editor
 ui/animation_panel.py      timeline and parameter-track editing
 ui/palette_editor.py       swatches, locks, shuffle/randomization
-ui/lospec_dialog.py        async palette API request
+ui/lospec_dialog.py        async palette API request + fetched swatch preview
+ui/target_raster_widget.py exact raster / PAR / display / grid controls
+ui/source_transform_widget.py crop / rotate / flip / fill position
+ui/hardware_panel.py       data-driven Visual/Strict profile controls
 ui/image_view.py           pan/zoom/drop viewport
 ui/worker.py               QRunnable jobs
 ```

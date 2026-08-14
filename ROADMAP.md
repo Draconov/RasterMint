@@ -9,14 +9,18 @@ Implemented:
 - reorderable effect stack;
 - 26 dithering/quantization algorithms;
 - up-to-256-color palette workflow;
-- Lospec per-palette import;
-- palette locks/randomization/file import;
+- Lospec per-palette import with fetched swatch preview;
+- palette locks/randomization/file import plus Median Cut/K-Means/Octree/Wu optimization;
 - still animation timeline with easing and per-track timing;
 - temporal effects;
-- video input/scrub/quick playback/export;
+- GIF/video input, scrub/quick playback/export;
 - source-audio mux during video export;
 - animated GIF and MP4 from still images;
 - SVG current-frame export;
+- exact target raster, source crop/rotate/flip, pixel aspect and display/grid views;
+- data-driven Visual/Strict hardware profiles and image-space constraints;
+- local contrast, glitch family, pixel materials, and text overlay effects;
+- randomize locks with previous/next history;
 - batch image processing;
 - rolling Windows/Linux/macOS releases.
 
@@ -30,7 +34,7 @@ Implemented:
 - palette search through an officially supported indexed API if/when appropriate credentials/API access are configured;
 - additional independently implemented pattern/advanced dithering families;
 - perceptual color matching option;
+- visual preset thumbnail browser;
 - before/after split view;
-- crop/rotate/canvas nodes;
 - optional GPU preview backend with CPU reference renderer;
 - installer/signing/notarization and optional OS protocol registration for palette integrations.

@@ -1,13 +1,19 @@
 # RasterMint
 
+<p align="center">
+  <img src="docs/assets/rastermint-icon.png" width="128" alt="RasterMint icon">
+</p>
+
 **Author:** [Draconov](https://github.com/Draconov)
 
 RasterMint is a cross-platform desktop image, palette, dithering, and motion-effects playground. It is built around one rule: the live viewport, still export, animation export, video export, presets, and batch processor all use the same processing pipeline.
 
 ## Highlights
 
+- Custom app icon bundled for Windows (`.ico`), macOS (`.icns`), Linux/runtime PNG, and the README.
+
 - PySide6 / Qt 6 desktop UI for Windows, Linux, and macOS.
-- Drag-and-drop images **and videos** directly onto the viewport.
+- One **Open File** action plus drag-and-drop for still images, animated GIFs, and videos.
 - One processed viewport with pan, zoom, and fit-to-view.
 - Three preview behaviors:
   - **Live** — quick draft first, then a refined render after controls settle.
@@ -18,12 +24,13 @@ RasterMint is a cross-platform desktop image, palette, dithering, and motion-eff
 - Reorderable, bypassable, duplicatable **effect stack**.
 - 26 dithering / quantization algorithms across quantization, ordered, error-diffusion, and advanced families.
 - Up to 256 palette colors.
-- Built-in palettes, editable swatches, per-color locks, shuffle/randomize-unlocked tools, and source-image palette extraction.
+- Built-in palettes, editable swatches, per-color locks, shuffle/randomize-unlocked tools, and optimized source-image palette extraction using Median Cut, K-Means, Octree, or Wu-style quantization.
+- Lospec fetch results show the actual palette swatches before import.
 - **Lospec palette integration** using Lospec's official per-palette JSON endpoint: open the Lospec Palette List, paste a palette slug or URL, and import its colors plus attribution.
 - `.hex`, text/HEX, GIMP `.gpl`, and JASC `.pal` palette import; HEX palette export.
 - Preset save/load including effect stack, palette metadata/locks, and animation tracks.
 - Still-image animation with parameter tracks, per-track timing, easing, enable/bypass, and live timeline preview.
-- Video import, scrubbing, quick processed playback, MP4 export, and source-audio preservation when FFmpeg can mux it.
+- Animated GIF and video import, scrubbing, quick processed playback, GIF/MP4 export where applicable, and source-audio preservation for normal video when FFmpeg can mux it.
 - MP4 and animated GIF export from a still image.
 - PNG, JPEG, WebP, BMP, TIFF, and SVG export for current processed frames.
 - Batch image processing.
@@ -77,6 +84,7 @@ Effects are processed top-to-bottom. Reordering them changes the output.
 Current nodes:
 
 - Adjustments: brightness, contrast, saturation, gamma
+- Local Contrast / unsharp-mask enhancement
 - Hue Rotate
 - Grayscale
 - Invert
@@ -85,12 +93,15 @@ Current nodes:
 - Sharpen
 - Glow
 - JPEG Compression
-- Chromatic Shift
+- Chromatic Shift / RGB Split
 - Posterize
-- Scanlines
+- Scanlines / Interlace
 - Noise, including frame-varying noise
 - Temporal Flicker
+- Pixel Sort, Screen Melt, Block Shuffle, Pixel Scatter, Data Shift, Row/Column Shift, Cellular Automata, Databend-style processing, Channel Swap
 - Pixelate
+- Pixel Material: Flat, dots, CRT phosphor, LED/LCD, fuse bead, cross stitch, brick, mosaic, halftone, ASCII tile, custom sprite
+- Text Overlay
 - Dither
 
 Each row can be enabled/disabled, reordered, duplicated, or removed. User-adjustable numeric parameters marked as animatable can be driven by the animation system; while an enabled animation track controls a parameter, its normal effect editor is locked to avoid conflicting input.
@@ -148,19 +159,25 @@ and stores the returned palette name, author, colors, and source URL in the curr
 
 Lospec remains a separate service; palette availability and network access are outside RasterMint's control.
 
-## Output sizing
+## Source transform, target raster, and hardware profiles
 
-Output scale is applied **before** the effect stack:
+RasterMint treats framebuffer geometry as a first-class control. Before the effect stack you can crop, rotate, flip, choose Fit/Fill/Stretch positioning, and select an exact target raster such as 160×144, 240×160, 256×224, 320×200, 320×240, or 640×480.
+
+Pixel aspect ratio is separate from framebuffer resolution. The viewport can show:
 
 ```text
-Original (1:1)
-Smaller ÷2
-Smaller ÷3
-...
-Smaller ÷16
+Raw framebuffer
+Corrected pixels
+Display simulation
 ```
 
-A `÷4` output has approximately one sixteenth as many pixels to process as the original, which can dramatically reduce diffusion/export time.
+Built-in data-driven hardware profiles can selectively apply raster, palette/color depth, pixel aspect ratio, image-space hardware limits, and display treatment. Profiles support **Visual** and **Strict** modes; Strict mode is a still-image constraint approximation, not console/computer emulation. See [`docs/HARDWARE_PROFILES.md`](docs/HARDWARE_PROFILES.md).
+
+The legacy `÷1 … ÷16` output divisor remains supported by old presets and the CLI, but the desktop UI now prefers exact target raster controls.
+
+## Grid, random exploration, and presets
+
+A pixel grid can be enabled independently for preview and export with minor/major spacing. Creative Randomize has independent locks for palette, dither, effects, raster, and parameters plus Previous/Next history so a good random state is not lost. Presets serialize the complete processing state, including target raster, transforms, hardware snapshot, display settings, effect stack, palette metadata/locks, animation tracks, grid, and random locks.
 
 ## Development setup
 
@@ -221,13 +238,21 @@ Lospec palette:
 rastermint-cli input.png output.png --lospec greyt-bit
 ```
 
+Exact raster / hardware profile example:
+
+```bash
+rastermint-cli input.png output.png --width 320 --height 200 --fit fill --pixel-aspect 5:6 --display corrected
+rastermint-cli input.png output.png --hardware-profile game-boy --hardware-mode strict
+```
+
 SVG current-frame export also works from the CLI by using an `.svg` output name.
 
 ## Developer documentation
 
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — current processing, preview, animation, and media architecture.
 - [`docs/EXTENDING_RASTERMINT.md`](docs/EXTENDING_RASTERMINT.md) — adding algorithms, effects, palettes, animation parameters, and tests.
-- [`docs/FEATURE_RESEARCH.md`](docs/FEATURE_RESEARCH.md) — what was learned from Lospec and other open-source dithering tooling, plus licensing boundaries.
+- [`docs/HARDWARE_PROFILES.md`](docs/HARDWARE_PROFILES.md) — profile schema, Visual/Strict modes, pixel aspect, constraints, and display treatment.
+- [`docs/FEATURE_RESEARCH.md`](docs/FEATURE_RESEARCH.md) — Lospec API notes and RasterMint's independent-implementation policy.
 
 ## Tests
 

@@ -1,0 +1,47 @@
+{
+  "id": "amiga-ocs",
+  "name": "Commodore Amiga OCS Lowres",
+  "category": "Computer",
+  "summary": "320×256 PAL-oriented low-resolution profile with 12-bit RGB master color and a 32-color normal-mode limit.",
+  "raster": {
+    "width": 320,
+    "height": 256,
+    "pixel_aspect": [
+      16,
+      15
+    ],
+    "tile": [
+      0,
+      0
+    ],
+    "fit_mode": "fit"
+  },
+  "palette": {
+    "type": "native-depth",
+    "name": "Amiga OCS RGB444",
+    "description": "12-bit RGB master color; individual images choose their own palette."
+  },
+  "recommended_dither": "Nearest Palette",
+  "visual": {
+    "display": {
+      "kind": "crt",
+      "gamma": 1.05,
+      "blur": 0.4,
+      "color_bleed": 0.7,
+      "scanlines": 0.1,
+      "lcd_grid": 0.0
+    }
+  },
+  "strict": {
+    "supported": true,
+    "constraints": {
+      "channel_bits": [
+        4,
+        4,
+        4
+      ],
+      "max_colors_global": 32
+    }
+  },
+  "sources": []
+}

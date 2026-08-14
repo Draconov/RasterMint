@@ -6,13 +6,17 @@ from __future__ import annotations
 from copy import deepcopy
 
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
+    QColorDialog,
     QDoubleSpinBox,
+    QFileDialog,
     QFormLayout,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QAbstractItemView,
     QListWidget,
     QListWidgetItem,
@@ -46,6 +50,8 @@ class EffectStackWidget(QWidget):
         root.setSpacing(6)
 
         self.list = QListWidget()
+        self.list.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.list.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.list.setMinimumHeight(165)
         self.list.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
         self.list.setDefaultDropAction(Qt.DropAction.MoveAction)
@@ -262,6 +268,25 @@ class EffectStackWidget(QWidget):
                 widget.addItems(options)
                 widget.setCurrentText(str(value))
                 widget.currentTextChanged.connect(lambda new, k=key: self._parameter_changed(k, new))
+            elif ptype == "text":
+                widget = QLineEdit(str(value))
+                widget.editingFinished.connect(lambda w=widget, k=key: self._parameter_changed(k, w.text()))
+            elif ptype == "color":
+                widget = QPushButton(str(value))
+                widget.setStyleSheet(f"QPushButton {{ background: {value}; }}")
+                widget.clicked.connect(lambda _=False, w=widget, k=key: self._choose_color(k, w))
+            elif ptype == "file":
+                host = QWidget()
+                row = QHBoxLayout(host)
+                row.setContentsMargins(0, 0, 0, 0)
+                edit = QLineEdit(str(value))
+                browse = QPushButton("…")
+                browse.setFixedWidth(32)
+                edit.editingFinished.connect(lambda e=edit, k=key: self._parameter_changed(k, e.text()))
+                browse.clicked.connect(lambda _=False, e=edit, k=key, sp=spec: self._choose_file(k, e, sp))
+                row.addWidget(edit, 1)
+                row.addWidget(browse)
+                widget = host
             else:
                 continue
             target_id = f"effect:{step['id']}:{key}"
@@ -270,6 +295,32 @@ class EffectStackWidget(QWidget):
                 widget.setToolTip("This parameter is controlled by an animation track.")
             self._param_widgets[key] = widget
             self.param_form.addRow(str(spec.get("label", key)), widget)
+
+
+    def _choose_color(self, key: str, button: QPushButton) -> None:
+        step = self._current_step()
+        if step is None:
+            return
+        current = QColor(str(step["params"].get(key, "#FFFFFF")))
+        chosen = QColorDialog.getColor(current, self, "Choose color")
+        if not chosen.isValid():
+            return
+        value = chosen.name(QColor.NameFormat.HexRgb).upper()
+        button.setText(value)
+        button.setStyleSheet(f"QPushButton {{ background: {value}; }}")
+        self._parameter_changed(key, value)
+
+    def _choose_file(self, key: str, edit: QLineEdit, spec: dict) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Choose file",
+            edit.text(),
+            str(spec.get("file_filter") or "All files (*.*)"),
+        )
+        if not path:
+            return
+        edit.setText(path)
+        self._parameter_changed(key, path)
 
     def _parameter_changed(self, key: str, value) -> None:
         if self._loading:

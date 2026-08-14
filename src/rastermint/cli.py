@@ -9,6 +9,7 @@ from pathlib import Path
 from PIL import Image
 
 from rastermint.core.dither import ALGORITHMS
+from rastermint.core.hardware import apply_profile_to_settings, profile_map
 from rastermint.core.lospec import fetch_lospec_palette
 from rastermint.core.palette import BUILTIN_PALETTES, read_palette_file
 from rastermint.core.processor import process_image
@@ -46,6 +47,13 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="1..16",
         help="Output size divisor; 1 keeps original dimensions, 2 outputs half width/height, etc.",
     )
+    parser.add_argument("--width", type=int, default=0, help="Exact target raster width")
+    parser.add_argument("--height", type=int, default=0, help="Exact target raster height")
+    parser.add_argument("--fit", choices=["fit", "fill", "stretch"], default="fit", help="How source content maps into an exact target raster")
+    parser.add_argument("--pixel-aspect", metavar="X:Y", default="1:1", help="Framebuffer pixel width:height, e.g. 5:6")
+    parser.add_argument("--display", choices=["raw", "corrected", "display"], default="raw", help="Export raw framebuffer, pixel-aspect corrected view, or display simulation")
+    parser.add_argument("--hardware-profile", choices=sorted(profile_map().keys()), help="Apply a built-in hardware profile")
+    parser.add_argument("--hardware-mode", choices=["visual", "strict"], default="visual")
     scan = parser.add_mutually_exclusive_group()
     scan.add_argument("--serpentine", dest="serpentine", action="store_true")
     scan.add_argument("--no-serpentine", dest="serpentine", action="store_false")
@@ -68,6 +76,13 @@ def _resolve_palette(args: argparse.Namespace) -> tuple[list[str], str, str, str
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     colors, palette_name, palette_author, palette_source = _resolve_palette(args)
+    try:
+        par_x, par_y = (float(v) for v in str(args.pixel_aspect).split(":", 1))
+        if par_x <= 0 or par_y <= 0:
+            raise ValueError
+    except Exception:
+        raise SystemExit("--pixel-aspect must be positive X:Y, for example 5:6")
+
     settings = ProcessingSettings(
         algorithm=args.algorithm,
         brightness=args.brightness,
@@ -82,13 +97,32 @@ def main(argv: list[str] | None = None) -> int:
         pixel_size=args.pixel_size,
         serpentine=args.serpentine,
         output_divisor=args.downscale,
+        target_enabled=bool(args.width or args.height),
+        target_width=max(0, int(args.width)),
+        target_height=max(0, int(args.height)),
+        fit_mode=args.fit,
+        pixel_aspect_x=par_x,
+        pixel_aspect_y=par_y,
+        display_mode=args.display,
         palette=list(colors),
         palette_name=palette_name,
         palette_author=palette_author,
         palette_source=palette_source,
     )
+    if args.hardware_profile:
+        settings = apply_profile_to_settings(settings, profile_map()[args.hardware_profile], mode=args.hardware_mode)
+        # Explicit CLI size/PAR options override the profile when supplied.
+        if args.width or args.height:
+            settings.target_enabled = True
+            settings.target_width = max(0, int(args.width))
+            settings.target_height = max(0, int(args.height))
+            settings.fit_mode = args.fit
+        if args.pixel_aspect != "1:1":
+            settings.pixel_aspect_x, settings.pixel_aspect_y = par_x, par_y
+        if args.display != "raw":
+            settings.display_mode = args.display
     with Image.open(args.input) as source:
-        result = process_image(source.convert("RGB"), settings)
+        result = process_image(source.convert("RGB"), settings, display_mode=args.display if args.display != "raw" else "raw")
     args.output.parent.mkdir(parents=True, exist_ok=True)
     if args.output.suffix.lower() == ".svg":
         save_svg(result, args.output)

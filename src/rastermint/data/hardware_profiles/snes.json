@@ -1,0 +1,47 @@
+{
+  "id": "snes",
+  "name": "Super Nintendo / Super Famicom",
+  "category": "Console",
+  "summary": "256×224 low-resolution console profile with 15-bit RGB color depth.",
+  "raster": {
+    "width": 256,
+    "height": 224,
+    "pixel_aspect": [
+      7,
+      6
+    ],
+    "tile": [
+      8,
+      8
+    ],
+    "fit_mode": "fit"
+  },
+  "palette": {
+    "type": "native-depth",
+    "name": "SNES RGB555",
+    "description": "15-bit RGB master color space; games choose their own palettes."
+  },
+  "recommended_dither": "Nearest Palette",
+  "visual": {
+    "display": {
+      "kind": "crt",
+      "gamma": 1.05,
+      "blur": 0.45,
+      "color_bleed": 0.8,
+      "scanlines": 0.12,
+      "lcd_grid": 0.0
+    }
+  },
+  "strict": {
+    "supported": true,
+    "constraints": {
+      "channel_bits": [
+        5,
+        5,
+        5
+      ],
+      "max_colors_global": 256
+    }
+  },
+  "sources": []
+}

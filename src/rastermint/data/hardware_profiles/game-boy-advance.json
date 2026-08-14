@@ -1,0 +1,48 @@
+{
+  "id": "game-boy-advance",
+  "name": "Nintendo Game Boy Advance",
+  "category": "Handheld",
+  "summary": "240×160 LCD profile with 15-bit RGB color quantization.",
+  "raster": {
+    "width": 240,
+    "height": 160,
+    "pixel_aspect": [
+      1,
+      1
+    ],
+    "tile": [
+      8,
+      8
+    ],
+    "fit_mode": "fit"
+  },
+  "palette": {
+    "type": "native-depth",
+    "name": "GBA RGB555",
+    "description": "15-bit RGB master color space; image palette remains unrestricted until strict quantization."
+  },
+  "recommended_dither": "Nearest Palette",
+  "visual": {
+    "display": {
+      "kind": "lcd",
+      "gamma": 1.0,
+      "blur": 0.1,
+      "color_bleed": 0.0,
+      "scanlines": 0.0,
+      "lcd_grid": 0.05
+    }
+  },
+  "strict": {
+    "supported": true,
+    "constraints": {
+      "channel_bits": [
+        5,
+        5,
+        5
+      ]
+    }
+  },
+  "sources": [
+    "https://www.scribd.com/document/266339270/GBA-Programming-Manual-v1-22"
+  ]
+}

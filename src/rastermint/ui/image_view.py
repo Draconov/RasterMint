@@ -10,7 +10,7 @@ from PySide6.QtGui import QBrush, QColor, QFont, QPixmap, QWheelEvent
 from PySide6.QtWidgets import QGraphicsPixmapItem, QGraphicsScene, QGraphicsSimpleTextItem, QGraphicsView
 
 SUPPORTED_IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".bmp", ".webp", ".tif", ".tiff"}
-SUPPORTED_VIDEO_SUFFIXES = {".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v"}
+SUPPORTED_VIDEO_SUFFIXES = {".gif", ".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v"}
 SUPPORTED_MEDIA_SUFFIXES = SUPPORTED_IMAGE_SUFFIXES | SUPPORTED_VIDEO_SUFFIXES
 
 
@@ -21,7 +21,7 @@ class ImageView(QGraphicsView):
         super().__init__(parent)
         self._scene = QGraphicsScene(self)
         self._pixmap_item = QGraphicsPixmapItem()
-        self._placeholder = QGraphicsSimpleTextItem("Drop an image or video here\nor use Open Image / Open Video")
+        self._placeholder = QGraphicsSimpleTextItem("Drop an image, GIF, or video here\nor use Open File")
         placeholder_font = QFont()
         placeholder_font.setPointSize(13)
         self._placeholder.setFont(placeholder_font)
@@ -35,6 +35,8 @@ class ImageView(QGraphicsView):
         self.setResizeAnchor(QGraphicsView.ViewportAnchor.AnchorViewCenter)
         self.setBackgroundBrush(QBrush(QColor("#171A21")))
         self.setFrameShape(QGraphicsView.Shape.NoFrame)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.setAcceptDrops(True)
         self.viewport().setAcceptDrops(True)
         self._has_image = False

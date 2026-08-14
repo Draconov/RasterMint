@@ -6,12 +6,23 @@ from __future__ import annotations
 import sys
 
 from PySide6.QtCore import QCoreApplication
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QIcon
 from PySide6.QtWidgets import QApplication
 
 from rastermint import __app_name__, __version__
 from rastermint.ui.main_window import MainWindow
 from rastermint.ui.style import APP_STYLE
+from importlib import resources
+
+
+def _load_app_icon() -> QIcon | None:
+    try:
+        icon_path = resources.files("rastermint").joinpath("data/icons/rastermint.png")
+        if icon_path.is_file():
+            return QIcon(str(icon_path))
+    except Exception:
+        pass
+    return None
 
 
 def main() -> int:
@@ -26,6 +37,12 @@ def main() -> int:
     font.setPointSize(10)
     app.setFont(font)
 
+    icon = _load_app_icon()
+    if icon is not None and not icon.isNull():
+        app.setWindowIcon(icon)
+
     window = MainWindow()
+    if icon is not None and not icon.isNull():
+        window.setWindowIcon(icon)
     window.show()
     return app.exec()

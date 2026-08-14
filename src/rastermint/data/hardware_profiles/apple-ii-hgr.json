@@ -1,0 +1,48 @@
+{
+  "id": "apple-ii-hgr",
+  "name": "Apple II Hi-Res",
+  "category": "Computer",
+  "summary": "280×192 Apple II high-resolution visual profile. Artifact colors depend on NTSC phase, so strict color behavior is intentionally not claimed.",
+  "raster": {
+    "width": 280,
+    "height": 192,
+    "pixel_aspect": [
+      32,
+      35
+    ],
+    "tile": [
+      7,
+      1
+    ],
+    "fit_mode": "fit"
+  },
+  "palette": {
+    "type": "fixed",
+    "name": "Apple II HGR Approx.",
+    "description": "Creative approximation of common NTSC artifact colors.",
+    "colors": [
+      "#000000",
+      "#FFFFFF",
+      "#D043E8",
+      "#2CE446",
+      "#2D6CFF",
+      "#FF6A3C"
+    ]
+  },
+  "recommended_dither": "Bayer 4x4",
+  "visual": {
+    "display": {
+      "kind": "crt",
+      "gamma": 1.05,
+      "blur": 0.65,
+      "color_bleed": 1.5,
+      "scanlines": 0.1,
+      "lcd_grid": 0.0
+    }
+  },
+  "strict": {
+    "supported": false,
+    "constraints": {}
+  },
+  "sources": []
+}

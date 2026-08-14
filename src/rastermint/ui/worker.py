@@ -32,6 +32,8 @@ class ProcessingWorker(QRunnable):
         *,
         frame_time: float = 0.0,
         frame_index: int = 0,
+        display_mode: str = "raw",
+        include_grid: bool = False,
     ) -> None:
         super().__init__()
         self.job_id = job_id
@@ -41,6 +43,8 @@ class ProcessingWorker(QRunnable):
         self.context = context
         self.frame_time = float(frame_time)
         self.frame_index = int(frame_index)
+        self.display_mode = str(display_mode or "raw")
+        self.include_grid = bool(include_grid)
         self.signals = WorkerSignals()
 
     @Slot()
@@ -51,6 +55,8 @@ class ProcessingWorker(QRunnable):
                 self.settings,
                 frame_time=self.frame_time,
                 frame_index=self.frame_index,
+                display_mode=self.display_mode,
+                include_grid=self.include_grid,
             )
             self.signals.finished.emit(self.job_id, self.purpose, result, self.context)
         except Exception:

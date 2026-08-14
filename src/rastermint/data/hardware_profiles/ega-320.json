@@ -1,0 +1,78 @@
+{
+  "id": "ega-320",
+  "name": "IBM PC EGA 320×200",
+  "category": "Computer",
+  "summary": "320×200 16-color EGA-style profile with the standard RGBI 16-color subset.",
+  "raster": {
+    "width": 320,
+    "height": 200,
+    "pixel_aspect": [
+      5,
+      6
+    ],
+    "tile": [
+      8,
+      8
+    ],
+    "fit_mode": "fit"
+  },
+  "palette": {
+    "type": "fixed",
+    "name": "EGA 16",
+    "description": "Standard 16-color RGBI-style set.",
+    "colors": [
+      "#000000",
+      "#0000AA",
+      "#00AA00",
+      "#00AAAA",
+      "#AA0000",
+      "#AA00AA",
+      "#AA5500",
+      "#AAAAAA",
+      "#555555",
+      "#5555FF",
+      "#55FF55",
+      "#55FFFF",
+      "#FF5555",
+      "#FF55FF",
+      "#FFFF55",
+      "#FFFFFF"
+    ]
+  },
+  "recommended_dither": "Bayer 4x4",
+  "visual": {
+    "display": {
+      "kind": "crt",
+      "gamma": 1.05,
+      "blur": 0.4,
+      "color_bleed": 0.65,
+      "scanlines": 0.1,
+      "lcd_grid": 0.0
+    }
+  },
+  "strict": {
+    "supported": true,
+    "constraints": {
+      "fixed_palette": [
+        "#000000",
+        "#0000AA",
+        "#00AA00",
+        "#00AAAA",
+        "#AA0000",
+        "#AA00AA",
+        "#AA5500",
+        "#AAAAAA",
+        "#555555",
+        "#5555FF",
+        "#55FF55",
+        "#55FFFF",
+        "#FF5555",
+        "#FF55FF",
+        "#FFFF55",
+        "#FFFFFF"
+      ],
+      "max_colors_global": 16
+    }
+  },
+  "sources": []
+}
