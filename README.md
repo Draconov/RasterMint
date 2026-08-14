@@ -124,7 +124,7 @@ git tag v0.1.0
 git push origin v0.1.0
 ```
 
-The workflow verifies that the git tag matches the version in `pyproject.toml` and `src/rastermint/__init__.py`, uploads the platform packages as workflow artifacts, and creates a GitHub Release for the tag.
+The release workflow builds the three platform packages, uploads them as workflow artifacts, and creates a GitHub Release for the tag.
 
 ## Project layout
 
