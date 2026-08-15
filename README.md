@@ -27,14 +27,14 @@ RasterMint is a cross-platform desktop image, palette, dithering, and motion-eff
 - Previous/next palette controls and previous/next controls around choice parameters such as dithering algorithms.
 - Palette interpolation generator supporting OKLab, RGB, Linear RGB, HSV, and HSL ramps from 2 to 256 colors.
 - Hardware profile details are shown as hover tooltips in the profile selector instead of occupying permanent panel space.
-- Reorderable, bypassable, duplicatable **effect stack**.
+- Reorderable, bypassable, duplicatable **layer stack** for image effects and image-space presentation layers.
 - 26 dithering / quantization algorithms across quantization, ordered, error-diffusion, and advanced families.
 - Up to 256 palette colors.
 - Built-in palettes, editable swatches, per-color locks, shuffle/randomize-unlocked tools, and optimized source-image palette extraction using Median Cut, K-Means, Octree, or Wu-style quantization.
 - Lospec fetch results show the actual palette swatches before import.
 - **Lospec palette integration** using Lospec's official per-palette JSON endpoint: open the Lospec Palette List, paste a palette slug or URL, and import its colors plus attribution.
 - `.hex`, text/HEX, GIMP `.gpl`, and JASC `.pal` palette import; HEX palette export.
-- Preset save/load including effect stack, palette metadata/locks, and animation tracks.
+- Preset save/load including processing layers, palette metadata/locks, and animation tracks.
 - Still-image animation with parameter tracks, per-track timing, easing, enable/bypass, and live timeline preview.
 - Animated GIF and video import, scrubbing, quick processed playback, GIF/MP4 export where applicable, and source-audio preservation for normal video when FFmpeg can mux it.
 - MP4 and animated GIF export from a still image.
@@ -42,6 +42,12 @@ RasterMint is a cross-platform desktop image, palette, dithering, and motion-eff
 - Batch image processing.
 - Single-version-file release system: edit only `VERSION`.
 - Rolling GitHub releases on every push to `main` for Windows, Linux, and macOS.
+
+## Interface
+
+RasterMint uses a minimal top menu bar and a two-column inspector on the right. The left inspector column selects a general area such as **Layers**, **Palette**, **Raster**, or **Hardware**; the right column shows the detailed controls for that area. Image mirroring/flipping/rotation is also available under **Edit → Image Manipulation**, and **Edit → Settings** contains application settings plus the final **Reset Settings** action.
+
+Preview quality is intentionally named **Quick**, **Stable**, and **Full** while retaining the existing draft/refine/full rendering behavior.
 
 ## Dithering algorithms
 
@@ -83,9 +89,9 @@ RasterMint is a cross-platform desktop image, palette, dithering, and motion-eff
 - Dot Diffusion
 - Riemersma
 
-## Effect stack
+## Layer stack
 
-Effects are processed top-to-bottom. Reordering them changes the output.
+Layers are processed top-to-bottom. Reordering image-processing layers changes the output.
 
 Current nodes:
 
@@ -114,7 +120,7 @@ Each row can be enabled/disabled, reordered, duplicated, or removed. User-adjust
 
 ## Animation
 
-RasterMint treats motion as parameter animation on the same effect stack used by still images. All suitable numeric effect parameters are published to the timeline automatically (identity/random seeds are excluded). A true **Dither Mix** parameter makes 0% the clean pre-dither image and 100% the complete dithered result, so Dither In/Out transitions are real crossfades rather than changes to diffusion error only.
+RasterMint treats motion as parameter animation on the same processing layer stack used by still images. All suitable numeric effect parameters are published to the timeline automatically (identity/random seeds are excluded). A true **Dither Mix** parameter makes 0% the clean pre-dither image and 100% the complete dithered result, so Dither In/Out transitions are real crossfades rather than changes to diffusion error only.
 
 The Animation panel now includes:
 
@@ -173,7 +179,7 @@ Lospec remains a separate service; palette availability and network access are o
 
 ## Source transform, target raster, and hardware profiles
 
-RasterMint treats framebuffer geometry as a first-class control. Before the effect stack you can crop, rotate, flip, choose Fit/Fill/Stretch positioning, and select an exact target raster such as 160×144, 240×160, 256×224, 320×200, 320×240, or 640×480.
+RasterMint treats framebuffer geometry as a first-class control. Before the layer stack you can crop, rotate, flip, choose Fit/Fill/Stretch positioning, and select an exact target raster such as 160×144, 240×160, 256×224, 320×200, 320×240, or 640×480.
 
 Pixel aspect ratio is separate from framebuffer resolution. The viewport can show:
 

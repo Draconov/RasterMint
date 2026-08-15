@@ -64,19 +64,19 @@ class EffectStackWidget(QWidget):
         self.add_combo = QComboBox()
         self.add_combo.addItems(EFFECT_DEFINITIONS.keys())
         self.add_button = QPushButton("+")
-        self.add_button.setToolTip("Add effect")
+        self.add_button.setToolTip("Add layer")
         self.add_button.clicked.connect(self._add_effect)
         self.up_button = QPushButton("↑")
-        self.up_button.setToolTip("Move selected effect up")
+        self.up_button.setToolTip("Move selected layer up")
         self.up_button.clicked.connect(lambda: self._move_selected(-1))
         self.down_button = QPushButton("↓")
-        self.down_button.setToolTip("Move selected effect down")
+        self.down_button.setToolTip("Move selected layer down")
         self.down_button.clicked.connect(lambda: self._move_selected(1))
         self.duplicate_button = QPushButton("⧉")
-        self.duplicate_button.setToolTip("Duplicate selected effect")
+        self.duplicate_button.setToolTip("Duplicate selected layer")
         self.duplicate_button.clicked.connect(self._duplicate_selected)
         self.remove_button = QPushButton("−")
-        self.remove_button.setToolTip("Remove selected effect")
+        self.remove_button.setToolTip("Remove selected layer")
         self.remove_button.clicked.connect(self._remove_selected)
         buttons.addWidget(self.add_combo, 1)
         buttons.addWidget(self.add_button)
@@ -86,7 +86,7 @@ class EffectStackWidget(QWidget):
         buttons.addWidget(self.remove_button)
         root.addLayout(buttons)
 
-        self.param_title = QLabel("Selected effect")
+        self.param_title = QLabel("Layer settings")
         self.param_title.setObjectName("sectionHint")
         root.addWidget(self.param_title)
         self.param_host = QWidget()
@@ -94,7 +94,7 @@ class EffectStackWidget(QWidget):
         self.param_form.setContentsMargins(0, 0, 0, 0)
         root.addWidget(self.param_host)
 
-        hint = QLabel("Drag rows to reorder. Uncheck a row to bypass it.")
+        hint = QLabel("Drag layers to reorder. Uncheck a layer to bypass it.")
         hint.setWordWrap(True)
         hint.setObjectName("sectionHint")
         root.addWidget(hint)
@@ -228,8 +228,8 @@ class EffectStackWidget(QWidget):
         self._clear_form()
         step = self._current_step()
         if step is None:
-            self.param_title.setText("Selected effect")
-            self.param_form.addRow(QLabel("Select or add an effect."))
+            self.param_title.setText("Layer settings")
+            self.param_form.addRow(QLabel("Select or add a layer."))
             return
         self.param_title.setText(step["kind"])
         definition = EFFECT_DEFINITIONS[step["kind"]]
@@ -346,3 +346,7 @@ class EffectStackWidget(QWidget):
             return
         step["params"][key] = value
         self._emit_changed()
+
+
+# New UI terminology: processing effects are presented as layers.
+LayerStackWidget = EffectStackWidget

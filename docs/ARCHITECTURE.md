@@ -192,3 +192,10 @@ ui/worker.py               QRunnable jobs
 `VERSION` is the only version source. `pyproject.toml` uses dynamic version metadata from that file. PyInstaller copies RasterMint package metadata and bundles the platform FFmpeg executable supplied by `imageio-ffmpeg` when available.
 
 See `THIRD_PARTY_NOTICES.md` before redistributing binaries.
+
+
+## Desktop inspector
+
+The desktop UI is intentionally separated from the renderer. The main window contains only the menu bar, central preview, and a two-column inspector. The inspector's left column selects a general area; the right column hosts the existing specialized editor widget. Processing effects are presented to users as **layers** while the core retains the `effect_stack` compatibility field used by presets and older code.
+
+`Pixel Aspect Ratio` is also available as an image-space layer. This is distinct from framebuffer/display pixel-aspect metadata in the Raster and Hardware systems: the layer participates in image processing order, while the framebuffer PAR describes presentation geometry.

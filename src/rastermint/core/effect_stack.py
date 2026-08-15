@@ -86,6 +86,11 @@ EFFECT_DEFINITIONS: dict[str, dict[str, Any]] = {
         "phase": {"type": "float", "label": "Phase", "default": 0.0, "min": 0.0, "max": 1.0, "step": 0.01, "decimals": 2, "animatable": True},
         "seed": {"type": "int", "label": "Seed", "default": 1, "min": 0, "max": 999999, "step": 1},
     }},
+    "Pixel Aspect Ratio": {"params": {
+        "x": {"type": "float", "label": "Pixel width", "default": 1.0, "min": 0.25, "max": 4.0, "step": 0.05, "decimals": 2, "animatable": True},
+        "y": {"type": "float", "label": "Pixel height", "default": 1.0, "min": 0.25, "max": 4.0, "step": 0.05, "decimals": 2, "animatable": True},
+        "resample": {"type": "choice", "label": "Resample", "default": "Nearest", "options": ["Nearest", "Bilinear", "Bicubic", "Lanczos"]},
+    }},
     "Pixelate": {"params": {
         "size": {"type": "int", "label": "Pixel size", "default": 2, "min": 1, "max": 64, "step": 1, "animatable": True, "pixel_scaled": True},
     }},
@@ -444,6 +449,29 @@ def _flicker(image: Image.Image, amount: float, speed: float, time_seconds: floa
     return ImageEnhance.Brightness(image).enhance(max(0.0, 1.0 + amount * phase))
 
 
+def _pixel_aspect_ratio(image: Image.Image, x: float, y: float, resample: str) -> Image.Image:
+    """Stretch pixel width at this point in the layer stack.
+
+    This is intentionally an image-space layer, separate from RasterMint's
+    framebuffer/display PAR metadata. Its position therefore participates in
+    layer ordering just like blur, dither, or chromatic shift.
+    """
+    x = max(0.25, min(4.0, float(x)))
+    y = max(0.25, min(4.0, float(y)))
+    ratio = x / y
+    target_width = max(1, round(image.width * ratio))
+    if target_width == image.width:
+        return image
+    methods = {
+        "Nearest": Image.Resampling.NEAREST,
+        "Bilinear": Image.Resampling.BILINEAR,
+        "Bicubic": Image.Resampling.BICUBIC,
+        "Lanczos": Image.Resampling.LANCZOS,
+    }
+    method = methods.get(str(resample), Image.Resampling.NEAREST)
+    return image.resize((target_width, image.height), method)
+
+
 def _pixelate(image: Image.Image, size: int) -> Image.Image:
     size = max(1, int(size))
     if size <= 1:
@@ -696,6 +724,19 @@ def _text_overlay(image: Image.Image, text: str, x: float, y: float, size: int, 
     return img
 
 
+def effect_stack_output_size(size: tuple[int, int], stack: list[dict[str, Any]]) -> tuple[int, int]:
+    """Return image dimensions after size-changing processing layers."""
+    width, height = max(1, int(size[0])), max(1, int(size[1]))
+    for step in normalize_effect_stack(stack):
+        if not step.get("enabled", True) or step.get("kind") != "Pixel Aspect Ratio":
+            continue
+        params = step.get("params", {})
+        x = max(0.25, min(4.0, float(params.get("x", 1.0))))
+        y = max(0.25, min(4.0, float(params.get("y", 1.0))))
+        width = max(1, round(width * x / y))
+    return width, height
+
+
 def apply_effect_stack(
     image: Image.Image,
     stack: list[dict[str, Any]],
@@ -740,6 +781,7 @@ def apply_effect_stack(
         elif kind == "Noise": img = _noise(img, float(p["amount"]), _seed(p, frame_index))
         elif kind == "Temporal Flicker": img = _flicker(img, float(p["amount"]), float(p["speed"]), frame_time)
         elif kind == "Temporal Pattern": img = _temporal_pattern(img, str(p["pattern"]), float(p["amount"]), float(p["speed"]), float(p["scale"]), float(p["phase"]), frame_time, int(p["seed"]))
+        elif kind == "Pixel Aspect Ratio": img = _pixel_aspect_ratio(img, float(p["x"]), float(p["y"]), str(p["resample"]))
         elif kind == "Pixelate": img = _pixelate(img, int(round(float(p["size"]))))
         elif kind == "Pixel Sort": img = _pixel_sort(img, float(p["threshold"]), str(p["direction"]), bool(p["reverse"]))
         elif kind == "Screen Melt": img = _screen_melt(img, int(p["amount"]), int(p["column_width"]), _seed(p, frame_index))

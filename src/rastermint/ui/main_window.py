@@ -26,7 +26,6 @@ from PySide6.QtWidgets import (
     QSlider,
     QSpinBox,
     QSplitter,
-    QToolBar,
     QVBoxLayout,
     QWidget,
 )
@@ -56,13 +55,15 @@ from rastermint.core.processor import (
     make_preview_settings,
     make_preview_source,
     display_output_size,
+    processed_raster_size,
     target_raster_size,
 )
 from rastermint.core.settings import ProcessingSettings
 from rastermint.core.svg_export import save_svg
 from rastermint.ui.animation_panel import AnimationPanel
 from rastermint.ui.hardware_panel import HardwarePanel
-from rastermint.ui.effect_stack_widget import EffectStackWidget
+from rastermint.ui.inspector_sidebar import InspectorSidebar
+from rastermint.ui.effect_stack_widget import LayerStackWidget
 from rastermint.ui.image_view import ImageView, SUPPORTED_IMAGE_SUFFIXES
 from rastermint.ui.lospec_dialog import LospecPaletteDialog
 from rastermint.ui.palette_editor import PaletteEditor
@@ -70,6 +71,7 @@ from rastermint.ui.palette_browser import PaletteBrowserDialog
 from rastermint.ui.palette_generator import PaletteGeneratorDialog
 from rastermint.ui.preset_gallery import PresetGallery
 from rastermint.ui.source_transform_widget import SourceTransformWidget
+from rastermint.ui.settings_dialog import SettingsDialog
 from rastermint.ui.target_raster_widget import TargetRasterWidget
 from rastermint.ui.worker import (
     BatchWorker,
@@ -164,7 +166,6 @@ class MainWindow(QMainWindow):
         self.app_settings = QSettings("RasterMint", "RasterMint")
 
         self._build_actions()
-        self._build_toolbar()
         self._build_ui()
         self._restore_geometry()
         self._apply_settings_to_controls(self.settings)
@@ -201,11 +202,31 @@ class MainWindow(QMainWindow):
         self.save_preset_action.setShortcut("Ctrl+Shift+S")
         self.save_preset_action.triggered.connect(self.save_preset_dialog)
 
+        self.settings_action = QAction("Settings…", self)
+        self.settings_action.setShortcut("Ctrl+,")
+        self.settings_action.triggered.connect(self.open_settings_dialog)
+
+        self.mirror_action = QAction("Mirror Image Horizontally", self)
+        self.mirror_action.setShortcut("Ctrl+Shift+M")
+        self.mirror_action.triggered.connect(self.mirror_image)
+        self.flip_vertical_action = QAction("Flip Image Vertically", self)
+        self.flip_vertical_action.triggered.connect(self.flip_image_vertical)
+        self.rotate_cw_action = QAction("Rotate 90° Clockwise", self)
+        self.rotate_cw_action.setShortcut("Ctrl+R")
+        self.rotate_cw_action.triggered.connect(lambda: self.rotate_image(90))
+        self.rotate_ccw_action = QAction("Rotate 90° Counter-clockwise", self)
+        self.rotate_ccw_action.triggered.connect(lambda: self.rotate_image(-90))
+        self.rotate_180_action = QAction("Rotate 180°", self)
+        self.rotate_180_action.triggered.connect(lambda: self.rotate_image(180))
+        self.reset_transform_action = QAction("Reset Image Transform", self)
+        self.reset_transform_action.triggered.connect(self.reset_image_transform)
+
         self.fit_action = QAction("Fit Preview", self)
         self.fit_action.setShortcut("F")
         self.fit_action.triggered.connect(self.fit_views)
-        self.reset_action = QAction("Reset Settings", self)
-        self.reset_action.triggered.connect(self.reset_settings)
+        self.about_action = QAction("About RasterMint", self)
+        self.about_action.triggered.connect(self.show_about)
+
         self.quit_action = QAction("Quit", self)
         self.quit_action.setShortcut(QKeySequence.StandardKey.Quit)
         self.quit_action.triggered.connect(self.close)
@@ -222,20 +243,24 @@ class MainWindow(QMainWindow):
         file_menu.addAction(self.save_preset_action)
         file_menu.addSeparator()
         file_menu.addAction(self.quit_action)
-        self.menuBar().addMenu("Edit").addAction(self.reset_action)
-        self.menuBar().addMenu("View").addAction(self.fit_action)
 
-    def _build_toolbar(self) -> None:
-        bar = QToolBar("Main", self)
-        bar.setMovable(False)
-        bar.addAction(self.open_action)
-        bar.addSeparator()
-        bar.addAction(self.export_action)
-        bar.addAction(self.export_media_action)
-        bar.addAction(self.export_sequence_action)
-        bar.addSeparator()
-        bar.addAction(self.fit_action)
-        self.addToolBar(bar)
+        edit_menu = self.menuBar().addMenu("Edit")
+        edit_menu.addAction(self.settings_action)
+        edit_menu.addSeparator()
+        manipulation = edit_menu.addMenu("Image Manipulation")
+        manipulation.addAction(self.mirror_action)
+        manipulation.addAction(self.flip_vertical_action)
+        manipulation.addSeparator()
+        manipulation.addAction(self.rotate_cw_action)
+        manipulation.addAction(self.rotate_ccw_action)
+        manipulation.addAction(self.rotate_180_action)
+        manipulation.addSeparator()
+        manipulation.addAction(self.reset_transform_action)
+
+        view_menu = self.menuBar().addMenu("View")
+        view_menu.addAction(self.fit_action)
+        view_menu.addSeparator()
+        view_menu.addAction(self.about_action)
 
     def _build_ui(self) -> None:
         root = QSplitter(Qt.Orientation.Horizontal)
@@ -257,78 +282,66 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.processed_view, 1)
         return panel
 
-    def _make_controls(self) -> QWidget:
+    def _new_inspector_page(self, title: str) -> tuple[QScrollArea, QVBoxLayout]:
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setSizeAdjustPolicy(QAbstractScrollArea.SizeAdjustPolicy.AdjustToContents)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        scroll.setMinimumWidth(530)
-        scroll.setMaximumWidth(660)
         body = QWidget()
-        body.setMinimumWidth(505)
         layout = QVBoxLayout(body)
-        layout.setContentsMargins(12, 12, 12, 20)
-        layout.setSpacing(12)
+        layout.setContentsMargins(14, 12, 14, 20)
+        layout.setSpacing(10)
+        heading = QLabel(title)
+        heading.setObjectName("inspectorTitle")
+        layout.addWidget(heading)
+        scroll.setWidget(body)
+        return scroll, layout
 
-        presets_box = QGroupBox("Visual Presets")
-        presets_layout = QVBoxLayout(presets_box)
+    def _make_controls(self) -> QWidget:
+        sidebar = InspectorSidebar()
+        sidebar.setMinimumWidth(570)
+        sidebar.setMaximumWidth(760)
+        self.inspector_sidebar = sidebar
+
+        # Presets
+        page, layout = self._new_inspector_page("Visual Presets")
         self.preset_gallery = PresetGallery()
         self.preset_gallery.preset_selected.connect(self._apply_builtin_preset)
         self.preset_gallery.refresh_requested.connect(self._refresh_preset_gallery)
-        presets_layout.addWidget(self.preset_gallery)
-        layout.addWidget(presets_box)
+        layout.addWidget(self.preset_gallery)
+        layout.addStretch(1)
+        sidebar.add_page("presets", "Presets", page)
 
-        preview_box = QGroupBox("Preview")
-        pv = QVBoxLayout(preview_box)
-        self.live_preview_check = QCheckBox("Live preview")
-        self.live_preview_check.setChecked(True)
-        self.live_preview_check.toggled.connect(self._live_preview_toggled)
-        pv.addWidget(self.live_preview_check)
+        # Preview: only the simplified names are exposed. The renderer logic
+        # behind live/still/full remains unchanged.
+        page, layout = self._new_inspector_page("Preview")
         self.preview_mode_combo = QComboBox()
-        self.preview_mode_combo.addItem("Live · fast draft + refine", "live")
-        self.preview_mode_combo.addItem("Still · refine after pause", "still")
-        self.preview_mode_combo.addItem("Full · output resolution", "full")
+        self.preview_mode_combo.addItem("Quick", "live")
+        self.preview_mode_combo.addItem("Stable", "still")
+        self.preview_mode_combo.addItem("Full", "full")
+        stored_mode = str(self.app_settings.value("previewMode", "live") or "live")
+        idx = self.preview_mode_combo.findData(stored_mode)
+        self.preview_mode_combo.setCurrentIndex(max(0, idx))
         self.preview_mode_combo.currentIndexChanged.connect(self._preview_mode_changed)
-        pv.addWidget(self.preview_mode_combo)
-        self.preview_hint = QLabel("Live mode: fast 320px draft → refined 640px preview")
-        self.preview_hint.setWordWrap(True)
-        pv.addWidget(self.preview_hint)
-        refresh = QPushButton("Refresh preview now")
+        layout.addWidget(QLabel("Render quality"))
+        layout.addWidget(self.preview_mode_combo)
+        refresh = QPushButton("Refresh Preview")
         refresh.clicked.connect(self._request_refined_preview)
-        pv.addWidget(refresh)
-        layout.addWidget(preview_box)
+        layout.addWidget(refresh)
+        layout.addStretch(1)
+        sidebar.add_page("preview", "Preview", page)
 
-        transform_box = QGroupBox("Source Transform")
-        transform_layout = QVBoxLayout(transform_box)
-        self.source_transform = SourceTransformWidget()
-        self.source_transform.changed.connect(self._controls_changed)
-        transform_layout.addWidget(self.source_transform)
-        layout.addWidget(transform_box)
-
-        raster_box = QGroupBox("Target Raster")
-        raster_layout = QVBoxLayout(raster_box)
-        self.target_raster = TargetRasterWidget()
-        self.target_raster.changed.connect(self._controls_changed)
-        raster_layout.addWidget(self.target_raster)
-        layout.addWidget(raster_box)
-
-        hardware_box = QGroupBox("Hardware Profile")
-        hardware_layout = QVBoxLayout(hardware_box)
-        self.hardware_panel = HardwarePanel()
-        self.hardware_panel.apply_requested.connect(self._apply_hardware_profile)
-        hardware_layout.addWidget(self.hardware_panel)
-        layout.addWidget(hardware_box)
-
-        effects_box = QGroupBox("Effect Stack")
-        effects_layout = QVBoxLayout(effects_box)
-        self.effect_stack = EffectStackWidget(self.settings.effect_stack)
+        # Layers. Effect layers are genuinely ordered. Pixel Aspect Ratio is
+        # also available here as an image-space layer alongside Chromatic Shift.
+        page, layout = self._new_inspector_page("Layers")
+        self.effect_stack = LayerStackWidget(self.settings.effect_stack)
         self.effect_stack.stack_changed.connect(self._effect_stack_changed)
-        effects_layout.addWidget(self.effect_stack)
-        layout.addWidget(effects_box)
+        layout.addWidget(self.effect_stack)
+        layout.addStretch(1)
+        sidebar.add_page("layers", "Layers", page)
 
-        palette_box = QGroupBox("Palette")
-        pal = QVBoxLayout(palette_box)
+        # Palette
+        page, pal = self._new_inspector_page("Palette")
         palette_nav = QHBoxLayout()
         self.palette_prev_button = QPushButton("‹")
         self.palette_prev_button.setFixedWidth(30)
@@ -358,6 +371,7 @@ class MainWindow(QMainWindow):
         pal.addWidget(self.palette_editor)
         self.palette_source_label = QLabel("Built-in palette")
         self.palette_source_label.setWordWrap(True)
+        self.palette_source_label.setObjectName("sectionHint")
         pal.addWidget(self.palette_source_label)
 
         palette_buttons1 = QHBoxLayout()
@@ -366,7 +380,7 @@ class MainWindow(QMainWindow):
         gradient = QPushButton("Gradient…")
         gradient.setToolTip("Generate a 2–256 color interpolated palette")
         gradient.clicked.connect(self.open_palette_generator)
-        import_pal = QPushButton("Import file…")
+        import_pal = QPushButton("Import File…")
         import_pal.clicked.connect(self.import_palette_file)
         export_pal = QPushButton("Save HEX…")
         export_pal.clicked.connect(self.export_palette_hex)
@@ -377,9 +391,9 @@ class MainWindow(QMainWindow):
         pal.addLayout(palette_buttons1)
 
         palette_buttons2 = QHBoxLayout()
-        shuffle = QPushButton("Shuffle unlocked")
+        shuffle = QPushButton("Shuffle Unlocked")
         shuffle.clicked.connect(self.palette_editor.shuffle_unlocked)
-        randomize = QPushButton("Randomize unlocked")
+        randomize = QPushButton("Randomize Unlocked")
         randomize.clicked.connect(self.palette_editor.randomize_unlocked)
         palette_buttons2.addWidget(shuffle)
         palette_buttons2.addWidget(randomize)
@@ -391,7 +405,7 @@ class MainWindow(QMainWindow):
         self.extract_count.setValue(8)
         self.extract_method = QComboBox()
         self.extract_method.addItems(PALETTE_OPTIMIZERS)
-        self.extract_button = QPushButton("Optimize from image")
+        self.extract_button = QPushButton("Optimize From Image")
         self.extract_button.clicked.connect(self.extract_palette_from_image)
         self.extract_button.setEnabled(False)
         extract_row.addWidget(QLabel("Colors"))
@@ -399,37 +413,36 @@ class MainWindow(QMainWindow):
         extract_row.addWidget(self.extract_method, 1)
         extract_row.addWidget(self.extract_button)
         pal.addLayout(extract_row)
-        layout.addWidget(palette_box)
+        pal.addStretch(1)
+        sidebar.add_page("palette", "Palette", page)
 
-        random_box = QGroupBox("Creative Randomize")
-        random_layout = QVBoxLayout(random_box)
-        lock_row = QHBoxLayout()
-        self.random_lock_checks: dict[str, QCheckBox] = {}
-        for key, label in [("palette", "Palette"), ("dither", "Dither"), ("effects", "Effects"), ("resolution", "Raster"), ("parameters", "Params")]:
-            check = QCheckBox(label)
-            check.setToolTip(f"Lock {label.lower()} while randomizing")
-            check.toggled.connect(self._random_lock_changed)
-            self.random_lock_checks[key] = check
-            lock_row.addWidget(check)
-        random_layout.addWidget(QLabel("Lock while randomizing"))
-        random_layout.addLayout(lock_row)
-        nav = QHBoxLayout()
-        self.random_prev_button = QPushButton("← Previous")
-        self.random_button = QPushButton("🎲 Randomize")
-        self.random_next_button = QPushButton("Next →")
-        self.random_prev_button.clicked.connect(lambda: self._random_history_move(-1))
-        self.random_button.clicked.connect(self.randomize_unlocked)
-        self.random_next_button.clicked.connect(lambda: self._random_history_move(1))
-        nav.addWidget(self.random_prev_button); nav.addWidget(self.random_button); nav.addWidget(self.random_next_button)
-        random_layout.addLayout(nav)
-        self.random_save_button = QPushButton("Save current as preset…")
-        self.random_save_button.clicked.connect(self.save_preset_dialog)
-        random_layout.addWidget(self.random_save_button)
-        layout.addWidget(random_box)
-        self._update_random_history_buttons()
+        # Raster / presentation
+        page, layout = self._new_inspector_page("Raster")
+        self.target_raster = TargetRasterWidget()
+        self.target_raster.changed.connect(self._controls_changed)
+        layout.addWidget(self.target_raster)
+        layout.addStretch(1)
+        sidebar.add_page("raster", "Raster", page)
 
-        animation_box = QGroupBox("Animation")
-        animation_layout = QVBoxLayout(animation_box)
+        # Hardware profiles
+        page, layout = self._new_inspector_page("Hardware")
+        self.hardware_panel = HardwarePanel()
+        self.hardware_panel.apply_requested.connect(self._apply_hardware_profile)
+        layout.addWidget(self.hardware_panel)
+        layout.addStretch(1)
+        sidebar.add_page("hardware", "Hardware", page)
+
+        # Source transform / crop. Mirror/flip/rotate are also exposed through
+        # Edit > Image Manipulation for quick access.
+        page, layout = self._new_inspector_page("Source")
+        self.source_transform = SourceTransformWidget()
+        self.source_transform.changed.connect(self._controls_changed)
+        layout.addWidget(self.source_transform)
+        layout.addStretch(1)
+        sidebar.add_page("source", "Source", page)
+
+        # Animation
+        page, layout = self._new_inspector_page("Animation")
         self.animation_panel = AnimationPanel()
         self.animation_panel.set_targets(self.effect_stack.animatable_targets())
         self.animation_panel.animation_changed.connect(self._animation_changed)
@@ -439,11 +452,42 @@ class MainWindow(QMainWindow):
         self.animation_panel.preview_mode_changed.connect(self._animation_preview_mode_changed)
         self.animation_panel.preset_requested.connect(self._apply_animation_preset)
         self.effect_stack.targets_changed.connect(self.animation_panel.set_targets)
-        animation_layout.addWidget(self.animation_panel)
-        layout.addWidget(animation_box)
+        layout.addWidget(self.animation_panel)
+        layout.addStretch(1)
+        sidebar.add_page("animation", "Animation", page)
 
-        source_box = QGroupBox("Source")
-        source_layout = QVBoxLayout(source_box)
+        # Creative randomization
+        page, random_layout = self._new_inspector_page("Randomize")
+        lock_row = QHBoxLayout()
+        self.random_lock_checks: dict[str, QCheckBox] = {}
+        for key, label in [("palette", "Palette"), ("dither", "Dither"), ("effects", "Layers"), ("resolution", "Raster"), ("parameters", "Params")]:
+            check = QCheckBox(label)
+            check.setToolTip(f"Lock {label.lower()} while randomizing")
+            check.toggled.connect(self._random_lock_changed)
+            self.random_lock_checks[key] = check
+            lock_row.addWidget(check)
+        random_layout.addWidget(QLabel("Lock while randomizing"))
+        random_layout.addLayout(lock_row)
+        nav = QHBoxLayout()
+        self.random_prev_button = QPushButton("← Previous")
+        self.random_button = QPushButton("Randomize")
+        self.random_next_button = QPushButton("Next →")
+        self.random_prev_button.clicked.connect(lambda: self._random_history_move(-1))
+        self.random_button.clicked.connect(self.randomize_unlocked)
+        self.random_next_button.clicked.connect(lambda: self._random_history_move(1))
+        nav.addWidget(self.random_prev_button)
+        nav.addWidget(self.random_button)
+        nav.addWidget(self.random_next_button)
+        random_layout.addLayout(nav)
+        self.random_save_button = QPushButton("Save Current as Preset…")
+        self.random_save_button.clicked.connect(self.save_preset_dialog)
+        random_layout.addWidget(self.random_save_button)
+        random_layout.addStretch(1)
+        sidebar.add_page("randomize", "Randomize", page)
+        self._update_random_history_buttons()
+
+        # Media / video playback and source information
+        page, source_layout = self._new_inspector_page("Media")
         self.source_type_label = QLabel("No media loaded")
         source_layout.addWidget(self.source_type_label)
         self.video_controls = QWidget()
@@ -492,10 +536,8 @@ class MainWindow(QMainWindow):
         video_layout.addWidget(self.video_cache_label)
         self.video_controls.setVisible(False)
         source_layout.addWidget(self.video_controls)
-        layout.addWidget(source_box)
 
-        info_box = QGroupBox("Media")
-        info = QFormLayout(info_box)
+        info = QFormLayout()
         self.file_label = QLabel("—")
         self.file_label.setWordWrap(True)
         self.input_size_label = QLabel("—")
@@ -503,10 +545,12 @@ class MainWindow(QMainWindow):
         info.addRow("File", self.file_label)
         info.addRow("Input", self.input_size_label)
         info.addRow("Output", self.output_size_label)
-        layout.addWidget(info_box)
-        layout.addStretch(1)
-        scroll.setWidget(body)
-        return scroll
+        source_layout.addLayout(info)
+        source_layout.addStretch(1)
+        sidebar.add_page("media", "Media", page)
+
+        sidebar.set_current("layers")
+        return sidebar
 
     # ---------- settings ----------
     def _settings_from_controls(self) -> ProcessingSettings:
@@ -642,7 +686,7 @@ class MainWindow(QMainWindow):
         if self.original_image is None:
             return
         if self.video_path is not None:
-            self.statusBar().showMessage("For video, use Render 5 s Preview in the Source panel.", 4000)
+            self.statusBar().showMessage("For video, use Render 5 s Preview in the Media panel.", 4000)
             return
         settings = self._settings_from_controls()
         job_id = self._next_job_id()
@@ -660,22 +704,14 @@ class MainWindow(QMainWindow):
 
     def _preview_mode_changed(self, *_args) -> None:
         mode = self._preview_mode()
-        hints = {
-            "live": "Live mode: fast 320px draft → refined 640px preview",
-            "still": "Still mode: render a refined 640px preview after changes settle",
-            "full": "Full mode: render at the selected output resolution (can be slow)",
-        }
-        self.preview_hint.setText(hints.get(mode, hints["live"]))
+        self.app_settings.setValue("previewMode", mode)
         if self.original_image is not None:
             self.schedule_preview(immediate=True, force=True)
 
-    def _live_preview_toggled(self, enabled: bool) -> None:
-        if not enabled:
-            self.preview_timer.stop()
-            self.preview_refine_timer.stop()
-            self.statusBar().showMessage("Live preview paused · use Refresh preview now", 3500)
-        elif self.original_image is not None:
-            self.schedule_preview(immediate=True, force=True)
+    def _set_preview_mode(self, mode: str) -> None:
+        index = self.preview_mode_combo.findData(str(mode))
+        if index >= 0:
+            self.preview_mode_combo.setCurrentIndex(index)
 
     def _apply_hardware_profile(self, profile: HardwareProfile, mode: str, options: object) -> None:
         if not isinstance(options, dict):
@@ -1243,8 +1279,6 @@ class MainWindow(QMainWindow):
     def schedule_preview(self, immediate: bool = False, force: bool = False, refined: bool = True) -> None:
         if self.original_image is None:
             return
-        if not force and not self.live_preview_check.isChecked():
-            return
 
         playing = self.animation_panel.is_playing() or self._video_playing
         mode = self._preview_mode()
@@ -1296,7 +1330,7 @@ class MainWindow(QMainWindow):
             self._preview_pending_max_side = max(self._preview_pending_max_side, max_side)
             return
 
-        final_size = target_raster_size(self.original_image.size, settings)
+        final_size = processed_raster_size(self.original_image.size, settings)
         preview_source = make_preview_source(self.original_image, max_side=max_side, settings=settings)
         preview_settings = make_preview_settings(settings, final_size, preview_source.size)
 
@@ -1304,7 +1338,7 @@ class MainWindow(QMainWindow):
         self._latest_preview_job = job_id
         self._preview_running = True
         self._preview_pending_max_side = 0
-        quality = "draft" if max_side <= FAST_PREVIEW_MAX_SIDE else ("full" if self._preview_mode() == "full" and max_side > PREVIEW_MAX_SIDE else "refined")
+        quality = "Quick" if max_side <= FAST_PREVIEW_MAX_SIDE else ("Full" if self._preview_mode() == "full" and max_side > PREVIEW_MAX_SIDE else "Stable")
         context = {
             "source_revision": self._source_revision,
             "settings_revision": self._settings_revision,
@@ -1393,7 +1427,7 @@ class MainWindow(QMainWindow):
                 self.preview_result = result
                 self.processed_view.set_pixmap(pil_to_pixmap(result))
                 self.statusBar().showMessage(
-                    f"{str(ctx.get('quality', 'preview')).title()} · {result.width} × {result.height}", 1800
+                    f"{str(ctx.get('quality', 'Preview'))} · {result.width} × {result.height}", 1800
                 )
             self._start_pending_preview()
             return
@@ -1648,7 +1682,41 @@ class MainWindow(QMainWindow):
         except Exception as exc:
             QMessageBox.critical(self, "Could not load preset", str(exc))
 
+    def open_settings_dialog(self) -> None:
+        dialog = SettingsDialog(self._preview_mode(), self)
+        dialog.preview_mode_requested.connect(self._set_preview_mode)
+        dialog.reset_requested.connect(self.reset_settings)
+        dialog.exec()
+
+    def mirror_image(self) -> None:
+        self.source_transform.flip_h.toggle()
+
+    def flip_image_vertical(self) -> None:
+        self.source_transform.flip_v.toggle()
+
+    def rotate_image(self, degrees: int) -> None:
+        current = int(self.source_transform.rotation.currentData() or 0)
+        target = (current + int(degrees)) % 360
+        index = self.source_transform.rotation.findData(target)
+        if index >= 0:
+            self.source_transform.rotation.setCurrentIndex(index)
+
+    def reset_image_transform(self) -> None:
+        defaults = ProcessingSettings()
+        self.source_transform.set_from_settings(defaults)
+        self._controls_changed()
+
+    def show_about(self) -> None:
+        QMessageBox.information(
+            self,
+            "About RasterMint",
+            f"RasterMint {__version__}\n"
+            "Developed by Draconov, 2026.\n"
+            "Official repository: https://github.com/Draconov/RasterMint",
+        )
+
     def reset_settings(self) -> None:
+        self._set_preview_mode("live")
         settings = ProcessingSettings()
         settings.effect_stack = default_effect_stack(settings)
         self._apply_settings_to_controls(settings)
@@ -1659,7 +1727,7 @@ class MainWindow(QMainWindow):
             self.output_size_label.setText("—")
             return
         settings = self._settings_from_controls() if hasattr(self, "target_raster") else self.settings
-        raw = target_raster_size(self.original_image.size, settings)
+        raw = processed_raster_size(self.original_image.size, settings)
         displayed = display_output_size(self.original_image.size, settings)
         if settings.display_mode != "raw" and displayed != raw:
             self.output_size_label.setText(f"{raw[0]} × {raw[1]} framebuffer → {displayed[0]} × {displayed[1]} display")

@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from PIL import Image, ImageOps
 
-from .effect_stack import apply_effect_stack, normalize_effect_stack, scale_stack_for_preview
+from .effect_stack import apply_effect_stack, effect_stack_output_size, normalize_effect_stack, scale_stack_for_preview
 from .hardware import apply_hardware_constraints, render_display_view
 from .palette import hex_to_rgb
 from .settings import ProcessingSettings
@@ -74,8 +74,13 @@ def target_raster_size(source_size: tuple[int, int], settings: ProcessingSetting
     return scaled_output_size(transformed, settings.output_divisor)
 
 
+def processed_raster_size(source_size: tuple[int, int], settings: ProcessingSettings) -> tuple[int, int]:
+    base = target_raster_size(source_size, settings)
+    return effect_stack_output_size(base, settings.effect_stack)
+
+
 def display_output_size(source_size: tuple[int, int], settings: ProcessingSettings) -> tuple[int, int]:
-    width, height = target_raster_size(source_size, settings)
+    width, height = processed_raster_size(source_size, settings)
     if settings.display_mode in {"corrected", "display"}:
         width = max(1, round(width * settings.pixel_aspect_x / max(0.05, settings.pixel_aspect_y)))
     return width, height

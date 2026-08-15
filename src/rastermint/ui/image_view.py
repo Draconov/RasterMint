@@ -21,7 +21,7 @@ class ImageView(QGraphicsView):
         super().__init__(parent)
         self._scene = QGraphicsScene(self)
         self._pixmap_item = QGraphicsPixmapItem()
-        self._placeholder = QGraphicsSimpleTextItem("Drop an image, GIF, or video here\nor use Open File")
+        self._placeholder = QGraphicsSimpleTextItem("")
         placeholder_font = QFont()
         placeholder_font.setPointSize(13)
         self._placeholder.setFont(placeholder_font)

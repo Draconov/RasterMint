@@ -49,3 +49,13 @@ def test_normalize_effect_stack_repairs_duplicate_ids():
     b = new_effect("Grayscale", effect_id="same")
     stack = normalize_effect_stack([a, b])
     assert len({step["id"] for step in stack}) == 2
+
+
+def test_pixel_aspect_ratio_layer_changes_image_width_in_stack():
+    image = Image.new("RGB", (8, 6), (40, 120, 80))
+    layer = new_effect("Pixel Aspect Ratio")
+    layer["params"]["x"] = 2.0
+    layer["params"]["y"] = 1.0
+    layer["params"]["resample"] = "Nearest"
+    out = apply_effect_stack(image, [layer], ["#000000", "#FFFFFF"])
+    assert out.size == (16, 6)
