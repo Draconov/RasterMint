@@ -11,6 +11,8 @@ Source transform (crop · flip · rotate)
         ↓
 Target framebuffer raster (exact size / legacy divisor)
         ↓
+Optional interactive mirror axis
+        ↓
 Reorderable effect stack
         ├─ adjustments / local contrast / color
         ├─ spatial / glitch / material / text effects
@@ -21,7 +23,7 @@ Optional strict hardware constraints
         ↓
 Raw framebuffer
         ↓
-Pixel-aspect correction / display simulation / grid (view or export)
+Pixel-aspect correction / display simulation
         ↓
 Processed RGB frame
         ├─ live viewport
@@ -46,7 +48,7 @@ core/hardware.py       data-driven hardware constraints, pixel aspect, display/g
 core/svg_export.py     horizontal-run SVG conversion
 core/batch.py          multi-image processing
 core/media.py          GIF + FFmpeg-backed timed-media/still-animation I/O
-core/presets.py        .rmpreset serialization
+core/presets.py        human-editable JSON preset serialization
 ```
 
 ## Effect stack contract
@@ -180,10 +182,10 @@ ui/effect_stack_widget.py  reorder/bypass/duplicate + dynamic parameter editor
 ui/animation_panel.py      timeline and parameter-track editing
 ui/palette_editor.py       swatches, locks, shuffle/randomization
 ui/lospec_dialog.py        async palette API request + fetched swatch preview
-ui/target_raster_widget.py exact raster / PAR / display / grid controls
-ui/source_transform_widget.py crop / rotate / flip / fill position
+ui/target_raster_widget.py exact raster / PAR / display controls
+ui/source_transform_widget.py crop / fill position
 ui/hardware_panel.py       data-driven Visual/Strict profile controls
-ui/image_view.py           pan/zoom/drop viewport
+ui/image_view.py           pan/zoom/drop + automatic high-zoom pixel grid + draggable mirror axes
 ui/worker.py               QRunnable jobs
 ```
 
@@ -199,3 +201,7 @@ See `THIRD_PARTY_NOTICES.md` before redistributing binaries.
 The desktop UI is intentionally separated from the renderer. The main window contains only the menu bar, central preview, and a two-column inspector. The inspector's left column selects a general area; the right column hosts the existing specialized editor widget. Processing effects are presented to users as **layers** while the core retains the `effect_stack` compatibility field used by presets and older code.
 
 `Pixel Aspect Ratio` is also available as an image-space layer. This is distinct from framebuffer/display pixel-aspect metadata in the Raster and Hardware systems: the layer participates in image processing order, while the framebuffer PAR describes presentation geometry.
+
+## Stability guards
+
+Interactive Full preview is memory-bounded for unusually large rasters; final export remains full resolution. Rendered animation preview caches are capped to avoid retaining hundreds of megabytes to more than a gigabyte of Pillow frames. The main window stops timers, clears queued worker jobs, and briefly waits for running work during shutdown. Frozen GUI builds enable `faulthandler` and write uncaught exceptions/fatal diagnostics to the platform app-data `crash.log`.

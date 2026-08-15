@@ -103,20 +103,6 @@ class TargetRasterWidget(QWidget):
         form.addRow("", self.display_export)
         root.addLayout(form)
 
-        grid_title = QLabel("Grid")
-        grid_title.setObjectName("sectionHint")
-        root.addWidget(grid_title)
-        grid = QGridLayout()
-        self.grid_enabled = QCheckBox("Enable pixel grid")
-        self.grid_preview = QCheckBox("Preview"); self.grid_preview.setChecked(True)
-        self.grid_export = QCheckBox("Export")
-        self.grid_spacing = QSpinBox(); self.grid_spacing.setRange(1, 256); self.grid_spacing.setValue(1)
-        self.grid_major = QSpinBox(); self.grid_major.setRange(0, 1024); self.grid_major.setValue(8)
-        for widget in (self.grid_enabled, self.grid_preview, self.grid_export): widget.toggled.connect(self._emit_changed)
-        self.grid_spacing.valueChanged.connect(self._emit_changed); self.grid_major.valueChanged.connect(self._emit_changed)
-        grid.addWidget(self.grid_enabled, 0, 0, 1, 2); grid.addWidget(self.grid_preview, 0, 2); grid.addWidget(self.grid_export, 0, 3)
-        grid.addWidget(QLabel("Every"), 1, 0); grid.addWidget(self.grid_spacing, 1, 1); grid.addWidget(QLabel("Major"), 1, 2); grid.addWidget(self.grid_major, 1, 3)
-        root.addLayout(grid)
         self._pixel_aspect_changed()
 
     def set_source_size(self, size: tuple[int, int] | None) -> None:
@@ -195,11 +181,6 @@ class TargetRasterWidget(QWidget):
         settings.pixel_aspect_y = self.par_y.value()
         settings.display_mode = str(self.view_mode.currentData() or "corrected")
         settings.display_export = self.display_export.isChecked()
-        settings.grid_enabled = self.grid_enabled.isChecked()
-        settings.grid_preview = self.grid_preview.isChecked()
-        settings.grid_export = self.grid_export.isChecked()
-        settings.grid_spacing = self.grid_spacing.value()
-        settings.grid_major_spacing = self.grid_major.value()
 
     def set_from_settings(self, settings: ProcessingSettings) -> None:
         self._loading = True
@@ -218,8 +199,6 @@ class TargetRasterWidget(QWidget):
             self.pixel_aspect.setCurrentIndex(matched if matched >= 0 else self.pixel_aspect.count() - 1)
             idx = self.view_mode.findData(settings.display_mode); self.view_mode.setCurrentIndex(max(0, idx))
             self.display_export.setChecked(settings.display_export)
-            self.grid_enabled.setChecked(settings.grid_enabled); self.grid_preview.setChecked(settings.grid_preview); self.grid_export.setChecked(settings.grid_export)
-            self.grid_spacing.setValue(settings.grid_spacing); self.grid_major.setValue(settings.grid_major_spacing)
             self.preset.setCurrentIndex(0)
         finally:
             self._loading = False

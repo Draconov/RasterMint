@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import math
 import os
 import random
 from pathlib import Path
@@ -61,6 +62,7 @@ from rastermint.core.processor import (
 from rastermint.core.settings import ProcessingSettings
 from rastermint.core.svg_export import save_svg
 from rastermint.ui.animation_panel import AnimationPanel
+from rastermint.ui.about_dialog import AboutDialog
 from rastermint.ui.hardware_panel import HardwarePanel
 from rastermint.ui.inspector_sidebar import InspectorSidebar
 from rastermint.ui.effect_stack_widget import LayerStackWidget
@@ -88,7 +90,8 @@ IMAGE_FILTER = "Still images (*.png *.jpg *.jpeg *.bmp *.webp *.tif *.tiff);;All
 EXPORT_FILTER = "PNG (*.png);;JPEG (*.jpg *.jpeg);;WebP (*.webp);;BMP (*.bmp);;TIFF (*.tif *.tiff);;SVG (*.svg)"
 ANIMATION_FILTER = "MP4 video (*.mp4);;Animated GIF (*.gif)"
 PALETTE_FILTER = "Palette files (*.hex *.txt *.gpl *.pal);;All files (*.*)"
-PRESET_FILTER = "RasterMint preset (*.rmpreset);;JSON (*.json)"
+PRESET_FILTER = "RasterMint JSON preset (*.json)"
+MAX_FULL_PREVIEW_PIXELS = 12_000_000
 
 
 def pil_to_pixmap(image: Image.Image) -> QPixmap:
@@ -105,6 +108,7 @@ class MainWindow(QMainWindow):
         self.resize(1440, 900)
         self.setMinimumSize(1000, 650)
         self.setAcceptDrops(True)
+        self._closing = False
 
         self.original_image: Image.Image | None = None
         self.preview_result: Image.Image | None = None
@@ -143,6 +147,7 @@ class MainWindow(QMainWindow):
         self._loading_controls = False
         self._preview_running = False
         self._preview_pending_max_side = 0
+        self._full_preview_limited = False
         self._source_revision = 0
         self._settings_revision = 0
         self._random_history: list[dict] = []
@@ -206,11 +211,24 @@ class MainWindow(QMainWindow):
         self.settings_action.setShortcut("Ctrl+,")
         self.settings_action.triggered.connect(self.open_settings_dialog)
 
-        self.mirror_action = QAction("Mirror Image Horizontally", self)
-        self.mirror_action.setShortcut("Ctrl+Shift+M")
-        self.mirror_action.triggered.connect(self.mirror_image)
+        self.flip_horizontal_action = QAction("Flip Image Horizontally", self)
+        self.flip_horizontal_action.setShortcut("Ctrl+Shift+H")
+        self.flip_horizontal_action.triggered.connect(self.flip_image_horizontal)
         self.flip_vertical_action = QAction("Flip Image Vertically", self)
+        self.flip_vertical_action.setShortcut("Ctrl+Shift+V")
         self.flip_vertical_action.triggered.connect(self.flip_image_vertical)
+
+        self.mirror_horizontal_action = QAction("Mirror Image Horizontally", self)
+        self.mirror_horizontal_action.setCheckable(True)
+        self.mirror_horizontal_action.setShortcut("Ctrl+Alt+H")
+        self.mirror_horizontal_action.setToolTip("Enable a draggable blue vertical mirror axis; the left side is reflected to the right")
+        self.mirror_horizontal_action.toggled.connect(self._mirror_horizontal_toggled)
+        self.mirror_vertical_action = QAction("Mirror Image Vertically", self)
+        self.mirror_vertical_action.setCheckable(True)
+        self.mirror_vertical_action.setShortcut("Ctrl+Alt+V")
+        self.mirror_vertical_action.setToolTip("Enable a draggable blue horizontal mirror axis; the top side is reflected downward")
+        self.mirror_vertical_action.toggled.connect(self._mirror_vertical_toggled)
+
         self.rotate_cw_action = QAction("Rotate 90° Clockwise", self)
         self.rotate_cw_action.setShortcut("Ctrl+R")
         self.rotate_cw_action.triggered.connect(lambda: self.rotate_image(90))
@@ -245,17 +263,19 @@ class MainWindow(QMainWindow):
         file_menu.addAction(self.quit_action)
 
         edit_menu = self.menuBar().addMenu("Edit")
-        edit_menu.addAction(self.settings_action)
+        edit_menu.addAction(self.flip_horizontal_action)
+        edit_menu.addAction(self.flip_vertical_action)
         edit_menu.addSeparator()
-        manipulation = edit_menu.addMenu("Image Manipulation")
-        manipulation.addAction(self.mirror_action)
-        manipulation.addAction(self.flip_vertical_action)
-        manipulation.addSeparator()
-        manipulation.addAction(self.rotate_cw_action)
-        manipulation.addAction(self.rotate_ccw_action)
-        manipulation.addAction(self.rotate_180_action)
-        manipulation.addSeparator()
-        manipulation.addAction(self.reset_transform_action)
+        edit_menu.addAction(self.mirror_horizontal_action)
+        edit_menu.addAction(self.mirror_vertical_action)
+        edit_menu.addSeparator()
+        edit_menu.addAction(self.rotate_cw_action)
+        edit_menu.addAction(self.rotate_ccw_action)
+        edit_menu.addAction(self.rotate_180_action)
+        edit_menu.addSeparator()
+        edit_menu.addAction(self.reset_transform_action)
+        edit_menu.addSeparator()
+        edit_menu.addAction(self.settings_action)
 
         view_menu = self.menuBar().addMenu("View")
         view_menu.addAction(self.fit_action)
@@ -279,6 +299,7 @@ class MainWindow(QMainWindow):
         layout.setSpacing(0)
         self.processed_view = ImageView()
         self.processed_view.file_dropped.connect(self._load_dropped_path)
+        self.processed_view.mirror_axis_changed.connect(self._mirror_axis_changed)
         layout.addWidget(self.processed_view, 1)
         return panel
 
@@ -432,8 +453,7 @@ class MainWindow(QMainWindow):
         layout.addStretch(1)
         sidebar.add_page("hardware", "Hardware", page)
 
-        # Source transform / crop. Mirror/flip/rotate are also exposed through
-        # Edit > Image Manipulation for quick access.
+        # Source crop/framing. Flip, mirror and rotation live directly in Edit.
         page, layout = self._new_inspector_page("Source")
         self.source_transform = SourceTransformWidget()
         self.source_transform.changed.connect(self._controls_changed)
@@ -571,6 +591,11 @@ class MainWindow(QMainWindow):
         result.random_locks = {key: check.isChecked() for key, check in self.random_lock_checks.items()}
         self.source_transform.apply_to_settings(result)
         self.target_raster.apply_to_settings(result)
+        # Pixel grid is now a zoom-only viewport aid; never bake it into
+        # preview/export/batch renders from the desktop UI.
+        result.grid_enabled = False
+        result.grid_preview = False
+        result.grid_export = False
         return ProcessingSettings.from_dict(result.to_dict())
 
     def _apply_settings_to_controls(self, settings: ProcessingSettings) -> None:
@@ -581,6 +606,8 @@ class MainWindow(QMainWindow):
             self.settings = canonical
             self.source_transform.set_from_settings(canonical)
             self.target_raster.set_from_settings(canonical)
+            self._sync_transform_actions(canonical)
+            self._sync_mirror_overlay(canonical)
             self.hardware_panel.select_profile(canonical.hardware_profile_id, canonical.hardware_mode)
             self.effect_stack.set_stack(canonical.effect_stack)
             self.palette_editor.set_colors(canonical.palette, canonical.palette_locks, emit=False)
@@ -1245,7 +1272,7 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(f"Rendering {duration:.1f} s video preview segment…")
 
     def _request_video_frame(self, time_seconds: float) -> None:
-        if self.video_path is None:
+        if self._closing or self.video_path is None:
             return
         if self._video_frame_running:
             self._pending_video_time = time_seconds
@@ -1259,25 +1286,42 @@ class MainWindow(QMainWindow):
         self.thread_pool.start(worker)
 
     def _start_pending_video_frame(self) -> None:
+        if self._closing:
+            self._pending_video_time = None
+            return
         pending = self._pending_video_time
         self._pending_video_time = None
         if pending is not None:
             QTimer.singleShot(0, lambda t=pending: self._request_video_frame(t))
 
     # ---------- rendering ----------
-    def _request_refined_preview(self) -> None:
+    def _safe_full_preview_side(self) -> int:
         if self.original_image is None:
+            return PREVIEW_MAX_SIDE
+        settings = self._settings_from_controls()
+        target = target_raster_size(self.original_image.size, settings)
+        processed = processed_raster_size(self.original_image.size, settings)
+        pixels = max(1, int(processed[0]) * int(processed[1]))
+        if pixels <= MAX_FULL_PREVIEW_PIXELS:
+            self._full_preview_limited = False
+            return max(target)
+        self._full_preview_limited = True
+        scale = math.sqrt(MAX_FULL_PREVIEW_PIXELS / pixels)
+        return max(64, round(max(target) * scale))
+
+    def _request_refined_preview(self) -> None:
+        if self.original_image is None or self._closing:
             return
         mode = self._preview_mode()
         if mode == "full":
-            full_size = target_raster_size(self.original_image.size, self._settings_from_controls())
-            side = max(full_size)
+            side = self._safe_full_preview_side()
         else:
+            self._full_preview_limited = False
             side = PREVIEW_MAX_SIDE
         self._request_preview(side)
 
     def schedule_preview(self, immediate: bool = False, force: bool = False, refined: bool = True) -> None:
-        if self.original_image is None:
+        if self._closing or self.original_image is None:
             return
 
         playing = self.animation_panel.is_playing() or self._video_playing
@@ -1314,7 +1358,7 @@ class MainWindow(QMainWindow):
         return self._job_counter
 
     def _request_preview(self, max_side: int) -> None:
-        if self.original_image is None:
+        if self._closing or self.original_image is None:
             return
         base_settings = self._settings_from_controls()
         animation_time = self.animation_panel.current_time()
@@ -1338,7 +1382,11 @@ class MainWindow(QMainWindow):
         self._latest_preview_job = job_id
         self._preview_running = True
         self._preview_pending_max_side = 0
-        quality = "Quick" if max_side <= FAST_PREVIEW_MAX_SIDE else ("Full" if self._preview_mode() == "full" and max_side > PREVIEW_MAX_SIDE else "Stable")
+        quality = "Quick" if max_side <= FAST_PREVIEW_MAX_SIDE else (
+            "Full (safe)" if self._preview_mode() == "full" and self._full_preview_limited
+            else "Full" if self._preview_mode() == "full" and max_side > PREVIEW_MAX_SIDE
+            else "Stable"
+        )
         context = {
             "source_revision": self._source_revision,
             "settings_revision": self._settings_revision,
@@ -1364,12 +1412,17 @@ class MainWindow(QMainWindow):
         self.thread_pool.start(worker)
 
     def _start_pending_preview(self) -> None:
+        if self._closing:
+            self._preview_pending_max_side = 0
+            return
         side = self._preview_pending_max_side
         self._preview_pending_max_side = 0
         if side:
             QTimer.singleShot(0, lambda s=side: self._request_preview(s))
 
     def _worker_finished(self, job_id: int, purpose: str, result: object, context: object) -> None:
+        if self._closing:
+            return
         if purpose == "rendered-preview":
             ctx = context if isinstance(context, dict) else {}
             kind = str(ctx.get("kind", ""))
@@ -1478,6 +1531,8 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage(f"Batch export complete: {count} files", 6000)
 
     def _worker_failed(self, job_id: int, purpose: str, trace: str, context: object) -> None:
+        if self._closing:
+            return
         if purpose == "preset-thumbnail":
             return
         if purpose == "preview":
@@ -1661,7 +1716,7 @@ class MainWindow(QMainWindow):
             return
         target = Path(path)
         if not target.suffix:
-            target = target.with_suffix(".rmpreset")
+            target = target.with_suffix(".json")
         try:
             save_preset(target, self._settings_from_controls())
             self.app_settings.setValue("lastPresetDir", str(target.parent))
@@ -1683,37 +1738,87 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Could not load preset", str(exc))
 
     def open_settings_dialog(self) -> None:
-        dialog = SettingsDialog(self._preview_mode(), self)
-        dialog.preview_mode_requested.connect(self._set_preview_mode)
+        dialog = SettingsDialog(self)
         dialog.reset_requested.connect(self.reset_settings)
         dialog.exec()
 
-    def mirror_image(self) -> None:
-        self.source_transform.flip_h.toggle()
+    def _sync_transform_actions(self, settings: ProcessingSettings) -> None:
+        pairs = (
+            (self.mirror_horizontal_action, settings.mirror_horizontal),
+            (self.mirror_vertical_action, settings.mirror_vertical),
+        )
+        for action, checked in pairs:
+            action.blockSignals(True)
+            action.setChecked(bool(checked))
+            action.blockSignals(False)
+
+    def _sync_mirror_overlay(self, settings: ProcessingSettings) -> None:
+        if hasattr(self, "processed_view"):
+            self.processed_view.set_mirror_axes(
+                settings.mirror_horizontal,
+                settings.mirror_horizontal_axis,
+                settings.mirror_vertical,
+                settings.mirror_vertical_axis,
+            )
+
+    def _set_direct_transform(self, **changes) -> None:
+        settings = self._settings_from_controls()
+        for key, value in changes.items():
+            setattr(settings, key, value)
+        self._apply_settings_to_controls(settings)
+
+    def flip_image_horizontal(self) -> None:
+        settings = self._settings_from_controls()
+        self._set_direct_transform(flip_horizontal=not settings.flip_horizontal)
 
     def flip_image_vertical(self) -> None:
-        self.source_transform.flip_v.toggle()
+        settings = self._settings_from_controls()
+        self._set_direct_transform(flip_vertical=not settings.flip_vertical)
+
+    def _mirror_horizontal_toggled(self, enabled: bool) -> None:
+        self._set_direct_transform(mirror_horizontal=bool(enabled))
+        if enabled:
+            self.statusBar().showMessage("Horizontal mirror active · drag the blue vertical axis in the preview", 5000)
+
+    def _mirror_vertical_toggled(self, enabled: bool) -> None:
+        self._set_direct_transform(mirror_vertical=bool(enabled))
+        if enabled:
+            self.statusBar().showMessage("Vertical mirror active · drag the blue horizontal axis in the preview", 5000)
+
+    def _mirror_axis_changed(self, mode: str, value: float) -> None:
+        if self._loading_controls or self._closing:
+            return
+        settings = self._settings_from_controls()
+        if mode == "horizontal":
+            settings.mirror_horizontal_axis = max(0.0, min(1.0, float(value)))
+        else:
+            settings.mirror_vertical_axis = max(0.0, min(1.0, float(value)))
+        self.settings = ProcessingSettings.from_dict(settings.to_dict())
+        self._settings_revision += 1
+        self._invalidate_rendered_previews()
+        self._preview_source_cache.clear()
+        self.schedule_preview()
 
     def rotate_image(self, degrees: int) -> None:
-        current = int(self.source_transform.rotation.currentData() or 0)
-        target = (current + int(degrees)) % 360
-        index = self.source_transform.rotation.findData(target)
-        if index >= 0:
-            self.source_transform.rotation.setCurrentIndex(index)
+        settings = self._settings_from_controls()
+        settings.rotation = (int(settings.rotation) + int(degrees)) % 360
+        self._apply_settings_to_controls(settings)
 
     def reset_image_transform(self) -> None:
+        settings = self._settings_from_controls()
         defaults = ProcessingSettings()
-        self.source_transform.set_from_settings(defaults)
-        self._controls_changed()
+        for key in (
+            "rotation", "flip_horizontal", "flip_vertical",
+            "mirror_horizontal", "mirror_vertical",
+            "mirror_horizontal_axis", "mirror_vertical_axis",
+            "crop_left", "crop_top", "crop_right", "crop_bottom",
+            "position_x", "position_y",
+        ):
+            setattr(settings, key, getattr(defaults, key))
+        self._apply_settings_to_controls(settings)
 
     def show_about(self) -> None:
-        QMessageBox.information(
-            self,
-            "About RasterMint",
-            f"RasterMint {__version__}\n"
-            "Developed by Draconov, 2026.\n"
-            "Official repository: https://github.com/Draconov/RasterMint",
-        )
+        AboutDialog(__version__, self).exec()
 
     def reset_settings(self) -> None:
         self._set_preview_mode("live")
@@ -1743,5 +1848,24 @@ class MainWindow(QMainWindow):
             self.restoreGeometry(geometry)
 
     def closeEvent(self, event: QCloseEvent) -> None:
+        if self._export_jobs:
+            QMessageBox.information(
+                self,
+                "Export in progress",
+                "RasterMint is still exporting. Please wait for the export to finish before closing.",
+            )
+            event.ignore()
+            return
+
+        self._closing = True
+        self.preview_timer.stop()
+        self.preview_refine_timer.stop()
+        self.video_play_timer.stop()
+        if hasattr(self, "animation_panel"):
+            self.animation_panel.stop_playback()
+        self.thread_pool.clear()
+        # A short wait prevents Qt/Python worker objects from being torn down
+        # while native image/FFmpeg work is still returning a result.
+        self.thread_pool.waitForDone(2500)
         self.app_settings.setValue("windowGeometry", self.saveGeometry())
         super().closeEvent(event)

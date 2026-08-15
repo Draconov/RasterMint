@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import math
+import numpy as np
 from PIL import Image, ImageOps
 
 from .effect_stack import apply_effect_stack, effect_stack_output_size, normalize_effect_stack, scale_stack_for_preview
@@ -110,6 +112,37 @@ def _apply_source_transform(image: Image.Image, settings: ProcessingSettings) ->
     return img
 
 
+
+def _apply_axis_mirror(image: Image.Image, settings: ProcessingSettings) -> Image.Image:
+    """Reflect one side of the framebuffer around movable mirror axes.
+
+    Horizontal mirroring keeps the left side and reflects it into the right
+    side around a vertical axis. Vertical mirroring keeps the top side and
+    reflects it into the bottom side around a horizontal axis. The canvas size
+    stays unchanged while the axis is dragged.
+    """
+    if not settings.mirror_horizontal and not settings.mirror_vertical:
+        return image
+
+    arr = np.asarray(image.convert("RGB"), dtype=np.uint8).copy()
+    height, width = arr.shape[:2]
+
+    if settings.mirror_horizontal and width > 1:
+        axis = max(0.0, min(1.0, settings.mirror_horizontal_axis)) * (width - 1)
+        for x in range(max(0, math.floor(axis) + 1), width):
+            source_x = int(round(2.0 * axis - x))
+            if 0 <= source_x < width:
+                arr[:, x, :] = arr[:, source_x, :]
+
+    if settings.mirror_vertical and height > 1:
+        axis = max(0.0, min(1.0, settings.mirror_vertical_axis)) * (height - 1)
+        for y in range(max(0, math.floor(axis) + 1), height):
+            source_y = int(round(2.0 * axis - y))
+            if 0 <= source_y < height:
+                arr[y, :, :] = arr[source_y, :, :]
+
+    return Image.fromarray(arr, "RGB")
+
 def _fit_to_target(
     image: Image.Image,
     target: tuple[int, int],
@@ -162,7 +195,7 @@ def prepare_raster_source(
     transformed = _apply_source_transform(image, settings)
     target = target_override or target_raster_size(image.size, settings)
     background = hex_to_rgb(settings.palette[0]) if settings.palette else (0, 0, 0)
-    return _fit_to_target(
+    raster = _fit_to_target(
         transformed,
         target,
         fit_mode=settings.fit_mode,
@@ -170,6 +203,7 @@ def prepare_raster_source(
         position_y=settings.position_y,
         background=background,
     )
+    return _apply_axis_mirror(raster, settings)
 
 
 def process_image(
@@ -217,6 +251,10 @@ def make_preview_settings(
     preview.rotation = 0
     preview.flip_horizontal = False
     preview.flip_vertical = False
+    preview.mirror_horizontal = False
+    preview.mirror_vertical = False
+    preview.mirror_horizontal_axis = 0.5
+    preview.mirror_vertical_axis = 0.5
     preview.fit_mode = "stretch"
     preview.position_x = preview.position_y = 0.0
     preview.effect_stack = normalize_effect_stack(preview.effect_stack, preview)

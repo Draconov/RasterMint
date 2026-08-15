@@ -23,7 +23,7 @@ pixel-aspect correction (optional)
     ↓
 display treatment (optional)
     ↓
-preview / export grid (optional)
+preview / export
 ```
 
 The framebuffer and display view stay separate. A 320×200 framebuffer can therefore remain 320×200 internally while the viewport shows pixel-aspect-corrected output.

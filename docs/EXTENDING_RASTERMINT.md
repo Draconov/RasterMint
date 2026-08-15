@@ -13,7 +13,7 @@ ordered effect stack
    ↓
 optional hardware constraints
    ↓
-pixel-aspect/display/grid presentation
+pixel-aspect/display presentation
    ↓
 preview / still export / SVG / animation / video / batch
 ```

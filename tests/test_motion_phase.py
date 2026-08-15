@@ -105,3 +105,12 @@ def test_gif_png_sequence_export(tmp_path):
     paths = export_processed_video_sequence(source, settings, tmp_path / "gif-frames", prefix="gif")
     assert len(paths) == 2
     assert all(path.exists() for path in paths)
+
+
+def test_rendered_preview_cache_is_memory_bounded():
+    image = Image.new("RGB", (8, 8), "white")
+    settings = ProcessingSettings(animation_duration=30.0, animation_fps=30)
+    frames, times, fps = render_image_preview_frames(image, settings, max_side=32)
+    assert len(frames) <= 180
+    assert len(times) == len(frames)
+    assert fps <= 30

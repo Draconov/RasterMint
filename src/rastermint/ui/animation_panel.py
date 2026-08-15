@@ -217,6 +217,13 @@ class AnimationPanel(QWidget):
     def current_time(self) -> float:
         return self.duration() * (self.timeline.value() / max(1, self.timeline.maximum()))
 
+    def stop_playback(self) -> None:
+        """Stop timeline playback without exposing internal timer details."""
+        if self.play_button.isChecked():
+            self.play_button.setChecked(False)
+        else:
+            self.timer.stop()
+
     def is_playing(self) -> bool:
         return self._playing
 

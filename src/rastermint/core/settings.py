@@ -49,6 +49,12 @@ class ProcessingSettings:
     rotation: int = 0  # 0/90/180/270 clockwise
     flip_horizontal: bool = False
     flip_vertical: bool = False
+    # Interactive mirror axes. Horizontal mirroring uses a vertical axis and
+    # vertical mirroring uses a horizontal axis.
+    mirror_horizontal: bool = False
+    mirror_vertical: bool = False
+    mirror_horizontal_axis: float = 0.5
+    mirror_vertical_axis: float = 0.5
     crop_left: float = 0.0   # source-relative fractions 0..0.49
     crop_top: float = 0.0
     crop_right: float = 0.0
@@ -126,7 +132,8 @@ class ProcessingSettings:
             "dither_strength", "pixel_size", "serpentine", "output_divisor",
             "target_width", "target_height", "target_enabled", "keep_aspect",
             "fit_mode", "position_x", "position_y", "rotation",
-            "flip_horizontal", "flip_vertical", "crop_left", "crop_top",
+            "flip_horizontal", "flip_vertical", "mirror_horizontal", "mirror_vertical",
+            "mirror_horizontal_axis", "mirror_vertical_axis", "crop_left", "crop_top",
             "crop_right", "crop_bottom", "pixel_aspect_x", "pixel_aspect_y",
             "display_mode", "display_export", "display_profile",
             "grid_enabled", "grid_preview", "grid_export", "grid_spacing",
@@ -166,6 +173,10 @@ class ProcessingSettings:
         obj.rotation = min((0, 90, 180, 270), key=lambda value: abs(value - rotation))
         obj.flip_horizontal = bool(obj.flip_horizontal)
         obj.flip_vertical = bool(obj.flip_vertical)
+        obj.mirror_horizontal = bool(obj.mirror_horizontal)
+        obj.mirror_vertical = bool(obj.mirror_vertical)
+        obj.mirror_horizontal_axis = max(0.0, min(1.0, float(obj.mirror_horizontal_axis)))
+        obj.mirror_vertical_axis = max(0.0, min(1.0, float(obj.mirror_vertical_axis)))
         obj.crop_left = max(0.0, min(0.49, float(obj.crop_left)))
         obj.crop_top = max(0.0, min(0.49, float(obj.crop_top)))
         obj.crop_right = max(0.0, min(0.49, float(obj.crop_right)))

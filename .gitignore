@@ -21,4 +21,4 @@ release/
 Thumbs.db
 
 # Local presets / output
-*.rmpreset.local
+*.json.local

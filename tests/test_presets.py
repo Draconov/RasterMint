@@ -22,7 +22,7 @@ def test_preset_roundtrip(tmp_path):
         output_divisor=3,
         palette=["#112233", "#445566", "#FFFFFF"],
     )
-    path = tmp_path / "test.rmpreset"
+    path = tmp_path / "test.json"
     save_preset(path, original)
     loaded = load_preset(path)
     assert loaded.to_dict() == original.to_dict()

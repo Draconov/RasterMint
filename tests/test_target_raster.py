@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from PIL import Image
 
-from rastermint.core.processor import make_preview_source, process_image, target_raster_size
+from rastermint.core.processor import make_preview_source, prepare_raster_source, process_image, target_raster_size
 from rastermint.core.settings import ProcessingSettings
 
 
@@ -35,3 +35,35 @@ def test_processed_raster_size_accounts_for_pixel_aspect_layer():
     layer["params"]["y"] = 1.0
     settings.effect_stack = [layer]
     assert processed_raster_size((640, 480), settings) == (150, 80)
+
+
+def test_horizontal_mirror_uses_center_axis_without_changing_size():
+    source = Image.new("RGB", (4, 1))
+    source.putdata([(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0)])
+    settings = ProcessingSettings(mirror_horizontal=True, mirror_horizontal_axis=0.5)
+    result = prepare_raster_source(source, settings)
+    assert result.size == (4, 1)
+    assert list(result.get_flattened_data()) == [(255, 0, 0), (0, 255, 0), (0, 255, 0), (255, 0, 0)]
+
+
+def test_vertical_mirror_uses_center_axis_without_changing_size():
+    source = Image.new("RGB", (1, 4))
+    source.putdata([(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0)])
+    settings = ProcessingSettings(mirror_vertical=True, mirror_vertical_axis=0.5)
+    result = prepare_raster_source(source, settings)
+    assert result.size == (1, 4)
+    assert list(result.get_flattened_data()) == [(255, 0, 0), (0, 255, 0), (0, 255, 0), (255, 0, 0)]
+
+
+def test_mirror_settings_roundtrip():
+    settings = ProcessingSettings(
+        mirror_horizontal=True,
+        mirror_vertical=True,
+        mirror_horizontal_axis=0.2,
+        mirror_vertical_axis=0.8,
+    )
+    loaded = ProcessingSettings.from_dict(settings.to_dict())
+    assert loaded.mirror_horizontal is True
+    assert loaded.mirror_vertical is True
+    assert loaded.mirror_horizontal_axis == 0.2
+    assert loaded.mirror_vertical_axis == 0.8

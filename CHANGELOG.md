@@ -6,10 +6,16 @@ RasterMint remains on version **0.1.0** while the initial feature set is being b
 
 ### Processing and preview
 
+- Moved flip, mirror and rotation actions directly into Edit; mirror modes now use draggable blue axes in the preview.
+- Simplified Settings to the reset-only placeholder while broader application preferences are designed.
+- Switched user presets to normal human-editable `.json` files.
+- Replaced the manual pixel-grid setting with an automatic high-zoom viewport grid.
+- Made the official repository link clickable in About.
+- Hardened preview memory use and shutdown behavior, and added persistent crash logging for frozen GUI builds.
 - Rebuilt the desktop interface around the top menu bar plus a two-column text inspector: general categories on the left, detailed controls on the right.
 - Removed the old toolbar, live-preview checkbox/hint text, and empty-viewport instruction text.
 - Renamed desktop preview modes to Quick, Stable, and Full without changing the underlying renderer behavior.
-- Added Edit → Settings, Edit → Image Manipulation, View → About RasterMint, and visible hover highlighting for interactive menu items.
+- Added Edit/View application menus and visible hover highlighting for interactive menu items.
 - Reframed the effect editor as a Layer Stack and added a stackable Pixel Aspect Ratio image-space layer alongside existing effects such as Chromatic Shift.
 
 - Added a reorderable effect stack with per-effect enable/bypass, duplicate, remove, and drag-to-reorder controls.

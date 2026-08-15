@@ -379,10 +379,13 @@ def render_image_preview_frames(
     duration = max(0.1, float(settings.animation_duration))
     fps = float(max(1, min(int(settings.animation_fps), max(1, int(fps_limit)))))
     frame_count = max(1, int(round(duration * fps)))
-    # Keep rendered preview bounded; final export remains unrestricted.
-    if frame_count > 900:
-        fps = max(1.0, 900.0 / duration)
-        frame_count = 900
+    # Keep rendered preview memory bounded; final export remains unrestricted.
+    # 180 RGB preview frames at 640 px are already roughly 200–250 MB once
+    # Python/Pillow overhead is included. The old 900-frame cache could exceed
+    # a gigabyte and was a plausible source of intermittent process exits.
+    if frame_count > 180:
+        fps = max(1.0, 180.0 / duration)
+        frame_count = 180
 
     final_size = target_raster_size(image.size, settings)
     preview_source = make_preview_source(image, max_side=max_side, settings=settings)

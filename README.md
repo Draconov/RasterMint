@@ -45,7 +45,9 @@ RasterMint is a cross-platform desktop image, palette, dithering, and motion-eff
 
 ## Interface
 
-RasterMint uses a minimal top menu bar and a two-column inspector on the right. The left inspector column selects a general area such as **Layers**, **Palette**, **Raster**, or **Hardware**; the right column shows the detailed controls for that area. Image mirroring/flipping/rotation is also available under **Edit → Image Manipulation**, and **Edit → Settings** contains application settings plus the final **Reset Settings** action.
+The official repository link in **View → About RasterMint** is clickable.
+
+RasterMint uses a minimal top menu bar and a two-column inspector on the right. The left inspector column selects a general area such as **Layers**, **Palette**, **Raster**, or **Hardware**; the right column shows the detailed controls for that area. Flip, mirror and rotation tools live directly in **Edit**, above **Settings**. Mirror tools are checkable: enabling one shows a draggable blue mirror axis over the preview. **Edit → Settings** is intentionally minimal for now and keeps **Reset Settings** at the bottom.
 
 Preview quality is intentionally named **Quick**, **Stable**, and **Full** while retaining the existing draft/refine/full rendering behavior.
 
@@ -193,9 +195,9 @@ Built-in data-driven hardware profiles can selectively apply raster, palette/col
 
 The legacy `÷1 … ÷16` output divisor remains supported by old presets and the CLI, but the desktop UI now prefers exact target raster controls.
 
-## Grid, random exploration, and presets
+## Pixel inspection, random exploration, and presets
 
-A pixel grid can be enabled independently for preview and export with minor/major spacing. Creative Randomize has independent locks for palette, dither, effects, raster, and parameters plus Previous/Next history so a good random state is not lost. Presets serialize the complete processing state, including target raster, transforms, hardware snapshot, display settings, effect stack, palette metadata/locks, animation tracks, grid, and random locks.
+The preview automatically shows a pixel grid once you zoom in far enough to inspect individual pixels; the grid is a viewport aid and is never baked into exports. Windowed builds also write unexpected Python/fatal diagnostic output to the platform app-data `crash.log`, so future intermittent crashes can be investigated instead of disappearing without a console. Creative Randomize has independent locks for palette, dither, effects, raster, and parameters plus Previous/Next history so a good random state is not lost. Presets are ordinary human-editable `.json` files and serialize the complete processing state, including target raster, transforms, hardware snapshot, display settings, effect stack, palette metadata/locks, animation tracks, and random locks.
 
 ## Development setup
 
