@@ -223,3 +223,13 @@ For a new rendering feature:
 - [ ] run `python -m compileall -q src tests`;
 - [ ] run `pytest`;
 - [ ] test all release platforms through GitHub Actions before treating packaging as final.
+
+## Palette library and visual presets
+
+The built-in searchable palette catalog lives in `core/palette_library.py`. Add a `PaletteRecord` with a unique ID/name, category, colors, and a short description. Hardware that does not have one universal fixed palette should be described as a representative/creative subset rather than presented as a strict master palette.
+
+`interpolate_palette()` is the shared 2–256 color ramp generator. The UI currently exposes OKLab, RGB, Linear RGB, HSV, and HSL interpolation.
+
+Visual quick presets live in `core/builtin_presets.py`. Keep them small in number and visually distinct; their thumbnails are rendered from the current source image in low-priority worker jobs.
+
+Hardware profile details belong in the profile JSON `summary`/palette description fields. The GUI surfaces that information through hover tooltips, so profile descriptions should be concise enough to read without a separate information page.

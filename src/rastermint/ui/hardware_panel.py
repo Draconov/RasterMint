@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QCheckBox, QComboBox, QFileDialog, QHBoxLayout, QLabel, QMessageBox, QPushButton, QVBoxLayout, QWidget
 
 from rastermint.core.hardware import HardwareProfile, load_builtin_profiles, load_profile_file, profile_summary, strict_supported
@@ -20,7 +20,6 @@ class HardwarePanel(QWidget):
         self.profile_combo = QComboBox(); self.mode_combo = QComboBox(); self.mode_combo.addItem("Visual", "visual"); self.mode_combo.addItem("Strict", "strict")
         top.addWidget(self.profile_combo, 1); top.addWidget(self.mode_combo)
         root.addLayout(top)
-        self.info = QLabel(); self.info.setWordWrap(True); self.info.setObjectName("sectionHint"); root.addWidget(self.info)
 
         opts = QHBoxLayout()
         self.apply_resolution = QCheckBox("Raster"); self.apply_resolution.setChecked(True)
@@ -44,7 +43,9 @@ class HardwarePanel(QWidget):
         self.profile_combo.setItemData(0, None, role=256)
         for profile in self.profiles:
             self.profile_combo.addItem(f"{profile.category} · {profile.name}", profile.id)
-            self.profile_combo.setItemData(self.profile_combo.count() - 1, profile, role=256)
+            index = self.profile_combo.count() - 1
+            self.profile_combo.setItemData(index, profile, role=256)
+            self.profile_combo.setItemData(index, self._tooltip_for(profile), Qt.ItemDataRole.ToolTipRole)
         if selected_id:
             idx = self.profile_combo.findData(selected_id)
             if idx >= 0: self.profile_combo.setCurrentIndex(idx)
@@ -60,14 +61,21 @@ class HardwarePanel(QWidget):
         if idx >= 0: self.profile_combo.setCurrentIndex(idx)
         midx = self.mode_combo.findData(mode); self.mode_combo.setCurrentIndex(max(0, midx))
 
-    def _update_info(self, *_args) -> None:
-        profile = self.current_profile(); mode = str(self.mode_combo.currentData() or "visual")
-        if not profile:
-            self.info.setText("Custom settings · no hardware profile will be applied until you choose one."); self.apply_button.setEnabled(False); return
-        self.apply_button.setEnabled(True)
-        self.info.setText(profile_summary(profile, mode))
+    def _tooltip_for(self, profile: HardwareProfile) -> str:
+        mode = str(self.mode_combo.currentData() or "visual")
+        text = profile_summary(profile, mode)
         if mode == "strict" and not strict_supported(profile):
-            self.info.setText(self.info.text() + "\nStrict mode falls back to the visual profile for this system.")
+            text += "\nStrict mode falls back to the visual profile for this system."
+        return text
+
+    def _update_info(self, *_args) -> None:
+        profile = self.current_profile()
+        self.apply_button.setEnabled(profile is not None)
+        self.profile_combo.setToolTip(self._tooltip_for(profile) if profile else "Custom settings")
+        for i in range(1, self.profile_combo.count()):
+            candidate = self.profile_combo.itemData(i, role=256)
+            if isinstance(candidate, HardwareProfile):
+                self.profile_combo.setItemData(i, self._tooltip_for(candidate), Qt.ItemDataRole.ToolTipRole)
 
     def _options(self) -> dict[str, bool]:
         return {"apply_resolution": self.apply_resolution.isChecked(), "apply_palette": self.apply_palette.isChecked(), "apply_pixel_aspect": self.apply_par.isChecked(), "apply_constraints": self.apply_limits.isChecked(), "apply_display": self.apply_display.isChecked()}

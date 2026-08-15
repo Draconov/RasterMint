@@ -45,6 +45,8 @@ from rastermint.core.palette import (
     read_palette_file,
     write_hex_palette,
 )
+from rastermint.core.builtin_presets import BUILTIN_PRESETS, build_builtin_preset
+from rastermint.core.palette_library import PALETTE_LIBRARY, PaletteRecord, find_palette
 from rastermint.core.presets import load_preset, save_preset
 from rastermint.core.processor import (
     FAST_PREVIEW_MAX_SIDE,
@@ -63,6 +65,9 @@ from rastermint.ui.effect_stack_widget import EffectStackWidget
 from rastermint.ui.image_view import ImageView, SUPPORTED_IMAGE_SUFFIXES
 from rastermint.ui.lospec_dialog import LospecPaletteDialog
 from rastermint.ui.palette_editor import PaletteEditor
+from rastermint.ui.palette_browser import PaletteBrowserDialog
+from rastermint.ui.palette_generator import PaletteGeneratorDialog
+from rastermint.ui.preset_gallery import PresetGallery
 from rastermint.ui.source_transform_widget import SourceTransformWidget
 from rastermint.ui.target_raster_widget import TargetRasterWidget
 from rastermint.ui.worker import BatchWorker, MediaExportWorker, ProcessingWorker, VideoFrameWorker
@@ -237,6 +242,14 @@ class MainWindow(QMainWindow):
         layout.setContentsMargins(12, 12, 12, 20)
         layout.setSpacing(12)
 
+        presets_box = QGroupBox("Visual Presets")
+        presets_layout = QVBoxLayout(presets_box)
+        self.preset_gallery = PresetGallery()
+        self.preset_gallery.preset_selected.connect(self._apply_builtin_preset)
+        self.preset_gallery.refresh_requested.connect(self._refresh_preset_gallery)
+        presets_layout.addWidget(self.preset_gallery)
+        layout.addWidget(presets_box)
+
         preview_box = QGroupBox("Preview")
         pv = QVBoxLayout(preview_box)
         self.live_preview_check = QCheckBox("Live preview")
@@ -287,10 +300,29 @@ class MainWindow(QMainWindow):
 
         palette_box = QGroupBox("Palette")
         pal = QVBoxLayout(palette_box)
+        palette_nav = QHBoxLayout()
+        self.palette_prev_button = QPushButton("‹")
+        self.palette_prev_button.setFixedWidth(30)
+        self.palette_prev_button.setToolTip("Previous palette")
+        self.palette_prev_button.clicked.connect(lambda: self._cycle_palette(-1))
         self.palette_combo = QComboBox()
-        self.palette_combo.addItems(list(BUILTIN_PALETTES.keys()) + ["Custom"])
+        self.palette_combo.addItems([record.name for record in PALETTE_LIBRARY] + ["Custom"])
+        for index, record in enumerate(PALETTE_LIBRARY):
+            self.palette_combo.setItemData(index, f"{record.category} · {len(record.colors)} colors\n{record.description}", Qt.ItemDataRole.ToolTipRole)
+        self.palette_combo.setMaxVisibleItems(20)
         self.palette_combo.currentTextChanged.connect(self._palette_preset_changed)
-        pal.addWidget(self.palette_combo)
+        self.palette_next_button = QPushButton("›")
+        self.palette_next_button.setFixedWidth(30)
+        self.palette_next_button.setToolTip("Next palette")
+        self.palette_next_button.clicked.connect(lambda: self._cycle_palette(1))
+        browse_palettes = QPushButton("Browse…")
+        browse_palettes.setToolTip("Search the built-in retro/hardware palette library")
+        browse_palettes.clicked.connect(self.open_palette_browser)
+        palette_nav.addWidget(self.palette_prev_button)
+        palette_nav.addWidget(self.palette_combo, 1)
+        palette_nav.addWidget(self.palette_next_button)
+        palette_nav.addWidget(browse_palettes)
+        pal.addLayout(palette_nav)
         self.palette_editor = PaletteEditor(self.settings.palette)
         self.palette_editor.palette_changed.connect(self._palette_edited)
         self.palette_editor.locks_changed.connect(self._palette_locks_changed)
@@ -302,11 +334,15 @@ class MainWindow(QMainWindow):
         palette_buttons1 = QHBoxLayout()
         lospec = QPushButton("Lospec…")
         lospec.clicked.connect(self.open_lospec_dialog)
+        gradient = QPushButton("Gradient…")
+        gradient.setToolTip("Generate a 2–256 color interpolated palette")
+        gradient.clicked.connect(self.open_palette_generator)
         import_pal = QPushButton("Import file…")
         import_pal.clicked.connect(self.import_palette_file)
         export_pal = QPushButton("Save HEX…")
         export_pal.clicked.connect(self.export_palette_hex)
         palette_buttons1.addWidget(lospec)
+        palette_buttons1.addWidget(gradient)
         palette_buttons1.addWidget(import_pal)
         palette_buttons1.addWidget(export_pal)
         pal.addLayout(palette_buttons1)
@@ -443,7 +479,7 @@ class MainWindow(QMainWindow):
             self._palette_name = canonical.palette_name or "Custom"
             self._palette_author = canonical.palette_author
             self._palette_source = canonical.palette_source
-            match = next((name for name, colors in BUILTIN_PALETTES.items() if colors == canonical.palette), None)
+            match = next((record.name for record in PALETTE_LIBRARY if list(record.colors) == canonical.palette), None)
             self.palette_combo.setCurrentText(match or "Custom")
             self.animation_panel.set_targets(self.effect_stack.animatable_targets())
             self.animation_panel.set_animation(canonical.animation_duration, canonical.animation_fps, canonical.animation_tracks)
@@ -628,15 +664,16 @@ class MainWindow(QMainWindow):
     def _palette_preset_changed(self, name: str) -> None:
         if self._loading_controls or name == "Custom":
             return
-        colors = BUILTIN_PALETTES.get(name)
-        if colors:
+        record = find_palette(name)
+        if record:
             self._loading_controls = True
-            self.palette_editor.set_colors(colors.copy(), emit=False)
-            self._palette_name = name
-            self._palette_author = "RasterMint built-in"
-            self._palette_source = ""
+            self.palette_editor.set_colors(list(record.colors), emit=False)
+            self._palette_name = record.name
+            self._palette_author = "RasterMint palette library"
+            self._palette_source = record.source
             self._loading_controls = False
             self._refresh_palette_source_label()
+            self.palette_source_label.setToolTip(record.description)
             self._controls_changed()
 
     def _palette_edited(self, _colors: list[str]) -> None:
@@ -663,6 +700,53 @@ class MainWindow(QMainWindow):
             self.palette_source_label.setText(f"{self._palette_name} · {self._palette_author}")
         else:
             self.palette_source_label.setText(self._palette_name)
+        record = find_palette(self._palette_name)
+        self.palette_source_label.setToolTip(record.description if record else self._palette_source)
+
+    def _cycle_palette(self, delta: int) -> None:
+        names = [record.name for record in PALETTE_LIBRARY]
+        if not names:
+            return
+        current = self.palette_combo.currentText()
+        try:
+            index = names.index(current)
+        except ValueError:
+            index = -1 if delta > 0 else 0
+        self.palette_combo.setCurrentText(names[(index + delta) % len(names)])
+
+    def open_palette_browser(self) -> None:
+        dialog = PaletteBrowserDialog(self)
+        dialog.palette_selected.connect(self._apply_library_palette)
+        dialog.exec()
+
+    def _apply_library_palette(self, record: PaletteRecord) -> None:
+        self._loading_controls = True
+        self.palette_editor.set_colors(list(record.colors), emit=False)
+        self.palette_combo.setCurrentText(record.name)
+        self._palette_name = record.name
+        self._palette_author = "RasterMint palette library"
+        self._palette_source = record.source
+        self._loading_controls = False
+        self._refresh_palette_source_label()
+        self.palette_source_label.setToolTip(record.description)
+        self._controls_changed()
+
+    def open_palette_generator(self) -> None:
+        dialog = PaletteGeneratorDialog(self)
+        dialog.palette_generated.connect(self._apply_generated_palette)
+        dialog.exec()
+
+    def _apply_generated_palette(self, colors: list[str], name: str) -> None:
+        self._loading_controls = True
+        self.palette_editor.set_colors(colors, emit=False)
+        self.palette_combo.setCurrentText("Custom")
+        self._palette_name = name
+        self._palette_author = "Generated in RasterMint"
+        self._palette_source = ""
+        self._loading_controls = False
+        self._refresh_palette_source_label()
+        self.palette_source_label.setToolTip("Interpolated palette generated from two endpoint colors.")
+        self._controls_changed()
 
     def open_lospec_dialog(self) -> None:
         dialog = LospecPaletteDialog(self)
@@ -823,6 +907,7 @@ class MainWindow(QMainWindow):
         self.export_media_action.setEnabled(True)
         self.extract_button.setEnabled(True)
         self.schedule_preview(immediate=True, force=True)
+        self._refresh_preset_gallery()
 
     def dragEnterEvent(self, event) -> None:
         urls = event.mimeData().urls() if event.mimeData().hasUrls() else []
@@ -1001,6 +1086,13 @@ class MainWindow(QMainWindow):
             QTimer.singleShot(0, lambda s=side: self._request_preview(s))
 
     def _worker_finished(self, job_id: int, purpose: str, result: object, context: object) -> None:
+        if purpose == "preset-thumbnail":
+            ctx = context if isinstance(context, dict) else {}
+            if int(ctx.get("source_revision", -1)) == self._source_revision and isinstance(result, Image.Image):
+                pixmap = pil_to_pixmap(result).scaled(116, 78, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.FastTransformation)
+                self.preset_gallery.set_thumbnail(str(ctx.get("preset_id", "")), pixmap)
+            return
+
         if purpose == "preview":
             self._preview_running = False
             ctx = context if isinstance(context, dict) else {}
@@ -1058,6 +1150,8 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage(f"Batch export complete: {count} files", 6000)
 
     def _worker_failed(self, job_id: int, purpose: str, trace: str, context: object) -> None:
+        if purpose == "preset-thumbnail":
+            return
         if purpose == "preview":
             self._preview_running = False
             self._start_pending_preview()
@@ -1161,6 +1255,42 @@ class MainWindow(QMainWindow):
         worker.signals.failed.connect(self._worker_failed)
         worker.signals.progress.connect(self._worker_progress)
         self.thread_pool.start(worker)
+
+    # ---------- visual preset gallery ----------
+    def _apply_builtin_preset(self, preset_id: str) -> None:
+        try:
+            settings = build_builtin_preset(preset_id, self._settings_from_controls())
+            self._apply_settings_to_controls(settings)
+            preset = next((item for item in BUILTIN_PRESETS if item.id == preset_id), None)
+            if preset:
+                self.statusBar().showMessage(f"Applied preset: {preset.name}", 3000)
+        except Exception as exc:
+            QMessageBox.critical(self, "Could not apply preset", str(exc))
+
+    def _refresh_preset_gallery(self) -> None:
+        if self.original_image is None or not hasattr(self, "preset_gallery"):
+            return
+        source = self.original_image
+        source_revision = self._source_revision
+        base = self._settings_from_controls()
+        for preset in BUILTIN_PRESETS:
+            settings = build_builtin_preset(preset.id, base)
+            final_size = target_raster_size(source.size, settings)
+            preview_source = make_preview_source(source, max_side=128, settings=settings)
+            preview_settings = make_preview_settings(settings, final_size, preview_source.size)
+            job_id = self._next_job_id()
+            worker = ProcessingWorker(
+                job_id,
+                "preset-thumbnail",
+                preview_source,
+                preview_settings,
+                {"preset_id": preset.id, "source_revision": source_revision},
+                display_mode="display",
+                include_grid=False,
+            )
+            worker.signals.finished.connect(self._worker_finished)
+            worker.signals.failed.connect(self._worker_failed)
+            self.thread_pool.start(worker, -1)
 
     # ---------- presets ----------
     def save_preset_dialog(self) -> None:

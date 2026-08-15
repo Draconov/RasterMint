@@ -21,6 +21,12 @@ RasterMint is a cross-platform desktop image, palette, dithering, and motion-eff
   - **Full** — renders the selected output resolution in the viewport when you explicitly want maximum preview accuracy.
 - Background rendering with serialized preview jobs and stale-frame rejection.
 - Adaptive preview budgets for especially expensive algorithms and very large palettes.
+- Visual preset carousel with current-image thumbnails for quick look browsing.
+- Searchable/categorized palette browser with color-strip previews and hover descriptions.
+- 67 built-in retro/hardware palette entries, with representative/approximation labeling where a machine did not have one universal fixed game palette.
+- Previous/next palette controls and previous/next controls around choice parameters such as dithering algorithms.
+- Palette interpolation generator supporting OKLab, RGB, Linear RGB, HSV, and HSL ramps from 2 to 256 colors.
+- Hardware profile details are shown as hover tooltips in the profile selector instead of occupying permanent panel space.
 - Reorderable, bypassable, duplicatable **effect stack**.
 - 26 dithering / quantization algorithms across quantization, ordered, error-diffusion, and advanced families.
 - Up to 256 palette colors.
