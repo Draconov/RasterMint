@@ -119,7 +119,7 @@ Animation targets use:
 effect:<effect-id>:<param>
 ```
 
-If a numeric effect parameter has `animatable: True`, `animatable_targets()` publishes it automatically. The animation panel can then create From/To tracks with Start/End times and easing.
+Numeric `int`/`float` effect parameters are animation-capable by default unless they are identity/random seeds. `animatable_targets()` publishes them automatically; explicit `animatable: True` is still useful documentation. The animation panel can create From/To tracks with Start/End times and easing, and multiple sequential tracks may target the same parameter.
 
 When adding an animatable parameter:
 
@@ -127,6 +127,19 @@ When adding an animatable parameter:
 - make sure fractional animation into integer values is safe (`settings_at_time()` rounds integer parameters);
 - do not animate booleans/choice values through numeric tracks;
 - test a mid-animation value.
+
+## Dither transitions
+
+Dither has two separate concepts:
+
+- `strength` changes the algorithm's noise/error/ordered-dither intensity;
+- `mix` blends between the pre-dither image and the completed dither result.
+
+Use `mix` for Dither In/Out animation. Do not overload `strength` for this because strength 0 still has palette-quantization semantics in several algorithms.
+
+## Animation presets
+
+Built-in motion recipes live in `core/animation_presets.py`. A recipe should preserve the current project, ensure any required effect nodes exist, and output normal timeline tracks. Avoid adding a second hidden animation renderer.
 
 ## Adding a temporal effect
 

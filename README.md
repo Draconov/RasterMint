@@ -103,7 +103,7 @@ Current nodes:
 - Posterize
 - Scanlines / Interlace
 - Noise, including frame-varying noise
-- Temporal Flicker
+- Temporal Flicker and **Temporal Pattern** (Pulse, axis/diagonal waves, checker phase, scan sweep, noise drift, alternating frames, radial pulse)
 - Pixel Sort, Screen Melt, Block Shuffle, Pixel Scatter, Data Shift, Row/Column Shift, Cellular Automata, Databend-style processing, Channel Swap
 - Pixelate
 - Pixel Material: Flat, dots, CRT phosphor, LED/LCD, fuse bead, cross stitch, brick, mosaic, halftone, ASCII tile, custom sprite
@@ -114,32 +114,38 @@ Each row can be enabled/disabled, reordered, duplicated, or removed. User-adjust
 
 ## Animation
 
-A still image can be treated as an animation source. Add parameter tracks such as:
+RasterMint treats motion as parameter animation on the same effect stack used by still images. All suitable numeric effect parameters are published to the timeline automatically (identity/random seeds are excluded). A true **Dither Mix** parameter makes 0% the clean pre-dither image and 100% the complete dithered result, so Dither In/Out transitions are real crossfades rather than changes to diffusion error only.
 
-```text
-Glow · Intensity       0.10 → 0.80     0.0s → 2.0s     Ease In Out
-Dither · Strength      0.25 → 1.30     1.0s → 4.0s     Smoothstep
-Hue Rotate · Degrees  -30   → 60       0.0s → 4.0s     Linear
-```
+The Animation panel now includes:
 
-The timeline is previewed live. Export produces MP4 or GIF. Frame-dependent effects receive time/frame context so effects such as temporal noise and flicker actually move instead of repeating one static processed frame.
+- start/end and previous/next-frame transport;
+- loop playback;
+- track add/update/duplicate/remove;
+- From/To, Start/End, easing, and per-track enable;
+- **Quick playback** for live low-resolution processing;
+- **Rendered playback** that caches preview-resolution frames before smooth playback;
+- built-in motion presets: Dither In, Dither Out, Dither In/Out, Glow Pulse, Hue Sweep, CRT Flicker, Pixelate In, Chromatic Pulse, and Temporal Wave.
+
+Sequential tracks can target the same parameter. Between track segments RasterMint holds the previous segment's final value, making multi-stage animations such as in→hold→out predictable.
+
+Export options include MP4, animated GIF, and a numbered **PNG sequence**. Frame-dependent effects receive time/frame context so temporal noise, flicker, and temporal patterns reproduce consistently between preview and export.
 
 ## Video
 
-Video support is provided through `imageio-ffmpeg` / FFmpeg.
+Video support is provided through `imageio-ffmpeg` / FFmpeg. RasterMint keeps media decoding separate from image processing: each decoded RGB frame travels through the same effect/hardware/palette pipeline as a still image.
 
-RasterMint can:
+The Source panel supports:
 
-- open common video containers;
-- scrub to a time position;
-- decode frames in background workers;
-- preview the complete current effect stack on video frames;
-- animate effect parameters while a source video plays;
-- export processed MP4;
-- preserve/mux source audio when available.
+- frame scrubbing;
+- Quick processed playback;
+- a **Rendered 5 s Preview** cache for smooth inspection of expensive stacks;
+- 0.5× / 1× / 1.5× / 2× preview speed;
+- loop on/off;
+- optional source-audio preservation for MP4 export;
+- processed MP4/GIF paths where applicable;
+- full processed PNG-sequence export.
 
-Video processing is frame-based, so expensive algorithms can still be computationally heavy. Preview playback intentionally uses a smaller proxy budget; export uses the selected output resolution.
-For broad H.264/yuv420p compatibility, MP4 exports with an odd width or height are padded by one replicated edge pixel to the next even dimension.
+Quick playback intentionally uses a smaller proxy budget. Rendered preview caches a short preview-resolution segment. Final exports and PNG sequences always use the selected output resolution. For broad H.264/yuv420p compatibility, odd output dimensions are padded by one replicated edge pixel to the next even dimension.
 
 ## Lospec palettes
 

@@ -33,6 +33,7 @@ from PySide6.QtWidgets import (
 
 from rastermint import __app_name__, __version__
 from rastermint.core.animation import settings_at_time
+from rastermint.core.animation_presets import apply_animation_preset
 from rastermint.core.dither import ALGORITHMS
 from rastermint.core.effect_stack import EFFECT_DEFINITIONS, default_effect_stack, new_effect, normalize_effect_stack
 from rastermint.core.hardware import HardwareProfile, apply_profile_to_settings
@@ -70,7 +71,15 @@ from rastermint.ui.palette_generator import PaletteGeneratorDialog
 from rastermint.ui.preset_gallery import PresetGallery
 from rastermint.ui.source_transform_widget import SourceTransformWidget
 from rastermint.ui.target_raster_widget import TargetRasterWidget
-from rastermint.ui.worker import BatchWorker, MediaExportWorker, ProcessingWorker, VideoFrameWorker
+from rastermint.ui.worker import (
+    BatchWorker,
+    MediaExportWorker,
+    ProcessingWorker,
+    RenderedPreviewWorker,
+    SequenceExportWorker,
+    VideoCurrentFrameWorker,
+    VideoFrameWorker,
+)
 
 MEDIA_FILTER = "Supported media (*.png *.jpg *.jpeg *.bmp *.webp *.tif *.tiff *.gif *.mp4 *.mov *.mkv *.webm *.avi *.m4v);;Images (*.png *.jpg *.jpeg *.bmp *.webp *.tif *.tiff *.gif);;Video (*.mp4 *.mov *.mkv *.webm *.avi *.m4v);;All files (*.*)"
 IMAGE_FILTER = "Still images (*.png *.jpg *.jpeg *.bmp *.webp *.tif *.tiff);;All files (*.*)"
@@ -105,6 +114,19 @@ class MainWindow(QMainWindow):
         self._video_frame_running = False
         self._pending_video_time: float | None = None
         self._latest_video_job = 0
+        self._time_revision = 0
+
+        # Cached rendered playback is intentionally separate from the normal
+        # live-preview worker. Any content/settings change invalidates it.
+        self._rendered_animation_frames: list[Image.Image] = []
+        self._rendered_animation_times: list[float] = []
+        self._rendered_animation_fps = 0.0
+        self._rendered_animation_job = 0
+        self._rendered_video_frames: list[Image.Image] = []
+        self._rendered_video_times: list[float] = []
+        self._rendered_video_fps = 0.0
+        self._rendered_video_index = 0
+        self._rendered_video_job = 0
 
         self.settings = ProcessingSettings()
         self.settings.effect_stack = default_effect_stack(self.settings)
@@ -164,6 +186,11 @@ class MainWindow(QMainWindow):
         self.export_media_action.triggered.connect(self.export_media_dialog)
         self.export_media_action.setEnabled(False)
 
+        self.export_sequence_action = QAction("Export PNG Sequence…", self)
+        self.export_sequence_action.setShortcut("Ctrl+Alt+P")
+        self.export_sequence_action.triggered.connect(self.export_png_sequence_dialog)
+        self.export_sequence_action.setEnabled(False)
+
         self.batch_action = QAction("Batch Export Images…", self)
         self.batch_action.triggered.connect(self.batch_export_dialog)
 
@@ -188,6 +215,7 @@ class MainWindow(QMainWindow):
         file_menu.addSeparator()
         file_menu.addAction(self.export_action)
         file_menu.addAction(self.export_media_action)
+        file_menu.addAction(self.export_sequence_action)
         file_menu.addAction(self.batch_action)
         file_menu.addSeparator()
         file_menu.addAction(self.load_preset_action)
@@ -204,6 +232,7 @@ class MainWindow(QMainWindow):
         bar.addSeparator()
         bar.addAction(self.export_action)
         bar.addAction(self.export_media_action)
+        bar.addAction(self.export_sequence_action)
         bar.addSeparator()
         bar.addAction(self.fit_action)
         self.addToolBar(bar)
@@ -406,6 +435,9 @@ class MainWindow(QMainWindow):
         self.animation_panel.animation_changed.connect(self._animation_changed)
         self.animation_panel.time_changed.connect(self._animation_time_changed)
         self.animation_panel.playback_changed.connect(self._animation_playback_changed)
+        self.animation_panel.render_preview_requested.connect(self._render_animation_preview)
+        self.animation_panel.preview_mode_changed.connect(self._animation_preview_mode_changed)
+        self.animation_panel.preset_requested.connect(self._apply_animation_preset)
         self.effect_stack.targets_changed.connect(self.animation_panel.set_targets)
         animation_layout.addWidget(self.animation_panel)
         layout.addWidget(animation_box)
@@ -415,8 +447,11 @@ class MainWindow(QMainWindow):
         self.source_type_label = QLabel("No media loaded")
         source_layout.addWidget(self.source_type_label)
         self.video_controls = QWidget()
-        vr = QHBoxLayout(self.video_controls)
-        vr.setContentsMargins(0, 0, 0, 0)
+        video_layout = QVBoxLayout(self.video_controls)
+        video_layout.setContentsMargins(0, 0, 0, 0)
+        video_layout.setSpacing(5)
+
+        vr = QHBoxLayout()
         self.video_play_button = QPushButton("▶")
         self.video_play_button.setCheckable(True)
         self.video_play_button.toggled.connect(self._toggle_video_playback)
@@ -427,6 +462,34 @@ class MainWindow(QMainWindow):
         vr.addWidget(self.video_play_button)
         vr.addWidget(self.video_slider, 1)
         vr.addWidget(self.video_time_label)
+        video_layout.addLayout(vr)
+
+        playback_options = QHBoxLayout()
+        self.video_preview_mode_combo = QComboBox()
+        self.video_preview_mode_combo.addItem("Quick", "quick")
+        self.video_preview_mode_combo.addItem("Rendered", "rendered")
+        self.video_preview_mode_combo.currentIndexChanged.connect(self._video_preview_mode_changed)
+        self.video_render_button = QPushButton("Render 5 s Preview")
+        self.video_render_button.clicked.connect(self._render_video_preview_segment)
+        self.video_speed_combo = QComboBox()
+        for label, speed in (("0.5×", 0.5), ("1×", 1.0), ("1.5×", 1.5), ("2×", 2.0)):
+            self.video_speed_combo.addItem(label, speed)
+        self.video_speed_combo.setCurrentIndex(1)
+        self.video_speed_combo.currentIndexChanged.connect(self._video_playback_options_changed)
+        self.video_loop_check = QCheckBox("Loop")
+        self.video_loop_check.setChecked(True)
+        self.video_audio_check = QCheckBox("Preserve audio on MP4 export")
+        self.video_audio_check.setChecked(True)
+        playback_options.addWidget(self.video_preview_mode_combo)
+        playback_options.addWidget(self.video_render_button)
+        playback_options.addWidget(self.video_speed_combo)
+        playback_options.addWidget(self.video_loop_check)
+        video_layout.addLayout(playback_options)
+        video_layout.addWidget(self.video_audio_check)
+        self.video_cache_label = QLabel("Quick playback decodes and processes frames live.")
+        self.video_cache_label.setWordWrap(True)
+        self.video_cache_label.setObjectName("sectionHint")
+        video_layout.addWidget(self.video_cache_label)
         self.video_controls.setVisible(False)
         source_layout.addWidget(self.video_controls)
         layout.addWidget(source_box)
@@ -459,6 +522,7 @@ class MainWindow(QMainWindow):
         result.effect_stack = self.effect_stack.stack()
         result.animation_duration = self.animation_panel.duration()
         result.animation_fps = self.animation_panel.fps()
+        result.animation_loop = self.animation_panel.loop_enabled()
         result.animation_tracks = self.animation_panel.tracks()
         result.random_locks = {key: check.isChecked() for key, check in self.random_lock_checks.items()}
         self.source_transform.apply_to_settings(result)
@@ -482,7 +546,7 @@ class MainWindow(QMainWindow):
             match = next((record.name for record in PALETTE_LIBRARY if list(record.colors) == canonical.palette), None)
             self.palette_combo.setCurrentText(match or "Custom")
             self.animation_panel.set_targets(self.effect_stack.animatable_targets())
-            self.animation_panel.set_animation(canonical.animation_duration, canonical.animation_fps, canonical.animation_tracks)
+            self.animation_panel.set_animation(canonical.animation_duration, canonical.animation_fps, canonical.animation_tracks, canonical.animation_loop)
             self.effect_stack.set_animated_targets(self.animation_panel.animated_target_ids())
             for key, check in self.random_lock_checks.items():
                 check.setChecked(bool(canonical.random_locks.get(key, False)))
@@ -491,6 +555,7 @@ class MainWindow(QMainWindow):
             self._loading_controls = False
         self.settings = self._settings_from_controls()
         self._settings_revision += 1
+        self._invalidate_rendered_previews()
         self._preview_source_cache.clear()
         self._update_output_size_label()
         if self.original_image is not None:
@@ -501,6 +566,7 @@ class MainWindow(QMainWindow):
             return
         self.settings = self._settings_from_controls()
         self._settings_revision += 1
+        self._invalidate_rendered_previews()
         # Source crop/rotation/raster settings can alter the preview proxy, so
         # never reuse a stale proxy after any control change.
         self._preview_source_cache.clear()
@@ -515,15 +581,79 @@ class MainWindow(QMainWindow):
         self.effect_stack.set_animated_targets(self.animation_panel.animated_target_ids())
         self._controls_changed()
 
-    def _animation_time_changed(self, _seconds: float) -> None:
+    def _animation_time_changed(self, seconds: float) -> None:
         if self._loading_controls or self.original_image is None:
             return
-        self._settings_revision += 1
+        self._time_revision += 1
+        if self.video_path is None and self.animation_panel.preview_mode() == "rendered" and self._rendered_animation_frames:
+            self._show_rendered_animation_frame(seconds)
+            return
         self.schedule_preview(immediate=True, refined=not self.animation_panel.is_playing())
 
     def _animation_playback_changed(self, playing: bool) -> None:
-        if not playing and self.original_image is not None:
+        if not playing and self.original_image is not None and self.animation_panel.preview_mode() != "rendered":
             self.schedule_preview(force=True, refined=True)
+
+    def _animation_preview_mode_changed(self, mode: str) -> None:
+        if self.original_image is None or self.video_path is not None:
+            return
+        if mode == "rendered" and self._rendered_animation_frames:
+            self._show_rendered_animation_frame(self.animation_panel.current_time())
+        elif mode == "quick":
+            self.schedule_preview(immediate=True, force=True, refined=not self.animation_panel.is_playing())
+
+    def _apply_animation_preset(self, preset_id: str) -> None:
+        try:
+            settings = apply_animation_preset(self._settings_from_controls(), preset_id)
+            self._apply_settings_to_controls(settings)
+            self.statusBar().showMessage(f"Applied motion preset: {preset_id.replace('-', ' ').title()}", 3000)
+        except Exception as exc:
+            QMessageBox.critical(self, "Could not apply motion preset", str(exc))
+
+    def _invalidate_rendered_previews(self) -> None:
+        self._rendered_animation_frames = []
+        self._rendered_animation_times = []
+        self._rendered_animation_fps = 0.0
+        self._rendered_video_frames = []
+        self._rendered_video_times = []
+        self._rendered_video_fps = 0.0
+        self._rendered_video_index = 0
+        if hasattr(self, "animation_panel"):
+            self.animation_panel.set_rendered_ready(False)
+        if hasattr(self, "video_cache_label"):
+            self.video_cache_label.setText("Quick playback decodes and processes frames live.")
+
+    def _show_rendered_animation_frame(self, seconds: float) -> None:
+        if not self._rendered_animation_frames or not self._rendered_animation_times:
+            return
+        index = min(
+            range(len(self._rendered_animation_times)),
+            key=lambda i: abs(self._rendered_animation_times[i] - float(seconds)),
+        )
+        frame = self._rendered_animation_frames[index]
+        self.preview_result = frame
+        self.processed_view.set_pixmap(pil_to_pixmap(frame))
+        self.statusBar().showMessage(
+            f"Rendered playback · frame {index + 1}/{len(self._rendered_animation_frames)} · {self._rendered_animation_times[index]:.2f}s",
+            900,
+        )
+
+    def _render_animation_preview(self) -> None:
+        if self.original_image is None:
+            return
+        if self.video_path is not None:
+            self.statusBar().showMessage("For video, use Render 5 s Preview in the Source panel.", 4000)
+            return
+        settings = self._settings_from_controls()
+        job_id = self._next_job_id()
+        self._rendered_animation_job = job_id
+        context = {"source_revision": self._source_revision, "settings_revision": self._settings_revision, "kind": "animation"}
+        worker = RenderedPreviewWorker(job_id, settings, image=self.original_image, max_side=PREVIEW_MAX_SIDE, context=context)
+        worker.signals.finished.connect(self._worker_finished)
+        worker.signals.failed.connect(self._worker_failed)
+        worker.signals.progress.connect(self._worker_progress)
+        self.thread_pool.start(worker)
+        self.statusBar().showMessage("Rendering animation preview cache…")
 
     def _preview_mode(self) -> str:
         return str(self.preview_mode_combo.currentData() or "live")
@@ -821,6 +951,7 @@ class MainWindow(QMainWindow):
             self.load_image(path)
 
     def load_image(self, path: str | os.PathLike[str]) -> None:
+        self._invalidate_rendered_previews()
         self._latest_video_job = -1
         self._pending_video_time = None
         self.video_play_timer.stop()
@@ -839,6 +970,7 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Could not open image", str(exc))
 
     def load_video(self, path: str | os.PathLike[str]) -> None:
+        self._invalidate_rendered_previews()
         self._latest_video_job = -1
         self._pending_video_time = None
         self.video_play_timer.stop()
@@ -871,6 +1003,7 @@ class MainWindow(QMainWindow):
             self.video_controls.setVisible(True)
             self.export_action.setEnabled(False)
             self.export_media_action.setEnabled(True)
+            self.export_sequence_action.setEnabled(True)
             self.extract_button.setEnabled(False)
             self.video_slider.blockSignals(True)
             self.video_slider.setValue(0)
@@ -905,6 +1038,7 @@ class MainWindow(QMainWindow):
         self._update_output_size_label()
         self.export_action.setEnabled(True)
         self.export_media_action.setEnabled(True)
+        self.export_sequence_action.setEnabled(True)
         self.extract_button.setEnabled(True)
         self.schedule_preview(immediate=True, force=True)
         self._refresh_preset_gallery()
@@ -927,37 +1061,152 @@ class MainWindow(QMainWindow):
         event.ignore()
 
     # ---------- video preview ----------
+    def _video_playback_speed(self) -> float:
+        try:
+            return float(self.video_speed_combo.currentData() or 1.0)
+        except Exception:
+            return 1.0
+
     def _video_slider_changed(self, value: int) -> None:
         if self.video_info is None:
             return
         self.video_time = self.video_info.duration * value / 1000.0
         self.video_time_label.setText(f"{self.video_time:.2f} s")
+        if self.video_preview_mode_combo.currentData() == "rendered" and self._rendered_video_frames:
+            if self._show_rendered_video_at_time(self.video_time):
+                return
         self._request_video_frame(self.video_time)
 
+    def _video_preview_mode_changed(self, *_args) -> None:
+        mode = str(self.video_preview_mode_combo.currentData() or "quick")
+        if mode == "rendered":
+            if self._rendered_video_frames:
+                self.video_cache_label.setText(
+                    f"Rendered cache · {len(self._rendered_video_frames)} frames at {self._rendered_video_fps:.1f} FPS"
+                )
+                self._show_rendered_video_at_time(self.video_time)
+            else:
+                self.video_cache_label.setText("Rendered mode needs a cached segment. Click Render 5 s Preview.")
+        else:
+            self.video_cache_label.setText("Quick playback decodes and processes frames live.")
+            self._request_video_frame(self.video_time)
+
+    def _video_playback_options_changed(self, *_args) -> None:
+        if self._video_playing:
+            self._restart_video_timer()
+
+    def _restart_video_timer(self) -> None:
+        if not self.video_info:
+            return
+        speed = max(0.1, self._video_playback_speed())
+        if self.video_preview_mode_combo.currentData() == "rendered" and self._rendered_video_fps > 0:
+            fps = self._rendered_video_fps * speed
+        else:
+            fps = max(1.0, min(15.0, self.video_info.fps)) * speed
+        self.video_play_timer.start(max(15, round(1000 / max(1.0, fps))))
+
     def _toggle_video_playback(self, playing: bool) -> None:
-        self._video_playing = playing
+        if playing and self.video_preview_mode_combo.currentData() == "rendered" and not self._rendered_video_frames:
+            self.video_play_button.blockSignals(True)
+            self.video_play_button.setChecked(False)
+            self.video_play_button.setText("▶")
+            self.video_play_button.blockSignals(False)
+            self._video_playing = False
+            self._render_video_preview_segment()
+            return
+        self._video_playing = bool(playing)
         self.video_play_button.setText("❚❚" if playing else "▶")
         if playing and self.video_info:
-            preview_fps = max(1.0, min(15.0, self.video_info.fps))
-            self.video_play_timer.start(max(25, round(1000 / preview_fps)))
+            if self.video_preview_mode_combo.currentData() == "rendered" and self._rendered_video_frames:
+                self._rendered_video_index = min(
+                    range(len(self._rendered_video_times)),
+                    key=lambda i: abs(self._rendered_video_times[i] - self.video_time),
+                )
+            self._restart_video_timer()
         else:
             self.video_play_timer.stop()
-            if self.original_image is not None:
+            if self.original_image is not None and self.video_preview_mode_combo.currentData() == "quick":
                 self.schedule_preview(force=True, refined=True)
 
     def _video_play_tick(self) -> None:
         if not self.video_info:
             return
+        if self.video_preview_mode_combo.currentData() == "rendered" and self._rendered_video_frames:
+            self._rendered_video_index += 1
+            if self._rendered_video_index >= len(self._rendered_video_frames):
+                if self.video_loop_check.isChecked():
+                    self._rendered_video_index = 0
+                else:
+                    self.video_play_button.setChecked(False)
+                    return
+            self._display_rendered_video_frame(self._rendered_video_index)
+            return
+
         preview_fps = max(1.0, min(15.0, self.video_info.fps))
-        new_time = self.video_time + 1.0 / preview_fps
+        new_time = self.video_time + self._video_playback_speed() / preview_fps
         if new_time >= self.video_info.duration:
-            new_time = 0.0
+            if self.video_loop_check.isChecked():
+                new_time = 0.0
+            else:
+                self.video_time = self.video_info.duration
+                self.video_play_button.setChecked(False)
+                return
         self.video_time = new_time
         self.video_slider.blockSignals(True)
         self.video_slider.setValue(round(1000 * new_time / max(0.001, self.video_info.duration)))
         self.video_slider.blockSignals(False)
         self.video_time_label.setText(f"{new_time:.2f} s")
         self._request_video_frame(new_time)
+
+    def _show_rendered_video_at_time(self, seconds: float) -> bool:
+        if not self._rendered_video_frames or not self._rendered_video_times:
+            return False
+        first = self._rendered_video_times[0]
+        last = self._rendered_video_times[-1]
+        tolerance = 1.0 / max(1.0, self._rendered_video_fps)
+        if seconds < first - tolerance or seconds > last + tolerance:
+            return False
+        index = min(range(len(self._rendered_video_times)), key=lambda i: abs(self._rendered_video_times[i] - seconds))
+        self._rendered_video_index = index
+        self._display_rendered_video_frame(index)
+        return True
+
+    def _display_rendered_video_frame(self, index: int) -> None:
+        if not (0 <= index < len(self._rendered_video_frames)):
+            return
+        frame = self._rendered_video_frames[index]
+        self.video_time = self._rendered_video_times[index]
+        self.preview_result = frame
+        self.processed_view.set_pixmap(pil_to_pixmap(frame))
+        if self.video_info:
+            self.video_slider.blockSignals(True)
+            self.video_slider.setValue(round(1000 * self.video_time / max(0.001, self.video_info.duration)))
+            self.video_slider.blockSignals(False)
+        self.video_time_label.setText(f"{self.video_time:.2f} s")
+
+    def _render_video_preview_segment(self) -> None:
+        if self.video_path is None or self.video_info is None:
+            return
+        settings = self._settings_from_controls()
+        start = min(self.video_time, max(0.0, self.video_info.duration - 0.05))
+        duration = min(5.0, max(0.05, self.video_info.duration - start))
+        job_id = self._next_job_id()
+        self._rendered_video_job = job_id
+        context = {
+            "source_revision": self._source_revision,
+            "settings_revision": self._settings_revision,
+            "kind": "video",
+            "start": start,
+        }
+        worker = RenderedPreviewWorker(
+            job_id, settings, video_path=str(self.video_path), start_time=start, duration=duration,
+            max_side=PREVIEW_MAX_SIDE, context=context,
+        )
+        worker.signals.finished.connect(self._worker_finished)
+        worker.signals.failed.connect(self._worker_failed)
+        worker.signals.progress.connect(self._worker_progress)
+        self.thread_pool.start(worker)
+        self.statusBar().showMessage(f"Rendering {duration:.1f} s video preview segment…")
 
     def _request_video_frame(self, time_seconds: float) -> None:
         if self.video_path is None:
@@ -1059,6 +1308,7 @@ class MainWindow(QMainWindow):
         context = {
             "source_revision": self._source_revision,
             "settings_revision": self._settings_revision,
+            "time_revision": self._time_revision,
             "quality": quality,
             "max_side": max_side,
         }
@@ -1086,6 +1336,43 @@ class MainWindow(QMainWindow):
             QTimer.singleShot(0, lambda s=side: self._request_preview(s))
 
     def _worker_finished(self, job_id: int, purpose: str, result: object, context: object) -> None:
+        if purpose == "rendered-preview":
+            ctx = context if isinstance(context, dict) else {}
+            kind = str(ctx.get("kind", ""))
+            if not isinstance(result, dict):
+                return
+            frames = result.get("frames", [])
+            times = result.get("times", [])
+            fps = float(result.get("fps", 0.0) or 0.0)
+            if not isinstance(frames, list) or not frames or not isinstance(times, list):
+                return
+            if int(ctx.get("settings_revision", -1)) != self._settings_revision:
+                return
+            if kind == "animation":
+                if job_id != self._rendered_animation_job or int(ctx.get("source_revision", -1)) != self._source_revision:
+                    return
+                self._rendered_animation_frames = frames
+                self._rendered_animation_times = [float(v) for v in times]
+                self._rendered_animation_fps = fps
+                self.animation_panel.set_rendered_ready(True, frame_count=len(frames), fps=fps)
+                self.animation_panel.set_preview_mode("rendered")
+                self._show_rendered_animation_frame(self.animation_panel.current_time())
+                self.statusBar().showMessage(f"Rendered preview ready · {len(frames)} frames", 4000)
+            elif kind == "video":
+                if job_id != self._rendered_video_job:
+                    return
+                self._rendered_video_frames = frames
+                self._rendered_video_times = [float(v) for v in times]
+                self._rendered_video_fps = fps
+                self._rendered_video_index = 0
+                self.video_cache_label.setText(f"Rendered cache · {len(frames)} frames at {fps:.1f} FPS")
+                idx = self.video_preview_mode_combo.findData("rendered")
+                if idx >= 0:
+                    self.video_preview_mode_combo.setCurrentIndex(idx)
+                self._display_rendered_video_frame(0)
+                self.statusBar().showMessage(f"Rendered video segment ready · {len(frames)} frames", 4000)
+            return
+
         if purpose == "preset-thumbnail":
             ctx = context if isinstance(context, dict) else {}
             if int(ctx.get("source_revision", -1)) == self._source_revision and isinstance(result, Image.Image):
@@ -1100,6 +1387,7 @@ class MainWindow(QMainWindow):
                 job_id == self._latest_preview_job
                 and int(ctx.get("source_revision", -1)) == self._source_revision
                 and int(ctx.get("settings_revision", -1)) == self._settings_revision
+                and int(ctx.get("time_revision", -1)) == self._time_revision
                 and isinstance(result, Image.Image)
             ):
                 self.preview_result = result
@@ -1123,7 +1411,7 @@ class MainWindow(QMainWindow):
             self._start_pending_video_frame()
             return
 
-        if purpose == "export":
+        if purpose in {"export", "export-video-frame"}:
             self._export_jobs.discard(job_id)
             path = Path(str(context))
             try:
@@ -1142,6 +1430,12 @@ class MainWindow(QMainWindow):
         if purpose == "media-export":
             self._export_jobs.discard(job_id)
             self.statusBar().showMessage(f"Exported {Path(str(result)).name}", 6000)
+            return
+
+        if purpose == "png-sequence":
+            self._export_jobs.discard(job_id)
+            count = len(result) if isinstance(result, list) else 0
+            self.statusBar().showMessage(f"PNG sequence exported: {count} frames", 6000)
             return
 
         if purpose == "batch":
@@ -1184,20 +1478,25 @@ class MainWindow(QMainWindow):
 
         base_settings = self._settings_from_controls()
         parameter_time = self.video_time if self.video_path else self.animation_panel.current_time()
-        settings = settings_at_time(base_settings, parameter_time)
         job_id = self._next_job_id()
         self._export_jobs.add(job_id)
-        worker = ProcessingWorker(
-            job_id,
-            "export",
-            self.original_image,
-            settings,
-            str(target),
-            frame_time=self.video_time if self.video_path else self.animation_panel.current_time(),
-            frame_index=round(parameter_time * base_settings.animation_fps),
-            display_mode=settings.display_mode if settings.display_export else "raw",
-            include_grid=settings.grid_enabled and settings.grid_export,
-        )
+        if self.video_path:
+            worker = VideoCurrentFrameWorker(
+                job_id, str(self.video_path), parameter_time, base_settings, str(target)
+            )
+        else:
+            settings = settings_at_time(base_settings, parameter_time)
+            worker = ProcessingWorker(
+                job_id,
+                "export",
+                self.original_image,
+                settings,
+                str(target),
+                frame_time=parameter_time,
+                frame_index=round(parameter_time * base_settings.animation_fps),
+                display_mode=settings.display_mode if settings.display_export else "raw",
+                include_grid=settings.grid_enabled and settings.grid_export,
+            )
         worker.signals.finished.connect(self._worker_finished)
         worker.signals.failed.connect(self._worker_failed)
         self.thread_pool.start(worker)
@@ -1231,7 +1530,7 @@ class MainWindow(QMainWindow):
             path,
             image=self.original_image if self.video_path is None else None,
             video_path=str(self.video_path) if self.video_path else None,
-            include_audio=True,
+            include_audio=bool(self.video_audio_check.isChecked()) if self.video_path else False,
         )
         worker.signals.finished.connect(self._worker_finished)
         worker.signals.failed.connect(self._worker_failed)
@@ -1239,6 +1538,34 @@ class MainWindow(QMainWindow):
         self.thread_pool.start(worker)
         self.app_settings.setValue("lastExportDir", str(Path(path).parent))
         self.statusBar().showMessage(f"Exporting {Path(path).name}…")
+
+    def export_png_sequence_dialog(self) -> None:
+        if self.original_image is None and self.video_path is None:
+            return
+        base_dir = Path(self.app_settings.value("lastExportDir", str(Path.home())))
+        parent = QFileDialog.getExistingDirectory(self, "Choose folder for PNG sequence", str(base_dir))
+        if not parent:
+            return
+        stem = self.current_file.stem if self.current_file else "animation"
+        output_dir = Path(parent) / f"{stem}-rastermint-frames"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        settings = self._settings_from_controls()
+        job_id = self._next_job_id()
+        self._export_jobs.add(job_id)
+        worker = SequenceExportWorker(
+            job_id,
+            settings,
+            str(output_dir),
+            image=self.original_image if self.video_path is None else None,
+            video_path=str(self.video_path) if self.video_path else None,
+            prefix=stem,
+        )
+        worker.signals.finished.connect(self._worker_finished)
+        worker.signals.failed.connect(self._worker_failed)
+        worker.signals.progress.connect(self._worker_progress)
+        self.thread_pool.start(worker)
+        self.app_settings.setValue("lastExportDir", str(Path(parent)))
+        self.statusBar().showMessage(f"Exporting PNG sequence to {output_dir.name}…")
 
     def batch_export_dialog(self) -> None:
         paths, _ = QFileDialog.getOpenFileNames(self, "Select images for batch processing", str(Path.home()), IMAGE_FILTER)

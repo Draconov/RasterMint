@@ -78,6 +78,14 @@ EFFECT_DEFINITIONS: dict[str, dict[str, Any]] = {
         "amount": {"type": "float", "label": "Amount", "default": 0.08, "min": 0.0, "max": 1.0, "step": 0.01, "decimals": 2, "animatable": True},
         "speed": {"type": "float", "label": "Speed", "default": 4.0, "min": 0.1, "max": 30.0, "step": 0.1, "decimals": 1, "suffix": " Hz", "animatable": True},
     }},
+    "Temporal Pattern": {"params": {
+        "pattern": {"type": "choice", "label": "Pattern", "default": "Wave X", "options": ["Pulse", "Wave X", "Wave Y", "Diagonal Wave", "Checker Phase", "Scan Sweep", "Noise Drift", "Alternating", "Radial Pulse"]},
+        "amount": {"type": "float", "label": "Amount", "default": 0.25, "min": 0.0, "max": 1.0, "step": 0.01, "decimals": 2, "animatable": True},
+        "speed": {"type": "float", "label": "Speed", "default": 1.0, "min": 0.0, "max": 30.0, "step": 0.1, "decimals": 1, "suffix": " Hz", "animatable": True},
+        "scale": {"type": "float", "label": "Scale", "default": 32.0, "min": 2.0, "max": 256.0, "step": 1.0, "decimals": 1, "suffix": " px", "animatable": True, "pixel_scaled": True},
+        "phase": {"type": "float", "label": "Phase", "default": 0.0, "min": 0.0, "max": 1.0, "step": 0.01, "decimals": 2, "animatable": True},
+        "seed": {"type": "int", "label": "Seed", "default": 1, "min": 0, "max": 999999, "step": 1},
+    }},
     "Pixelate": {"params": {
         "size": {"type": "int", "label": "Pixel size", "default": 2, "min": 1, "max": 64, "step": 1, "animatable": True, "pixel_scaled": True},
     }},
@@ -150,11 +158,20 @@ EFFECT_DEFINITIONS: dict[str, dict[str, Any]] = {
     }},
     "Dither": {"params": {
         "algorithm": {"type": "choice", "label": "Algorithm", "default": "Floyd-Steinberg", "options": ALGORITHMS},
+        "mix": {"type": "float", "label": "Mix", "default": 1.0, "min": 0.0, "max": 1.0, "step": 0.05, "decimals": 2, "animatable": True},
         "strength": {"type": "float", "label": "Strength", "default": 1.0, "min": 0.0, "max": 2.0, "step": 0.05, "decimals": 2, "animatable": True},
         "threshold": {"type": "float", "label": "Threshold", "default": 0.5, "min": 0.0, "max": 1.0, "step": 0.01, "decimals": 2, "animatable": True},
         "serpentine": {"type": "bool", "label": "Serpentine", "default": True},
     }},
 }
+
+# Numeric effect controls are animatable unless they are identity/random seeds.
+# This keeps the timeline capability aligned with the effect schema without
+# requiring a second hand-maintained list of motion-capable parameters.
+for _definition in EFFECT_DEFINITIONS.values():
+    for _param_name, _spec in _definition.get("params", {}).items():
+        if _spec.get("type") in {"int", "float"} and _param_name != "seed":
+            _spec.setdefault("animatable", True)
 
 
 def new_effect(kind: str, *, enabled: bool = True, effect_id: str | None = None) -> dict[str, Any]:
@@ -271,6 +288,61 @@ def animatable_targets(stack: list[dict[str, Any]]) -> list[tuple[str, str, floa
             if isinstance(value, (int, float)) and not isinstance(value, bool):
                 targets.append((f"effect:{step['id']}:{key}", f"{step['kind']} · {spec.get('label', key)}", float(value)))
     return targets
+
+
+def _temporal_pattern(
+    image: Image.Image,
+    pattern: str,
+    amount: float,
+    speed: float,
+    scale: float,
+    phase: float,
+    frame_time: float,
+    seed: int,
+) -> Image.Image:
+    amount = max(0.0, min(1.0, float(amount)))
+    if amount <= 0.0:
+        return image
+
+    arr = np.asarray(image.convert("RGB"), dtype=np.float32)
+    h, w = arr.shape[:2]
+    yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
+    scale = max(1.0, float(scale))
+    theta = 2.0 * np.pi * (max(0.0, float(speed)) * float(frame_time) + float(phase))
+
+    if pattern == "Pulse":
+        field = np.full((h, w), np.sin(theta), dtype=np.float32)
+    elif pattern == "Wave Y":
+        field = np.sin((yy / scale) * 2.0 * np.pi + theta)
+    elif pattern == "Diagonal Wave":
+        field = np.sin(((xx + yy) / scale) * 2.0 * np.pi + theta)
+    elif pattern == "Checker Phase":
+        offset = theta / (2.0 * np.pi) * scale
+        cells = (np.floor((xx + offset) / scale) + np.floor((yy + offset) / scale)).astype(np.int32)
+        field = np.where((cells & 1) == 0, 1.0, -1.0).astype(np.float32)
+    elif pattern == "Scan Sweep":
+        center = ((float(frame_time) * max(0.0, float(speed)) + float(phase)) % 1.0) * max(1.0, float(h))
+        distance = np.abs(yy - center)
+        distance = np.minimum(distance, max(1.0, float(h)) - distance)
+        field = np.clip(1.0 - distance / max(1.0, scale), 0.0, 1.0) * 2.0 - 1.0
+    elif pattern == "Noise Drift":
+        # Smooth deterministic pseudo-noise; no per-frame random allocation is
+        # required, so scrubbing to the same time reproduces the same frame.
+        base = xx * 12.9898 + yy * 78.233 + float(seed) * 0.12345
+        field = np.sin(base + theta + np.sin(base * 0.17 + theta * 0.37))
+    elif pattern == "Alternating":
+        field = np.full((h, w), 1.0 if int(np.floor(max(0.0, speed) * frame_time + phase)) % 2 == 0 else -1.0, dtype=np.float32)
+    elif pattern == "Radial Pulse":
+        cx = (w - 1) * 0.5
+        cy = (h - 1) * 0.5
+        radius = np.sqrt((xx - cx) ** 2 + (yy - cy) ** 2)
+        field = np.sin((radius / scale) * 2.0 * np.pi - theta)
+    else:  # Wave X
+        field = np.sin((xx / scale) * 2.0 * np.pi + theta)
+
+    gain = 1.0 + field[..., None] * (amount * 0.5)
+    out = np.clip(arr * gain, 0, 255).astype(np.uint8)
+    return Image.fromarray(out, "RGB")
 
 
 def _seed(params: dict[str, Any], frame_index: int) -> int:
@@ -667,6 +739,7 @@ def apply_effect_stack(
         elif kind == "Interlace": img = _interlace(img, int(p["offset"]), float(p["darken"]))
         elif kind == "Noise": img = _noise(img, float(p["amount"]), _seed(p, frame_index))
         elif kind == "Temporal Flicker": img = _flicker(img, float(p["amount"]), float(p["speed"]), frame_time)
+        elif kind == "Temporal Pattern": img = _temporal_pattern(img, str(p["pattern"]), float(p["amount"]), float(p["speed"]), float(p["scale"]), float(p["phase"]), frame_time, int(p["seed"]))
         elif kind == "Pixelate": img = _pixelate(img, int(round(float(p["size"]))))
         elif kind == "Pixel Sort": img = _pixel_sort(img, float(p["threshold"]), str(p["direction"]), bool(p["reverse"]))
         elif kind == "Screen Melt": img = _screen_melt(img, int(p["amount"]), int(p["column_width"]), _seed(p, frame_index))
@@ -681,10 +754,15 @@ def apply_effect_stack(
         elif kind == "Pixel Material": img = _pixel_material(img, str(p["style"]), int(p["cell_size"]), int(p["gap"]), str(p["background"]), str(p["sprite_path"]))
         elif kind == "Text Overlay": img = _text_overlay(img, str(p["text"]), float(p["x"]), float(p["y"]), int(p["size"]), str(p["color"]), int(p["outline"]), int(p["shadow"]))
         elif kind == "Dither":
-            arr = np.asarray(img.convert("RGB"), dtype=np.float32)
+            mix = max(0.0, min(1.0, float(p.get("mix", 1.0))))
+            if mix <= 0.0:
+                continue
+            before = img.convert("RGB")
+            arr = np.asarray(before, dtype=np.float32)
             result = apply_dither(
                 arr, palette_np, str(p["algorithm"]), strength=float(p["strength"]),
                 serpentine=bool(p["serpentine"]), threshold=float(p["threshold"]),
             )
-            img = Image.fromarray(np.clip(result, 0, 255).astype(np.uint8), "RGB")
+            dithered = Image.fromarray(np.clip(result, 0, 255).astype(np.uint8), "RGB")
+            img = dithered if mix >= 1.0 else Image.blend(before, dithered, mix)
     return img

@@ -15,7 +15,7 @@ import numpy as np
 from PIL import Image
 
 from .animation import settings_at_time
-from .processor import process_image
+from .processor import make_preview_settings, make_preview_source, process_image, target_raster_size
 from .settings import ProcessingSettings
 
 SUPPORTED_VIDEO_SUFFIXES = {".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v", ".gif"}
@@ -364,3 +364,216 @@ def export_processed_video(
         except Exception:
             pass
         shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+
+def render_image_preview_frames(
+    image: Image.Image,
+    settings: ProcessingSettings,
+    *,
+    max_side: int = 640,
+    fps_limit: int = 30,
+    progress: Callable[[int, int], None] | None = None,
+) -> tuple[list[Image.Image], list[float], float]:
+    """Pre-render an accurate-at-preview-resolution animation cache."""
+    duration = max(0.1, float(settings.animation_duration))
+    fps = float(max(1, min(int(settings.animation_fps), max(1, int(fps_limit)))))
+    frame_count = max(1, int(round(duration * fps)))
+    # Keep rendered preview bounded; final export remains unrestricted.
+    if frame_count > 900:
+        fps = max(1.0, 900.0 / duration)
+        frame_count = 900
+
+    final_size = target_raster_size(image.size, settings)
+    preview_source = make_preview_source(image, max_side=max_side, settings=settings)
+    frames: list[Image.Image] = []
+    times: list[float] = []
+    for index in range(frame_count):
+        t = min(duration, index / fps)
+        animated = settings_at_time(settings, t)
+        preview_settings = make_preview_settings(animated, final_size, preview_source.size)
+        frame = process_image(
+            preview_source,
+            preview_settings,
+            frame_time=t,
+            frame_index=index,
+            display_mode=preview_settings.display_mode,
+            include_grid=preview_settings.grid_enabled and preview_settings.grid_preview,
+        )
+        frames.append(frame)
+        times.append(t)
+        if progress:
+            progress(index + 1, frame_count)
+    return frames, times, fps
+
+
+def _iter_video_segment_frames(path: str | Path, start_time: float, duration: float, fps: float):
+    source = Path(path)
+    if source.suffix.lower() == ".gif":
+        info = _probe_gif(source)
+        count = max(1, int(round(duration * fps)))
+        for index in range(count):
+            t = min(info.duration, start_time + index / fps)
+            yield t, _read_gif_frame(source, t)
+        return
+
+    ff = _imageio_ffmpeg()
+    params = ["-ss", f"{max(0.0, start_time):.6f}"] if start_time > 0 else []
+    output_params = ["-t", f"{max(0.01, duration):.6f}", "-vf", f"fps={max(1.0, fps):.6f}"]
+    generator = ff.read_frames(str(source), pix_fmt="rgb24", input_params=params, output_params=output_params)
+    try:
+        meta = next(generator)
+        width, height = meta["size"]
+        for index, raw in enumerate(generator):
+            arr = np.frombuffer(raw, dtype=np.uint8).reshape(int(height), int(width), 3)
+            yield start_time + index / fps, Image.fromarray(arr.copy(), "RGB")
+    finally:
+        generator.close()
+
+
+def render_video_preview_frames(
+    source_path: str | Path,
+    settings: ProcessingSettings,
+    *,
+    start_time: float = 0.0,
+    duration: float = 5.0,
+    max_side: int = 640,
+    fps_limit: int = 15,
+    progress: Callable[[int, int], None] | None = None,
+) -> tuple[list[Image.Image], list[float], float]:
+    """Render a short processed video segment for smooth cached playback."""
+    info = probe_video(source_path)
+    start_time = max(0.0, min(float(start_time), max(0.0, info.duration)))
+    duration = max(0.05, min(float(duration), max(0.05, info.duration - start_time)))
+    fps = max(1.0, min(float(info.fps or 15.0), float(max(1, fps_limit))))
+    expected = max(1, int(round(duration * fps)))
+    frames: list[Image.Image] = []
+    times: list[float] = []
+
+    for index, (t, source_frame) in enumerate(_iter_video_segment_frames(source_path, start_time, duration, fps)):
+        animated = settings_at_time(settings, t)
+        final_size = target_raster_size(source_frame.size, animated)
+        preview_source = make_preview_source(source_frame, max_side=max_side, settings=animated)
+        preview_settings = make_preview_settings(animated, final_size, preview_source.size)
+        frame = process_image(
+            preview_source,
+            preview_settings,
+            frame_time=t,
+            frame_index=max(0, round(t * max(1.0, info.fps))),
+            display_mode=preview_settings.display_mode,
+            include_grid=preview_settings.grid_enabled and preview_settings.grid_preview,
+        )
+        frames.append(frame)
+        times.append(t)
+        if progress:
+            progress(index + 1, expected)
+    return frames, times, fps
+
+
+def export_image_sequence(
+    image: Image.Image,
+    settings: ProcessingSettings,
+    output_dir: str | Path,
+    *,
+    prefix: str = "frame",
+    duration: float | None = None,
+    fps: int | None = None,
+    progress: Callable[[int, int], None] | None = None,
+) -> list[Path]:
+    target_dir = Path(output_dir)
+    target_dir.mkdir(parents=True, exist_ok=True)
+    duration = max(0.1, float(duration if duration is not None else settings.animation_duration))
+    fps = max(1, int(fps if fps is not None else settings.animation_fps))
+    frame_count = max(1, int(round(duration * fps)))
+    digits = max(4, len(str(frame_count)))
+    written: list[Path] = []
+    for index in range(frame_count):
+        t = index / fps
+        animated = settings_at_time(settings, t)
+        frame = process_image(
+            image,
+            animated,
+            frame_time=t,
+            frame_index=index,
+            display_mode=settings.display_mode if settings.display_export else "raw",
+            include_grid=settings.grid_enabled and settings.grid_export,
+        )
+        path = target_dir / f"{prefix}_{index + 1:0{digits}d}.png"
+        frame.save(path, format="PNG")
+        written.append(path)
+        if progress:
+            progress(index + 1, frame_count)
+    return written
+
+
+def export_processed_video_sequence(
+    source_path: str | Path,
+    settings: ProcessingSettings,
+    output_dir: str | Path,
+    *,
+    prefix: str = "frame",
+    progress: Callable[[int, int], None] | None = None,
+) -> list[Path]:
+    source = Path(source_path)
+    target_dir = Path(output_dir)
+    target_dir.mkdir(parents=True, exist_ok=True)
+    info = probe_video(source)
+    total = max(1, info.frames)
+    digits = max(4, len(str(total)))
+    written: list[Path] = []
+
+    if source.suffix.lower() == ".gif":
+        durations, _ = _gif_frame_durations(source)
+        elapsed = 0.0
+        with Image.open(source) as gif:
+            count = int(getattr(gif, "n_frames", 1))
+            total = max(1, count)
+            digits = max(4, len(str(total)))
+            for index in range(count):
+                gif.seek(index)
+                source_frame = gif.convert("RGB")
+                animated = settings_at_time(settings, elapsed)
+                result = process_image(
+                    source_frame,
+                    animated,
+                    frame_time=elapsed,
+                    frame_index=index,
+                    display_mode=settings.display_mode if settings.display_export else "raw",
+                    include_grid=settings.grid_enabled and settings.grid_export,
+                )
+                path = target_dir / f"{prefix}_{index + 1:0{digits}d}.png"
+                result.save(path, format="PNG")
+                written.append(path)
+                elapsed += durations[index] / 1000.0
+                if progress:
+                    progress(index + 1, total)
+        return written
+
+    meta, frames = iter_video_frames(source)
+    width, height = meta["size"]
+    fps = float(meta.get("fps") or info.fps or 25.0)
+    try:
+        for index, raw in enumerate(frames):
+            arr = np.frombuffer(raw, dtype=np.uint8).reshape(int(height), int(width), 3)
+            source_frame = Image.fromarray(arr, "RGB")
+            t = index / fps
+            animated = settings_at_time(settings, t)
+            result = process_image(
+                source_frame,
+                animated,
+                frame_time=t,
+                frame_index=index,
+                display_mode=settings.display_mode if settings.display_export else "raw",
+                include_grid=settings.grid_enabled and settings.grid_export,
+            )
+            path = target_dir / f"{prefix}_{index + 1:0{digits}d}.png"
+            result.save(path, format="PNG")
+            written.append(path)
+            if progress:
+                progress(index + 1, total)
+    finally:
+        try:
+            frames.close()  # type: ignore[attr-defined]
+        except Exception:
+            pass
+    return written

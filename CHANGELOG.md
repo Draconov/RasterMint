@@ -39,6 +39,14 @@ RasterMint remains on version **0.1.0** while the initial feature set is being b
 
 ### Animation and video
 
+- Added a true animatable Dither Mix control plus Dither In, Dither Out, and Dither In/Out motion presets.
+- Made suitable numeric effect parameters automatically available to the timeline, excluding identity/random seeds.
+- Added sequential same-parameter track evaluation, track update/duplicate controls, frame-step/start/end transport, and loop playback.
+- Added Quick vs Rendered animation playback with a background preview-frame cache.
+- Added Temporal Pattern modes: Pulse, X/Y/diagonal wave, checker phase, scan sweep, deterministic noise drift, alternating, and radial pulse.
+- Added motion presets for Glow Pulse, Hue Sweep, CRT Flicker, Pixelate In, Chromatic Pulse, and Temporal Wave.
+- Added Rendered 5-second video-segment preview, preview speed controls, loop control, and an explicit preserve-audio option.
+- Added full-resolution numbered PNG-sequence export for still animation, GIF, and normal video.
 - Added animation tracks with From/To values, start/end times, easing, duration, FPS, and per-track enable/bypass.
 - Added timeline preview/playback for animatable effect parameters.
 - Animated effect controls are locked while an enabled animation track owns that parameter.

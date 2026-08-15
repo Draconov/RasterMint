@@ -111,51 +111,44 @@ If a worker finishes after its source/settings revision became obsolete, its res
 
 ## Animation
 
-Animation tracks target effect parameters by stable effect ID:
+Animation targets use stable effect IDs:
 
 ```text
 effect:<effect-id>:<parameter>
 ```
 
-Example:
+`EFFECT_DEFINITIONS` is the capability source. Numeric parameters are timeline-compatible unless they are random/identity seeds; the UI therefore does not maintain a second animation-property list. `settings_at_time()` groups tracks by target, supports sequential segments on one parameter, applies easing, and clamps interpolated values back to the effect schema.
+
+Dither exposes a dedicated `mix` parameter. The renderer skips dithering entirely at mix 0, renders normally at mix 1, and blends the clean/dithered images in between. Built-in motion recipes live in `core/animation_presets.py`; they add missing effects when necessary and generate ordinary tracks, so the result remains serializable in normal RasterMint presets.
+
+Playback has two paths:
 
 ```text
-effect:glow:intensity
+Quick
+ timeline → current settings_at_time → draft preview worker → viewport
+
+Rendered
+ settings + source → background frame-cache worker → cached PIL frames → viewport
 ```
 
-A track contains:
-
-```json
-{
-  "target": "effect:glow:intensity",
-  "from": 0.1,
-  "to": 0.8,
-  "start": 0.5,
-  "end": 3.0,
-  "easing": "Ease In Out",
-  "enabled": true
-}
-```
-
-`settings_at_time()` clones settings and applies all enabled tracks for a requested time. Preview/export therefore share the same interpolation logic. Numeric parameters under enabled tracks are disabled in the normal effect editor while animated.
+Timeline movement has its own revision counter so an old asynchronous Quick frame cannot overwrite a newer time without invalidating a valid Rendered cache.
 
 ## Video
 
-`core/media.py` intentionally speaks to FFmpeg through `imageio-ffmpeg` subprocess pipes rather than making the image core depend on a native video binding.
+`core/media.py` speaks to FFmpeg through `imageio-ffmpeg` subprocess pipes rather than making the image core depend on a native video binding. Normal Quick playback background-seeks a frame and sends it through the standard processor. Rendered video preview decodes a short segment sequentially, processes preview proxies, and caches the results.
 
 ```text
 source video
    ↓ FFmpeg decode
 RGB frame bytes
-   ↓ PIL / RasterMint pipeline
+   ↓ same RasterMint processing pipeline
 processed RGB frame
-   ↓ FFmpeg encode
-video-only MP4
-   ↓ optional audio mux from source
-final MP4
+   ├─→ cached rendered preview
+   ├─→ numbered PNG sequence
+   └─→ FFmpeg encode → optional source-audio mux → MP4
 ```
 
-The viewport seeks frames in background workers. Quick playback is capped to a practical preview frame rate and uses draft proxies; final video export processes every decoded frame at the selected output size.
+PNG-sequence export exists for both still-image animation and timed media. It intentionally writes lossless full-resolution processed PNGs and does not share the Rendered Preview resolution cap.
 
 ## Palettes
 

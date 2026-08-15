@@ -87,6 +87,7 @@ class ProcessingSettings:
 
     animation_duration: float = 4.0
     animation_fps: int = 12
+    animation_loop: bool = True
     animation_tracks: list[dict[str, Any]] = field(default_factory=list)
 
     random_locks: dict[str, bool] = field(default_factory=_default_random_locks)
@@ -133,7 +134,7 @@ class ProcessingSettings:
             "hardware_mode", "hardware_constraints_enabled",
             "hardware_constraints", "palette", "palette_locks", "palette_name",
             "palette_author", "palette_source", "effect_stack",
-            "animation_duration", "animation_fps", "animation_tracks",
+            "animation_duration", "animation_fps", "animation_loop", "animation_tracks",
             "random_locks",
         }
         clean = {k: v for k, v in data.items() if k in allowed}
@@ -217,6 +218,7 @@ class ProcessingSettings:
             obj.animation_tracks = []
         obj.animation_duration = max(0.1, min(600.0, float(obj.animation_duration)))
         obj.animation_fps = max(1, min(120, int(obj.animation_fps)))
+        obj.animation_loop = bool(obj.animation_loop)
 
         if not isinstance(obj.random_locks, dict):
             obj.random_locks = _default_random_locks()
