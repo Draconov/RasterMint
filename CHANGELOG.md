@@ -2,6 +2,10 @@
 
 ## 0.1.0 - 2026-08-14
 
+- Fixed QML parsing in the animation track editor by removing invalid semicolons between sibling child objects.
+- Fixed the same compact grouped-property separator pattern in the Settings dialog.
+- Expanded the offscreen QML smoke suite to compile every packaged QML component individually, so CI reports all QML parse/type errors in one run.
+
 - Migrated the desktop frontend from Qt Widgets to **PySide6 + Qt Quick/QML** while keeping the Python processing core and release pipeline.
 - Added JSON-driven application themes with **RasterMint Dark** as the default and a live selector under **Edit → Settings… → Appearance → Theme**.
 - Added **Solarized Dark** and **Solarized Light** application themes using Ethan Schoonover's canonical Solarized palette.
@@ -9,6 +13,8 @@
 - Added controllable **Bloom** layer with highlight threshold, soft knee, radius, intensity, Screen/Add blending, and animation support.
 - Fixed Linux GitHub Actions QML test startup by installing the required EGL/OpenGL/Qt runtime libraries before importing `PySide6.QtGui`.
 - Fixed the QML Preview mode selector so Quick / Stable / Full use a supported selected-state property instead of assigning through `background.color`, which prevented `Main.qml` from loading on Linux CI.
+
+RasterMint remains on version **0.1.0** while the initial feature set is being built out.
 
 ### Processing and preview
 

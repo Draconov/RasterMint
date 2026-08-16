@@ -129,15 +129,70 @@ ScrollView {
         }
         RowLayout {
             Layout.fillWidth: true
-            ColumnLayout { Layout.fillWidth: true; MintLabel { text: "From"; color: theme.mutedTextColor }; MintTextField { id: fromField; Layout.fillWidth: true; text: "0"; validator: DoubleValidator {} } }
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                MintLabel {
+                    text: "From"
+                    color: theme.mutedTextColor
+                }
+                MintTextField {
+                    id: fromField
+                    Layout.fillWidth: true
+                    text: "0"
+                    validator: DoubleValidator {}
+                }
+            }
+
             MintLabel { text: "→" }
-            ColumnLayout { Layout.fillWidth: true; MintLabel { text: "To"; color: theme.mutedTextColor }; MintTextField { id: toField; Layout.fillWidth: true; text: "1"; validator: DoubleValidator {} } }
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                MintLabel {
+                    text: "To"
+                    color: theme.mutedTextColor
+                }
+                MintTextField {
+                    id: toField
+                    Layout.fillWidth: true
+                    text: "1"
+                    validator: DoubleValidator {}
+                }
+            }
         }
+
         RowLayout {
             Layout.fillWidth: true
-            ColumnLayout { Layout.fillWidth: true; MintLabel { text: "Start (s)"; color: theme.mutedTextColor }; MintTextField { id: startField; Layout.fillWidth: true; text: "0.00"; validator: DoubleValidator { bottom: 0 } } }
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                MintLabel {
+                    text: "Start (s)"
+                    color: theme.mutedTextColor
+                }
+                MintTextField {
+                    id: startField
+                    Layout.fillWidth: true
+                    text: "0.00"
+                    validator: DoubleValidator { bottom: 0 }
+                }
+            }
+
             MintLabel { text: "→" }
-            ColumnLayout { Layout.fillWidth: true; MintLabel { text: "End (s)"; color: theme.mutedTextColor }; MintTextField { id: endField; Layout.fillWidth: true; text: Number(backend.timelineDuration).toFixed(2); validator: DoubleValidator { bottom: 0 } } }
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                MintLabel {
+                    text: "End (s)"
+                    color: theme.mutedTextColor
+                }
+                MintTextField {
+                    id: endField
+                    Layout.fillWidth: true
+                    text: Number(backend.timelineDuration).toFixed(2)
+                    validator: DoubleValidator { bottom: 0 }
+                }
+            }
         }
         MintLabel { text: "Easing"; color: theme.mutedTextColor }
         MintComboBox { id: easingCombo; Layout.fillWidth: true; model: backend.easingNames }

@@ -106,3 +106,16 @@ def test_qml_pages_do_not_override_custom_control_background_subproperties():
             continue
         text = path.read_text(encoding="utf-8")
         assert "background.color:" not in text, path
+
+def test_qml_does_not_separate_child_or_grouped_blocks_with_semicolons():
+    # A closing QML object/grouped-property block must not be followed by a
+    # semicolon before the next child object/property. This is easy to create
+    # when compacting QML onto one line and causes `Unexpected token ;`.
+    import re
+
+    bad = re.compile(r"}\s*;\s*(?=(?:[A-Z][A-Za-z0-9_.]*\s*\{|[A-Za-z_][A-Za-z0-9_.]*\s*:))")
+    for path in (PACKAGE / "qml").rglob("*.qml"):
+        text = path.read_text(encoding="utf-8")
+        match = bad.search(text)
+        assert match is None, f"invalid QML block separator in {path}: {match.group(0)!r}" if match else ""
+

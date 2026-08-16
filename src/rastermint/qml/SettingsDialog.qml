@@ -14,7 +14,17 @@ Dialog {
     background: Rectangle { color: theme.panelColor; border.color: theme.borderColor; radius: 10 }
     header: Rectangle {
         implicitHeight: 48; color: theme.panelRaisedColor
-        Text { anchors { left: parent.left; verticalCenter: parent.verticalCenter; leftMargin: 16 }; text: root.title; color: theme.textColor; font.bold: true; font.pixelSize: 16 }
+        Text {
+            anchors {
+                left: parent.left
+                verticalCenter: parent.verticalCenter
+                leftMargin: 16
+            }
+            text: root.title
+            color: theme.textColor
+            font.bold: true
+            font.pixelSize: 16
+        }
     }
     contentItem: ColumnLayout {
         spacing: 12
