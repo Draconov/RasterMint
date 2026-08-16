@@ -251,3 +251,96 @@ def test_undo_redo_and_last_action_toast_are_wired():
     assert "def redo(self)" in backend
     assert "beginHistoryGroup" in layers
     assert "beginHistoryGroup" in canvas
+
+
+def test_theme_chooser_order_and_new_themes_are_stable():
+    theme_py = (PACKAGE / "qmlui" / "theme.py").read_text(encoding="utf-8")
+    expected = [
+        "rastermint-dark",
+        "rastermint-light",
+        "oled",
+        "trueblack",
+        "solarized-dark",
+        "solarized-light",
+        "mint",
+        "sunrise",
+        "halloween",
+    ]
+    positions = [theme_py.index(f'"{theme_id}"') for theme_id in expected]
+    assert positions == sorted(positions)
+
+    sunrise = json.loads((PACKAGE / "data" / "themes" / "sunrise.json").read_text(encoding="utf-8"))
+    halloween = json.loads((PACKAGE / "data" / "themes" / "halloween.json").read_text(encoding="utf-8"))
+    trueblack = json.loads((PACKAGE / "data" / "themes" / "trueblack.json").read_text(encoding="utf-8"))
+
+    assert sunrise["name"] == "Sunrise"
+    assert sunrise["window"].upper() == "#655561"
+    assert sunrise["accent"].upper() == "#FCB08C"
+    assert "#8FA0BF" in [c.upper() for c in sunrise["paletteSource"]]
+    assert halloween["name"] == "Halloween"
+    assert halloween["accent"].upper() == "#FF7A18"
+    assert halloween["window"].upper() == "#160D1D"
+    assert trueblack["name"] == "TrueBlack"
+    assert trueblack["window"] == "#000000"
+    assert trueblack["panel"] == "#000000"
+
+
+def test_settings_dialog_is_simplified_and_about_dialog_is_fully_themed():
+    settings = (PACKAGE / "qml" / "SettingsDialog.qml").read_text(encoding="utf-8")
+    about = (PACKAGE / "qml" / "AboutDialog.qml").read_text(encoding="utf-8")
+
+    assert 'title: "Settings"' in settings
+    assert "RasterMint Settings" not in settings
+    assert 'text: "Theme"' not in settings
+    assert "Themes apply immediately" not in settings
+    assert "header: Rectangle" in settings
+
+    assert "header: Rectangle" in about
+    assert "color: theme.panelRaisedColor" in about
+    assert "color: theme.panelColor" in about
+    assert "border.color: theme.borderColor" in about
+
+
+def test_top_menu_focus_does_not_stick_after_popup_closes():
+    main = (PACKAGE / "qml" / "Main.qml").read_text(encoding="utf-8")
+    button = (PACKAGE / "qml" / "components" / "MintMenuBarButton.qml").read_text(encoding="utf-8")
+
+    assert "forceActiveFocus" not in main
+    assert "onClosed: fileMenuButton.focus = false" in main
+    assert "onClosed: editMenuButton.focus = false" in main
+    assert "onClosed: viewMenuButton.focus = false" in main
+    assert "control.menuOpen || control.hovered || control.down" in button
+    assert "control.activeFocus" not in button
+    assert "control.visualFocus" in button
+
+
+def test_view_can_toggle_native_shortcut_hints_without_disabling_shortcuts():
+    main = (PACKAGE / "qml" / "Main.qml").read_text(encoding="utf-8")
+    menu_item = (PACKAGE / "qml" / "components" / "MintMenuItem.qml").read_text(encoding="utf-8")
+    backend = (PACKAGE / "qmlui" / "backend.py").read_text(encoding="utf-8")
+
+    assert 'text: "Show Hotkeys"' in main
+    assert 'shortcut: "Ctrl+Alt+K"' in main
+    assert "checkable: true" in main
+    assert "checked: backend.showHotkeys" in main
+    assert "backend.setShowHotkeys(checked)" in main
+    assert "Shortcut {" in menu_item
+    assert "shortcutFormatter.nativeText" in menu_item
+    assert "backend.showHotkeys" in menu_item
+    assert "def setShowHotkeys(self, enabled: bool)" in backend
+    assert 'self.app_settings.setValue("showHotkeysQml", enabled)' in backend
+
+
+def test_theme_owned_controls_replace_remaining_basic_style_leaks():
+    main = (PACKAGE / "qml" / "Main.qml").read_text(encoding="utf-8")
+    pages = "\n".join(path.read_text(encoding="utf-8") for path in (PACKAGE / "qml" / "pages").glob("*.qml"))
+    spinbox = (PACKAGE / "qml" / "components" / "MintSpinBox.qml").read_text(encoding="utf-8")
+    separator = (PACKAGE / "qml" / "components" / "MintMenuSeparator.qml").read_text(encoding="utf-8")
+
+    assert "MenuSeparator {" not in main.replace("MintMenuSeparator {", "")
+    assert "MintMenuSeparator {" in main
+    assert "SpinBox {" not in pages.replace("MintSpinBox {", "")
+    assert "MintSpinBox {" in pages
+    assert "theme.panelRaisedColor" in spinbox
+    assert "theme.borderColor" in spinbox
+    assert "theme.borderColor" in separator

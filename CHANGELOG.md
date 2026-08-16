@@ -2,6 +2,12 @@
 
 ## 0.1.0 - 2026-08-14
 
+- Added Sunrise, Halloween, and TrueBlack themes and made the chooser order explicit: RasterMint Dark, RasterMint Light, OLED, TrueBlack, Solarized Dark, Solarized Light, Mint, Sunrise, Halloween.
+- Added **View → Show Hotkeys** with persistent, platform-formatted shortcut hints in custom menus, plus unique shortcuts for the remaining top-menu actions.
+- Fixed top-menu buttons staying visually selected after menus close by removing mouse-focus from the selected-state styling.
+- Simplified Settings to a clean Appearance/theme chooser and fixed About/internal themed controls so default Qt style colors no longer leak into alternate themes.
+- Added themed menu separators and SpinBoxes, and moved preview/status overlays onto active theme colors.
+
 - Widened the QML two-column inspector and fixed ScrollView content sizing so Animation, Layers, Raster, Hardware, Source, and Preview controls no longer clip horizontally.
 - Added full-width themed sliders with larger handles for smoother, more precise parameter editing.
 - Added application edit history with Ctrl+Z Undo and Ctrl+Y Redo for processing settings, layers, transforms, palettes, hardware/presets, animation tracks, randomization, and audio-export state. Continuous slider and mirror-axis drags are grouped into one undo step.
@@ -12,7 +18,7 @@
 - Expanded the offscreen QML smoke suite to compile every packaged QML component individually, so CI reports all QML parse/type errors in one run.
 
 - Migrated the desktop frontend from Qt Widgets to **PySide6 + Qt Quick/QML** while keeping the Python processing core and release pipeline.
-- Added JSON-driven application themes with **RasterMint Dark** as the default and a live selector under **Edit → Settings… → Appearance → Theme**.
+- Added JSON-driven application themes with **RasterMint Dark** as the default and a live selector under **Edit → Settings… → Appearance**.
 - Added **Solarized Dark** and **Solarized Light** application themes using Ethan Schoonover's canonical Solarized palette.
 - Removed the obsolete `src/rastermint/ui/` QWidget frontend instead of shipping two parallel interfaces.
 - Added controllable **Bloom** layer with highlight threshold, soft knee, radius, intensity, Screen/Add blending, and animation support.

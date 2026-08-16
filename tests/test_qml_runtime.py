@@ -169,3 +169,45 @@ def test_main_window_inspector_has_room_for_detailed_controls():
         assert float(panel.property("width")) >= 620
     finally:
         backend.shutdown()
+
+
+def test_theme_manager_exposes_requested_theme_order():
+    _app()
+    theme = ThemeManager()
+    assert theme.themeIds[:9] == [
+        "rastermint-dark",
+        "rastermint-light",
+        "oled",
+        "trueblack",
+        "solarized-dark",
+        "solarized-light",
+        "mint",
+        "sunrise",
+        "halloween",
+    ]
+
+
+def test_top_menu_button_releases_focus_when_popup_closes():
+    app = _app()
+    engine, backend, provider, theme = _engine_with_context()
+    qml_path = resources.files("rastermint").joinpath("qml/Main.qml")
+    engine.load(QUrl.fromLocalFile(str(qml_path)))
+    app.processEvents()
+    assert engine.rootObjects()
+    root = engine.rootObjects()[0]
+
+    try:
+        button = root.findChild(QObject, "topMenuButton_File")
+        menu = root.findChild(QObject, "fileMenu")
+        assert button is not None
+        assert menu is not None
+
+        assert QMetaObject.invokeMethod(button, "click", Qt.ConnectionType.DirectConnection)
+        app.processEvents()
+        assert bool(menu.property("opened"))
+
+        menu.close()
+        app.processEvents()
+        assert not bool(button.property("focus"))
+    finally:
+        backend.shutdown()

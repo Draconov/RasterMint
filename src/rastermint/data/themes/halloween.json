@@ -1,0 +1,18 @@
+{
+  "id": "halloween",
+  "name": "Halloween",
+  "window": "#160D1D",
+  "canvas": "#0E0812",
+  "panel": "#211128",
+  "panelRaised": "#2D1736",
+  "panelHover": "#3C2146",
+  "border": "#60366B",
+  "text": "#FFF4E8",
+  "textMuted": "#C7A9CC",
+  "accent": "#FF7A18",
+  "accentHover": "#FF9A3D",
+  "accentText": "#180C17",
+  "danger": "#FF4D4D",
+  "selection": "#56305F",
+  "mirrorAxis": "#FFB15C"
+}

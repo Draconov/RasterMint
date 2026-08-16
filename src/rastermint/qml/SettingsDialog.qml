@@ -5,49 +5,92 @@ import "components"
 
 Dialog {
     id: root
-    title: "RasterMint Settings"
+    title: "Settings"
     modal: true
     popupType: Popup.Item
     width: 420
-    height: 260
+    height: 205
     anchors.centerIn: Overlay.overlay
     standardButtons: Dialog.NoButton
-    background: Rectangle { color: theme.panelColor; border.color: theme.borderColor; radius: 10 }
+    padding: 16
+
+    background: Rectangle {
+        color: theme.panelColor
+        border.color: theme.borderColor
+        border.width: 1
+        radius: 10
+    }
+
+    Overlay.modal: Rectangle {
+        color: Qt.rgba(0, 0, 0, 0.45)
+    }
+
     header: Rectangle {
-        implicitHeight: 48; color: theme.panelRaisedColor
+        implicitHeight: 46
+        color: theme.panelRaisedColor
+
+        Rectangle {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            height: 1
+            color: theme.borderColor
+        }
+
         Text {
-            anchors {
-                left: parent.left
-                verticalCenter: parent.verticalCenter
-                leftMargin: 16
-            }
+            anchors.left: parent.left
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.leftMargin: 16
             text: root.title
             color: theme.textColor
             font.bold: true
-            font.pixelSize: 16
+            font.pixelSize: 15
         }
     }
+
     contentItem: ColumnLayout {
         spacing: 12
-        MintLabel { text: "Appearance"; font.bold: true }
-        MintLabel { text: "Theme"; color: theme.mutedTextColor }
+
+        MintLabel {
+            text: "Appearance"
+            font.bold: true
+        }
+
         MintComboBox {
             id: themeChooser
             Layout.fillWidth: true
             model: theme.themeNames
-            Component.onCompleted: currentIndex = Math.max(0, theme.themeIds.indexOf(theme.themeId))
+            Component.onCompleted: syncThemeIndex()
+
+            function syncThemeIndex() {
+                currentIndex = Math.max(0, theme.themeIds.indexOf(theme.themeId))
+            }
+
             onActivated: {
                 theme.setTheme(theme.themeIds[currentIndex])
                 backend.reportAction("Theme: " + currentText)
             }
+
+            Connections {
+                target: theme
+                function onThemeChanged() { themeChooser.syncThemeIndex() }
+            }
         }
-        MintLabel { Layout.fillWidth: true; text: "Themes apply immediately. RasterMint Dark is the default."; color: theme.mutedTextColor; wrapMode: Text.WordWrap }
+
         Item { Layout.fillHeight: true }
+
         RowLayout {
             Layout.fillWidth: true
             MintButton { text: "Close"; onClicked: root.close() }
             Item { Layout.fillWidth: true }
-            MintButton { text: "Reset Settings"; onClicked: { theme.resetTheme(); backend.resetSettings(); themeChooser.currentIndex = Math.max(0, theme.themeIds.indexOf(theme.themeId)) } }
+            MintButton {
+                text: "Reset Settings"
+                onClicked: {
+                    theme.resetTheme()
+                    backend.resetSettings()
+                    themeChooser.syncThemeIndex()
+                }
+            }
         }
     }
 }

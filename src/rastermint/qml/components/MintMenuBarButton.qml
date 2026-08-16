@@ -25,9 +25,11 @@ Button {
 
     background: Rectangle {
         radius: 4
-        color: control.menuOpen || control.hovered || control.down || control.activeFocus
+        color: control.menuOpen || control.hovered || control.down
                ? theme.selectionColor
                : "transparent"
+        border.color: control.visualFocus ? theme.accentColor : "transparent"
+        border.width: control.visualFocus ? 1 : 0
         Behavior on color { ColorAnimation { duration: 70 } }
     }
 }

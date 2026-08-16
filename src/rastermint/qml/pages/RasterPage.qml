@@ -30,12 +30,12 @@ ScrollView {
             ColumnLayout {
                 Layout.fillWidth: true
                 MintLabel { text: "Width"; color: theme.mutedTextColor }
-                SpinBox { Layout.fillWidth: true; from: 1; to: 16384; value: Math.max(1, backend.settingsMap.target_width || 1); editable: true; onValueModified: backend.setSetting("target_width", value) }
+                MintSpinBox { Layout.fillWidth: true; from: 1; to: 16384; value: Math.max(1, backend.settingsMap.target_width || 1); editable: true; onValueModified: backend.setSetting("target_width", value) }
             }
             ColumnLayout {
                 Layout.fillWidth: true
                 MintLabel { text: "Height"; color: theme.mutedTextColor }
-                SpinBox { Layout.fillWidth: true; from: 1; to: 16384; value: Math.max(1, backend.settingsMap.target_height || 1); editable: true; onValueModified: backend.setSetting("target_height", value) }
+                MintSpinBox { Layout.fillWidth: true; from: 1; to: 16384; value: Math.max(1, backend.settingsMap.target_height || 1); editable: true; onValueModified: backend.setSetting("target_height", value) }
             }
         }
         MintCheckBox { text: "Keep aspect ratio"; checked: backend.settingsMap.keep_aspect; onToggled: backend.setSetting("keep_aspect", checked) }

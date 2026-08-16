@@ -129,7 +129,7 @@ Item {
         MintLabel { text: "Optimize from image"; font.bold: true }
         RowLayout {
             Layout.fillWidth: true
-            SpinBox { id: colorCount; from: 2; to: 256; value: 8; editable: true; Layout.preferredWidth: 90 }
+            MintSpinBox { id: colorCount; from: 2; to: 256; value: 8; editable: true; Layout.preferredWidth: 90 }
             MintComboBox { id: optimizer; Layout.fillWidth: true; model: backend.paletteOptimizerNames }
             MintButton { text: "Optimize"; enabled: backend.hasSource; onClicked: backend.optimizePalette(colorCount.value, optimizer.currentText) }
         }
@@ -149,7 +149,7 @@ Item {
         }
         RowLayout {
             Layout.fillWidth: true
-            SpinBox { id: gradientCount; from: 2; to: 256; value: 8; Layout.preferredWidth: 90 }
+            MintSpinBox { id: gradientCount; from: 2; to: 256; value: 8; Layout.preferredWidth: 90 }
             MintComboBox { id: colorSpace; Layout.fillWidth: true; model: ["OKLab", "RGB", "Linear RGB", "HSV", "HSL"] }
             MintButton { text: "Generate"; onClicked: backend.generatePalette(startColor.text, endColor.text, gradientCount.value, colorSpace.currentText) }
         }

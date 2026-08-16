@@ -55,7 +55,7 @@ Preview quality is intentionally named **Quick**, **Stable**, and **Full** while
 
 RasterMint's only desktop UI is now Qt Quick/QML. The old QWidget interface was removed rather than kept as a second hidden frontend. Python exposes the processing state, layer model, media jobs, palettes, hardware profiles, and preview image provider to QML through `src/rastermint/qmlui/`.
 
-Themes are JSON data under `src/rastermint/data/themes/`. **RasterMint Dark** matches the previous dark interface and is the default. Choose a theme from **Edit → Settings… → Appearance → Theme**; changes apply immediately and persist between sessions. Included themes are RasterMint Dark, RasterMint Light, OLED, Mint, Solarized Dark, and Solarized Light.
+Themes are JSON data under `src/rastermint/data/themes/`. **RasterMint Dark** matches the previous dark interface and is the default. Choose a theme from **Edit → Settings… → Appearance**; changes apply immediately and persist between sessions. Included themes, in chooser order, are RasterMint Dark, RasterMint Light, OLED, TrueBlack, Solarized Dark, Solarized Light, Mint, Sunrise, and Halloween. **View → Show Hotkeys** controls whether shortcut hints are shown in RasterMint's menus; the shortcuts themselves remain active.
 
 The QML source lives under `src/rastermint/qml/`, with reusable controls in `qml/components/` and inspector pages in `qml/pages/`. See [`docs/QML_MIGRATION.md`](docs/QML_MIGRATION.md).
 

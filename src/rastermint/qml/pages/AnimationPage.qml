@@ -50,7 +50,7 @@ ScrollView {
             ColumnLayout {
                 Layout.fillWidth: true
                 MintLabel { text: "FPS"; color: theme.mutedTextColor }
-                SpinBox { Layout.fillWidth: true; from: 1; to: 120; value: backend.settingsMap.animation_fps; onValueModified: backend.setSetting("animation_fps", value) }
+                MintSpinBox { Layout.fillWidth: true; from: 1; to: 120; value: backend.settingsMap.animation_fps; onValueModified: backend.setSetting("animation_fps", value) }
             }
         }
         MintCheckBox { text: "Loop"; checked: backend.settingsMap.animation_loop; onToggled: backend.setSetting("animation_loop", checked) }

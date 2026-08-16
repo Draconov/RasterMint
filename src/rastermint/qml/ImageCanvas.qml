@@ -132,7 +132,7 @@ Item {
         anchors.centerIn: parent
         visible: !backend.hasSource
         radius: 7
-        color: Qt.rgba(0, 0, 0, 0.58)
+        color: theme.panelRaisedColor
         border.color: theme.borderColor
         implicitWidth: emptyPromptText.implicitWidth + 24
         implicitHeight: 36
@@ -165,9 +165,11 @@ Item {
         anchors { right: parent.right; bottom: parent.bottom; margins: 10 }
         visible: backend.hasSource
         radius: 6
-        color: Qt.rgba(0, 0, 0, 0.55)
+        color: theme.panelRaisedColor
+        border.color: theme.borderColor
+        border.width: 1
         width: zoomText.implicitWidth + 16; height: 28
-        Text { id: zoomText; anchors.centerIn: parent; text: Math.round(root.zoomFactor * 100) + "%"; color: "white"; font.pixelSize: 11 }
+        Text { id: zoomText; anchors.centerIn: parent; text: Math.round(root.zoomFactor * 100) + "%"; color: theme.textColor; font.pixelSize: 11 }
     }
 
     Connections {

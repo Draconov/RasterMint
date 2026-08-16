@@ -9,10 +9,48 @@ Dialog {
     modal: true
     popupType: Popup.Item
     width: 430
-    height: 250
+    height: 265
     anchors.centerIn: Overlay.overlay
     standardButtons: Dialog.NoButton
-    background: Rectangle { color: theme.panelColor; border.color: theme.borderColor; radius: 10 }
+    padding: 18
+
+    background: Rectangle {
+        color: theme.panelColor
+        border.color: theme.borderColor
+        border.width: 1
+        radius: 10
+    }
+
+    Overlay.modal: Rectangle {
+        color: Qt.rgba(0, 0, 0, 0.45)
+    }
+
+    // The default Qt Quick Controls dialog header uses style colors. Keeping a
+    // RasterMint-owned header prevents a light/default strip from leaking into
+    // dark themes and keeps the whole dialog live-bound to the active theme.
+    header: Rectangle {
+        implicitHeight: 46
+        color: theme.panelRaisedColor
+
+        Rectangle {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            height: 1
+            color: theme.borderColor
+        }
+
+        Text {
+            anchors.left: parent.left
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.leftMargin: 16
+            text: root.title
+            color: theme.textColor
+            font.bold: true
+            font.pixelSize: 13
+        }
+    }
+
     contentItem: ColumnLayout {
         spacing: 10
         Item { Layout.fillHeight: true }

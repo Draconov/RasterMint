@@ -109,18 +109,18 @@ ApplicationWindow {
             objectName: "fileMenu"
             title: "File"
             menuWidth: 300
-            onClosed: fileMenuButton.forceActiveFocus(Qt.OtherFocusReason)
+            onClosed: fileMenuButton.focus = false
 
             Action { text: "Open File…"; shortcut: StandardKey.Open; onTriggered: openDialog.open() }
-            MenuSeparator { }
-            Action { text: "Export Current Frame…"; enabled: backend.hasSource; shortcut: StandardKey.SaveAs; onTriggered: exportImageDialog.open() }
+            MintMenuSeparator { }
+            Action { text: "Export Current Frame…"; enabled: backend.hasSource; shortcut: "Ctrl+E"; onTriggered: exportImageDialog.open() }
             Action { text: "Export Animation / Video…"; enabled: backend.hasSource; shortcut: "Ctrl+Alt+S"; onTriggered: exportMediaDialog.open() }
             Action { text: "Export PNG Sequence…"; enabled: backend.hasSource; shortcut: "Ctrl+Alt+P"; onTriggered: sequenceFolderDialog.open() }
-            Action { text: "Batch Export Images…"; onTriggered: batchSourceDialog.open() }
-            MenuSeparator { }
+            Action { text: "Batch Export Images…"; shortcut: "Ctrl+Shift+B"; onTriggered: batchSourceDialog.open() }
+            MintMenuSeparator { }
             Action { text: "Load Preset…"; shortcut: "Ctrl+L"; onTriggered: loadPresetDialog.open() }
             Action { text: "Save Preset…"; shortcut: "Ctrl+Shift+S"; onTriggered: savePresetDialog.open() }
-            MenuSeparator { }
+            MintMenuSeparator { }
             Action { text: "Quit"; shortcut: StandardKey.Quit; onTriggered: Qt.quit() }
         }
 
@@ -129,14 +129,14 @@ ApplicationWindow {
             objectName: "editMenu"
             title: "Edit"
             menuWidth: 330
-            onClosed: editMenuButton.forceActiveFocus(Qt.OtherFocusReason)
+            onClosed: editMenuButton.focus = false
 
             Action { text: "Undo"; enabled: backend.canUndo; shortcut: "Ctrl+Z"; onTriggered: backend.undo() }
             Action { text: "Redo"; enabled: backend.canRedo; shortcut: "Ctrl+Y"; onTriggered: backend.redo() }
-            MenuSeparator { }
+            MintMenuSeparator { }
             Action { text: "Flip Image Horizontally"; enabled: backend.hasSource; shortcut: "Ctrl+Shift+H"; onTriggered: backend.flipHorizontal() }
             Action { text: "Flip Image Vertically"; enabled: backend.hasSource; shortcut: "Ctrl+Shift+V"; onTriggered: backend.flipVertical() }
-            MenuSeparator { }
+            MintMenuSeparator { }
             Action {
                 text: (Boolean(backend.settingsMap.mirror_horizontal) ? "✓  " : "") + "Mirror Image Horizontally"
                 enabled: backend.hasSource
@@ -149,12 +149,12 @@ ApplicationWindow {
                 shortcut: "Ctrl+Alt+V"
                 onTriggered: backend.toggleMirrorVertical()
             }
-            MenuSeparator { }
+            MintMenuSeparator { }
             Action { text: "Rotate 90° Clockwise"; enabled: backend.hasSource; shortcut: "Ctrl+R"; onTriggered: backend.rotateImage(90) }
-            Action { text: "Rotate 90° Counter-clockwise"; enabled: backend.hasSource; onTriggered: backend.rotateImage(-90) }
-            Action { text: "Rotate 180°"; enabled: backend.hasSource; onTriggered: backend.rotateImage(180) }
-            Action { text: "Reset Image Transform"; enabled: backend.hasSource; onTriggered: backend.resetImageTransform() }
-            MenuSeparator { }
+            Action { text: "Rotate 90° Counter-clockwise"; enabled: backend.hasSource; shortcut: "Ctrl+Shift+R"; onTriggered: backend.rotateImage(-90) }
+            Action { text: "Rotate 180°"; enabled: backend.hasSource; shortcut: "Ctrl+Alt+R"; onTriggered: backend.rotateImage(180) }
+            Action { text: "Reset Image Transform"; enabled: backend.hasSource; shortcut: "Ctrl+Shift+0"; onTriggered: backend.resetImageTransform() }
+            MintMenuSeparator { }
             Action { text: "Settings…"; shortcut: "Ctrl+,"; onTriggered: settingsDialog.open() }
         }
 
@@ -162,12 +162,19 @@ ApplicationWindow {
             id: viewMenu
             objectName: "viewMenu"
             title: "View"
-            menuWidth: 230
-            onClosed: viewMenuButton.forceActiveFocus(Qt.OtherFocusReason)
+            menuWidth: 280
+            onClosed: viewMenuButton.focus = false
 
             Action { text: "Fit Preview"; enabled: backend.hasSource; shortcut: "F"; onTriggered: { canvas.resetView(); backend.reportAction("Fit preview") } }
-            MenuSeparator { }
-            Action { text: "About RasterMint"; onTriggered: aboutDialog.open() }
+            Action {
+                text: "Show Hotkeys"
+                shortcut: "Ctrl+Alt+K"
+                checkable: true
+                checked: backend.showHotkeys
+                onTriggered: backend.setShowHotkeys(checked)
+            }
+            MintMenuSeparator { }
+            Action { text: "About RasterMint"; shortcut: "F1"; onTriggered: aboutDialog.open() }
         }
     }
 
@@ -194,11 +201,13 @@ ApplicationWindow {
                 anchors { left: parent.left; bottom: parent.bottom; margins: 12 }
                 visible: backend.statusText.length > 0
                 z: 100
-                color: Qt.rgba(0, 0, 0, 0.62)
+                color: theme.panelRaisedColor
+                border.color: theme.borderColor
+                border.width: 1
                 radius: 6
                 width: Math.min(parent.width - 24, statusLabel.implicitWidth + 18)
                 height: 28
-                Text { id: statusLabel; anchors.centerIn: parent; text: backend.statusText; color: "white"; font.pixelSize: 11; elide: Text.ElideRight; width: Math.min(implicitWidth, parent.parent.width - 42) }
+                Text { id: statusLabel; anchors.centerIn: parent; text: backend.statusText; color: theme.textColor; font.pixelSize: 11; elide: Text.ElideRight; width: Math.min(implicitWidth, parent.parent.width - 42) }
             }
         }
 

@@ -1,0 +1,18 @@
+{
+  "id": "trueblack",
+  "name": "TrueBlack",
+  "window": "#000000",
+  "canvas": "#000000",
+  "panel": "#000000",
+  "panelRaised": "#050505",
+  "panelHover": "#141414",
+  "border": "#2A2A2A",
+  "text": "#FFFFFF",
+  "textMuted": "#9A9A9A",
+  "accent": "#FFFFFF",
+  "accentHover": "#DADADA",
+  "accentText": "#000000",
+  "danger": "#FF6767",
+  "selection": "#1C1C1C",
+  "mirrorAxis": "#FFFFFF"
+}

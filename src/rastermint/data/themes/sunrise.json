@@ -1,0 +1,19 @@
+{
+  "id": "sunrise",
+  "name": "Sunrise",
+  "window": "#655561",
+  "canvas": "#4F424C",
+  "panel": "#5B4D58",
+  "panelRaised": "#725F6B",
+  "panelHover": "#846F7C",
+  "border": "#A597A1",
+  "text": "#FFF5EF",
+  "textMuted": "#A5B7D4",
+  "accent": "#FCB08C",
+  "accentHover": "#EF9D7F",
+  "accentText": "#3C3139",
+  "danger": "#D6938A",
+  "selection": "#8FA0BF",
+  "mirrorAxis": "#ADCADE",
+  "paletteSource": ["#FCB08C", "#EF9D7F", "#D6938A", "#B48D92", "#A597A1", "#8FA0BF", "#9AABC9", "#A5B7D4", "#7C919D", "#ADCADE", "#655561"]
+}

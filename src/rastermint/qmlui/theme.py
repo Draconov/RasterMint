@@ -11,6 +11,20 @@ from PySide6.QtCore import QObject, Property, QSettings, Signal, Slot
 
 DEFAULT_THEME_ID = "rastermint-dark"
 
+# Keep the theme chooser intentional rather than depending on filename sorting.
+# Unknown third-party themes are still supported and are appended alphabetically.
+THEME_ORDER = (
+    "rastermint-dark",
+    "rastermint-light",
+    "oled",
+    "trueblack",
+    "solarized-dark",
+    "solarized-light",
+    "mint",
+    "sunrise",
+    "halloween",
+)
+
 
 class ThemeManager(QObject):
     themeChanged = Signal()
@@ -42,10 +56,14 @@ class ThemeManager(QObject):
                     found[str(data["id"])] = data
             except Exception:
                 continue
-        if DEFAULT_THEME_ID in found:
-            default = found.pop(DEFAULT_THEME_ID)
-            found = {DEFAULT_THEME_ID: default, **found}
-        return found
+
+        ordered: dict[str, dict[str, Any]] = {}
+        for theme_id in THEME_ORDER:
+            if theme_id in found:
+                ordered[theme_id] = found.pop(theme_id)
+        for theme_id in sorted(found, key=str.casefold):
+            ordered[theme_id] = found[theme_id]
+        return ordered
 
     def _value(self, key: str, fallback: str) -> str:
         return str(self._themes.get(self._theme_id, {}).get(key, fallback))
