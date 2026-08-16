@@ -11,13 +11,15 @@ import sys
 import threading
 import traceback
 
-from PySide6.QtCore import QCoreApplication, QStandardPaths
-from PySide6.QtGui import QFont, QIcon
-from PySide6.QtWidgets import QApplication
+from PySide6.QtCore import QCoreApplication, QStandardPaths, QUrl
+from PySide6.QtGui import QFont, QGuiApplication, QIcon
+from PySide6.QtQml import QQmlApplicationEngine
+from PySide6.QtQuickControls2 import QQuickStyle
 
 from rastermint import __app_name__, __version__
-from rastermint.ui.main_window import MainWindow
-from rastermint.ui.style import APP_STYLE
+from rastermint.qmlui.backend import RasterMintBackend
+from rastermint.qmlui.image_provider import RasterImageProvider
+from rastermint.qmlui.theme import ThemeManager
 
 _CRASH_LOG_HANDLE = None
 
@@ -33,12 +35,6 @@ def _load_app_icon() -> QIcon | None:
 
 
 def _install_crash_logging() -> Path | None:
-    """Keep a small persistent crash log for frozen GUI builds.
-
-    Windowed PyInstaller builds do not have a console, so an otherwise useful
-    Python traceback can disappear completely. faulthandler also gives us a
-    chance of seeing native/Python fatal failures if one occurs again.
-    """
     global _CRASH_LOG_HANDLE
     try:
         base = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppDataLocation)
@@ -73,9 +69,11 @@ def main() -> int:
 
     _install_crash_logging()
 
-    app = QApplication(sys.argv)
-    app.setStyle("Fusion")
-    app.setStyleSheet(APP_STYLE)
+    app = QGuiApplication(sys.argv)
+    # Basic is intentionally neutral: RasterMint's QML components own the look,
+    # while the theme JSON files control colors live at runtime. The style must
+    # be selected before any Qt Quick Controls are loaded by the QML engine.
+    QQuickStyle.setStyle("Basic")
     font = QFont()
     font.setPointSize(10)
     app.setFont(font)
@@ -84,8 +82,18 @@ def main() -> int:
     if icon is not None and not icon.isNull():
         app.setWindowIcon(icon)
 
-    window = MainWindow()
-    if icon is not None and not icon.isNull():
-        window.setWindowIcon(icon)
-    window.show()
+    engine = QQmlApplicationEngine()
+    provider = RasterImageProvider()
+    backend = RasterMintBackend(provider)
+    theme = ThemeManager()
+    engine.addImageProvider("rastermint", provider)
+    engine.rootContext().setContextProperty("backend", backend)
+    engine.rootContext().setContextProperty("theme", theme)
+
+    qml_path = resources.files("rastermint").joinpath("qml/Main.qml")
+    engine.load(QUrl.fromLocalFile(str(qml_path)))
+    if not engine.rootObjects():
+        return 1
+
+    app.aboutToQuit.connect(backend.shutdown)
     return app.exec()

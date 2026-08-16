@@ -48,3 +48,14 @@ RasterMint connects to Lospec's documented palette API. Lospec is an external se
 
 - https://lospec.com/palettes/api
 - https://lospec.com/palette-list
+
+## Solarized
+
+RasterMint includes Solarized Dark and Solarized Light application themes based on
+the Solarized color scheme by Ethan Schoonover. Solarized is distributed under the
+MIT License.
+
+Copyright (c) 2011 Ethan Schoonover
+
+- https://ethanschoonover.com/solarized/
+- https://github.com/altercation/solarized

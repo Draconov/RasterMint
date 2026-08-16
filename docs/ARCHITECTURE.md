@@ -69,15 +69,15 @@ An effect is plain serializable data:
 }
 ```
 
-`EFFECT_DEFINITIONS` in `core/effect_stack.py` is the schema consumed by both the core validator and the dynamic Qt parameter form. That prevents the UI and renderer from having separate definitions of parameter ranges/defaults.
+`EFFECT_DEFINITIONS` in `core/effect_stack.py` is the schema consumed by both the core validator and the dynamic QML layer inspector. That prevents the UI and renderer from having separate definitions of parameter ranges/defaults.
 
-The processing order is literally list order. Dragging a row changes that list order. Disabled rows remain in presets but are bypassed at render time.
+The processing order is literally list order. Reordering a layer changes that list order. Disabled rows remain in presets but are bypassed at render time.
 
-## Live preview
+## Preview scheduling
 
-RasterMint has three UI preview behaviors:
+RasterMint exposes three UI preview behaviors while preserving the original preview scheduler:
 
-### Live
+### Quick
 
 ```text
 control change
@@ -87,7 +87,7 @@ fast draft proxy (normally ≤320 px)
 refined proxy (normally ≤640 px)
 ```
 
-### Still
+### Stable
 
 The draft is skipped. A refined proxy is generated after input settles.
 
@@ -176,18 +176,25 @@ Batch processing clones one settings snapshot across multiple input images. It c
 
 ## UI layer
 
+RasterMint uses **PySide6 + Qt Quick/QML** as its only desktop UI. The rendering/core modules stay Python-only; QML receives state and actions through a small bridge layer.
+
 ```text
-ui/main_window.py          application coordination and worker scheduler
-ui/effect_stack_widget.py  reorder/bypass/duplicate + dynamic parameter editor
-ui/animation_panel.py      timeline and parameter-track editing
-ui/palette_editor.py       swatches, locks, shuffle/randomization
-ui/lospec_dialog.py        async palette API request + fetched swatch preview
-ui/target_raster_widget.py exact raster / PAR / display controls
-ui/source_transform_widget.py crop / fill position
-ui/hardware_panel.py       data-driven Visual/Strict profile controls
-ui/image_view.py           pan/zoom/drop + automatic high-zoom pixel grid + draggable mirror axes
-ui/worker.py               QRunnable jobs
+qml/Main.qml                    application window, menus, dialogs, canvas + inspector layout
+qml/ImageCanvas.qml             pan/zoom, automatic high-zoom pixel grid, draggable mirror axes
+qml/SettingsDialog.qml          appearance/theme chooser and reset
+qml/AboutDialog.qml             short project information + clickable official repo
+qml/components/*.qml            themed reusable buttons, fields, menus and inspector navigation
+qml/pages/*.qml                 Presets/Preview/Layers/Palette/Raster/Hardware/Source/Animation/Randomize/Media
+qmlui/backend.py                QML-facing project state, workers, file/preset/media operations
+qmlui/models.py                 layer list model
+qmlui/image_provider.py         QQuickImageProvider for preview/preset images
+qmlui/workers.py                QRunnable processing/media/export jobs
+qmlui/theme.py                  JSON theme loader + QSettings persistence
 ```
+
+The old `src/rastermint/ui/` QWidget package is intentionally absent. There is one UI architecture, not two. Effect parameter editors are generated in QML from `EFFECT_DEFINITIONS`, so Bloom and future schema-driven effects automatically receive controls.
+
+The right inspector remains two adjacent columns: general section navigation on the left, detailed controls on the right. QML owns visual behavior, hover states, transitions, and theming; Python owns image state and processing.
 
 ## Packaging
 

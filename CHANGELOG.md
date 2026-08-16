@@ -2,12 +2,18 @@
 
 ## 0.1.0 - 2026-08-14
 
+- Migrated the desktop frontend from Qt Widgets to **PySide6 + Qt Quick/QML** while keeping the Python processing core and release pipeline.
+- Added JSON-driven application themes with **RasterMint Dark** as the default and a live selector under **Edit → Settings… → Appearance → Theme**.
+- Added **Solarized Dark** and **Solarized Light** application themes using Ethan Schoonover's canonical Solarized palette.
+- Removed the obsolete `src/rastermint/ui/` QWidget frontend instead of shipping two parallel interfaces.
+- Added controllable **Bloom** layer with highlight threshold, soft knee, radius, intensity, Screen/Add blending, and animation support.
+
 RasterMint remains on version **0.1.0** while the initial feature set is being built out.
 
 ### Processing and preview
 
 - Moved flip, mirror and rotation actions directly into Edit; mirror modes now use draggable blue axes in the preview.
-- Simplified Settings to the reset-only placeholder while broader application preferences are designed.
+- Added the first real application preference to Settings: a live theme selector, with Reset Settings kept at the bottom.
 - Switched user presets to normal human-editable `.json` files.
 - Replaced the manual pixel-grid setting with an automatic high-zoom viewport grid.
 - Made the official repository link clickable in About.
@@ -18,13 +24,13 @@ RasterMint remains on version **0.1.0** while the initial feature set is being b
 - Added Edit/View application menus and visible hover highlighting for interactive menu items.
 - Reframed the effect editor as a Layer Stack and added a stackable Pixel Aspect Ratio image-space layer alongside existing effects such as Chromatic Shift.
 
-- Added a reorderable effect stack with per-effect enable/bypass, duplicate, remove, and drag-to-reorder controls.
+- Added a reorderable effect stack with per-effect enable/bypass, duplicate, remove, and reorder controls.
 - Added live two-stage preview with a fast draft followed by a refined render.
-- Added `Live`, `Still`, and `Full` preview modes.
+- Exposed preview modes as `Quick`, `Stable`, and `Full` while retaining the existing draft/refine/full scheduling logic.
 - Added adaptive preview budgets for expensive algorithms and large palettes.
 - Added source/settings revision guards so stale background jobs cannot replace newer results.
 - Kept export processing independent from preview resolution so exports still use the selected output size.
-- Added exact target raster controls (plus legacy ÷1…÷16 compatibility), source crop/flip/rotate, Fit/Fill/Stretch placement, pixel-aspect-corrected views, and independent preview/export grids.
+- Added exact target raster controls (plus legacy ÷1…÷16 compatibility), source crop/flip/rotate, Fit/Fill/Stretch placement, pixel-aspect-corrected views, and an automatic high-zoom viewport pixel grid that is never baked into exports.
 - Optimized classic error-diffusion processing while preserving the previous pixel output.
 
 ### Effects

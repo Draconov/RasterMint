@@ -1,0 +1,18 @@
+{
+  "id": "rastermint-dark",
+  "name": "RasterMint Dark",
+  "window": "#15181D",
+  "canvas": "#111318",
+  "panel": "#20242B",
+  "panelRaised": "#292E36",
+  "panelHover": "#303640",
+  "border": "#363C46",
+  "text": "#F1F3F0",
+  "textMuted": "#969DA7",
+  "accent": "#A5BD34",
+  "accentHover": "#C3DA45",
+  "accentText": "#111318",
+  "danger": "#D86A6A",
+  "selection": "#33455A",
+  "mirrorAxis": "#4DA3FF"
+}

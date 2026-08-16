@@ -135,7 +135,7 @@ tile_max_colors
 tile_palette_groups
 ```
 
-Keep constraints generic. A new profile should not require a profile-name-specific branch in `main_window.py`.
+Keep constraints generic. A new profile should not require a profile-name-specific branch in QML or `qmlui/backend.py`.
 
 ## Pixel aspect ratio
 

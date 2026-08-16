@@ -1,0 +1,18 @@
+{
+  "id": "mint",
+  "name": "Mint",
+  "window": "#111A16",
+  "canvas": "#0D1511",
+  "panel": "#19261F",
+  "panelRaised": "#213129",
+  "panelHover": "#2A3B32",
+  "border": "#355043",
+  "text": "#EEF6EF",
+  "textMuted": "#93AA9A",
+  "accent": "#A8C936",
+  "accentHover": "#C4E64A",
+  "accentText": "#102014",
+  "danger": "#D76A6A",
+  "selection": "#2C5440",
+  "mirrorAxis": "#55A9FF"
+}

@@ -1,0 +1,1283 @@
+# Copyright © 2026 Draconov
+# SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+
+from __future__ import annotations
+
+import colorsys
+import math
+import random
+import traceback
+from pathlib import Path
+from typing import Any
+
+from PIL import Image
+from PySide6.QtCore import QObject, Property, QSettings, QThreadPool, QTimer, QUrl, Signal, Slot
+from PySide6.QtGui import QColor, QImage
+
+from rastermint import __version__
+from rastermint.core.animation import EASINGS, normalize_tracks, settings_at_time
+from rastermint.core.animation_presets import ANIMATION_PRESETS, apply_animation_preset
+from rastermint.core.builtin_presets import BUILTIN_PRESETS, build_builtin_preset
+from rastermint.core.dither import ALGORITHMS
+from rastermint.core.effect_stack import EFFECT_DEFINITIONS, default_effect_stack, new_effect, normalize_effect_stack
+from rastermint.core.hardware import apply_profile_to_settings, load_builtin_profiles, load_profile_file, profile_summary
+from rastermint.core.lospec import fetch_lospec_palette
+from rastermint.core.media import SUPPORTED_VIDEO_SUFFIXES, VideoInfo, probe_video, read_video_frame
+from rastermint.core.palette import PALETTE_OPTIMIZERS, extract_palette, read_palette_file, write_hex_palette
+from rastermint.core.palette_library import PALETTE_LIBRARY, find_palette, interpolate_palette
+from rastermint.core.presets import load_preset, save_preset
+from rastermint.core.processor import (
+    FAST_PREVIEW_MAX_SIDE,
+    PREVIEW_MAX_SIDE,
+    adaptive_preview_max_side,
+    make_preview_settings,
+    make_preview_source,
+    processed_raster_size,
+    target_raster_size,
+)
+from rastermint.core.settings import ProcessingSettings
+from rastermint.core.svg_export import save_svg
+
+from .image_provider import RasterImageProvider
+from .models import LayerListModel
+from .workers import (
+    BatchWorker,
+    MediaExportWorker,
+    ProcessingWorker,
+    RenderedPreviewWorker,
+    SequenceExportWorker,
+    VideoFrameWorker,
+)
+
+IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".bmp", ".webp", ".tif", ".tiff"}
+MAX_FULL_PREVIEW_PIXELS = 12_000_000
+
+
+def _local_path(value: str | QUrl) -> str:
+    if isinstance(value, QUrl):
+        return value.toLocalFile() if value.isLocalFile() else value.toString()
+    text = str(value or "")
+    url = QUrl(text)
+    if url.isValid() and url.isLocalFile():
+        return url.toLocalFile()
+    return text
+
+
+def _pil_to_qimage(image: Image.Image) -> QImage:
+    rgb = image if image.mode == "RGB" else image.convert("RGB")
+    data = rgb.tobytes("raw", "RGB")
+    return QImage(data, rgb.width, rgb.height, rgb.width * 3, QImage.Format.Format_RGB888).copy()
+
+
+class RasterMintBackend(QObject):
+    previewChanged = Signal()
+    sourceChanged = Signal()
+    settingsChanged = Signal()
+    layerSelectionChanged = Signal()
+    statusChanged = Signal()
+    playbackChanged = Signal()
+    renderedPreviewChanged = Signal()
+    hardwareProfilesChanged = Signal()
+    audioExportChanged = Signal()
+    errorOccurred = Signal(str, str)
+    infoOccurred = Signal(str, str)
+
+    def __init__(self, image_provider: RasterImageProvider, parent: QObject | None = None) -> None:
+        super().__init__(parent)
+        self.provider = image_provider
+        self.app_settings = QSettings("RasterMint", "RasterMint")
+
+        self.settings = ProcessingSettings()
+        self.settings.effect_stack = default_effect_stack(self.settings)
+        self.layer_model = LayerListModel(self)
+        self.layer_model.replace(self.settings.effect_stack)
+        self._selected_layer = min(len(self.settings.effect_stack) - 1, 0)
+
+        self._source_image: Image.Image | None = None
+        self._current_frame: Image.Image | None = None
+        self._current_file: Path | None = None
+        self._video_path: Path | None = None
+        self._video_info: VideoInfo | None = None
+        self._current_time = 0.0
+        self._playback_speed = 1.0
+        self._playback_mode = "Quick"
+        self._preserve_audio = True
+        self._playing = False
+        self._rendered_frames: list[Image.Image] = []
+        self._rendered_times: list[float] = []
+        self._rendered_fps = 0.0
+
+        self._preview_mode = str(self.app_settings.value("previewModeQml", "Quick") or "Quick")
+        if self._preview_mode not in {"Quick", "Stable", "Full"}:
+            self._preview_mode = "Quick"
+        self._preview_revision = 0
+        self._preview_width = 1
+        self._preview_height = 1
+        self._source_revision = 0
+        self._settings_revision = 0
+        self._job_counter = 0
+        self._latest_preview_job = 0
+        self._preview_running = False
+        self._pending_preview_side = 0
+        self._export_jobs: set[int] = set()
+        self._status = "Open or drop an image, GIF, or video to begin"
+
+        self._random_history: list[dict[str, Any]] = []
+        self._random_index = -1
+        self._hardware_profiles = load_builtin_profiles()
+
+        self.thread_pool = QThreadPool(self)
+        self.thread_pool.setMaxThreadCount(max(2, min(4, QThreadPool.globalInstance().maxThreadCount())))
+
+        self._quick_timer = QTimer(self)
+        self._quick_timer.setSingleShot(True)
+        self._quick_timer.setInterval(55)
+        self._quick_timer.timeout.connect(lambda: self._request_preview(self._quick_side()))
+        self._stable_timer = QTimer(self)
+        self._stable_timer.setSingleShot(True)
+        self._stable_timer.setInterval(330)
+        self._stable_timer.timeout.connect(self._request_refined_preview)
+        self._play_timer = QTimer(self)
+        self._play_timer.setInterval(33)
+        self._play_timer.timeout.connect(self._play_tick)
+
+    # ---------- exposed models/data ----------
+    @Property(QObject, constant=True)
+    def layerModel(self) -> QObject:
+        return self.layer_model
+
+    @Property(str, constant=True)
+    def version(self) -> str:
+        return __version__
+
+    @Property(bool, notify=sourceChanged)
+    def hasSource(self) -> bool:
+        return self._active_source() is not None
+
+    @Property(str, notify=sourceChanged)
+    def currentFileName(self) -> str:
+        return self._current_file.name if self._current_file else ""
+
+    @Property(str, notify=sourceChanged)
+    def sourceInfo(self) -> str:
+        source = self._active_source()
+        if source is None:
+            return ""
+        if self._video_info:
+            return f"{source.width} × {source.height} · {self._video_info.duration:.2f}s · {self._video_info.fps:.2f} fps"
+        return f"{source.width} × {source.height}"
+
+    @Property(int, notify=previewChanged)
+    def previewRevision(self) -> int:
+        return self._preview_revision
+
+    @Property(int, notify=previewChanged)
+    def previewWidth(self) -> int:
+        return self._preview_width
+
+    @Property(int, notify=previewChanged)
+    def previewHeight(self) -> int:
+        return self._preview_height
+
+    @Property(str, notify=statusChanged)
+    def statusText(self) -> str:
+        return self._status
+
+    @Property(str, notify=settingsChanged)
+    def previewMode(self) -> str:
+        return self._preview_mode
+
+    @Property("QVariantMap", notify=settingsChanged)
+    def settingsMap(self) -> dict[str, Any]:
+        return self.settings.to_dict()
+
+    @Property("QStringList", constant=True)
+    def layerKinds(self) -> list[str]:
+        return list(EFFECT_DEFINITIONS.keys())
+
+    @Property(int, notify=layerSelectionChanged)
+    def selectedLayerIndex(self) -> int:
+        return self._selected_layer
+
+    @Property(str, notify=layerSelectionChanged)
+    def selectedLayerName(self) -> str:
+        item = self.layer_model.item(self._selected_layer)
+        return str(item.get("kind", "Layer")) if item else "Layer"
+
+    @Property("QVariantList", notify=layerSelectionChanged)
+    def selectedLayerParams(self) -> list[dict[str, Any]]:
+        item = self.layer_model.item(self._selected_layer)
+        if not item:
+            return []
+        kind = str(item.get("kind", ""))
+        definition = EFFECT_DEFINITIONS.get(kind, {})
+        values = item.get("params") if isinstance(item.get("params"), dict) else {}
+        result = []
+        for key, spec in definition.get("params", {}).items():
+            row = dict(spec)
+            row["key"] = key
+            row["value"] = values.get(key, spec.get("default"))
+            row["options"] = list(spec.get("options", []))
+            row["suffix"] = str(spec.get("suffix", ""))
+            target_id = f"effect:{item.get('id', '')}:{key}"
+            row["animated"] = any(
+                track.get("enabled", True) and str(track.get("target", "")) == target_id
+                for track in normalize_tracks(self.settings.animation_tracks)
+            )
+            result.append(row)
+        return result
+
+    @Property("QVariantList", constant=True)
+    def paletteLibrary(self) -> list[dict[str, Any]]:
+        return [
+            {"id": p.id, "name": p.name, "category": p.category, "description": p.description, "colors": list(p.colors)}
+            for p in PALETTE_LIBRARY
+        ]
+
+    @Property("QStringList", constant=True)
+    def paletteOptimizerNames(self) -> list[str]:
+        return list(PALETTE_OPTIMIZERS)
+
+    @Property("QStringList", notify=hardwareProfilesChanged)
+    def hardwareProfileNames(self) -> list[str]:
+        return [p.name for p in self._hardware_profiles]
+
+    @Property("QStringList", notify=hardwareProfilesChanged)
+    def hardwareProfileIds(self) -> list[str]:
+        return [p.id for p in self._hardware_profiles]
+
+    @Property("QVariantList", notify=hardwareProfilesChanged)
+    def hardwareProfiles(self) -> list[dict[str, Any]]:
+        return [
+            {
+                "id": p.id,
+                "name": p.name,
+                "category": p.category,
+                "summary": p.summary,
+                "visualTooltip": profile_summary(p, "visual"),
+                "strictTooltip": profile_summary(p, "strict"),
+            }
+            for p in self._hardware_profiles
+        ]
+
+    @Property("QStringList", constant=True)
+    def paletteNames(self) -> list[str]:
+        return [p.name for p in PALETTE_LIBRARY]
+
+    @Property("QStringList", constant=True)
+    def builtinPresetNames(self) -> list[str]:
+        return [p.name for p in BUILTIN_PRESETS]
+
+    @Property("QStringList", constant=True)
+    def builtinPresetIds(self) -> list[str]:
+        return [p.id for p in BUILTIN_PRESETS]
+
+    @Property("QVariantList", constant=True)
+    def builtinPresets(self) -> list[dict[str, Any]]:
+        return [{"id": p.id, "name": p.name, "description": p.description} for p in BUILTIN_PRESETS]
+
+    @Property("QStringList", constant=True)
+    def animationPresetNames(self) -> list[str]:
+        return [p.name for p in ANIMATION_PRESETS]
+
+    @Property("QStringList", constant=True)
+    def animationPresetIds(self) -> list[str]:
+        return [p.id for p in ANIMATION_PRESETS]
+
+    @Property("QVariantList", constant=True)
+    def animationPresets(self) -> list[dict[str, Any]]:
+        return [{"id": p.id, "name": p.name, "description": p.description} for p in ANIMATION_PRESETS]
+
+    @Property(float, notify=playbackChanged)
+    def currentTime(self) -> float:
+        return self._current_time
+
+    @Property(float, notify=playbackChanged)
+    def timelineDuration(self) -> float:
+        if self._video_info:
+            return max(0.01, self._video_info.duration)
+        return max(0.01, self.settings.animation_duration)
+
+    @Property(bool, notify=playbackChanged)
+    def playing(self) -> bool:
+        return self._playing
+
+    @Property(str, notify=playbackChanged)
+    def playbackMode(self) -> str:
+        return self._playback_mode
+
+    @Property(float, notify=playbackChanged)
+    def playbackSpeed(self) -> float:
+        return self._playback_speed
+
+    @Property(bool, notify=renderedPreviewChanged)
+    def renderedPreviewReady(self) -> bool:
+        return bool(self._rendered_frames)
+
+    @Property(bool, notify=audioExportChanged)
+    def preserveAudio(self) -> bool:
+        return self._preserve_audio
+
+    @Property("QStringList", constant=True)
+    def easingNames(self) -> list[str]:
+        return list(EASINGS)
+
+    @Property("QVariantList", notify=settingsChanged)
+    def animationTargets(self) -> list[dict[str, Any]]:
+        result: list[dict[str, Any]] = []
+        for step in normalize_effect_stack(self.settings.effect_stack, self.settings):
+            kind = str(step.get("kind", "Layer"))
+            effect_id = str(step.get("id", ""))
+            params = step.get("params") if isinstance(step.get("params"), dict) else {}
+            definition = EFFECT_DEFINITIONS.get(kind, {})
+            for key, spec in definition.get("params", {}).items():
+                if not spec.get("animatable", False) or spec.get("type") not in {"int", "float"}:
+                    continue
+                value = params.get(key, spec.get("default", 0.0))
+                result.append({
+                    "id": f"effect:{effect_id}:{key}",
+                    "label": f"{kind} · {spec.get('label', key)}",
+                    "default": float(value),
+                    "min": float(spec.get("min", -10000.0)),
+                    "max": float(spec.get("max", 10000.0)),
+                    "decimals": int(spec.get("decimals", 0 if spec.get("type") == "int" else 2)),
+                })
+        return result
+
+    @Property("QStringList", notify=settingsChanged)
+    def animationTargetNames(self) -> list[str]:
+        return [str(item["label"]) for item in self.animationTargets]
+
+    @Property("QStringList", notify=settingsChanged)
+    def animationTargetIds(self) -> list[str]:
+        return [str(item["id"]) for item in self.animationTargets]
+
+    @Property("QVariantList", notify=settingsChanged)
+    def animationTracks(self) -> list[dict[str, Any]]:
+        labels = {item["id"]: item["label"] for item in self.animationTargets}
+        result: list[dict[str, Any]] = []
+        for index, track in enumerate(normalize_tracks(self.settings.animation_tracks)):
+            row = dict(track)
+            row["index"] = index
+            row["label"] = labels.get(str(track.get("target", "")), str(track.get("target", "Parameter")))
+            result.append(row)
+        return result
+
+    # ---------- basic mutation ----------
+    def _active_source(self) -> Image.Image | None:
+        return self._current_frame or self._source_image
+
+    def _set_status(self, text: str) -> None:
+        self._status = str(text)
+        self.statusChanged.emit()
+
+    def _next_job(self) -> int:
+        self._job_counter += 1
+        return self._job_counter
+
+    def _invalidate_rendered(self) -> None:
+        self._rendered_frames = []
+        self._rendered_times = []
+        self._rendered_fps = 0.0
+        self.renderedPreviewChanged.emit()
+
+    def _replace_settings(self, settings: ProcessingSettings, *, schedule: bool = True) -> None:
+        settings.effect_stack = normalize_effect_stack(settings.effect_stack, settings)
+        self.settings = ProcessingSettings.from_dict(settings.to_dict())
+        self.layer_model.replace(self.settings.effect_stack)
+        if self._selected_layer >= len(self.settings.effect_stack):
+            self._selected_layer = max(0, len(self.settings.effect_stack) - 1)
+        self._settings_revision += 1
+        self._invalidate_rendered()
+        self.settingsChanged.emit()
+        self.layerSelectionChanged.emit()
+        if schedule and self.hasSource:
+            self.schedulePreview()
+
+    @Slot(str, "QVariant")
+    def setSetting(self, key: str, value: Any) -> None:
+        if not hasattr(self.settings, str(key)):
+            return
+        data = self.settings.to_dict()
+        data[str(key)] = value
+        self._replace_settings(ProcessingSettings.from_dict(data))
+
+    @Slot(str)
+    def setPreviewMode(self, mode: str) -> None:
+        label = str(mode).title()
+        if label not in {"Quick", "Stable", "Full"} or label == self._preview_mode:
+            return
+        self._preview_mode = label
+        self.app_settings.setValue("previewModeQml", label)
+        self.settingsChanged.emit()
+        self.schedulePreview(force=True)
+
+    @Slot(int, int)
+    def setRasterSize(self, width: int, height: int) -> None:
+        data = self.settings.to_dict()
+        data.update(target_enabled=True, target_width=max(1, int(width)), target_height=max(1, int(height)))
+        self._replace_settings(ProcessingSettings.from_dict(data))
+
+    @Slot(float, float)
+    def setPixelAspect(self, width: float, height: float) -> None:
+        data = self.settings.to_dict()
+        data.update(pixel_aspect_x=float(width), pixel_aspect_y=float(height))
+        self._replace_settings(ProcessingSettings.from_dict(data))
+
+    # ---------- file/source ----------
+    @Slot(str)
+    def openFile(self, value: str) -> None:
+        path = Path(_local_path(value))
+        if not path.is_file():
+            self.errorOccurred.emit("Could not open file", "The selected file does not exist.")
+            return
+        try:
+            suffix = path.suffix.lower()
+            self._current_file = path
+            self._current_time = 0.0
+            self._video_path = None
+            self._video_info = None
+            self._source_image = None
+            self._current_frame = None
+            if suffix in SUPPORTED_VIDEO_SUFFIXES:
+                self._video_path = path
+                self._video_info = probe_video(path)
+                self._current_frame = read_video_frame(path, 0.0)
+            elif suffix in IMAGE_SUFFIXES:
+                with Image.open(path) as img:
+                    self._source_image = img.convert("RGB").copy()
+            else:
+                raise ValueError(f"Unsupported file type: {suffix or '(none)'}")
+            self._source_revision += 1
+            self._invalidate_rendered()
+            self.sourceChanged.emit()
+            self.playbackChanged.emit()
+            self._set_status(f"Opened {path.name}")
+            self.schedulePreview(force=True)
+            self.refreshPresetThumbnails()
+        except Exception as exc:
+            self.errorOccurred.emit("Could not open file", str(exc))
+
+    @Slot(str)
+    def exportImage(self, value: str) -> None:
+        path = Path(_local_path(value))
+        source = self._active_source()
+        if source is None:
+            return
+        if not path.suffix:
+            path = path.with_suffix(".png")
+        animated = settings_at_time(self.settings, self._current_time)
+        job = self._next_job()
+        self._export_jobs.add(job)
+        worker = ProcessingWorker(
+            job,
+            "export-image",
+            source.copy(),
+            animated,
+            {"path": str(path)},
+            frame_time=self._current_time,
+            frame_index=max(0, round(self._current_time * (self._video_info.fps if self._video_info else animated.animation_fps))),
+            display_mode=animated.display_mode if animated.display_export else "raw",
+            include_grid=False,
+        )
+        self._connect_worker(worker)
+        self.thread_pool.start(worker)
+        self._set_status(f"Exporting {path.name}…")
+
+    @Slot(str)
+    def exportMedia(self, value: str) -> None:
+        path = Path(_local_path(value))
+        source = self._active_source()
+        if source is None:
+            return
+        job = self._next_job()
+        self._export_jobs.add(job)
+        worker = MediaExportWorker(
+            job,
+            self.settings,
+            str(path),
+            image=self._source_image if self._video_path is None else None,
+            video_path=str(self._video_path) if self._video_path else None,
+            include_audio=bool(self._preserve_audio) if self._video_path else False,
+        )
+        self._connect_worker(worker)
+        self.thread_pool.start(worker)
+        self._set_status(f"Exporting {path.name}…")
+
+    @Slot(str)
+    def exportSequence(self, value: str) -> None:
+        folder = Path(_local_path(value))
+        if not self.hasSource:
+            return
+        folder.mkdir(parents=True, exist_ok=True)
+        stem = self._current_file.stem if self._current_file else "frame"
+        output_dir = folder / f"{stem}-rastermint-frames"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        job = self._next_job()
+        self._export_jobs.add(job)
+        worker = SequenceExportWorker(
+            job,
+            self.settings,
+            str(output_dir),
+            image=self._source_image if self._video_path is None else None,
+            video_path=str(self._video_path) if self._video_path else None,
+            prefix=stem,
+        )
+        self._connect_worker(worker)
+        self.thread_pool.start(worker)
+        self._set_status(f"Exporting PNG sequence to {output_dir.name}…")
+
+    @Slot("QVariantList", str)
+    def batchExport(self, urls: list[Any], output_value: str) -> None:
+        paths = [_local_path(str(item)) for item in urls]
+        paths = [p for p in paths if Path(p).is_file()]
+        output = _local_path(output_value)
+        if not paths or not output:
+            return
+        job = self._next_job()
+        self._export_jobs.add(job)
+        worker = BatchWorker(job, paths, output, self.settings)
+        self._connect_worker(worker)
+        self.thread_pool.start(worker)
+        self._set_status(f"Batch processing {len(paths)} images…")
+
+    # ---------- layers ----------
+    @Slot(int)
+    def selectLayer(self, index: int) -> None:
+        if 0 <= int(index) < len(self.settings.effect_stack):
+            self._selected_layer = int(index)
+            self.layerSelectionChanged.emit()
+
+    @Slot(str)
+    def addLayer(self, kind: str) -> None:
+        if kind not in EFFECT_DEFINITIONS:
+            return
+        stack = normalize_effect_stack(self.settings.effect_stack, self.settings)
+        stack.append(new_effect(kind))
+        data = self.settings.to_dict(); data["effect_stack"] = stack
+        self._selected_layer = len(stack) - 1
+        self._replace_settings(ProcessingSettings.from_dict(data))
+
+    @Slot(int)
+    def removeLayer(self, index: int) -> None:
+        stack = normalize_effect_stack(self.settings.effect_stack, self.settings)
+        if not (0 <= index < len(stack)):
+            return
+        del stack[index]
+        data = self.settings.to_dict(); data["effect_stack"] = stack
+        self._selected_layer = max(0, min(index, len(stack) - 1))
+        self._replace_settings(ProcessingSettings.from_dict(data))
+
+    @Slot(int)
+    def duplicateLayer(self, index: int) -> None:
+        stack = normalize_effect_stack(self.settings.effect_stack, self.settings)
+        if not (0 <= index < len(stack)):
+            return
+        original = stack[index]
+        copy = new_effect(str(original["kind"]), enabled=bool(original.get("enabled", True)))
+        copy["params"].update(dict(original.get("params") or {}))
+        stack.insert(index + 1, copy)
+        data = self.settings.to_dict(); data["effect_stack"] = stack
+        self._selected_layer = index + 1
+        self._replace_settings(ProcessingSettings.from_dict(data))
+
+    @Slot(int, int)
+    def moveLayer(self, source: int, target: int) -> None:
+        stack = normalize_effect_stack(self.settings.effect_stack, self.settings)
+        if not (0 <= source < len(stack)):
+            return
+        target = max(0, min(int(target), len(stack) - 1))
+        item = stack.pop(source)
+        stack.insert(target, item)
+        data = self.settings.to_dict(); data["effect_stack"] = stack
+        self._selected_layer = target
+        self._replace_settings(ProcessingSettings.from_dict(data))
+
+    @Slot(int, bool)
+    def setLayerEnabled(self, index: int, enabled: bool) -> None:
+        stack = normalize_effect_stack(self.settings.effect_stack, self.settings)
+        if not (0 <= index < len(stack)):
+            return
+        stack[index]["enabled"] = bool(enabled)
+        data = self.settings.to_dict(); data["effect_stack"] = stack
+        self._selected_layer = index
+        self._replace_settings(ProcessingSettings.from_dict(data))
+
+    @Slot(str, "QVariant")
+    def setLayerParam(self, key: str, value: Any) -> None:
+        stack = normalize_effect_stack(self.settings.effect_stack, self.settings)
+        if not (0 <= self._selected_layer < len(stack)):
+            return
+        stack[self._selected_layer].setdefault("params", {})[str(key)] = value
+        data = self.settings.to_dict(); data["effect_stack"] = stack
+        self._replace_settings(ProcessingSettings.from_dict(data))
+
+    # ---------- transforms ----------
+    def _transform_change(self, **changes: Any) -> None:
+        data = self.settings.to_dict()
+        data.update(changes)
+        self._replace_settings(ProcessingSettings.from_dict(data))
+
+    @Slot()
+    def flipHorizontal(self) -> None:
+        self._transform_change(flip_horizontal=not self.settings.flip_horizontal)
+
+    @Slot()
+    def flipVertical(self) -> None:
+        self._transform_change(flip_vertical=not self.settings.flip_vertical)
+
+    @Slot()
+    def toggleMirrorHorizontal(self) -> None:
+        self._transform_change(mirror_horizontal=not self.settings.mirror_horizontal)
+
+    @Slot()
+    def toggleMirrorVertical(self) -> None:
+        self._transform_change(mirror_vertical=not self.settings.mirror_vertical)
+
+    @Slot(str, float)
+    def setMirrorAxis(self, mode: str, value: float) -> None:
+        value = max(0.0, min(1.0, float(value)))
+        if mode == "horizontal":
+            self._transform_change(mirror_horizontal_axis=value)
+        else:
+            self._transform_change(mirror_vertical_axis=value)
+
+    @Slot(int)
+    def rotateImage(self, degrees: int) -> None:
+        self._transform_change(rotation=(self.settings.rotation + int(degrees)) % 360)
+
+    @Slot()
+    def resetImageTransform(self) -> None:
+        defaults = ProcessingSettings()
+        data = self.settings.to_dict()
+        for key in (
+            "rotation", "flip_horizontal", "flip_vertical", "mirror_horizontal", "mirror_vertical",
+            "mirror_horizontal_axis", "mirror_vertical_axis", "crop_left", "crop_top", "crop_right",
+            "crop_bottom", "position_x", "position_y",
+        ):
+            data[key] = getattr(defaults, key)
+        self._replace_settings(ProcessingSettings.from_dict(data))
+
+    @Slot()
+    def resetSettings(self) -> None:
+        settings = ProcessingSettings()
+        settings.effect_stack = default_effect_stack(settings)
+        self._preview_mode = "Quick"
+        self.app_settings.setValue("previewModeQml", "Quick")
+        self._replace_settings(settings)
+
+    # ---------- palettes ----------
+    @Slot(str)
+    def applyPalette(self, name_or_id: str) -> None:
+        record = find_palette(str(name_or_id))
+        if not record:
+            return
+        data = self.settings.to_dict()
+        data.update(
+            palette=list(record.colors),
+            palette_locks=[False] * len(record.colors),
+            palette_name=record.name,
+            palette_author="RasterMint palette library",
+            palette_source=record.source,
+        )
+        self._replace_settings(ProcessingSettings.from_dict(data))
+
+    @Slot(str)
+    def importPalette(self, value: str) -> None:
+        try:
+            path = Path(_local_path(value))
+            colors = read_palette_file(path)
+            data = self.settings.to_dict()
+            data.update(palette=colors, palette_locks=[False] * len(colors), palette_name=path.stem, palette_author="", palette_source=str(path))
+            self._replace_settings(ProcessingSettings.from_dict(data))
+        except Exception as exc:
+            self.errorOccurred.emit("Could not import palette", str(exc))
+
+    @Slot(str)
+    def exportPalette(self, value: str) -> None:
+        try:
+            path = Path(_local_path(value))
+            if not path.suffix:
+                path = path.with_suffix(".hex")
+            write_hex_palette(path, self.settings.palette)
+            self._set_status(f"Saved palette {path.name}")
+        except Exception as exc:
+            self.errorOccurred.emit("Could not export palette", str(exc))
+
+    @Slot(int, str)
+    def optimizePalette(self, count: int, method: str) -> None:
+        source = self._active_source()
+        if source is None:
+            return
+        try:
+            colors = extract_palette(source, max(2, min(256, int(count))), str(method))
+            data = self.settings.to_dict()
+            data.update(palette=colors, palette_locks=[False] * len(colors), palette_name=f"Optimized {len(colors)}", palette_author="RasterMint", palette_source="source image")
+            self._replace_settings(ProcessingSettings.from_dict(data))
+        except Exception as exc:
+            self.errorOccurred.emit("Could not optimize palette", str(exc))
+
+    @Slot(str, str, int, str)
+    def generatePalette(self, start: str, end: str, count: int, space: str) -> None:
+        try:
+            colors = interpolate_palette(start, end, count, space)
+            data = self.settings.to_dict()
+            data.update(palette=colors, palette_locks=[False] * len(colors), palette_name=f"{space} Gradient {count}", palette_author="RasterMint", palette_source="generated")
+            self._replace_settings(ProcessingSettings.from_dict(data))
+        except Exception as exc:
+            self.errorOccurred.emit("Could not generate palette", str(exc))
+
+    @Slot(str)
+    def fetchLospec(self, value: str) -> None:
+        try:
+            palette = fetch_lospec_palette(value)
+            data = self.settings.to_dict()
+            data.update(
+                palette=palette.colors,
+                palette_locks=[False] * len(palette.colors),
+                palette_name=palette.name,
+                palette_author=palette.author,
+                palette_source=palette.source_url,
+            )
+            self._replace_settings(ProcessingSettings.from_dict(data))
+            self.infoOccurred.emit("Lospec palette", f"Imported {palette.name} by {palette.author} ({len(palette.colors)} colors).")
+        except Exception as exc:
+            self.errorOccurred.emit("Could not fetch Lospec palette", str(exc))
+
+    @Slot(int, str)
+    def setPaletteColor(self, index: int, color: str) -> None:
+        index = int(index)
+        chosen = QColor(str(color))
+        if not chosen.isValid() or not (0 <= index < len(self.settings.palette)):
+            return
+        colors = list(self.settings.palette)
+        colors[index] = chosen.name(QColor.NameFormat.HexRgb).upper()
+        data = self.settings.to_dict(); data["palette"] = colors; data["palette_name"] = "Custom"
+        self._replace_settings(ProcessingSettings.from_dict(data))
+
+    @Slot(int, bool)
+    def setPaletteLock(self, index: int, locked: bool) -> None:
+        index = int(index)
+        if not (0 <= index < len(self.settings.palette)):
+            return
+        locks = list(self.settings.palette_locks)
+        locks[index] = bool(locked)
+        data = self.settings.to_dict(); data["palette_locks"] = locks
+        self._replace_settings(ProcessingSettings.from_dict(data), schedule=False)
+
+    @Slot(str)
+    def addPaletteColor(self, color: str) -> None:
+        if len(self.settings.palette) >= 256:
+            return
+        chosen = QColor(str(color))
+        if not chosen.isValid():
+            return
+        colors = list(self.settings.palette) + [chosen.name(QColor.NameFormat.HexRgb).upper()]
+        locks = list(self.settings.palette_locks) + [False]
+        data = self.settings.to_dict(); data.update(palette=colors, palette_locks=locks, palette_name="Custom")
+        self._replace_settings(ProcessingSettings.from_dict(data))
+
+    @Slot(int)
+    def removePaletteColor(self, index: int = -1) -> None:
+        if len(self.settings.palette) <= 1:
+            return
+        colors = list(self.settings.palette); locks = list(self.settings.palette_locks)
+        candidate = int(index)
+        if not (0 <= candidate < len(colors)) or locks[candidate]:
+            candidate = next((i for i in range(len(colors) - 1, -1, -1) if not locks[i]), -1)
+        if candidate < 0:
+            return
+        colors.pop(candidate); locks.pop(candidate)
+        data = self.settings.to_dict(); data.update(palette=colors, palette_locks=locks, palette_name="Custom")
+        self._replace_settings(ProcessingSettings.from_dict(data))
+
+    @Slot()
+    def shufflePaletteUnlocked(self) -> None:
+        colors = list(self.settings.palette); locks = list(self.settings.palette_locks)
+        indexes = [i for i, locked in enumerate(locks) if not locked]
+        values = [colors[i] for i in indexes]
+        random.shuffle(values)
+        for index, value in zip(indexes, values, strict=False):
+            colors[index] = value
+        data = self.settings.to_dict(); data.update(palette=colors, palette_name="Custom")
+        self._replace_settings(ProcessingSettings.from_dict(data))
+
+    @Slot()
+    def randomizePaletteUnlocked(self) -> None:
+        colors = list(self.settings.palette); locks = list(self.settings.palette_locks)
+        for index, locked in enumerate(locks):
+            if locked:
+                continue
+            r, g, b = colorsys.hsv_to_rgb(random.random(), random.uniform(0.45, 1.0), random.uniform(0.35, 1.0))
+            colors[index] = f"#{round(r * 255):02X}{round(g * 255):02X}{round(b * 255):02X}"
+        data = self.settings.to_dict(); data.update(palette=colors, palette_name="Custom")
+        self._replace_settings(ProcessingSettings.from_dict(data))
+
+    # ---------- hardware ----------
+    @Slot(str, str, "QVariantMap")
+    def applyHardware(self, profile_id: str, mode: str, options: dict[str, Any] | None = None) -> None:
+        profile = next((p for p in self._hardware_profiles if p.id == profile_id), None)
+        if not profile:
+            return
+        opts = dict(options or {})
+        try:
+            updated = apply_profile_to_settings(
+                self.settings,
+                profile,
+                mode=str(mode).lower(),
+                apply_resolution=bool(opts.get("raster", True)),
+                apply_palette=bool(opts.get("palette", True)),
+                apply_pixel_aspect=bool(opts.get("pixelAspect", True)),
+                apply_constraints=bool(opts.get("limits", True)),
+                apply_display=bool(opts.get("display", True)),
+            )
+            self._replace_settings(updated)
+        except Exception as exc:
+            self.errorOccurred.emit("Could not apply hardware profile", str(exc))
+
+    @Slot(str)
+    def loadHardwareProfile(self, value: str) -> None:
+        try:
+            profile = load_profile_file(_local_path(value))
+            self._hardware_profiles = [p for p in self._hardware_profiles if p.id != profile.id] + [profile]
+            self._hardware_profiles.sort(key=lambda p: (p.category.lower(), p.name.lower()))
+            self.hardwareProfilesChanged.emit()
+            self._set_status(f"Loaded hardware profile: {profile.name}")
+        except Exception as exc:
+            self.errorOccurred.emit("Could not load hardware profile", str(exc))
+
+    # ---------- presets ----------
+    @Slot(str)
+    def applyBuiltinPreset(self, preset_id: str) -> None:
+        try:
+            self._replace_settings(build_builtin_preset(preset_id, self.settings))
+            preset = next((p for p in BUILTIN_PRESETS if p.id == preset_id), None)
+            if preset:
+                self._set_status(f"Applied preset: {preset.name}")
+        except Exception as exc:
+            self.errorOccurred.emit("Could not apply preset", str(exc))
+
+    @Slot(str)
+    def savePreset(self, value: str) -> None:
+        try:
+            path = Path(_local_path(value))
+            if not path.suffix:
+                path = path.with_suffix(".json")
+            save_preset(path, self.settings)
+            self._set_status(f"Saved preset {path.name}")
+        except Exception as exc:
+            self.errorOccurred.emit("Could not save preset", str(exc))
+
+    @Slot(str)
+    def loadPreset(self, value: str) -> None:
+        try:
+            path = Path(_local_path(value))
+            self._replace_settings(load_preset(path))
+            self._set_status(f"Loaded preset {path.name}")
+        except Exception as exc:
+            self.errorOccurred.emit("Could not load preset", str(exc))
+
+    @Slot(str)
+    def applyAnimationPreset(self, preset_id: str) -> None:
+        try:
+            self._replace_settings(apply_animation_preset(self.settings, preset_id))
+            self.playbackChanged.emit()
+        except Exception as exc:
+            self.errorOccurred.emit("Could not apply motion preset", str(exc))
+
+    # ---------- randomize ----------
+    @Slot()
+    def randomizeUnlocked(self) -> None:
+        current = ProcessingSettings.from_dict(self.settings.to_dict())
+        if self._random_index < 0:
+            self._record_random(current)
+        locks = current.random_locks
+        randomized = ProcessingSettings.from_dict(current.to_dict())
+        if not locks.get("palette", False):
+            for i, locked in enumerate(randomized.palette_locks):
+                if not locked:
+                    randomized.palette[i] = f"#{random.randint(0, 0xFFFFFF):06X}"
+            randomized.palette_name = "Random"
+        stack = normalize_effect_stack(randomized.effect_stack, randomized)
+        if not locks.get("dither", False):
+            dither = next((x for x in stack if x.get("kind") == "Dither"), None)
+            if dither:
+                dither["enabled"] = True
+                dither["params"]["algorithm"] = random.choice(ALGORITHMS)
+                dither["params"]["strength"] = round(random.uniform(0.55, 1.35), 2)
+        if not locks.get("effects", False):
+            creative = ["Local Contrast", "Hue Rotate", "Gaussian Blur", "Glow", "Bloom", "RGB Split", "Posterize", "Scanlines", "Noise", "Pixel Sort", "Screen Melt", "Pixel Scatter", "Data Shift", "Channel Swap", "Pixel Material"]
+            stack = [s for s in stack if s.get("kind") in {"Adjustments", "Pixelate", "Dither"}]
+            for kind in random.sample(creative, k=random.randint(1, 3)):
+                stack.insert(max(1, len(stack) - 1), new_effect(kind))
+        if not locks.get("parameters", False):
+            for step in stack:
+                definition = EFFECT_DEFINITIONS.get(str(step.get("kind")), {})
+                for key, spec in definition.get("params", {}).items():
+                    if key == "seed":
+                        continue
+                    typ = spec.get("type")
+                    if typ in {"int", "float"}:
+                        lo, hi = float(spec.get("min", 0)), float(spec.get("max", 1))
+                        value = random.uniform(lo + (hi-lo)*0.1, lo + (hi-lo)*0.9)
+                        step["params"][key] = int(round(value)) if typ == "int" else round(value, int(spec.get("decimals", 2)))
+                    elif typ == "choice" and spec.get("options"):
+                        step["params"][key] = random.choice(list(spec["options"]))
+        randomized.effect_stack = stack
+        if not locks.get("resolution", True):
+            randomized.target_enabled = True
+            randomized.target_width, randomized.target_height = random.choice([(160,144),(240,160),(256,224),(256,240),(320,200),(320,240),(640,480)])
+        self._replace_settings(randomized)
+        self._record_random(self.settings)
+
+    def _record_random(self, settings: ProcessingSettings) -> None:
+        snapshot = settings.to_dict()
+        if self._random_index < len(self._random_history) - 1:
+            self._random_history = self._random_history[: self._random_index + 1]
+        self._random_history.append(snapshot)
+        self._random_history = self._random_history[-50:]
+        self._random_index = len(self._random_history) - 1
+
+    @Slot(int)
+    def randomHistory(self, delta: int) -> None:
+        if not self._random_history:
+            return
+        idx = max(0, min(len(self._random_history)-1, self._random_index + int(delta)))
+        if idx != self._random_index:
+            self._random_index = idx
+            self._replace_settings(ProcessingSettings.from_dict(self._random_history[idx]))
+
+    @Slot(bool)
+    def setPreserveAudio(self, enabled: bool) -> None:
+        enabled = bool(enabled)
+        if enabled != self._preserve_audio:
+            self._preserve_audio = enabled
+            self.audioExportChanged.emit()
+
+    def _replace_tracks(self, tracks: list[dict[str, Any]]) -> None:
+        data = self.settings.to_dict()
+        data["animation_tracks"] = normalize_tracks(tracks)
+        self._replace_settings(ProcessingSettings.from_dict(data))
+
+    @Slot(str, float, float, float, float, str)
+    def addAnimationTrack(self, target: str, start_value: float, end_value: float, start_time: float, end_time: float, easing: str) -> None:
+        if not any(item["id"] == str(target) for item in self.animationTargets):
+            return
+        tracks = normalize_tracks(self.settings.animation_tracks)
+        tracks.append({
+            "target": str(target), "from": float(start_value), "to": float(end_value),
+            "start": max(0.0, float(start_time)), "end": max(float(start_time), float(end_time)),
+            "easing": str(easing) if str(easing) in EASINGS else "Linear", "enabled": True,
+        })
+        self._replace_tracks(tracks)
+
+    @Slot(int, str, float, float, float, float, str)
+    def updateAnimationTrack(self, index: int, target: str, start_value: float, end_value: float, start_time: float, end_time: float, easing: str) -> None:
+        tracks = normalize_tracks(self.settings.animation_tracks)
+        index = int(index)
+        if not (0 <= index < len(tracks)) or not any(item["id"] == str(target) for item in self.animationTargets):
+            return
+        tracks[index].update({
+            "target": str(target), "from": float(start_value), "to": float(end_value),
+            "start": max(0.0, float(start_time)), "end": max(float(start_time), float(end_time)),
+            "easing": str(easing) if str(easing) in EASINGS else "Linear",
+        })
+        self._replace_tracks(tracks)
+
+    @Slot(int)
+    def duplicateAnimationTrack(self, index: int) -> None:
+        tracks = normalize_tracks(self.settings.animation_tracks)
+        index = int(index)
+        if not (0 <= index < len(tracks)):
+            return
+        tracks.insert(index + 1, dict(tracks[index]))
+        self._replace_tracks(tracks)
+
+    @Slot(int)
+    def removeAnimationTrack(self, index: int) -> None:
+        tracks = normalize_tracks(self.settings.animation_tracks)
+        index = int(index)
+        if not (0 <= index < len(tracks)):
+            return
+        del tracks[index]
+        self._replace_tracks(tracks)
+
+    @Slot(int, bool)
+    def setAnimationTrackEnabled(self, index: int, enabled: bool) -> None:
+        tracks = normalize_tracks(self.settings.animation_tracks)
+        index = int(index)
+        if not (0 <= index < len(tracks)):
+            return
+        tracks[index]["enabled"] = bool(enabled)
+        self._replace_tracks(tracks)
+
+    @Slot(int)
+    def stepFrame(self, delta: int) -> None:
+        fps = self._video_info.fps if self._video_info and self._video_info.fps > 0 else max(1.0, float(self.settings.animation_fps))
+        self.setCurrentTime(self._current_time + int(delta) / fps)
+
+    @Slot()
+    def seekStart(self) -> None:
+        self.setCurrentTime(0.0)
+
+    @Slot()
+    def seekEnd(self) -> None:
+        self.setCurrentTime(self.timelineDuration)
+
+    # ---------- timeline/media ----------
+    @Slot(float)
+    def setCurrentTime(self, seconds: float) -> None:
+        self._current_time = max(0.0, min(self.timelineDuration, float(seconds)))
+        if self._video_path:
+            job = self._next_job()
+            worker = VideoFrameWorker(job, str(self._video_path), self._current_time)
+            self._connect_worker(worker)
+            self.thread_pool.start(worker)
+        else:
+            self.schedulePreview(force=True)
+        self.playbackChanged.emit()
+
+    @Slot()
+    def togglePlay(self) -> None:
+        self._playing = not self._playing
+        if self._playing:
+            self._play_timer.start()
+        else:
+            self._play_timer.stop()
+        self.playbackChanged.emit()
+
+    @Slot(str)
+    def setPlaybackMode(self, mode: str) -> None:
+        label = "Rendered" if str(mode).lower().startswith("render") else "Quick"
+        if label != self._playback_mode:
+            self._playback_mode = label
+            self.playbackChanged.emit()
+
+    @Slot(float)
+    def setPlaybackSpeed(self, speed: float) -> None:
+        self._playback_speed = max(0.25, min(4.0, float(speed)))
+        self.playbackChanged.emit()
+
+    @Slot()
+    def renderPreviewCache(self) -> None:
+        if not self.hasSource:
+            return
+        job = self._next_job()
+        worker = RenderedPreviewWorker(
+            job,
+            self.settings,
+            image=self._source_image if self._video_path is None else None,
+            video_path=str(self._video_path) if self._video_path else None,
+            start_time=self._current_time if self._video_path else 0.0,
+            duration=min(5.0, self.timelineDuration),
+            max_side=PREVIEW_MAX_SIDE,
+            context={"source_revision": self._source_revision, "settings_revision": self._settings_revision},
+        )
+        self._connect_worker(worker)
+        self.thread_pool.start(worker)
+        self._set_status("Rendering preview cache…")
+
+    def _play_tick(self) -> None:
+        duration = self.timelineDuration
+        if duration <= 0:
+            return
+        step = 0.033 * self._playback_speed
+        value = self._current_time + step
+        if value >= duration:
+            if self.settings.animation_loop:
+                value %= duration
+            else:
+                value = duration
+                self._playing = False
+                self._play_timer.stop()
+        self._current_time = value
+        if self._playback_mode == "Rendered" and self._rendered_frames:
+            idx = min(len(self._rendered_frames)-1, max(0, round(value * max(1.0, self._rendered_fps))))
+            self._publish_preview(self._rendered_frames[idx])
+        elif self._video_path:
+            job = self._next_job()
+            worker = VideoFrameWorker(job, str(self._video_path), value)
+            self._connect_worker(worker)
+            self.thread_pool.start(worker)
+        else:
+            self.schedulePreview(force=True)
+        self.playbackChanged.emit()
+
+    # ---------- preview pipeline ----------
+    @Slot()
+    def schedulePreview(self, force: bool = False) -> None:
+        if not self.hasSource:
+            return
+        self._quick_timer.stop(); self._stable_timer.stop()
+        if self._preview_mode == "Quick":
+            self._quick_timer.start(0 if force else 55)
+            self._stable_timer.start(330)
+        elif self._preview_mode == "Stable":
+            self._stable_timer.start(0 if force else 180)
+        else:
+            self._request_preview(self._safe_full_side())
+
+    def _quick_side(self) -> int:
+        return adaptive_preview_max_side(self.settings, FAST_PREVIEW_MAX_SIDE)
+
+    def _request_refined_preview(self) -> None:
+        self._request_preview(adaptive_preview_max_side(self.settings, PREVIEW_MAX_SIDE))
+
+    def _safe_full_side(self) -> int:
+        source = self._active_source()
+        if source is None:
+            return PREVIEW_MAX_SIDE
+        width, height = processed_raster_size(source.size, self.settings)
+        pixels = max(1, width * height)
+        if pixels <= MAX_FULL_PREVIEW_PIXELS:
+            return max(width, height)
+        scale = math.sqrt(MAX_FULL_PREVIEW_PIXELS / pixels)
+        return max(64, round(max(width, height) * scale))
+
+    def _request_preview(self, max_side: int) -> None:
+        source = self._active_source()
+        if source is None:
+            return
+        if self._preview_running:
+            self._pending_preview_side = int(max_side)
+            return
+        self._preview_running = True
+        self._pending_preview_side = 0
+        settings = settings_at_time(self.settings, self._current_time)
+        final_size = target_raster_size(source.size, settings)
+        preview_source = make_preview_source(source, max_side=int(max_side), settings=settings)
+        preview_settings = make_preview_settings(settings, final_size, preview_source.size)
+        job = self._next_job()
+        self._latest_preview_job = job
+        context = {
+            "source_revision": self._source_revision,
+            "settings_revision": self._settings_revision,
+            "time": self._current_time,
+        }
+        worker = ProcessingWorker(
+            job,
+            "preview",
+            preview_source,
+            preview_settings,
+            context,
+            frame_time=self._current_time,
+            frame_index=max(0, round(self._current_time * (self._video_info.fps if self._video_info else settings.animation_fps))),
+            display_mode=settings.display_mode,
+            include_grid=False,
+        )
+        self._connect_worker(worker)
+        self.thread_pool.start(worker)
+
+    def _connect_worker(self, worker: Any) -> None:
+        worker.signals.finished.connect(self._worker_finished)
+        worker.signals.failed.connect(self._worker_failed)
+        worker.signals.progress.connect(self._worker_progress)
+
+    @Slot(int, str, object, object)
+    def _worker_finished(self, job_id: int, purpose: str, result: object, context: object) -> None:
+        if purpose == "preview":
+            self._preview_running = False
+            valid = isinstance(context, dict) and context.get("source_revision") == self._source_revision and context.get("settings_revision") == self._settings_revision
+            if valid and isinstance(result, Image.Image):
+                self._publish_preview(result)
+            pending = self._pending_preview_side
+            self._pending_preview_side = 0
+            if pending:
+                self._request_preview(pending)
+            return
+        if purpose == "video-frame" and isinstance(result, Image.Image):
+            # Ignore stale decode responses that are far away from current time.
+            if abs(float(context) - self._current_time) < 0.15:
+                self._current_frame = result
+                self.sourceChanged.emit()
+                self.schedulePreview(force=True)
+            return
+        if purpose == "preset-thumbnail" and isinstance(result, Image.Image) and isinstance(context, dict):
+            if context.get("source_revision") == self._source_revision:
+                key = f"preset/{context.get('preset_id')}"
+                self.provider.set_image(key, _pil_to_qimage(result))
+                self._preview_revision += 1
+                self.previewChanged.emit()
+            return
+        if purpose == "export-image" and isinstance(result, Image.Image) and isinstance(context, dict):
+            self._export_jobs.discard(job_id)
+            path = Path(str(context.get("path", "output.png")))
+            try:
+                if path.suffix.lower() == ".svg":
+                    save_svg(result, path)
+                else:
+                    save_image = result.convert("RGB") if path.suffix.lower() in {".jpg", ".jpeg"} else result
+                    save_image.save(path)
+                self._set_status(f"Exported {path.name}")
+            except Exception as exc:
+                self.errorOccurred.emit("Could not export image", str(exc))
+            return
+        if purpose == "rendered-preview" and isinstance(result, dict):
+            frames = result.get("frames") or []
+            context_map = context if isinstance(context, dict) else {}
+            if context_map.get("source_revision") == self._source_revision and context_map.get("settings_revision") == self._settings_revision:
+                self._rendered_frames = [frame for frame in frames if isinstance(frame, Image.Image)]
+                self._rendered_times = [float(v) for v in (result.get("times") or [])]
+                self._rendered_fps = float(result.get("fps") or 0.0)
+                self.renderedPreviewChanged.emit()
+                self._set_status(f"Rendered {len(self._rendered_frames)} preview frames")
+            return
+        if purpose in {"media-export", "png-sequence", "batch"}:
+            self._export_jobs.discard(job_id)
+            self._set_status("Export complete")
+
+    @Slot(int, str, str, object)
+    def _worker_failed(self, job_id: int, purpose: str, trace: str, context: object) -> None:
+        if purpose == "preview":
+            self._preview_running = False
+            pending = self._pending_preview_side
+            self._pending_preview_side = 0
+            if pending:
+                self._request_preview(pending)
+        self._export_jobs.discard(job_id)
+        last = trace.strip().splitlines()[-1] if trace.strip() else "Unknown error"
+        self.errorOccurred.emit("RasterMint error", last)
+
+    @Slot(int, str, int, int, str)
+    def _worker_progress(self, job_id: int, purpose: str, current: int, total: int, label: str) -> None:
+        if total > 0:
+            self._set_status(f"{purpose.replace('-', ' ').title()}: {current}/{total} {label}")
+
+    def _publish_preview(self, image: Image.Image) -> None:
+        qimage = _pil_to_qimage(image)
+        self.provider.set_image("preview", qimage)
+        self._preview_width = max(1, image.width)
+        self._preview_height = max(1, image.height)
+        self._preview_revision += 1
+        self.previewChanged.emit()
+
+    @Slot()
+    def refreshPresetThumbnails(self) -> None:
+        source = self._active_source()
+        if source is None:
+            return
+        source_revision = self._source_revision
+        base = ProcessingSettings.from_dict(self.settings.to_dict())
+        for preset in BUILTIN_PRESETS:
+            settings = build_builtin_preset(preset.id, base)
+            final_size = target_raster_size(source.size, settings)
+            preview_source = make_preview_source(source, max_side=128, settings=settings)
+            preview_settings = make_preview_settings(settings, final_size, preview_source.size)
+            job = self._next_job()
+            worker = ProcessingWorker(
+                job,
+                "preset-thumbnail",
+                preview_source,
+                preview_settings,
+                {"preset_id": preset.id, "source_revision": source_revision},
+                display_mode="display",
+                include_grid=False,
+            )
+            self._connect_worker(worker)
+            self.thread_pool.start(worker, -1)
+
+    @Slot()
+    def shutdown(self) -> None:
+        self._quick_timer.stop(); self._stable_timer.stop(); self._play_timer.stop()
+        self.thread_pool.clear()
+        self.thread_pool.waitForDone(1500)

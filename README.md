@@ -12,13 +12,13 @@ RasterMint is a cross-platform desktop image, palette, dithering, and motion-eff
 
 - Custom app icon bundled for Windows (`.ico`), macOS (`.icns`), Linux/runtime PNG, and the README.
 
-- PySide6 / Qt 6 desktop UI for Windows, Linux, and macOS.
+- **PySide6 + Qt Quick/QML** desktop UI for Windows, Linux, and macOS; the Python processing core remains independent from the interface.
 - One **Open File** action plus drag-and-drop for still images, animated GIFs, and videos.
 - One processed viewport with pan, zoom, and fit-to-view.
 - Three preview behaviors:
-  - **Live** — quick draft first, then a refined render after controls settle.
-  - **Still** — skips the draft and refreshes after editing pauses.
-  - **Full** — renders the selected output resolution in the viewport when you explicitly want maximum preview accuracy.
+  - **Quick** — quick draft first, then a refined render after controls settle.
+  - **Stable** — skips the draft and refreshes after editing pauses.
+  - **Full** — renders the selected output resolution in the viewport when safe, with a memory-bounded full proxy for extreme rasters.
 - Background rendering with serialized preview jobs and stale-frame rejection.
 - Adaptive preview budgets for especially expensive algorithms and very large palettes.
 - Visual preset carousel with current-image thumbnails for quick look browsing.
@@ -47,9 +47,17 @@ RasterMint is a cross-platform desktop image, palette, dithering, and motion-eff
 
 The official repository link in **View → About RasterMint** is clickable.
 
-RasterMint uses a minimal top menu bar and a two-column inspector on the right. The left inspector column selects a general area such as **Layers**, **Palette**, **Raster**, or **Hardware**; the right column shows the detailed controls for that area. Flip, mirror and rotation tools live directly in **Edit**, above **Settings**. Mirror tools are checkable: enabling one shows a draggable blue mirror axis over the preview. **Edit → Settings** is intentionally minimal for now and keeps **Reset Settings** at the bottom.
+RasterMint uses a minimal top menu bar and a two-column inspector on the right. The left inspector column selects a general area such as **Layers**, **Palette**, **Raster**, or **Hardware**; the right column shows the detailed controls for that area. Flip, mirror and rotation tools live directly in **Edit**, above **Settings**. Mirror tools are checkable: enabling one shows a draggable blue mirror axis over the preview. **Edit → Settings** contains Appearance settings with a live theme chooser. **RasterMint Dark** is the default theme, and **Reset Settings** remains at the bottom.
 
 Preview quality is intentionally named **Quick**, **Stable**, and **Full** while retaining the existing draft/refine/full rendering behavior.
+
+## QML interface and themes
+
+RasterMint's only desktop UI is now Qt Quick/QML. The old QWidget interface was removed rather than kept as a second hidden frontend. Python exposes the processing state, layer model, media jobs, palettes, hardware profiles, and preview image provider to QML through `src/rastermint/qmlui/`.
+
+Themes are JSON data under `src/rastermint/data/themes/`. **RasterMint Dark** matches the previous dark interface and is the default. Choose a theme from **Edit → Settings… → Appearance → Theme**; changes apply immediately and persist between sessions. Included themes are RasterMint Dark, RasterMint Light, OLED, Mint, Solarized Dark, and Solarized Light.
+
+The QML source lives under `src/rastermint/qml/`, with reusable controls in `qml/components/` and inspector pages in `qml/pages/`. See [`docs/QML_MIGRATION.md`](docs/QML_MIGRATION.md).
 
 ## Dithering algorithms
 
@@ -106,6 +114,7 @@ Current nodes:
 - Median Denoise
 - Sharpen
 - Glow
+- Bloom with threshold, soft knee, radius, intensity, and Screen/Add blending
 - JPEG Compression
 - Chromatic Shift / RGB Split
 - Posterize
@@ -124,7 +133,7 @@ Each row can be enabled/disabled, reordered, duplicated, or removed. User-adjust
 
 RasterMint treats motion as parameter animation on the same processing layer stack used by still images. All suitable numeric effect parameters are published to the timeline automatically (identity/random seeds are excluded). A true **Dither Mix** parameter makes 0% the clean pre-dither image and 100% the complete dithered result, so Dither In/Out transitions are real crossfades rather than changes to diffusion error only.
 
-The Animation panel now includes:
+The QML Animation inspector includes:
 
 - start/end and previous/next-frame transport;
 - loop playback;
@@ -142,7 +151,7 @@ Export options include MP4, animated GIF, and a numbered **PNG sequence**. Frame
 
 Video support is provided through `imageio-ffmpeg` / FFmpeg. RasterMint keeps media decoding separate from image processing: each decoded RGB frame travels through the same effect/hardware/palette pipeline as a still image.
 
-The Source panel supports:
+The QML Media/Animation inspectors support:
 
 - frame scrubbing;
 - Quick processed playback;
@@ -157,7 +166,7 @@ Quick playback intentionally uses a smaller proxy budget. Rendered preview cache
 
 ## Lospec palettes
 
-Open **Palette → Lospec…** in RasterMint's palette section, click **Browse Lospec**, then paste either:
+Open the **Palette** inspector and enter either:
 
 ```text
 greyt-bit

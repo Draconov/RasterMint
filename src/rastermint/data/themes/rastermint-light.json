@@ -1,0 +1,18 @@
+{
+  "id": "rastermint-light",
+  "name": "RasterMint Light",
+  "window": "#ECEFEA",
+  "canvas": "#D9DDD7",
+  "panel": "#F7F8F5",
+  "panelRaised": "#FFFFFF",
+  "panelHover": "#E3E8DF",
+  "border": "#C9D0C5",
+  "text": "#1D231D",
+  "textMuted": "#626B62",
+  "accent": "#77941E",
+  "accentHover": "#8EAE26",
+  "accentText": "#FFFFFF",
+  "danger": "#B74D4D",
+  "selection": "#BFD7EC",
+  "mirrorAxis": "#1676D2"
+}

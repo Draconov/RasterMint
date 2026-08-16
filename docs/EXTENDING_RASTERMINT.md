@@ -18,7 +18,7 @@ pixel-aspect/display presentation
 preview / still export / SVG / animation / video / batch
 ```
 
-The stack, not `main_window.py`, defines rendering order.
+The stack, not QML or `qmlui/backend.py`, defines rendering order.
 
 ## Adding an error-diffusion algorithm
 
@@ -109,7 +109,7 @@ Useful flags:
 
 Then add the processing branch in `apply_effect_stack()`.
 
-The UI parameter editor is generated from this schema; you should **not** create a second hard-coded form in `main_window.py` for normal stack effects.
+The QML layer parameter editor is generated from this schema; you should **not** create effect-specific forms for normal stack effects. Add metadata to `EFFECT_DEFINITIONS` and processing code to the core.
 
 ## Animation compatibility
 
@@ -174,13 +174,14 @@ Add format parsing in `core/palette.py`, not in the Qt file dialog.
 
 ## Lospec integration
 
-The core parser is in `core/lospec.py`; the asynchronous Qt request dialog is in `ui/lospec_dialog.py`.
+The core parser/fetcher is in `core/lospec.py`; the QML Palette inspector calls it through `qmlui/backend.py`.
 
 Keep these responsibilities separate:
 
 ```text
-core/lospec.py       URL/slug validation + JSON parsing + optional synchronous fetch
-ui/lospec_dialog.py  non-blocking QNetworkAccessManager request + user feedback
+core/lospec.py        URL/slug validation + JSON parsing + fetch
+qmlui/backend.py      QML-facing import action + user feedback
+qml/pages/PalettePage.qml  palette browsing/import controls
 ```
 
 Do not scrape Lospec's Palette List HTML when the official per-palette JSON endpoint can be used.
@@ -246,3 +247,8 @@ The built-in searchable palette catalog lives in `core/palette_library.py`. Add 
 Visual quick presets live in `core/builtin_presets.py`. Keep them small in number and visually distinct; their thumbnails are rendered from the current source image in low-priority worker jobs.
 
 Hardware profile details belong in the profile JSON `summary`/palette description fields. The GUI surfaces that information through hover tooltips, so profile descriptions should be concise enough to read without a separate information page.
+
+
+## Bloom vs Glow
+
+RasterMint keeps **Glow** and **Bloom** as separate layers. Glow blurs/lightens the whole source; Bloom extracts only pixels above a luminance threshold, applies a soft-knee transition, blurs those highlights, and blends them back with Screen or Add. Bloom's threshold, soft knee, radius, and intensity are numeric/animatable effect parameters, so the same schema automatically exposes them to UI and animation systems.

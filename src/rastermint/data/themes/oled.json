@@ -1,0 +1,18 @@
+{
+  "id": "oled",
+  "name": "OLED",
+  "window": "#000000",
+  "canvas": "#000000",
+  "panel": "#0A0A0A",
+  "panelRaised": "#111111",
+  "panelHover": "#1A1A1A",
+  "border": "#292929",
+  "text": "#F5F5F5",
+  "textMuted": "#8C8C8C",
+  "accent": "#A5BD34",
+  "accentHover": "#D0EA50",
+  "accentText": "#000000",
+  "danger": "#E36D6D",
+  "selection": "#243B50",
+  "mirrorAxis": "#4DA3FF"
+}

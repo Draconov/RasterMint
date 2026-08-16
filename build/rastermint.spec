@@ -13,7 +13,7 @@ ROOT = Path(SPECPATH).parent
 APP_VERSION = distribution_version("rastermint")
 hiddenimports = collect_submodules("PIL") + collect_submodules("imageio_ffmpeg")
 metadata = copy_metadata("rastermint") + copy_metadata("imageio-ffmpeg")
-package_data = collect_data_files("rastermint", includes=["data/hardware_profiles/*.json", "data/icons/*"])
+package_data = collect_data_files("rastermint", includes=["data/hardware_profiles/*.json", "data/icons/*", "data/themes/*.json", "qml/*.qml", "qml/components/*.qml", "qml/pages/*.qml"])
 ICON_DIR = ROOT / "src" / "rastermint" / "data" / "icons"
 
 # Ship the platform-specific ffmpeg executable as a binary so one-file builds

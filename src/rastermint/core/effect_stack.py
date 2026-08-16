@@ -17,7 +17,7 @@ from .palette import hex_to_rgb, palette_array
 
 
 # The UI consumes this schema directly. Keeping effect metadata in the core means
-# adding a new effect does not require hard-coding another form in main_window.py.
+# adding a new effect does not require hard-coding another form in the QML UI.
 EFFECT_DEFINITIONS: dict[str, dict[str, Any]] = {
     "Adjustments": {"params": {
         "brightness": {"type": "int", "label": "Brightness", "default": 0, "min": -100, "max": 100, "step": 1, "animatable": True},
@@ -47,6 +47,13 @@ EFFECT_DEFINITIONS: dict[str, dict[str, Any]] = {
     "Glow": {"params": {
         "radius": {"type": "float", "label": "Radius", "default": 5.0, "min": 0.0, "max": 40.0, "step": 0.5, "decimals": 1, "suffix": " px", "animatable": True, "pixel_scaled": True},
         "intensity": {"type": "float", "label": "Intensity", "default": 0.35, "min": 0.0, "max": 2.0, "step": 0.05, "decimals": 2, "animatable": True},
+    }},
+    "Bloom": {"params": {
+        "threshold": {"type": "float", "label": "Threshold", "default": 0.65, "min": 0.0, "max": 1.0, "step": 0.01, "decimals": 2, "animatable": True},
+        "soft_knee": {"type": "float", "label": "Soft knee", "default": 0.20, "min": 0.0, "max": 1.0, "step": 0.01, "decimals": 2, "animatable": True},
+        "radius": {"type": "float", "label": "Radius", "default": 10.0, "min": 0.0, "max": 80.0, "step": 0.5, "decimals": 1, "suffix": " px", "animatable": True, "pixel_scaled": True},
+        "intensity": {"type": "float", "label": "Intensity", "default": 0.80, "min": 0.0, "max": 4.0, "step": 0.05, "decimals": 2, "animatable": True},
+        "blend": {"type": "choice", "label": "Blend", "default": "Screen", "options": ["Screen", "Add"]},
     }},
     "JPEG Compression": {"params": {
         "quality": {"type": "int", "label": "Quality", "default": 35, "min": 5, "max": 95, "step": 1, "animatable": True},
@@ -380,6 +387,57 @@ def _glow(image: Image.Image, radius: float, intensity: float) -> Image.Image:
     glow = np.clip(blurred * intensity, 0.0, 255.0)
     out = base + glow - (base * glow / 255.0)
     return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), "RGB")
+
+
+def _bloom(
+    image: Image.Image,
+    threshold: float,
+    soft_knee: float,
+    radius: float,
+    intensity: float,
+    blend: str,
+) -> Image.Image:
+    """Bloom bright image regions and blend the result over the source.
+
+    Unlike Glow, Bloom first extracts highlights using a luminance threshold.
+    ``soft_knee`` controls how gradually pixels enter the bloom around that
+    threshold, which avoids a harsh visible cutoff on gradients and photos.
+    """
+    radius = max(0.0, float(radius))
+    intensity = max(0.0, float(intensity))
+    if radius <= 0.0 or intensity <= 0.0:
+        return image
+
+    threshold = max(0.0, min(1.0, float(threshold)))
+    soft_knee = max(0.0, min(1.0, float(soft_knee)))
+
+    base = np.asarray(image.convert("RGB"), dtype=np.float32) / 255.0
+    luminance = 0.2126 * base[..., 0] + 0.7152 * base[..., 1] + 0.0722 * base[..., 2]
+
+    # Smoothstep around the threshold. At knee=0 this becomes a hard cutoff.
+    knee = max(1e-6, soft_knee * 0.5)
+    if soft_knee <= 1e-6:
+        weight = (luminance >= threshold).astype(np.float32)
+    else:
+        lo = threshold - knee
+        hi = threshold + knee
+        t = np.clip((luminance - lo) / max(1e-6, hi - lo), 0.0, 1.0)
+        weight = t * t * (3.0 - 2.0 * t)
+
+    highlights = np.clip(base * weight[..., None] * 255.0, 0.0, 255.0).astype(np.uint8)
+    highlight_image = Image.fromarray(highlights, "RGB")
+    blurred = np.asarray(
+        highlight_image.filter(ImageFilter.GaussianBlur(radius=radius)),
+        dtype=np.float32,
+    ) / 255.0
+
+    bloom = np.clip(blurred * intensity, 0.0, 1.0)
+    if str(blend) == "Add":
+        out = np.clip(base + bloom, 0.0, 1.0)
+    else:  # Screen is the safer/default photographic blend.
+        out = 1.0 - (1.0 - base) * (1.0 - bloom)
+
+    return Image.fromarray(np.clip(np.rint(out * 255.0), 0, 255).astype(np.uint8), "RGB")
 
 
 def _jpeg_compression(image: Image.Image, quality: int) -> Image.Image:
@@ -772,6 +830,7 @@ def apply_effect_stack(
         elif kind == "Median Denoise": img = img.filter(ImageFilter.MedianFilter(size=max(1, int(p["radius"])) * 2 + 1))
         elif kind == "Sharpen": img = ImageEnhance.Sharpness(img).enhance(float(p["amount"]))
         elif kind == "Glow": img = _glow(img, float(p["radius"]), float(p["intensity"]))
+        elif kind == "Bloom": img = _bloom(img, float(p["threshold"]), float(p["soft_knee"]), float(p["radius"]), float(p["intensity"]), str(p["blend"]))
         elif kind == "JPEG Compression": img = _jpeg_compression(img, int(p["quality"]))
         elif kind == "Chromatic Shift": img = _chromatic_shift(img, int(p["amount"]))
         elif kind == "RGB Split": img = _rgb_split(img, int(p["x"]), int(p["y"]))
