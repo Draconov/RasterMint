@@ -3,6 +3,7 @@ import QtQuick.Controls
 
 Button {
     id: control
+    property bool selected: false
     implicitHeight: 34
     leftPadding: 12
     rightPadding: 12
@@ -18,7 +19,7 @@ Button {
     }
     background: Rectangle {
         radius: 6
-        color: control.down ? theme.selectionColor : (control.hovered ? theme.panelHoverColor : theme.panelRaisedColor)
+        color: control.selected || control.down ? theme.selectionColor : (control.hovered ? theme.panelHoverColor : theme.panelRaisedColor)
         border.color: control.activeFocus ? theme.accentColor : theme.borderColor
         border.width: control.activeFocus ? 2 : 1
         Behavior on color { ColorAnimation { duration: 90 } }

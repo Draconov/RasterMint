@@ -20,7 +20,7 @@ ScrollView {
                 MintButton {
                     Layout.fillWidth: true
                     text: modelData
-                    background.color: backend.previewMode === modelData ? theme.selectionColor : (hovered ? theme.panelHoverColor : theme.panelRaisedColor)
+                    selected: backend.previewMode === modelData
                     onClicked: backend.setPreviewMode(modelData)
                 }
             }

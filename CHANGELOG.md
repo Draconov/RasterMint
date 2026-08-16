@@ -8,8 +8,7 @@
 - Removed the obsolete `src/rastermint/ui/` QWidget frontend instead of shipping two parallel interfaces.
 - Added controllable **Bloom** layer with highlight threshold, soft knee, radius, intensity, Screen/Add blending, and animation support.
 - Fixed Linux GitHub Actions QML test startup by installing the required EGL/OpenGL/Qt runtime libraries before importing `PySide6.QtGui`.
-
-RasterMint remains on version **0.1.0** while the initial feature set is being built out.
+- Fixed the QML Preview mode selector so Quick / Stable / Full use a supported selected-state property instead of assigning through `background.color`, which prevented `Main.qml` from loading on Linux CI.
 
 ### Processing and preview
 

@@ -85,3 +85,24 @@ def test_linux_workflows_install_qt_runtime_libraries():
         assert "QT_QPA_PLATFORM: offscreen" in workflow
         assert "QSG_RHI_BACKEND: software" in workflow
 
+
+
+def test_preview_mode_buttons_use_supported_selected_property():
+    button = (PACKAGE / "qml" / "components" / "MintButton.qml").read_text(encoding="utf-8")
+    preview = (PACKAGE / "qml" / "pages" / "PreviewPage.qml").read_text(encoding="utf-8")
+
+    assert "property bool selected: false" in button
+    assert "control.selected || control.down" in button
+    assert "selected: backend.previewMode === modelData" in preview
+    assert "background.color:" not in preview
+
+
+def test_qml_pages_do_not_override_custom_control_background_subproperties():
+    # QML controls expose `background` as an Item. Assigning `background.color`
+    # from an instance is invalid because the static type does not guarantee a
+    # `color` property even when our component happens to use a Rectangle.
+    for path in (PACKAGE / "qml").rglob("*.qml"):
+        if path.name == "MintButton.qml":
+            continue
+        text = path.read_text(encoding="utf-8")
+        assert "background.color:" not in text, path
