@@ -5,11 +5,12 @@ import "../components"
 
 ScrollView {
     id: root
+    contentWidth: availableWidth
     signal fitRequested()
     clip: true
     ScrollBar.vertical.policy: ScrollBar.AlwaysOff
     ColumnLayout {
-        width: parent.width
+        width: root.availableWidth
         spacing: 12
         MintLabel { text: "Preview Render"; font.bold: true; font.pixelSize: 15 }
         RowLayout {
@@ -32,6 +33,6 @@ ScrollView {
             text: backend.previewMode === "Quick" ? "Fast draft first, then a stable refinement." : backend.previewMode === "Stable" ? "Waits briefly, then renders the refined preview." : "Uses the selected raster when safe; very large rasters use a memory-safe full proxy."
         }
         Rectangle { Layout.fillWidth: true; height: 1; color: theme.borderColor }
-        MintButton { text: "Fit preview"; onClicked: root.fitRequested() }
+        MintButton { text: "Fit preview"; onClicked: { root.fitRequested(); backend.reportAction("Fit preview") } }
     }
 }

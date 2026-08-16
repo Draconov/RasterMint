@@ -29,39 +29,88 @@ ApplicationWindow {
         return result
     }
 
-    menuBar: MenuBar {
-        id: appMenu
-        background: Rectangle {
-            implicitHeight: 34
-            color: theme.panelColor
-            border.color: theme.borderColor
+    function closeTopMenus(exceptMenu) {
+        if (fileMenu !== exceptMenu && fileMenu.opened)
+            fileMenu.close()
+        if (editMenu !== exceptMenu && editMenu.opened)
+            editMenu.close()
+        if (viewMenu !== exceptMenu && viewMenu.opened)
+            viewMenu.close()
+    }
+
+    function toggleTopMenu(menu, button) {
+        if (menu.opened) {
+            menu.close()
+            return
         }
-        delegate: MenuBarItem {
-            id: menuBarItem
-            objectName: "menuBarItem_" + menuBarItem.text
-            contentItem: Text {
-                text: menuBarItem.text
-                color: theme.textColor
-                verticalAlignment: Text.AlignVCenter
-                horizontalAlignment: Text.AlignHCenter
-                leftPadding: 10
-                rightPadding: 10
+        closeTopMenus(menu)
+        // Use Menu.popup(parent, x, y) explicitly instead of relying on the
+        // MenuBar/MenuBarItem auto-popup path. Qt documents these coordinates
+        // as relative to the supplied parent item, so this deterministically
+        // places the menu directly below the clicked button on every platform.
+        menu.popup(button, 0, button.height)
+    }
+
+    function switchTopMenuOnHover(menu, button) {
+        if (fileMenu.opened || editMenu.opened || viewMenu.opened) {
+            if (!menu.opened) {
+                closeTopMenus(menu)
+                menu.popup(button, 0, button.height)
             }
-            background: Rectangle {
-                implicitHeight: 34
-                radius: 4
-                color: menuBarItem.highlighted || menuBarItem.hovered || menuBarItem.down ? theme.selectionColor : "transparent"
-                Behavior on color { ColorAnimation { duration: 70 } }
+        }
+    }
+
+    header: Rectangle {
+        id: topBar
+        objectName: "topBar"
+        implicitHeight: 34
+        height: 34
+        color: theme.panelColor
+        border.color: theme.borderColor
+        border.width: 1
+
+        Row {
+            id: topMenuButtons
+            anchors.left: parent.left
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            spacing: 0
+
+            MintMenuBarButton {
+                id: fileMenuButton
+                objectName: "topMenuButton_File"
+                text: "File"
+                menuOpen: fileMenu.opened
+                onClicked: window.toggleTopMenu(fileMenu, fileMenuButton)
+                onHoveredChanged: if (hovered) window.switchTopMenuOnHover(fileMenu, fileMenuButton)
+            }
+
+            MintMenuBarButton {
+                id: editMenuButton
+                objectName: "topMenuButton_Edit"
+                text: "Edit"
+                menuOpen: editMenu.opened
+                onClicked: window.toggleTopMenu(editMenu, editMenuButton)
+                onHoveredChanged: if (hovered) window.switchTopMenuOnHover(editMenu, editMenuButton)
+            }
+
+            MintMenuBarButton {
+                id: viewMenuButton
+                objectName: "topMenuButton_View"
+                text: "View"
+                menuOpen: viewMenu.opened
+                onClicked: window.toggleTopMenu(viewMenu, viewMenuButton)
+                onHoveredChanged: if (hovered) window.switchTopMenuOnHover(viewMenu, viewMenuButton)
             }
         }
 
-        Menu {
+        MintMenu {
             id: fileMenu
             objectName: "fileMenu"
             title: "File"
-            popupType: Popup.Item
-            delegate: MintMenuItem { }
-            background: Rectangle { color: theme.panelRaisedColor; border.color: theme.borderColor; radius: 7 }
+            menuWidth: 300
+            onClosed: fileMenuButton.forceActiveFocus(Qt.OtherFocusReason)
+
             Action { text: "Open File…"; shortcut: StandardKey.Open; onTriggered: openDialog.open() }
             MenuSeparator { }
             Action { text: "Export Current Frame…"; enabled: backend.hasSource; shortcut: StandardKey.SaveAs; onTriggered: exportImageDialog.open() }
@@ -75,13 +124,16 @@ ApplicationWindow {
             Action { text: "Quit"; shortcut: StandardKey.Quit; onTriggered: Qt.quit() }
         }
 
-        Menu {
+        MintMenu {
             id: editMenu
             objectName: "editMenu"
             title: "Edit"
-            popupType: Popup.Item
-            delegate: MintMenuItem { }
-            background: Rectangle { color: theme.panelRaisedColor; border.color: theme.borderColor; radius: 7 }
+            menuWidth: 330
+            onClosed: editMenuButton.forceActiveFocus(Qt.OtherFocusReason)
+
+            Action { text: "Undo"; enabled: backend.canUndo; shortcut: "Ctrl+Z"; onTriggered: backend.undo() }
+            Action { text: "Redo"; enabled: backend.canRedo; shortcut: "Ctrl+Y"; onTriggered: backend.redo() }
+            MenuSeparator { }
             Action { text: "Flip Image Horizontally"; enabled: backend.hasSource; shortcut: "Ctrl+Shift+H"; onTriggered: backend.flipHorizontal() }
             Action { text: "Flip Image Vertically"; enabled: backend.hasSource; shortcut: "Ctrl+Shift+V"; onTriggered: backend.flipVertical() }
             MenuSeparator { }
@@ -106,14 +158,14 @@ ApplicationWindow {
             Action { text: "Settings…"; shortcut: "Ctrl+,"; onTriggered: settingsDialog.open() }
         }
 
-        Menu {
+        MintMenu {
             id: viewMenu
             objectName: "viewMenu"
             title: "View"
-            popupType: Popup.Item
-            delegate: MintMenuItem { }
-            background: Rectangle { color: theme.panelRaisedColor; border.color: theme.borderColor; radius: 7 }
-            Action { text: "Fit Preview"; enabled: backend.hasSource; shortcut: "F"; onTriggered: canvas.resetView() }
+            menuWidth: 230
+            onClosed: viewMenuButton.forceActiveFocus(Qt.OtherFocusReason)
+
+            Action { text: "Fit Preview"; enabled: backend.hasSource; shortcut: "F"; onTriggered: { canvas.resetView(); backend.reportAction("Fit preview") } }
             MenuSeparator { }
             Action { text: "About RasterMint"; onTriggered: aboutDialog.open() }
         }
@@ -137,8 +189,11 @@ ApplicationWindow {
                 }
             }
             Rectangle {
+                id: actionToast
+                objectName: "lastActionToast"
                 anchors { left: parent.left; bottom: parent.bottom; margins: 12 }
-                visible: backend.hasSource && backend.statusText.length > 0
+                visible: backend.statusText.length > 0
+                z: 100
                 color: Qt.rgba(0, 0, 0, 0.62)
                 radius: 6
                 width: Math.min(parent.width - 24, statusLabel.implicitWidth + 18)
@@ -148,7 +203,10 @@ ApplicationWindow {
         }
 
         Rectangle {
-            Layout.preferredWidth: 510
+            id: inspectorPanel
+            objectName: "inspectorPanel"
+            Layout.minimumWidth: 620
+            Layout.preferredWidth: Math.max(620, Math.min(700, window.width * 0.36))
             Layout.fillHeight: true
             color: theme.panelColor
             border.color: theme.borderColor
@@ -158,7 +216,7 @@ ApplicationWindow {
                 spacing: 0
 
                 Rectangle {
-                    Layout.preferredWidth: 112
+                    Layout.preferredWidth: 132
                     Layout.fillHeight: true
                     color: theme.panelColor
                     border.color: theme.borderColor

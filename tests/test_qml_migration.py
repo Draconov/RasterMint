@@ -128,7 +128,9 @@ def test_custom_qml_popups_are_forced_into_the_quick_scene():
 
     # Qt 6.8+ can choose Window/Native popup implementations by style/platform.
     # RasterMint customizes these controls, so keep them in the same Quick scene.
-    assert main.count("popupType: Popup.Item") >= 3
+    mint_menu = (PACKAGE / "qml" / "components" / "MintMenu.qml").read_text(encoding="utf-8")
+    assert "popupType: Popup.Item" in mint_menu
+    assert main.count("MintMenu {") >= 3
     assert "popupType: Popup.Item" in combo
     assert "popupType: Popup.Item" in layers
     assert "popupType: Popup.Item" in settings
@@ -154,7 +156,7 @@ def test_empty_drop_prompt_is_centered_and_not_duplicated_by_status_overlay():
     assert 'objectName: "emptyDropPrompt"' in canvas
     assert "anchors.centerIn: parent" in canvas
     assert 'text: "Open or drop an image, GIF, or video to begin"' in canvas
-    assert "visible: backend.hasSource && backend.statusText.length > 0" in main
+    assert "visible: backend.statusText.length > 0" in main
 
 
 def test_qml_dialog_urls_are_normalized_before_python_slots():
@@ -194,3 +196,58 @@ def test_every_backend_method_called_by_qml_exists_in_backend_class():
     missing = sorted(called - defined)
     assert not missing, f"QML calls backend methods that do not exist: {missing}"
 
+
+
+
+def test_top_bar_uses_explicit_popup_buttons_instead_of_automatic_menubar():
+    main = (PACKAGE / "qml" / "Main.qml").read_text(encoding="utf-8")
+    menu = (PACKAGE / "qml" / "components" / "MintMenu.qml").read_text(encoding="utf-8")
+    menu_item = (PACKAGE / "qml" / "components" / "MintMenuItem.qml").read_text(encoding="utf-8")
+
+    assert "menuBar: MenuBar" not in main
+    assert "header: Rectangle" in main
+    for name in ("File", "Edit", "View"):
+        assert f'objectName: "topMenuButton_{name}"' in main
+    assert "menu.popup(button, 0, button.height)" in main
+    assert "popupType: Popup.Item" in menu
+    assert "width: menuWidth" in menu
+    assert "implicitWidth: control.menuWidth" in menu
+    assert "implicitWidth: Math.max(220" in menu_item
+
+
+def test_add_layer_popup_is_anchored_to_its_button():
+    layers = (PACKAGE / "qml" / "pages" / "LayersPage.qml").read_text(encoding="utf-8")
+    assert 'objectName: "addLayerButton"' in layers
+    assert "mapToItem(Overlay.overlay" in layers
+    assert "parent: Overlay.overlay" in layers
+
+
+def test_inspector_width_and_sliders_use_available_width():
+    main = (PACKAGE / "qml" / "Main.qml").read_text(encoding="utf-8")
+    layers = (PACKAGE / "qml" / "pages" / "LayersPage.qml").read_text(encoding="utf-8")
+    source = (PACKAGE / "qml" / "pages" / "SourcePage.qml").read_text(encoding="utf-8")
+    slider = (PACKAGE / "qml" / "components" / "MintSlider.qml").read_text(encoding="utf-8")
+
+    assert 'objectName: "inspectorPanel"' in main
+    assert "Layout.minimumWidth: 620" in main
+    assert "Layout.preferredWidth: Math.max(620" in main
+    assert "width: paramScroll.availableWidth" in layers
+    assert "width: root.availableWidth" in source
+    assert "width: control.availableWidth" in slider
+    assert "MintSlider" in layers
+
+
+def test_undo_redo_and_last_action_toast_are_wired():
+    main = (PACKAGE / "qml" / "Main.qml").read_text(encoding="utf-8")
+    backend = (PACKAGE / "qmlui" / "backend.py").read_text(encoding="utf-8")
+    layers = (PACKAGE / "qml" / "pages" / "LayersPage.qml").read_text(encoding="utf-8")
+    canvas = (PACKAGE / "qml" / "ImageCanvas.qml").read_text(encoding="utf-8")
+
+    assert 'text: "Undo"' in main and 'shortcut: "Ctrl+Z"' in main
+    assert 'text: "Redo"' in main and 'shortcut: "Ctrl+Y"' in main
+    assert 'objectName: "lastActionToast"' in main
+    assert "visible: backend.statusText.length > 0" in main
+    assert "def undo(self)" in backend
+    assert "def redo(self)" in backend
+    assert "beginHistoryGroup" in layers
+    assert "beginHistoryGroup" in canvas

@@ -5,6 +5,7 @@ import "../components"
 
 ScrollView {
     id: root
+    contentWidth: availableWidth
     property int selectedTrack: -1
     clip: true
     ScrollBar.vertical.policy: ScrollBar.AlwaysOff
@@ -30,7 +31,7 @@ ScrollView {
     }
 
     ColumnLayout {
-        width: parent.width
+        width: root.availableWidth
         spacing: 9
 
         MintLabel { text: "Animation"; font.bold: true; font.pixelSize: 15 }
@@ -84,7 +85,7 @@ ScrollView {
                 onActivated: backend.setPlaybackMode(currentText)
             }
         }
-        Slider { Layout.fillWidth: true; from: 0; to: backend.timelineDuration; value: backend.currentTime; onMoved: backend.setCurrentTime(value) }
+        MintSlider { Layout.fillWidth: true; from: 0; to: backend.timelineDuration; value: backend.currentTime; onMoved: backend.setCurrentTime(value) }
         RowLayout {
             Layout.fillWidth: true
             MintLabel { Layout.fillWidth: true; text: backend.currentTime.toFixed(2) + " / " + backend.timelineDuration.toFixed(2) + " s"; color: theme.mutedTextColor }

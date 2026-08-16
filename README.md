@@ -47,7 +47,7 @@ RasterMint is a cross-platform desktop image, palette, dithering, and motion-eff
 
 The official repository link in **View → About RasterMint** is clickable.
 
-RasterMint uses a minimal top menu bar and a two-column inspector on the right. The left inspector column selects a general area such as **Layers**, **Palette**, **Raster**, or **Hardware**; the right column shows the detailed controls for that area. Flip, mirror and rotation tools live directly in **Edit**, above **Settings**. Mirror tools are checkable: enabling one shows a draggable blue mirror axis over the preview. **Edit → Settings** contains Appearance settings with a live theme chooser. **RasterMint Dark** is the default theme, and **Reset Settings** remains at the bottom.
+RasterMint uses a minimal top menu bar and a widened two-column inspector on the right. The left inspector column selects a general area such as **Layers**, **Palette**, **Raster**, or **Hardware**; the right column shows the detailed controls for that area. Flip, mirror and rotation tools live directly in **Edit**, above **Settings**. Mirror tools are checkable: enabling one shows a draggable blue mirror axis over the preview. **Edit → Settings** contains Appearance settings with a live theme chooser. **RasterMint Dark** is the default theme, and **Reset Settings** remains at the bottom.
 
 Preview quality is intentionally named **Quick**, **Stable**, and **Full** while retaining the existing draft/refine/full rendering behavior.
 

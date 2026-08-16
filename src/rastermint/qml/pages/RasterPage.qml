@@ -5,13 +5,14 @@ import "../components"
 
 ScrollView {
     id: root
+    contentWidth: availableWidth
     property var rasterSizes: [[0,0], [160,144], [240,160], [256,224], [256,240], [256,192], [320,200], [320,240], [640,480]]
     property var pixelAspects: [[1,1], [5,6], [7,6], [14,15], [5,3]]
     clip: true
     ScrollBar.vertical.policy: ScrollBar.AlwaysOff
 
     ColumnLayout {
-        width: parent.width
+        width: root.availableWidth
         spacing: 9
         MintLabel { text: "Target Raster"; font.bold: true; font.pixelSize: 15 }
         MintCheckBox { text: "Use exact target size"; checked: backend.settingsMap.target_enabled; onToggled: backend.setSetting("target_enabled", checked) }

@@ -36,7 +36,10 @@ Dialog {
             Layout.fillWidth: true
             model: theme.themeNames
             Component.onCompleted: currentIndex = Math.max(0, theme.themeIds.indexOf(theme.themeId))
-            onActivated: theme.setTheme(theme.themeIds[currentIndex])
+            onActivated: {
+                theme.setTheme(theme.themeIds[currentIndex])
+                backend.reportAction("Theme: " + currentText)
+            }
         }
         MintLabel { Layout.fillWidth: true; text: "Themes apply immediately. RasterMint Dark is the default."; color: theme.mutedTextColor; wrapMode: Text.WordWrap }
         Item { Layout.fillHeight: true }

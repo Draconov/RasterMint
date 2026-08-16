@@ -6,10 +6,11 @@ import "../components"
 
 ScrollView {
     id: root
+    contentWidth: availableWidth
     clip: true
     ScrollBar.vertical.policy: ScrollBar.AlwaysOff
     ColumnLayout {
-        width: parent.width
+        width: root.availableWidth
         spacing: 10
 
         MintLabel { text: "Hardware Profile"; font.bold: true; font.pixelSize: 15 }

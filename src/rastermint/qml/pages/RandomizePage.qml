@@ -4,10 +4,12 @@ import QtQuick.Layouts
 import "../components"
 
 ScrollView {
+    id: root
+    contentWidth: availableWidth
     clip: true
     ScrollBar.vertical.policy: ScrollBar.AlwaysOff
     ColumnLayout {
-        width: parent.width
+        width: root.availableWidth
         spacing: 10
         MintLabel { text: "Creative Randomize"; font.bold: true; font.pixelSize: 15 }
         MintLabel { text: "Locked categories stay unchanged."; color: theme.mutedTextColor }

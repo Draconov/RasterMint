@@ -12,7 +12,17 @@ Item {
         RowLayout {
             Layout.fillWidth: true
             MintLabel { text: "Layers"; font.bold: true; font.pixelSize: 15; Layout.fillWidth: true }
-            MintButton { text: "+"; onClicked: addPopup.open() }
+            MintButton {
+                id: addLayerButton
+                objectName: "addLayerButton"
+                text: "+"
+                onClicked: {
+                    var point = addLayerButton.mapToItem(Overlay.overlay, 0, addLayerButton.height + 4)
+                    addPopup.x = Math.max(4, Math.min(point.x - addPopup.width + addLayerButton.width, Overlay.overlay.width - addPopup.width - 4))
+                    addPopup.y = Math.max(4, Math.min(point.y, Overlay.overlay.height - addPopup.height - 4))
+                    addPopup.open()
+                }
+            }
         }
         ListView {
             id: layerList
@@ -52,10 +62,12 @@ Item {
         Rectangle { Layout.fillWidth: true; height: 1; color: theme.borderColor }
         MintLabel { text: backend.selectedLayerName; font.bold: true }
         ScrollView {
+            id: paramScroll
             Layout.fillWidth: true; Layout.fillHeight: true
+            contentWidth: availableWidth
             ScrollBar.vertical.policy: ScrollBar.AlwaysOff
             ColumnLayout {
-                width: parent.width
+                width: paramScroll.availableWidth
                 spacing: 8
                 Repeater {
                     model: backend.selectedLayerParams
@@ -72,6 +84,7 @@ Item {
     Popup {
         id: addPopup
         popupType: Popup.Item
+        parent: Overlay.overlay
         width: 250; height: Math.min(440, addList.contentHeight + 10); padding: 5
         background: Rectangle { color: theme.panelRaisedColor; border.color: theme.borderColor; radius: 8 }
         contentItem: ListView {
@@ -124,15 +137,20 @@ Item {
                 MintLabel { text: param.label + (param.animated ? "  · animated" : ""); color: theme.mutedTextColor; Layout.fillWidth: true }
                 MintLabel { text: Number(param.value).toFixed(param.decimals !== undefined ? param.decimals : 0) + (param.suffix || "") }
             }
-            Slider {
+            MintSlider {
                 Layout.fillWidth: true
                 enabled: !param.animated
-                from: Number(param.min); to: Number(param.max); stepSize: Number(param.step || 1); value: Number(param.value)
-                onMoved: backend.setLayerParam(param.key, value)
-                background: Rectangle { x: parent.leftPadding; y: parent.topPadding + parent.availableHeight / 2 - 2; width: parent.availableWidth; height: 4; radius: 2; color: theme.borderColor
-                    Rectangle { width: parent.parent.visualPosition * parent.width; height: parent.height; radius: 2; color: theme.accentColor }
+                from: Number(param.min)
+                to: Number(param.max)
+                stepSize: Number(param.step || 1)
+                value: Number(param.value)
+                onPressedChanged: {
+                    if (pressed)
+                        backend.beginHistoryGroup(backend.selectedLayerName + " · " + param.label)
+                    else
+                        backend.endHistoryGroup()
                 }
-                handle: Rectangle { x: parent.leftPadding + parent.visualPosition * (parent.availableWidth - width); y: parent.topPadding + parent.availableHeight / 2 - height / 2; width: 15; height: 15; radius: 8; color: parent.pressed ? theme.accentHoverColor : theme.accentColor }
+                onMoved: backend.setLayerParam(param.key, value)
             }
         }
     }

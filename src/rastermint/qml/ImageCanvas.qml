@@ -92,7 +92,9 @@ Item {
                         var point = mapToItem(imageFrame, mouse.x, mouse.y)
                         backend.setMirrorAxis("horizontal", Math.max(0, Math.min(1, point.x / Math.max(1, imageFrame.width))))
                     }
-                    onPressed: function(mouse) { updateAxis(mouse) }
+                    onPressed: function(mouse) { backend.beginHistoryGroup("Mirror horizontal axis"); updateAxis(mouse) }
+                    onReleased: backend.endHistoryGroup()
+                    onCanceled: backend.endHistoryGroup()
                     onPositionChanged: function(mouse) { if (pressed) updateAxis(mouse) }
                 }
             }
@@ -115,7 +117,9 @@ Item {
                         var point = mapToItem(imageFrame, mouse.x, mouse.y)
                         backend.setMirrorAxis("vertical", Math.max(0, Math.min(1, point.y / Math.max(1, imageFrame.height))))
                     }
-                    onPressed: function(mouse) { updateAxis(mouse) }
+                    onPressed: function(mouse) { backend.beginHistoryGroup("Mirror vertical axis"); updateAxis(mouse) }
+                    onReleased: backend.endHistoryGroup()
+                    onCanceled: backend.endHistoryGroup()
                     onPositionChanged: function(mouse) { if (pressed) updateAxis(mouse) }
                 }
             }
@@ -149,13 +153,16 @@ Item {
             if (!backend.hasSource) return
             var old = root.zoomFactor
             root.zoomFactor = Math.max(0.15, Math.min(64, root.zoomFactor * (wheel.angleDelta.y > 0 ? 1.15 : 1 / 1.15)))
-            if (Math.abs(old - root.zoomFactor) > 0.0001) grid.requestPaint()
+            if (Math.abs(old - root.zoomFactor) > 0.0001) {
+                grid.requestPaint()
+                backend.reportAction("Zoom: " + Math.round(root.zoomFactor * 100) + "%")
+            }
             wheel.accepted = true
         }
     }
 
     Rectangle {
-        anchors { left: parent.left; bottom: parent.bottom; margins: 10 }
+        anchors { right: parent.right; bottom: parent.bottom; margins: 10 }
         visible: backend.hasSource
         radius: 6
         color: Qt.rgba(0, 0, 0, 0.55)

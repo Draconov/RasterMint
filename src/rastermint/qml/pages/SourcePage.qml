@@ -4,10 +4,12 @@ import QtQuick.Layouts
 import "../components"
 
 ScrollView {
+    id: root
+    contentWidth: availableWidth
     clip: true
     ScrollBar.vertical.policy: ScrollBar.AlwaysOff
     ColumnLayout {
-        width: parent.width
+        width: root.availableWidth
         spacing: 9
         MintLabel { text: "Source Framing"; font.bold: true; font.pixelSize: 15 }
         MintLabel { text: "Crop (%)"; color: theme.mutedTextColor }
@@ -21,8 +23,12 @@ ScrollView {
                 ColumnLayout {
                     Layout.fillWidth: true
                     MintLabel { text: modelData.label; color: theme.mutedTextColor }
-                    Slider {
+                    MintSlider {
                         Layout.fillWidth: true; from: 0; to: 0.49; stepSize: 0.01; value: backend.settingsMap[modelData.key]
+                        onPressedChanged: {
+                            if (pressed) backend.beginHistoryGroup("Crop " + modelData.label.toLowerCase())
+                            else backend.endHistoryGroup()
+                        }
                         onMoved: backend.setSetting(modelData.key, value)
                     }
                 }
@@ -32,9 +38,17 @@ ScrollView {
         ColumnLayout {
             Layout.fillWidth: true
             MintLabel { text: "Horizontal"; color: theme.mutedTextColor }
-            Slider { Layout.fillWidth: true; from: -1; to: 1; stepSize: 0.01; value: backend.settingsMap.position_x; onMoved: backend.setSetting("position_x", value) }
+            MintSlider {
+                Layout.fillWidth: true; from: -1; to: 1; stepSize: 0.01; value: backend.settingsMap.position_x
+                onPressedChanged: { if (pressed) backend.beginHistoryGroup("Fill position X"); else backend.endHistoryGroup() }
+                onMoved: backend.setSetting("position_x", value)
+            }
             MintLabel { text: "Vertical"; color: theme.mutedTextColor }
-            Slider { Layout.fillWidth: true; from: -1; to: 1; stepSize: 0.01; value: backend.settingsMap.position_y; onMoved: backend.setSetting("position_y", value) }
+            MintSlider {
+                Layout.fillWidth: true; from: -1; to: 1; stepSize: 0.01; value: backend.settingsMap.position_y
+                onPressedChanged: { if (pressed) backend.beginHistoryGroup("Fill position Y"); else backend.endHistoryGroup() }
+                onMoved: backend.setSetting("position_y", value)
+            }
         }
         MintLabel { Layout.fillWidth: true; color: theme.mutedTextColor; wrapMode: Text.WordWrap; text: "Flip, mirror and rotation tools are in Edit. Mirror tools expose movable blue axes directly on the preview." }
     }

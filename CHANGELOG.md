@@ -2,6 +2,11 @@
 
 ## 0.1.0 - 2026-08-14
 
+- Widened the QML two-column inspector and fixed ScrollView content sizing so Animation, Layers, Raster, Hardware, Source, and Preview controls no longer clip horizontally.
+- Added full-width themed sliders with larger handles for smoother, more precise parameter editing.
+- Added application edit history with Ctrl+Z Undo and Ctrl+Y Redo for processing settings, layers, transforms, palettes, hardware/presets, animation tracks, randomization, and audio-export state. Continuous slider and mirror-axis drags are grouped into one undo step.
+- Turned the bottom-left status bubble into a single last-action indicator; parameter changes report their layer/parameter/value, and Undo/Redo report exactly what was restored.
+
 - Fixed QML parsing in the animation track editor by removing invalid semicolons between sibling child objects.
 - Fixed the same compact grouped-property separator pattern in the Settings dialog.
 - Expanded the offscreen QML smoke suite to compile every packaged QML component individually, so CI reports all QML parse/type errors in one run.
@@ -110,3 +115,12 @@ RasterMint remains on version **0.1.0** while the initial feature set is being b
 - Rolling GitHub release workflow builds Windows, Linux, and macOS on each push to `main` and refreshes the same `v<VERSION>` release assets.
 - Windows ships as `RasterMint.exe`, Linux as `RasterMint-linux-x86_64.tar.gz`, and macOS as `RasterMint-macOS.zip` containing `RasterMint.app`.
 - Source-available noncommercial licensing with separate commercial licensing remains in place.
+
+### QML top-menu interaction fix
+
+- Replaced the fragile automatic `MenuBar`/`MenuBarItem` popup path with an explicit themed QML header.
+- File, Edit and View now open their menus through `Menu.popup(button, 0, button.height)` and have concrete popup widths.
+- Added explicit implicit widths to customized menu items/backgrounds so a popup cannot open at zero width.
+- Added click-state highlighting and hover-to-switch behavior while a top menu is open.
+- Positioned the Add Layer popup relative to its button instead of relying on an implicit popup origin.
+- Kept the empty drop prompt centered in the preview canvas.
