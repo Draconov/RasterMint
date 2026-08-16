@@ -8,8 +8,9 @@ import pytest
 
 # The local artifact environment used by repository tests may not have PySide6.
 # On normal development installs and GitHub Actions, PySide6 is a project
-# dependency, so this becomes a real QML engine smoke test rather than a static
-# source check.
+# dependency. Linux CI installs Qt's required EGL/OpenGL runtime libraries, so
+# this remains a real offscreen QML-engine smoke test rather than being skipped
+# to hide missing system dependencies.
 PySide6 = pytest.importorskip("PySide6")
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")

@@ -222,6 +222,14 @@ rastermint
 
 ### Linux / macOS
 
+On Debian/Ubuntu Linux, Qt Quick may need the system EGL/OpenGL runtime libraries. GitHub Actions installs these automatically. For a minimal local Linux system:
+
+```bash
+sudo apt-get install libegl1 libgl1 libopengl0 libxkbcommon0 libxkbcommon-x11-0 libxcb-cursor0
+```
+
+Then create the Python environment:
+
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate

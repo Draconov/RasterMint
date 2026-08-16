@@ -71,3 +71,17 @@ def test_solarized_themes_use_canonical_colors():
         assert theme["author"] == "Ethan Schoonover"
         assert theme["license"] == "MIT"
 
+def test_linux_workflows_install_qt_runtime_libraries():
+    for relative in [
+        ".github/workflows/ci.yml",
+        ".github/workflows/release.yml",
+    ]:
+        workflow = (ROOT / relative).read_text(encoding="utf-8")
+        assert "libegl1" in workflow
+        assert "libgl1" in workflow
+        assert "libopengl0" in workflow
+        assert "libxkbcommon0" in workflow
+        assert "libxcb-cursor0" in workflow
+        assert "QT_QPA_PLATFORM: offscreen" in workflow
+        assert "QSG_RHI_BACKEND: software" in workflow
+
