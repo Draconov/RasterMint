@@ -327,6 +327,13 @@ def test_view_can_toggle_native_shortcut_hints_without_disabling_shortcuts():
     assert "Shortcut {" in menu_item
     assert "shortcutFormatter.nativeText" in menu_item
     assert "backend.showHotkeys" in menu_item
+    assert "checkSlot" not in menu_item
+    assert "control.indicator.width + control.spacing" in menu_item
+    assert "palette.windowText: control.enabled ? theme.accentColor : theme.mutedTextColor" in menu_item
+    assert 'text: "Mirror Image Horizontally"' in main
+    assert 'checked: Boolean(backend.settingsMap.mirror_horizontal)' in main
+    assert 'text: "Mirror Image Vertically"' in main
+    assert 'checked: Boolean(backend.settingsMap.mirror_vertical)' in main
     assert "def setShowHotkeys(self, enabled: bool)" in backend
     assert 'self.app_settings.setValue("showHotkeysQml", enabled)' in backend
 

@@ -138,15 +138,19 @@ ApplicationWindow {
             Action { text: "Flip Image Vertically"; enabled: backend.hasSource; shortcut: "Ctrl+Shift+V"; onTriggered: backend.flipVertical() }
             MintMenuSeparator { }
             Action {
-                text: (Boolean(backend.settingsMap.mirror_horizontal) ? "✓  " : "") + "Mirror Image Horizontally"
+                text: "Mirror Image Horizontally"
                 enabled: backend.hasSource
                 shortcut: "Ctrl+Alt+H"
+                checkable: true
+                checked: Boolean(backend.settingsMap.mirror_horizontal)
                 onTriggered: backend.toggleMirrorHorizontal()
             }
             Action {
-                text: (Boolean(backend.settingsMap.mirror_vertical) ? "✓  " : "") + "Mirror Image Vertically"
+                text: "Mirror Image Vertically"
                 enabled: backend.hasSource
                 shortcut: "Ctrl+Alt+V"
+                checkable: true
+                checked: Boolean(backend.settingsMap.mirror_vertical)
                 onTriggered: backend.toggleMirrorVertical()
             }
             MintMenuSeparator { }

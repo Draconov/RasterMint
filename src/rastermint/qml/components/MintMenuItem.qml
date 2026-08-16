@@ -8,6 +8,12 @@ MenuItem {
     implicitWidth: Math.max(220, implicitContentWidth + leftPadding + rightPadding + 12)
     leftPadding: 10
     rightPadding: 10
+    spacing: 6
+
+    // Keep Qt Quick Controls' own MenuItem indicator. The Basic style draws
+    // the native check image from control.indicator, while this palette role
+    // makes that Qt-owned indicator follow the active RasterMint theme.
+    palette.windowText: control.enabled ? theme.accentColor : theme.mutedTextColor
 
     // Action.shortcut is a keysequence. A disabled Shortcut is used only as a
     // formatter so the label follows the platform's native key naming without
@@ -19,26 +25,19 @@ MenuItem {
     }
 
     contentItem: Item {
-        implicitWidth: checkSlot.width + label.implicitWidth
+        id: content
+        readonly property real indicatorPadding: control.checkable && control.indicator
+                                                ? control.indicator.width + control.spacing
+                                                : 0
+
+        implicitWidth: indicatorPadding + label.implicitWidth
                        + (shortcutLabel.visible ? shortcutLabel.implicitWidth + 18 : 0)
         implicitHeight: 32
 
         Text {
-            id: checkSlot
-            width: 18
-            anchors.left: parent.left
-            anchors.top: parent.top
-            anchors.bottom: parent.bottom
-            text: control.checkable && control.checked ? "✓" : ""
-            color: control.enabled ? theme.accentColor : theme.mutedTextColor
-            font.bold: true
-            verticalAlignment: Text.AlignVCenter
-            horizontalAlignment: Text.AlignLeft
-        }
-
-        Text {
             id: label
-            anchors.left: checkSlot.right
+            anchors.left: parent.left
+            anchors.leftMargin: content.indicatorPadding
             anchors.right: shortcutLabel.visible ? shortcutLabel.left : parent.right
             anchors.rightMargin: shortcutLabel.visible ? 18 : 0
             anchors.top: parent.top

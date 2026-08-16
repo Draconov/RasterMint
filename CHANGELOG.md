@@ -4,6 +4,7 @@
 
 - Added Sunrise, Halloween, and TrueBlack themes and made the chooser order explicit: RasterMint Dark, RasterMint Light, OLED, TrueBlack, Solarized Dark, Solarized Light, Mint, Sunrise, Halloween.
 - Added **View → Show Hotkeys** with persistent, platform-formatted shortcut hints in custom menus, plus unique shortcuts for the remaining top-menu actions.
+- Switched Show Hotkeys and both mirror toggles to Qt Quick Controls' native check indicators, with the indicator color bound to the active RasterMint theme.
 - Fixed top-menu buttons staying visually selected after menus close by removing mouse-focus from the selected-state styling.
 - Simplified Settings to a clean Appearance/theme chooser and fixed About/internal themed controls so default Qt style colors no longer leak into alternate themes.
 - Added themed menu separators and SpinBoxes, and moved preview/status overlays onto active theme colors.
