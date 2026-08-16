@@ -83,10 +83,17 @@ Item {
                 z: 10
                 Rectangle { width: 10; height: 26; radius: 5; color: theme.mirrorAxisColor; anchors.horizontalCenter: parent.horizontalCenter; anchors.verticalCenter: parent.verticalCenter; opacity: 0.75 }
                 MouseArea {
-                    anchors.centerIn: parent; width: 18; height: parent.height
+                    id: horizontalAxisMouse
+                    anchors.centerIn: parent
+                    width: 18
+                    height: parent.height
                     cursorShape: Qt.SizeHorCursor
-                    drag.target: horizontalMirrorAxis; drag.axis: Drag.XAxis; drag.minimumX: 0; drag.maximumX: imageFrame.width - 2
-                    onPositionChanged: if (pressed) backend.setMirrorAxis("horizontal", Math.max(0, Math.min(1, horizontalMirrorAxis.x / Math.max(1, imageFrame.width))))
+                    function updateAxis(mouse) {
+                        var point = mapToItem(imageFrame, mouse.x, mouse.y)
+                        backend.setMirrorAxis("horizontal", Math.max(0, Math.min(1, point.x / Math.max(1, imageFrame.width))))
+                    }
+                    onPressed: function(mouse) { updateAxis(mouse) }
+                    onPositionChanged: function(mouse) { if (pressed) updateAxis(mouse) }
                 }
             }
 
@@ -99,12 +106,38 @@ Item {
                 z: 10
                 Rectangle { width: 26; height: 10; radius: 5; color: theme.mirrorAxisColor; anchors.horizontalCenter: parent.horizontalCenter; anchors.verticalCenter: parent.verticalCenter; opacity: 0.75 }
                 MouseArea {
-                    anchors.centerIn: parent; width: parent.width; height: 18
+                    id: verticalAxisMouse
+                    anchors.centerIn: parent
+                    width: parent.width
+                    height: 18
                     cursorShape: Qt.SizeVerCursor
-                    drag.target: verticalMirrorAxis; drag.axis: Drag.YAxis; drag.minimumY: 0; drag.maximumY: imageFrame.height - 2
-                    onPositionChanged: if (pressed) backend.setMirrorAxis("vertical", Math.max(0, Math.min(1, verticalMirrorAxis.y / Math.max(1, imageFrame.height))))
+                    function updateAxis(mouse) {
+                        var point = mapToItem(imageFrame, mouse.x, mouse.y)
+                        backend.setMirrorAxis("vertical", Math.max(0, Math.min(1, point.y / Math.max(1, imageFrame.height))))
+                    }
+                    onPressed: function(mouse) { updateAxis(mouse) }
+                    onPositionChanged: function(mouse) { if (pressed) updateAxis(mouse) }
                 }
             }
+        }
+    }
+
+    Rectangle {
+        id: emptyPrompt
+        objectName: "emptyDropPrompt"
+        anchors.centerIn: parent
+        visible: !backend.hasSource
+        radius: 7
+        color: Qt.rgba(0, 0, 0, 0.58)
+        border.color: theme.borderColor
+        implicitWidth: emptyPromptText.implicitWidth + 24
+        implicitHeight: 36
+        Text {
+            id: emptyPromptText
+            anchors.centerIn: parent
+            text: "Open or drop an image, GIF, or video to begin"
+            color: theme.textColor
+            font.pixelSize: 12
         }
     }
 

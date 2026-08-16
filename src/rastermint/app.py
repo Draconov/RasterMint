@@ -11,7 +11,7 @@ import sys
 import threading
 import traceback
 
-from PySide6.QtCore import QCoreApplication, QStandardPaths, QUrl
+from PySide6.QtCore import QCoreApplication, QStandardPaths, QUrl, Qt
 from PySide6.QtGui import QFont, QGuiApplication, QIcon
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
@@ -68,6 +68,13 @@ def main() -> int:
     QCoreApplication.setApplicationVersion(__version__)
 
     _install_crash_logging()
+
+    # RasterMint owns its menu styling and behavior in QML. Qt 6.8+ may
+    # otherwise promote menus/menu bars to native windows depending on the
+    # platform/style, bypassing our QML delegates. Keep them inside the Qt
+    # Quick scene so hit testing, theming and popup behavior are consistent.
+    QCoreApplication.setAttribute(Qt.ApplicationAttribute.AA_DontUseNativeMenuBar, True)
+    QCoreApplication.setAttribute(Qt.ApplicationAttribute.AA_DontUseNativeMenuWindows, True)
 
     app = QGuiApplication(sys.argv)
     # Basic is intentionally neutral: RasterMint's QML components own the look,

@@ -119,3 +119,78 @@ def test_qml_does_not_separate_child_or_grouped_blocks_with_semicolons():
         match = bad.search(text)
         assert match is None, f"invalid QML block separator in {path}: {match.group(0)!r}" if match else ""
 
+def test_custom_qml_popups_are_forced_into_the_quick_scene():
+    main = (PACKAGE / "qml" / "Main.qml").read_text(encoding="utf-8")
+    combo = (PACKAGE / "qml" / "components" / "MintComboBox.qml").read_text(encoding="utf-8")
+    layers = (PACKAGE / "qml" / "pages" / "LayersPage.qml").read_text(encoding="utf-8")
+    settings = (PACKAGE / "qml" / "SettingsDialog.qml").read_text(encoding="utf-8")
+    about = (PACKAGE / "qml" / "AboutDialog.qml").read_text(encoding="utf-8")
+
+    # Qt 6.8+ can choose Window/Native popup implementations by style/platform.
+    # RasterMint customizes these controls, so keep them in the same Quick scene.
+    assert main.count("popupType: Popup.Item") >= 3
+    assert "popupType: Popup.Item" in combo
+    assert "popupType: Popup.Item" in layers
+    assert "popupType: Popup.Item" in settings
+    assert "popupType: Popup.Item" in about
+
+
+def test_application_disables_native_menu_promotion_before_qguiapplication():
+    app_py = (PACKAGE / "app.py").read_text(encoding="utf-8")
+    dont_bar = "AA_DontUseNativeMenuBar"
+    dont_windows = "AA_DontUseNativeMenuWindows"
+    create_app = "app = QGuiApplication(sys.argv)"
+
+    assert dont_bar in app_py
+    assert dont_windows in app_py
+    assert app_py.index(dont_bar) < app_py.index(create_app)
+    assert app_py.index(dont_windows) < app_py.index(create_app)
+
+
+def test_empty_drop_prompt_is_centered_and_not_duplicated_by_status_overlay():
+    main = (PACKAGE / "qml" / "Main.qml").read_text(encoding="utf-8")
+    canvas = (PACKAGE / "qml" / "ImageCanvas.qml").read_text(encoding="utf-8")
+
+    assert 'objectName: "emptyDropPrompt"' in canvas
+    assert "anchors.centerIn: parent" in canvas
+    assert 'text: "Open or drop an image, GIF, or video to begin"' in canvas
+    assert "visible: backend.hasSource && backend.statusText.length > 0" in main
+
+
+def test_qml_dialog_urls_are_normalized_before_python_slots():
+    main = (PACKAGE / "qml" / "Main.qml").read_text(encoding="utf-8")
+    palette = (PACKAGE / "qml" / "pages" / "PalettePage.qml").read_text(encoding="utf-8")
+    presets = (PACKAGE / "qml" / "pages" / "PresetsPage.qml").read_text(encoding="utf-8")
+    hardware = (PACKAGE / "qml" / "pages" / "HardwarePage.qml").read_text(encoding="utf-8")
+
+    assert "backend.openFile(window.urlString(selectedFile))" in main
+    assert "backend.exportImage(window.urlString(selectedFile))" in main
+    assert "backend.exportMedia(window.urlString(selectedFile))" in main
+    assert "backend.exportSequence(window.urlString(selectedFolder))" in main
+    assert "window.urlStrings(selectedFiles)" in main
+    assert "window.urlString(selectedFolder)" in main
+    assert "backend.loadPreset(window.urlString(selectedFile))" in main
+    assert "backend.savePreset(window.urlString(selectedFile))" in main
+    assert "selectedFile.toString()" in palette
+    assert "selectedFile.toString()" in presets
+    assert "selectedFile.toString()" in hardware
+
+
+def test_mirror_axes_preserve_backend_position_bindings_while_dragging():
+    canvas = (PACKAGE / "qml" / "ImageCanvas.qml").read_text(encoding="utf-8")
+    assert "drag.target:" not in canvas
+    assert 'backend.setMirrorAxis("horizontal"' in canvas
+    assert 'backend.setMirrorAxis("vertical"' in canvas
+    assert "mapToItem(imageFrame" in canvas
+
+
+def test_every_backend_method_called_by_qml_exists_in_backend_class():
+    import re
+
+    qml_text = "\n".join(path.read_text(encoding="utf-8") for path in (PACKAGE / "qml").rglob("*.qml"))
+    backend_text = (PACKAGE / "qmlui" / "backend.py").read_text(encoding="utf-8")
+    called = set(re.findall(r"\bbackend\.([A-Za-z_][A-Za-z0-9_]*)\s*\(", qml_text))
+    defined = set(re.findall(r"^\s*def\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(", backend_text, re.MULTILINE))
+    missing = sorted(called - defined)
+    assert not missing, f"QML calls backend methods that do not exist: {missing}"
+

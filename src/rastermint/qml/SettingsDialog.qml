@@ -7,6 +7,7 @@ Dialog {
     id: root
     title: "RasterMint Settings"
     modal: true
+    popupType: Popup.Item
     width: 420
     height: 260
     anchors.centerIn: Overlay.overlay

@@ -66,6 +66,6 @@ ScrollView {
         id: hardwareFileDialog
         title: "Load hardware profile"
         nameFilters: ["RasterMint hardware profile (*.json)", "JSON (*.json)"]
-        onAccepted: backend.loadHardwareProfile(selectedFile)
+        onAccepted: backend.loadHardwareProfile(selectedFile.toString())
     }
 }

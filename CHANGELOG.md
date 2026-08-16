@@ -13,6 +13,9 @@
 - Added controllable **Bloom** layer with highlight threshold, soft knee, radius, intensity, Screen/Add blending, and animation support.
 - Fixed Linux GitHub Actions QML test startup by installing the required EGL/OpenGL/Qt runtime libraries before importing `PySide6.QtGui`.
 - Fixed the QML Preview mode selector so Quick / Stable / Full use a supported selected-state property instead of assigning through `background.color`, which prevented `Main.qml` from loading on Linux CI.
+- Fixed Qt Quick top-menu interaction after packaging by explicitly keeping customized menus/popups in the Qt Quick scene instead of allowing platform/style-dependent native popup promotion.
+- Normalized QML file/folder-dialog URLs before passing them to Python slots, fixed mirror-axis dragging so it no longer breaks declarative position bindings, and forced custom ComboBox/layer/dialog popups to use the same reliable scene popup mode.
+- Moved the empty “Open or drop…” prompt to the true center of the preview canvas and reserved the bottom status overlay for messages after a source is loaded.
 
 RasterMint remains on version **0.1.0** while the initial feature set is being built out.
 

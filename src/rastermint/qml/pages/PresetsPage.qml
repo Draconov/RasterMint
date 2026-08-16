@@ -55,7 +55,7 @@ Item {
         id: loadPresetDialog
         title: "Load RasterMint preset"
         nameFilters: ["JSON preset (*.json)", "All files (*)"]
-        onAccepted: backend.loadPreset(selectedFile)
+        onAccepted: backend.loadPreset(selectedFile.toString())
     }
     FileDialog {
         id: savePresetDialog
@@ -63,6 +63,6 @@ Item {
         fileMode: FileDialog.SaveFile
         defaultSuffix: "json"
         nameFilters: ["JSON preset (*.json)"]
-        onAccepted: backend.savePreset(selectedFile)
+        onAccepted: backend.savePreset(selectedFile.toString())
     }
 }

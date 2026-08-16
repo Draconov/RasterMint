@@ -71,6 +71,7 @@ Item {
 
     Popup {
         id: addPopup
+        popupType: Popup.Item
         width: 250; height: Math.min(440, addList.contentHeight + 10); padding: 5
         background: Rectangle { color: theme.panelRaisedColor; border.color: theme.borderColor; radius: 8 }
         contentItem: ListView {

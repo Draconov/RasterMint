@@ -18,17 +18,48 @@ ApplicationWindow {
     property int inspectorIndex: 2
     property var pendingBatchFiles: []
 
+    function urlString(value) {
+        return value ? value.toString() : ""
+    }
+
+    function urlStrings(values) {
+        var result = []
+        for (var i = 0; i < values.length; ++i)
+            result.push(window.urlString(values[i]))
+        return result
+    }
+
     menuBar: MenuBar {
         id: appMenu
-        background: Rectangle { color: theme.panelColor; border.color: theme.borderColor }
+        background: Rectangle {
+            implicitHeight: 34
+            color: theme.panelColor
+            border.color: theme.borderColor
+        }
         delegate: MenuBarItem {
             id: menuBarItem
-            contentItem: Text { text: menuBarItem.text; color: theme.textColor; verticalAlignment: Text.AlignVCenter; horizontalAlignment: Text.AlignHCenter }
-            background: Rectangle { radius: 4; color: menuBarItem.highlighted || menuBarItem.hovered ? theme.selectionColor : "transparent"; Behavior on color { ColorAnimation { duration: 70 } } }
+            objectName: "menuBarItem_" + menuBarItem.text
+            contentItem: Text {
+                text: menuBarItem.text
+                color: theme.textColor
+                verticalAlignment: Text.AlignVCenter
+                horizontalAlignment: Text.AlignHCenter
+                leftPadding: 10
+                rightPadding: 10
+            }
+            background: Rectangle {
+                implicitHeight: 34
+                radius: 4
+                color: menuBarItem.highlighted || menuBarItem.hovered || menuBarItem.down ? theme.selectionColor : "transparent"
+                Behavior on color { ColorAnimation { duration: 70 } }
+            }
         }
 
         Menu {
+            id: fileMenu
+            objectName: "fileMenu"
             title: "File"
+            popupType: Popup.Item
             delegate: MintMenuItem { }
             background: Rectangle { color: theme.panelRaisedColor; border.color: theme.borderColor; radius: 7 }
             Action { text: "Open File…"; shortcut: StandardKey.Open; onTriggered: openDialog.open() }
@@ -45,7 +76,10 @@ ApplicationWindow {
         }
 
         Menu {
+            id: editMenu
+            objectName: "editMenu"
             title: "Edit"
+            popupType: Popup.Item
             delegate: MintMenuItem { }
             background: Rectangle { color: theme.panelRaisedColor; border.color: theme.borderColor; radius: 7 }
             Action { text: "Flip Image Horizontally"; enabled: backend.hasSource; shortcut: "Ctrl+Shift+H"; onTriggered: backend.flipHorizontal() }
@@ -73,7 +107,10 @@ ApplicationWindow {
         }
 
         Menu {
+            id: viewMenu
+            objectName: "viewMenu"
             title: "View"
+            popupType: Popup.Item
             delegate: MintMenuItem { }
             background: Rectangle { color: theme.panelRaisedColor; border.color: theme.borderColor; radius: 7 }
             Action { text: "Fit Preview"; enabled: backend.hasSource; shortcut: "F"; onTriggered: canvas.resetView() }
@@ -93,12 +130,15 @@ ApplicationWindow {
             DropArea {
                 anchors.fill: parent
                 onDropped: function(drop) {
-                    if (drop.urls.length > 0) backend.openFile(drop.urls[0])
+                    if (drop.urls.length > 0) {
+                        backend.openFile(window.urlString(drop.urls[0]))
+                        drop.acceptProposedAction()
+                    }
                 }
             }
             Rectangle {
                 anchors { left: parent.left; bottom: parent.bottom; margins: 12 }
-                visible: backend.statusText.length > 0
+                visible: backend.hasSource && backend.statusText.length > 0
                 color: Qt.rgba(0, 0, 0, 0.62)
                 radius: 6
                 width: Math.min(parent.width - 24, statusLabel.implicitWidth + 18)
@@ -172,7 +212,7 @@ ApplicationWindow {
         id: openDialog
         title: "Open media"
         nameFilters: ["Supported media (*.png *.jpg *.jpeg *.bmp *.webp *.tif *.tiff *.gif *.mp4 *.mov *.mkv *.webm *.avi *.m4v)", "All files (*)"]
-        onAccepted: backend.openFile(selectedFile)
+        onAccepted: backend.openFile(window.urlString(selectedFile))
     }
     FileDialog {
         id: exportImageDialog
@@ -180,7 +220,7 @@ ApplicationWindow {
         fileMode: FileDialog.SaveFile
         defaultSuffix: "png"
         nameFilters: ["PNG (*.png)", "JPEG (*.jpg *.jpeg)", "WebP (*.webp)", "TIFF (*.tif *.tiff)", "SVG (*.svg)"]
-        onAccepted: backend.exportImage(selectedFile)
+        onAccepted: backend.exportImage(window.urlString(selectedFile))
     }
     FileDialog {
         id: exportMediaDialog
@@ -188,19 +228,19 @@ ApplicationWindow {
         fileMode: FileDialog.SaveFile
         defaultSuffix: "mp4"
         nameFilters: ["MP4 video (*.mp4)", "Animated GIF (*.gif)"]
-        onAccepted: backend.exportMedia(selectedFile)
+        onAccepted: backend.exportMedia(window.urlString(selectedFile))
     }
-    FolderDialog { id: sequenceFolderDialog; title: "Choose PNG sequence folder"; onAccepted: backend.exportSequence(selectedFolder) }
+    FolderDialog { id: sequenceFolderDialog; title: "Choose PNG sequence folder"; onAccepted: backend.exportSequence(window.urlString(selectedFolder)) }
     FileDialog {
         id: batchSourceDialog
         title: "Select images for batch processing"
         fileMode: FileDialog.OpenFiles
         nameFilters: ["Images (*.png *.jpg *.jpeg *.bmp *.webp *.tif *.tiff)"]
-        onAccepted: { window.pendingBatchFiles = selectedFiles; batchFolderDialog.open() }
+        onAccepted: { window.pendingBatchFiles = window.urlStrings(selectedFiles); batchFolderDialog.open() }
     }
-    FolderDialog { id: batchFolderDialog; title: "Choose batch output folder"; onAccepted: backend.batchExport(window.pendingBatchFiles, selectedFolder) }
-    FileDialog { id: loadPresetDialog; title: "Load preset"; nameFilters: ["JSON preset (*.json)"]; onAccepted: backend.loadPreset(selectedFile) }
-    FileDialog { id: savePresetDialog; title: "Save preset"; fileMode: FileDialog.SaveFile; defaultSuffix: "json"; nameFilters: ["JSON preset (*.json)"]; onAccepted: backend.savePreset(selectedFile) }
+    FolderDialog { id: batchFolderDialog; title: "Choose batch output folder"; onAccepted: backend.batchExport(window.pendingBatchFiles, window.urlString(selectedFolder)) }
+    FileDialog { id: loadPresetDialog; title: "Load preset"; nameFilters: ["JSON preset (*.json)"]; onAccepted: backend.loadPreset(window.urlString(selectedFile)) }
+    FileDialog { id: savePresetDialog; title: "Save preset"; fileMode: FileDialog.SaveFile; defaultSuffix: "json"; nameFilters: ["JSON preset (*.json)"]; onAccepted: backend.savePreset(window.urlString(selectedFile)) }
 
     MessageDialog { id: errorDialog; title: "RasterMint"; buttons: MessageDialog.Ok }
     MessageDialog { id: infoDialog; title: "RasterMint"; buttons: MessageDialog.Ok }

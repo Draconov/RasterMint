@@ -17,7 +17,7 @@ PySide6 = pytest.importorskip("PySide6")
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 os.environ.setdefault("QSG_RHI_BACKEND", "software")
 
-from PySide6.QtCore import QUrl  # noqa: E402
+from PySide6.QtCore import QCoreApplication, QUrl, Qt  # noqa: E402
 from PySide6.QtGui import QGuiApplication  # noqa: E402
 from PySide6.QtQml import QQmlApplicationEngine, QQmlComponent  # noqa: E402
 from PySide6.QtQuickControls2 import QQuickStyle  # noqa: E402
@@ -26,6 +26,12 @@ from rastermint.qmlui.backend import RasterMintBackend  # noqa: E402
 from rastermint.qmlui.image_provider import RasterImageProvider  # noqa: E402
 from rastermint.qmlui.theme import ThemeManager  # noqa: E402
 
+
+# Match production: RasterMint uses customized QML menus and therefore keeps
+# menu bars/popups in the Qt Quick scene rather than allowing native promotion.
+# These attributes must be set before the first QGuiApplication is created.
+QCoreApplication.setAttribute(Qt.ApplicationAttribute.AA_DontUseNativeMenuBar, True)
+QCoreApplication.setAttribute(Qt.ApplicationAttribute.AA_DontUseNativeMenuWindows, True)
 
 
 _STYLE_CONFIGURED = False

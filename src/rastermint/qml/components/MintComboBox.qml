@@ -28,6 +28,7 @@ ComboBox {
         Behavior on color { ColorAnimation { duration: 90 } }
     }
     popup: Popup {
+        popupType: Popup.Item
         y: control.height + 2
         width: control.width
         implicitHeight: Math.min(contentItem.implicitHeight + 8, 320)

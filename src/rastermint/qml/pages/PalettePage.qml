@@ -165,6 +165,6 @@ Item {
             else backend.addPaletteColor(value)
         }
     }
-    FileDialog { id: importPaletteDialog; nameFilters: ["Palette files (*.hex *.txt *.gpl *.pal)", "All files (*)"]; onAccepted: backend.importPalette(selectedFile) }
-    FileDialog { id: exportPaletteDialog; fileMode: FileDialog.SaveFile; defaultSuffix: "hex"; nameFilters: ["HEX palette (*.hex)"]; onAccepted: backend.exportPalette(selectedFile) }
+    FileDialog { id: importPaletteDialog; nameFilters: ["Palette files (*.hex *.txt *.gpl *.pal)", "All files (*)"]; onAccepted: backend.importPalette(selectedFile.toString()) }
+    FileDialog { id: exportPaletteDialog; fileMode: FileDialog.SaveFile; defaultSuffix: "hex"; nameFilters: ["HEX palette (*.hex)"]; onAccepted: backend.exportPalette(selectedFile.toString()) }
 }
