@@ -6,14 +6,37 @@ MenuItem {
 
     implicitHeight: 32
     implicitWidth: Math.max(220, implicitContentWidth + leftPadding + rightPadding + 12)
-    leftPadding: 10
+    leftPadding: 12
     rightPadding: 10
     spacing: 6
 
-    // Keep Qt Quick Controls' own MenuItem indicator. The Basic style draws
-    // the native check image from control.indicator, while this palette role
-    // makes that Qt-owned indicator follow the active RasterMint theme.
+    // Keep Qt Quick Controls' own MenuItem indicator so the checkmark remains
+    // style-native and follows the active RasterMint theme through the palette.
+    // Reposition/scale that Qt-owned indicator into the small gutter at the
+    // far left so checkable actions keep the same text alignment as every
+    // other menu action instead of jumping noticeably to the right.
     palette.windowText: control.enabled ? theme.accentColor : theme.mutedTextColor
+
+    Binding {
+        target: control.indicator
+        property: "x"
+        value: 1
+        when: control.indicator !== null
+    }
+
+    Binding {
+        target: control.indicator
+        property: "width"
+        value: 10
+        when: control.indicator !== null
+    }
+
+    Binding {
+        target: control.indicator
+        property: "height"
+        value: 10
+        when: control.indicator !== null
+    }
 
     // Action.shortcut is a keysequence. A disabled Shortcut is used only as a
     // formatter so the label follows the platform's native key naming without
@@ -26,18 +49,14 @@ MenuItem {
 
     contentItem: Item {
         id: content
-        readonly property real indicatorPadding: control.checkable && control.indicator
-                                                ? control.indicator.width + control.spacing
-                                                : 0
 
-        implicitWidth: indicatorPadding + label.implicitWidth
+        implicitWidth: label.implicitWidth
                        + (shortcutLabel.visible ? shortcutLabel.implicitWidth + 18 : 0)
         implicitHeight: 32
 
         Text {
             id: label
             anchors.left: parent.left
-            anchors.leftMargin: content.indicatorPadding
             anchors.right: shortcutLabel.visible ? shortcutLabel.left : parent.right
             anchors.rightMargin: shortcutLabel.visible ? 18 : 0
             anchors.top: parent.top
@@ -55,7 +74,7 @@ MenuItem {
             anchors.bottom: parent.bottom
             visible: backend.showHotkeys && text.length > 0
             text: shortcutFormatter.nativeText
-            color: control.enabled ? theme.mutedTextColor : theme.mutedTextColor
+            color: theme.mutedTextColor
             font.pixelSize: 11
             verticalAlignment: Text.AlignVCenter
             horizontalAlignment: Text.AlignRight
