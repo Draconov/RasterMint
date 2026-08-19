@@ -1,20 +1,83 @@
 # Copyright © 2026 Draconov
 # SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-
 # -*- mode: python ; coding: utf-8 -*-
+
 from importlib.metadata import version as distribution_version
 from pathlib import Path
 import sys
 
 import imageio_ffmpeg
+
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules, copy_metadata
 
 ROOT = Path(SPECPATH).parent
 APP_VERSION = distribution_version("rastermint")
+
 hiddenimports = collect_submodules("PIL") + collect_submodules("imageio_ffmpeg")
 metadata = copy_metadata("rastermint") + copy_metadata("imageio-ffmpeg")
-package_data = collect_data_files("rastermint", includes=["data/hardware_profiles/*.json", "data/icons/*", "data/themes/*.json", "qml/*.qml", "qml/components/*.qml", "qml/pages/*.qml"])
+package_data = collect_data_files(
+    "rastermint",
+    includes=[
+        "data/hardware_profiles/*.json",
+        "data/icons/*",
+        "data/themes/*.json",
+        "qml/*.qml",
+        "qml/components/*.qml",
+        "qml/pages/*.qml",
+    ],
+)
+
 ICON_DIR = ROOT / "src" / "rastermint" / "data" / "icons"
+HOOK_DIR = ROOT / "build" / "hooks"
+
+# These bindings are not used by RasterMint. Keeping them out prevents an
+# accidental import or Qt dependency discovered by a hook from pulling large
+# optional Qt feature families into the frozen application.
+UNUSED_QT_MODULES = [
+    # Web / documents / charts.
+    "PySide6.QtWebEngineCore",
+    "PySide6.QtWebEngineQuick",
+    "PySide6.QtWebEngineWidgets",
+    "PySide6.QtWebChannel",
+    "PySide6.QtPdf",
+    "PySide6.QtPdfWidgets",
+    "PySide6.QtCharts",
+    "PySide6.QtGraphs",
+    "PySide6.QtGraphsWidgets",
+    "PySide6.QtDataVisualization",
+    # 3D / spatial / media.
+    "PySide6.QtQuick3D",
+    "PySide6.QtQuick3DAssetImport",
+    "PySide6.Qt3DAnimation",
+    "PySide6.Qt3DCore",
+    "PySide6.Qt3DExtras",
+    "PySide6.Qt3DInput",
+    "PySide6.Qt3DLogic",
+    "PySide6.Qt3DRender",
+    "PySide6.QtMultimedia",
+    "PySide6.QtMultimediaWidgets",
+    "PySide6.QtSpatialAudio",
+    "PySide6.QtVirtualKeyboard",
+    # Hardware / protocols / services not used by the desktop app.
+    "PySide6.QtBluetooth",
+    "PySide6.QtNfc",
+    "PySide6.QtLocation",
+    "PySide6.QtPositioning",
+    "PySide6.QtSensors",
+    "PySide6.QtSerialBus",
+    "PySide6.QtSerialPort",
+    "PySide6.QtRemoteObjects",
+    "PySide6.QtScxml",
+    "PySide6.QtTextToSpeech",
+    "PySide6.QtHttpServer",
+    "PySide6.QtNetworkAuth",
+    "PySide6.QtCoap",
+    "PySide6.QtMqtt",
+    "PySide6.QtOpcUa",
+    "PySide6.QtProtobuf",
+    "PySide6.QtProtobufWidgets",
+    "PySide6.QtGrpc",
+]
 
 # Ship the platform-specific ffmpeg executable as a binary so one-file builds
 # keep its executable permission when PyInstaller extracts it at runtime.
@@ -23,20 +86,22 @@ ffmpeg_binaries = []
 if ffmpeg_exe.is_file() and ffmpeg_exe.parent.name == "binaries":
     ffmpeg_binaries.append((str(ffmpeg_exe), "imageio_ffmpeg/binaries"))
 
-
 a = Analysis(
     [str(ROOT / "launcher.py")],
     pathex=[str(ROOT / "src")],
     binaries=ffmpeg_binaries,
     datas=metadata + package_data,
     hiddenimports=hiddenimports,
-    hookspath=[],
+    # RasterMint's QtQml hook scans the app's QML imports and collects only the
+    # required Qt QML modules instead of PyInstaller's default full QML tree.
+    hookspath=[str(HOOK_DIR)],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=UNUSED_QT_MODULES,
     noarchive=False,
     optimize=1,
 )
+
 pyz = PYZ(a.pure)
 
 # One-file build: no COLLECT stage. PyInstaller embeds Qt/Python dependencies

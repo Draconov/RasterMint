@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
 $ErrorActionPreference = "Stop"
+
 $Root = Split-Path $PSScriptRoot -Parent
 Set-Location $Root
 
@@ -19,5 +20,8 @@ if (-not (Test-Path "dist\RasterMint.exe")) {
 
 if (Test-Path "release") { Remove-Item "release" -Recurse -Force }
 New-Item -ItemType Directory -Force -Path "release" | Out-Null
+
 Copy-Item "dist\RasterMint.exe" "release\RasterMint.exe"
-Write-Host "Built release\RasterMint.exe"
+
+$SizeMiB = [Math]::Round((Get-Item "release\RasterMint.exe").Length / 1MB, 1)
+Write-Host "Built release\RasterMint.exe ($SizeMiB MiB)"

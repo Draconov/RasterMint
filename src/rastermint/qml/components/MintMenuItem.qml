@@ -10,33 +10,10 @@ MenuItem {
     rightPadding: 10
     spacing: 6
 
-    // Keep Qt Quick Controls' own MenuItem indicator so the checkmark remains
-    // style-native and follows the active RasterMint theme through the palette.
-    // Reposition/scale that Qt-owned indicator into the small gutter at the
-    // far left so checkable actions keep the same text alignment as every
-    // other menu action instead of jumping noticeably to the right.
-    palette.windowText: control.enabled ? theme.accentColor : theme.mutedTextColor
-
-    Binding {
-        target: control.indicator
-        property: "x"
-        value: 1
-        when: control.indicator !== null
-    }
-
-    Binding {
-        target: control.indicator
-        property: "width"
-        value: 10
-        when: control.indicator !== null
-    }
-
-    Binding {
-        target: control.indicator
-        property: "height"
-        value: 10
-        when: control.indicator !== null
-    }
+    // Checkable menu actions keep their normal text alignment. Their active
+    // state is shown by a subtle theme-colored background instead of a
+    // checkmark/indicator.
+    indicator: null
 
     // Action.shortcut is a keysequence. A disabled Shortcut is used only as a
     // formatter so the label follows the platform's native key naming without
@@ -85,7 +62,11 @@ MenuItem {
         implicitWidth: 220
         implicitHeight: 32
         radius: 5
-        color: control.highlighted || control.hovered ? theme.selectionColor : "transparent"
+        color: control.highlighted || control.hovered
+               ? theme.selectionColor
+               : (control.checkable && control.checked
+                  ? Qt.rgba(theme.accentColor.r, theme.accentColor.g, theme.accentColor.b, 0.14)
+                  : "transparent")
         Behavior on color { ColorAnimation { duration: 70 } }
     }
 }
