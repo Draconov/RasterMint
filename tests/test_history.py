@@ -36,3 +36,20 @@ def test_new_edit_clears_redo_stack():
     assert history.can_redo
     history.record(restored, "Second")
     assert not history.can_redo
+
+
+def test_changing_limit_trims_oldest_history_entries():
+    history = UndoHistory(limit=10)
+    for value in range(6):
+        history.record({"value": value}, f"Value {value}")
+
+    history.set_limit(3)
+    assert history.limit == 3
+
+    current = {"value": 6}
+    restored_values = []
+    while history.can_undo:
+        current, _ = history.undo(current)
+        restored_values.append(current["value"])
+
+    assert restored_values == [5, 4, 3]

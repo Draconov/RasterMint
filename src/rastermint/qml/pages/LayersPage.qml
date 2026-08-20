@@ -6,6 +6,36 @@ import "../components"
 Item {
     id: root
     property int addIndex: 0
+    property int dragSourceIndex: -1
+    property int dragTargetIndex: -1
+    readonly property int layerRowHeight: 48
+    readonly property int layerRowSpacing: 4
+
+    function beginLayerDrag(index) {
+        dragSourceIndex = index
+        dragTargetIndex = index
+        backend.selectLayer(index)
+    }
+
+    function updateLayerDrag(handleItem, localY) {
+        if (dragSourceIndex < 0 || layerList.count <= 0)
+            return
+
+        var point = handleItem.mapToItem(layerList.contentItem, handleItem.width / 2, localY)
+        var stride = layerRowHeight + layerRowSpacing
+        var target = Math.round((point.y - layerRowHeight / 2) / stride)
+        dragTargetIndex = Math.max(0, Math.min(layerList.count - 1, target))
+    }
+
+    function finishLayerDrag() {
+        var source = dragSourceIndex
+        var target = dragTargetIndex
+        dragSourceIndex = -1
+        dragTargetIndex = -1
+        if (source >= 0 && target >= 0 && source !== target)
+            backend.moveLayer(source, target)
+    }
+
     ColumnLayout {
         anchors.fill: parent
         spacing: 8
@@ -29,24 +59,75 @@ Item {
             Layout.fillWidth: true
             Layout.preferredHeight: Math.min(contentHeight, 260)
             model: backend.layerModel
-            spacing: 4
+            spacing: root.layerRowSpacing
             clip: true
             currentIndex: backend.selectedLayerIndex
             ScrollBar.vertical: ScrollBar { policy: ScrollBar.AlwaysOff }
             delegate: Rectangle {
+                id: layerDelegate
                 width: layerList.width
-                height: 48
+                height: root.layerRowHeight
                 radius: 7
+                property bool isDragTarget: root.dragSourceIndex >= 0
+                                            && root.dragTargetIndex === index
+                                            && root.dragSourceIndex !== index
                 color: index === backend.selectedLayerIndex ? theme.selectionColor : (layerHover.hovered ? theme.panelHoverColor : theme.panelRaisedColor)
-                border.color: theme.borderColor
+                border.color: isDragTarget ? theme.textColor : theme.borderColor
+                border.width: isDragTarget ? 2 : 1
+                opacity: root.dragSourceIndex === index ? 0.62 : 1.0
+
                 RowLayout {
                     anchors.fill: parent; anchors.margins: 7; spacing: 7
+
                     MintCheckBox { checked: layerEnabled; onToggled: backend.setLayerEnabled(index, checked) }
                     ColumnLayout {
                         Layout.fillWidth: true; spacing: 1
                         Text { Layout.fillWidth: true; text: kind; color: theme.textColor; font.bold: true; elide: Text.ElideRight }
                         Text { Layout.fillWidth: true; text: summary; color: theme.mutedTextColor; font.pixelSize: 10; elide: Text.ElideRight }
                     }
+
+                    Item {
+                        id: dragGrip
+                        Layout.preferredWidth: 18
+                        Layout.fillHeight: true
+                        Layout.leftMargin: 10
+                        Layout.rightMargin: 5
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: "≡"
+                            color: dragGripHover.hovered || layerDragHandler.active ? theme.textColor : theme.mutedTextColor
+                            font.pixelSize: 16
+                            font.bold: true
+                        }
+
+                        HoverHandler {
+                            id: dragGripHover
+                            cursorShape: Qt.SizeVerCursor
+                        }
+
+                        DragHandler {
+                            id: layerDragHandler
+                            target: null
+                            acceptedButtons: Qt.LeftButton
+                            onActiveChanged: {
+                                if (active) {
+                                    root.beginLayerDrag(index)
+                                } else if (root.dragSourceIndex === index) {
+                                    root.finishLayerDrag()
+                                }
+                            }
+                            onTranslationChanged: {
+                                if (active)
+                                    root.updateLayerDrag(dragGrip, dragGrip.height / 2 + translation.y)
+                            }
+                        }
+
+                        ToolTip.visible: dragGripHover.hovered && !layerDragHandler.active
+                        ToolTip.text: "Drag to reorder"
+                        ToolTip.delay: 450
+                    }
+
                     MintButton { text: "↑"; enabled: index > 0; onClicked: backend.moveLayer(index, index - 1) }
                     MintButton { text: "↓"; enabled: index < layerList.count - 1; onClicked: backend.moveLayer(index, index + 1) }
                 }

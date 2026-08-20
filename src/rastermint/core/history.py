@@ -16,7 +16,6 @@ class HistoryEntry:
 
 class UndoHistory:
     """Bounded undo/redo storage with optional interaction grouping.
-
     A history entry stores the state *before* an edit and the human-readable
     action that produced the new state. Groups are used for continuous input
     such as slider/mirror-axis drags so one gesture becomes one undo step.
@@ -37,6 +36,14 @@ class UndoHistory:
     @property
     def can_redo(self) -> bool:
         return bool(self._redo)
+
+    def set_limit(self, limit: int) -> None:
+        """Change the history depth while preserving the newest useful entries."""
+        self.limit = max(1, int(limit))
+        if len(self._undo) > self.limit:
+            del self._undo[: len(self._undo) - self.limit]
+        if len(self._redo) > self.limit:
+            del self._redo[: len(self._redo) - self.limit]
 
     def clear(self) -> None:
         self._undo.clear()

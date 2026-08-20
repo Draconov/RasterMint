@@ -9,7 +9,7 @@ Dialog {
     modal: true
     popupType: Popup.Item
     width: 420
-    height: 205
+    height: 310
     anchors.centerIn: Overlay.overlay
     standardButtons: Dialog.NoButton
     padding: 16
@@ -20,7 +20,6 @@ Dialog {
         border.width: 1
         radius: 10
     }
-
     Overlay.modal: Rectangle {
         color: Qt.rgba(0, 0, 0, 0.45)
     }
@@ -36,7 +35,6 @@ Dialog {
             height: 1
             color: theme.borderColor
         }
-
         Text {
             anchors.left: parent.left
             anchors.verticalCenter: parent.verticalCenter
@@ -55,7 +53,6 @@ Dialog {
             text: "Appearance"
             font.bold: true
         }
-
         MintComboBox {
             id: themeChooser
             Layout.fillWidth: true
@@ -70,15 +67,46 @@ Dialog {
                 theme.setTheme(theme.themeIds[currentIndex])
                 backend.reportAction("Theme: " + currentText)
             }
-
             Connections {
                 target: theme
                 function onThemeChanged() { themeChooser.syncThemeIndex() }
             }
         }
 
-        Item { Layout.fillHeight: true }
+        MintLabel {
+            text: "History"
+            font.bold: true
+        }
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 10
 
+            MintLabel {
+                text: "Undo history"
+                Layout.fillWidth: true
+            }
+            MintSpinBox {
+                id: historyLimit
+                from: 10
+                to: 200
+                stepSize: 10
+                value: backend.historyLimit
+                onValueModified: backend.historyLimit = value
+            }
+            MintLabel {
+                text: "actions"
+                color: theme.mutedTextColor
+            }
+        }
+        MintLabel {
+            Layout.fillWidth: true
+            text: "Keep 10–200 undo steps. Higher values retain more editing history."
+            color: theme.mutedTextColor
+            font.pixelSize: 11
+            wrapMode: Text.WordWrap
+        }
+
+        Item { Layout.fillHeight: true }
         RowLayout {
             Layout.fillWidth: true
             MintButton { text: "Close"; onClicked: root.close() }

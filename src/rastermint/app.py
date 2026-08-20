@@ -15,9 +15,8 @@ from PySide6.QtCore import QCoreApplication, QStandardPaths, QUrl, Qt
 from PySide6.QtGui import QFont, QGuiApplication, QIcon
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
-
 from rastermint import __app_name__, __version__
-from rastermint.qmlui.backend import RasterMintBackend
+from rastermint.qmlui.preferences_backend import RasterMintBackend
 from rastermint.qmlui.image_provider import RasterImageProvider
 from rastermint.qmlui.theme import ThemeManager
 
@@ -68,14 +67,12 @@ def main() -> int:
     QCoreApplication.setApplicationVersion(__version__)
 
     _install_crash_logging()
-
     # RasterMint owns its menu styling and behavior in QML. Qt 6.8+ may
     # otherwise promote menus/menu bars to native windows depending on the
     # platform/style, bypassing our QML delegates. Keep them inside the Qt
     # Quick scene so hit testing, theming and popup behavior are consistent.
     QCoreApplication.setAttribute(Qt.ApplicationAttribute.AA_DontUseNativeMenuBar, True)
     QCoreApplication.setAttribute(Qt.ApplicationAttribute.AA_DontUseNativeMenuWindows, True)
-
     app = QGuiApplication(sys.argv)
     # Basic is intentionally neutral: RasterMint's QML components own the look,
     # while the theme JSON files control colors live at runtime. The style must
@@ -88,7 +85,6 @@ def main() -> int:
     icon = _load_app_icon()
     if icon is not None and not icon.isNull():
         app.setWindowIcon(icon)
-
     engine = QQmlApplicationEngine()
     provider = RasterImageProvider()
     backend = RasterMintBackend(provider)
@@ -101,6 +97,5 @@ def main() -> int:
     engine.load(QUrl.fromLocalFile(str(qml_path)))
     if not engine.rootObjects():
         return 1
-
     app.aboutToQuit.connect(backend.shutdown)
     return app.exec()
