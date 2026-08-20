@@ -29,6 +29,16 @@ package_data = collect_data_files(
 
 ICON_DIR = ROOT / "src" / "rastermint" / "data" / "icons"
 HOOK_DIR = ROOT / "build" / "hooks"
+LEAN_QML_HOOK = HOOK_DIR / "hook-PySide6.QtQml.py"
+
+# Do not silently fall back to PyInstaller's stock QtQml hook. That hook copies
+# the complete PySide6 QML tree and makes the release roughly as large as the
+# unoptimized build. The custom hook must be tracked in git and present in CI.
+if not LEAN_QML_HOOK.is_file():
+    raise RuntimeError(
+        f"Required lean QML hook is missing: {LEAN_QML_HOOK}. "
+        "Check .gitignore and make sure build/hooks/hook-PySide6.QtQml.py is committed."
+    )
 
 # These bindings are not used by RasterMint. Keeping them out prevents an
 # accidental import or Qt dependency discovered by a hook from pulling large
@@ -92,8 +102,8 @@ a = Analysis(
     binaries=ffmpeg_binaries,
     datas=metadata + package_data,
     hiddenimports=hiddenimports,
-    # RasterMint's QtQml hook scans the app's QML imports and collects only the
-    # required Qt QML modules instead of PyInstaller's default full QML tree.
+    # The RasterMint hook replaces PyInstaller's default PySide6.QtQml hook,
+    # which otherwise packages every Qt QML module shipped in the wheel.
     hookspath=[str(HOOK_DIR)],
     hooksconfig={},
     runtime_hooks=[],

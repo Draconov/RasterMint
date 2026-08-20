@@ -9,6 +9,9 @@ venv/
 # Build
 build/*
 !build/rastermint.spec
+!build/hooks/
+build/hooks/*
+!build/hooks/hook-PySide6.QtQml.py
 build-temp/
 dist/
 release/
