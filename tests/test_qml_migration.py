@@ -282,7 +282,11 @@ def test_top_menu_focus_does_not_stick_after_popup_closes():
     assert "onClosed: fileMenuButton.focus = false" in main
     assert "onClosed: editMenuButton.focus = false" in main
     assert "onClosed: viewMenuButton.focus = false" in main
-    assert "control.menuOpen || control.hovered || control.down" in button
+    # The open menu must remain visually distinct, while hover/down still
+    # provide transient feedback. Do not pin this test to one ternary layout.
+    assert "control.menuOpen" in button
+    assert "control.hovered || control.down" in button
+    assert "visible: control.menuOpen" in button
     assert "control.activeFocus" not in button
     assert "control.visualFocus" in button
 
@@ -301,9 +305,12 @@ def test_view_can_toggle_native_shortcut_hints_without_disabling_shortcuts():
     assert "checkSlot" not in menu_item
     assert "control.indicator.width + control.spacing" not in menu_item
     assert "indicator: null" in menu_item
+    # Checked actions must have a visible accent-owned active state. Avoid
+    # asserting a specific opacity so the highlight can be tuned freely.
     assert "control.checkable && control.checked" in menu_item
     assert "theme.accentColor.r" in menu_item
-    assert "0.14" in menu_item
+    assert "border.width: control.checkable && control.checked ? 1 : 0" in menu_item
+    assert "visible: control.checkable && control.checked" in menu_item
     assert 'text: "Mirror Image Horizontally"' in main
     assert 'checked: Boolean(backend.settingsMap.mirror_horizontal)' in main
     assert 'text: "Mirror Image Vertically"' in main
