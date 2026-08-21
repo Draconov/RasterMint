@@ -8,8 +8,12 @@ Dialog {
     title: "Settings"
     modal: true
     popupType: Popup.Item
-    width: 420
-    height: 330
+    readonly property real overlayWidth: Overlay.overlay ? Overlay.overlay.width : 520
+    readonly property real overlayHeight: Overlay.overlay ? Overlay.overlay.height : 520
+    readonly property real desiredDialogHeight: 46 + (padding * 2) + settingsBody.implicitHeight
+
+    width: Math.max(320, Math.min(420, overlayWidth - 24))
+    height: Math.max(260, Math.min(Math.max(330, desiredDialogHeight), overlayHeight - 24))
     anchors.centerIn: Overlay.overlay
     standardButtons: Dialog.NoButton
     padding: 16
@@ -46,8 +50,25 @@ Dialog {
         }
     }
 
-    contentItem: ColumnLayout {
-        spacing: 12
+    contentItem: ScrollView {
+        id: settingsScroll
+        clip: true
+        contentWidth: availableWidth
+        contentHeight: settingsBody.implicitHeight
+
+        ScrollBar.horizontal: ScrollBar {
+            policy: ScrollBar.AlwaysOff
+        }
+        ScrollBar.vertical: ScrollBar {
+            policy: settingsScroll.contentHeight > settingsScroll.availableHeight
+                    ? ScrollBar.AsNeeded
+                    : ScrollBar.AlwaysOff
+        }
+
+        ColumnLayout {
+            id: settingsBody
+            width: settingsScroll.availableWidth
+            spacing: 12
 
         MintLabel {
             text: "Appearance"
@@ -153,8 +174,8 @@ Dialog {
             }
         }
 
-        Item { Layout.fillHeight: true }
-        RowLayout {
+            Item { Layout.preferredHeight: 2 }
+            RowLayout {
             Layout.fillWidth: true
             MintButton { text: "Close"; onClicked: root.close() }
             Item { Layout.fillWidth: true }
@@ -166,6 +187,7 @@ Dialog {
                     themeChooser.syncThemeIndex()
                 }
             }
+        }
         }
     }
 }

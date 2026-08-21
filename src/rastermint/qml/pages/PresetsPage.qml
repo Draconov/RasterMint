@@ -24,19 +24,19 @@ Item {
             }
 
             MintButton {
-                text: "Load JSON…"
+                text: "Load JSON"
                 Layout.minimumWidth: implicitWidth
                 onClicked: loadPresetDialog.open()
             }
 
             MintButton {
-                text: "Save JSON…"
+                text: "Save JSON"
                 Layout.minimumWidth: implicitWidth
                 onClicked: savePresetDialog.open()
             }
 
             MintButton {
-                text: "Save to Library…"
+                text: "Save to Library"
                 Layout.minimumWidth: implicitWidth
                 onClicked: saveLibraryDialog.open()
             }

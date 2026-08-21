@@ -174,15 +174,6 @@ Item {
                         }
                     }
 
-                    Text {
-                        text: "≡"
-                        color: layerDelegate.isDragging ? theme.textColor : theme.mutedTextColor
-                        font.pixelSize: 16
-                        font.bold: true
-                        Layout.leftMargin: 8
-                        Layout.rightMargin: 5
-                    }
-
                     MintButton { text: "↑"; enabled: index > 0; onClicked: backend.moveLayer(index, index - 1) }
                     MintButton { text: "↓"; enabled: index < layerList.count - 1; onClicked: backend.moveLayer(index, index + 1) }
                 }

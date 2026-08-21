@@ -10,7 +10,15 @@ from PIL import Image
 from PySide6.QtCore import Slot
 
 from rastermint.core.animation import settings_at_time
-from rastermint.core.processor import display_output_size, processed_raster_size
+from rastermint.core.processor import (
+    PREVIEW_MAX_SIDE,
+    adaptive_preview_max_side,
+    display_output_size,
+    make_preview_settings,
+    make_preview_source,
+    processed_raster_size,
+    target_raster_size,
+)
 from rastermint.core.svg_export import save_svg
 
 from .backend import _local_path
@@ -37,6 +45,84 @@ _RESAMPLING = {
 
 class RasterMintBackend(PreferencesBackend):
     """Add the still-image export workflow to the normal QML backend."""
+
+
+    # ---------- immediate preview-mode switching ----------
+    def _preview_superseded_jobs(self) -> set[int]:
+        jobs = getattr(self, "_mode_switch_superseded_preview_jobs", None)
+        if jobs is None:
+            jobs = set()
+            self._mode_switch_superseded_preview_jobs = jobs
+        return jobs
+
+    def _start_mode_switch_preview(self, label: str) -> None:
+        source = self._active_source()
+        if source is None:
+            return
+
+        settings = settings_at_time(self.settings, self._current_time)
+        if label == "Quick":
+            max_side = self._quick_side()
+        elif label == "Stable":
+            max_side = adaptive_preview_max_side(self.settings, PREVIEW_MAX_SIDE)
+        else:
+            max_side = self._safe_full_side()
+
+        final_size = target_raster_size(source.size, settings)
+        preview_source = make_preview_source(source, max_side=int(max_side), settings=settings)
+        preview_settings = make_preview_settings(settings, final_size, preview_source.size)
+        job = self._next_job()
+        context = {
+            "source_revision": self._source_revision,
+            "settings_revision": self._settings_revision,
+            "time": self._current_time,
+            "preview_mode": label,
+        }
+        worker = ProcessingWorker(
+            job,
+            "preview-mode-switch",
+            preview_source,
+            preview_settings,
+            context,
+            frame_time=self._current_time,
+            frame_index=max(
+                0,
+                round(
+                    self._current_time
+                    * (self._video_info.fps if self._video_info else settings.animation_fps)
+                ),
+            ),
+            display_mode=settings.display_mode,
+            include_grid=False,
+        )
+        self._connect_worker(worker)
+        self.thread_pool.start(worker)
+
+    @Slot(str)
+    def setPreviewMode(self, mode: str) -> None:
+        label = str(mode).title()
+        if label not in {"Quick", "Stable", "Full"} or label == self._preview_mode:
+            return
+
+        # A normal preview from the previous mode may already be running. Mark
+        # it as superseded so it cannot flash over the newly selected mode.
+        if self._preview_running and self._latest_preview_job:
+            self._preview_superseded_jobs().add(int(self._latest_preview_job))
+
+        self._quick_timer.stop()
+        self._stable_timer.stop()
+        self._pending_preview_side = 0
+        self._preview_mode = label
+        self.app_settings.setValue("previewModeQml", label)
+        self.settingsChanged.emit()
+
+        if self.hasSource:
+            self._start_mode_switch_preview(label)
+            # Quick still gets its normal refined pass after the immediate draft.
+            if label == "Quick":
+                self._stable_timer.start(330)
+
+        self._set_status(f"Preview render: {label}")
 
     @Slot(result="QVariantMap")
     def exportImageInfo(self) -> dict[str, Any]:
@@ -163,6 +249,26 @@ class RasterMintBackend(PreferencesBackend):
 
     @Slot(int, str, object, object)
     def _worker_finished(self, job_id: int, purpose: str, result: object, context: object) -> None:
+        if purpose == "preview-mode-switch":
+            context_map = context if isinstance(context, dict) else {}
+            valid = (
+                context_map.get("source_revision") == self._source_revision
+                and context_map.get("settings_revision") == self._settings_revision
+                and context_map.get("preview_mode") == self._preview_mode
+            )
+            if valid and isinstance(result, Image.Image):
+                self._publish_preview(result)
+            return
+
+        if purpose == "preview" and int(job_id) in self._preview_superseded_jobs():
+            self._preview_superseded_jobs().discard(int(job_id))
+            self._preview_running = False
+            pending = self._pending_preview_side
+            self._pending_preview_side = 0
+            if pending:
+                self._request_preview(pending)
+            return
+
         if (
             purpose == "export-image"
             and isinstance(result, Image.Image)

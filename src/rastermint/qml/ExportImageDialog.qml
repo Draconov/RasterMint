@@ -10,8 +10,13 @@ Dialog {
     title: "Export Image"
     modal: true
     popupType: Popup.Item
-    width: 760
-    height: 570
+    readonly property real overlayWidth: Overlay.overlay ? Overlay.overlay.width : 900
+    readonly property real overlayHeight: Overlay.overlay ? Overlay.overlay.height : 700
+    readonly property real desiredBodyHeight: Math.max(500, settingsColumn.implicitHeight)
+    readonly property real desiredDialogHeight: 46 + (padding * 2) + desiredBodyHeight
+
+    width: Math.max(560, Math.min(760, overlayWidth - 32))
+    height: Math.max(360, Math.min(desiredDialogHeight, overlayHeight - 32))
     anchors.centerIn: Overlay.overlay
     standardButtons: Dialog.NoButton
     padding: 16
@@ -132,8 +137,26 @@ Dialog {
         }
     }
 
-    contentItem: RowLayout {
-        spacing: 16
+    contentItem: ScrollView {
+        id: exportScroll
+        clip: true
+        contentWidth: availableWidth
+        contentHeight: exportBody.height
+
+        ScrollBar.horizontal: ScrollBar {
+            policy: ScrollBar.AlwaysOff
+        }
+        ScrollBar.vertical: ScrollBar {
+            policy: exportScroll.contentHeight > exportScroll.availableHeight
+                    ? ScrollBar.AsNeeded
+                    : ScrollBar.AlwaysOff
+        }
+
+        RowLayout {
+            id: exportBody
+            width: exportScroll.availableWidth
+            height: root.desiredBodyHeight
+            spacing: 16
 
         Rectangle {
             Layout.preferredWidth: 330
@@ -171,8 +194,10 @@ Dialog {
         }
 
         ColumnLayout {
+            id: settingsColumn
             Layout.fillWidth: true
-            Layout.fillHeight: true
+            Layout.minimumWidth: 280
+            Layout.alignment: Qt.AlignTop
             spacing: 10
 
             MintLabel {
@@ -342,7 +367,7 @@ Dialog {
                 wrapMode: Text.WordWrap
             }
 
-            Item { Layout.fillHeight: true }
+            Item { Layout.preferredHeight: 2 }
 
             RowLayout {
                 Layout.fillWidth: true
@@ -364,6 +389,7 @@ Dialog {
                     onClicked: exportFileDialog.open()
                 }
             }
+        }
         }
     }
 

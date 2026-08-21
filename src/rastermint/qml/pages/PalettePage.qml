@@ -235,10 +235,10 @@ Item {
         RowLayout {
             Layout.fillWidth: true
             spacing: 6
-            MintButton { Layout.fillWidth: true; text: "Import…"; onClicked: importPaletteDialog.open() }
-            MintButton { Layout.fillWidth: true; text: "Save to Library…"; onClicked: saveLibraryDialog.open() }
-            MintButton { Layout.fillWidth: true; text: "Export JSON…"; onClicked: exportJsonDialog.open() }
-            MintButton { Layout.fillWidth: true; text: "Export HEX…"; onClicked: exportHexDialog.open() }
+            MintButton { Layout.fillWidth: true; text: "Import"; onClicked: importPaletteDialog.open() }
+            MintButton { Layout.fillWidth: true; text: "Save to Library"; onClicked: saveLibraryDialog.open() }
+            MintButton { Layout.fillWidth: true; text: "Export JSON"; onClicked: exportJsonDialog.open() }
+            MintButton { Layout.fillWidth: true; text: "Export HEX"; onClicked: exportHexDialog.open() }
         }
 
         Rectangle { Layout.fillWidth: true; height: 1; color: theme.borderColor }

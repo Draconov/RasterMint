@@ -8,8 +8,13 @@ Dialog {
     title: "About RasterMint"
     modal: true
     popupType: Popup.Item
-    width: 430
-    height: 265
+
+    readonly property real overlayWidth: Overlay.overlay ? Overlay.overlay.width : 520
+    readonly property real overlayHeight: Overlay.overlay ? Overlay.overlay.height : 420
+    readonly property real desiredDialogHeight: 46 + (padding * 2) + aboutBody.implicitHeight
+
+    width: Math.max(320, Math.min(430, overlayWidth - 24))
+    height: Math.max(220, Math.min(Math.max(265, desiredDialogHeight), overlayHeight - 24))
     anchors.centerIn: Overlay.overlay
     standardButtons: Dialog.NoButton
     padding: 18
@@ -25,9 +30,6 @@ Dialog {
         color: Qt.rgba(0, 0, 0, 0.45)
     }
 
-    // The default Qt Quick Controls dialog header uses style colors. Keeping a
-    // RasterMint-owned header prevents a light/default strip from leaking into
-    // dark themes and keeps the whole dialog live-bound to the active theme.
     header: Rectangle {
         implicitHeight: 46
         color: theme.panelRaisedColor
@@ -51,21 +53,58 @@ Dialog {
         }
     }
 
-    contentItem: ColumnLayout {
-        spacing: 10
-        Item { Layout.fillHeight: true }
-        MintLabel { Layout.alignment: Qt.AlignHCenter; text: "RasterMint " + backend.version; font.bold: true; font.pixelSize: 20 }
-        MintLabel { Layout.alignment: Qt.AlignHCenter; text: "Developed by Draconov · 2026"; color: theme.mutedTextColor }
-        Text {
-            Layout.alignment: Qt.AlignHCenter
-            text: '<a href="https://github.com/Draconov/RasterMint">github.com/Draconov/RasterMint</a>'
-            color: theme.accentColor
-            linkColor: theme.accentColor
-            textFormat: Text.RichText
-            onLinkActivated: function(link) { Qt.openUrlExternally(link) }
-            HoverHandler { cursorShape: Qt.PointingHandCursor }
+    contentItem: ScrollView {
+        id: aboutScroll
+        clip: true
+        contentWidth: availableWidth
+        contentHeight: aboutBody.implicitHeight
+
+        ScrollBar.horizontal: ScrollBar {
+            policy: ScrollBar.AlwaysOff
         }
-        Item { Layout.fillHeight: true }
-        MintButton { Layout.alignment: Qt.AlignHCenter; text: "Close"; onClicked: root.close() }
+        ScrollBar.vertical: ScrollBar {
+            policy: aboutScroll.contentHeight > aboutScroll.availableHeight
+                    ? ScrollBar.AsNeeded
+                    : ScrollBar.AlwaysOff
+        }
+
+        ColumnLayout {
+            id: aboutBody
+            width: aboutScroll.availableWidth
+            spacing: 10
+
+            Item { Layout.preferredHeight: 8 }
+
+            MintLabel {
+                Layout.alignment: Qt.AlignHCenter
+                text: "RasterMint " + backend.version
+                font.bold: true
+                font.pixelSize: 20
+            }
+
+            MintLabel {
+                Layout.alignment: Qt.AlignHCenter
+                text: "Developed by Draconov · 2026"
+                color: theme.mutedTextColor
+            }
+
+            Text {
+                Layout.alignment: Qt.AlignHCenter
+                text: '<a href="https://github.com/Draconov/RasterMint">github.com/Draconov/RasterMint</a>'
+                color: theme.accentColor
+                linkColor: theme.accentColor
+                textFormat: Text.RichText
+                onLinkActivated: function(link) { Qt.openUrlExternally(link) }
+                HoverHandler { cursorShape: Qt.PointingHandCursor }
+            }
+
+            Item { Layout.preferredHeight: 8 }
+
+            MintButton {
+                Layout.alignment: Qt.AlignHCenter
+                text: "Close"
+                onClicked: root.close()
+            }
+        }
     }
 }
