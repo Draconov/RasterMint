@@ -8,6 +8,14 @@ from typing import Any
 from PySide6.QtCore import QAbstractListModel, QModelIndex, Qt, Signal
 
 
+def _format_summary_value(value: Any) -> str:
+    """Format compact layer-summary values without binary float artifacts."""
+    if isinstance(value, float):
+        text = f"{value:.8f}".rstrip("0").rstrip(".")
+        return "0" if text in {"", "-0"} else text
+    return str(value)
+
+
 class LayerListModel(QAbstractListModel):
     changed = Signal()
 
@@ -49,7 +57,7 @@ class LayerListModel(QAbstractListModel):
             params = item.get("params") if isinstance(item.get("params"), dict) else {}
             pieces = []
             for key, value in list(params.items())[:2]:
-                pieces.append(f"{key}: {value}")
+                pieces.append(f"{key}: {_format_summary_value(value)}")
             return " · ".join(pieces)
         return None
 

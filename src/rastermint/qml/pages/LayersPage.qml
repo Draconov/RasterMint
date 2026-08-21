@@ -225,13 +225,13 @@ Item {
                 to: Number(param.max)
                 stepSize: Number(param.step || 1)
                 value: Number(param.value)
-                onPressedChanged: {
-                    if (pressed)
+                onInteractionActiveChanged: {
+                    if (interactionActive)
                         backend.beginHistoryGroup(backend.selectedLayerName + " · " + param.label)
                     else
                         backend.endHistoryGroup()
                 }
-                onMoved: backend.setLayerParam(param.key, value)
+                onUserMoved: function(newValue) { backend.setLayerParam(param.key, newValue) }
             }
         }
     }

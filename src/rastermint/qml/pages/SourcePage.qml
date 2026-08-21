@@ -25,11 +25,11 @@ ScrollView {
                     MintLabel { text: modelData.label; color: theme.mutedTextColor }
                     MintSlider {
                         Layout.fillWidth: true; from: 0; to: 0.49; stepSize: 0.01; value: backend.settingsMap[modelData.key]
-                        onPressedChanged: {
-                            if (pressed) backend.beginHistoryGroup("Crop " + modelData.label.toLowerCase())
+                        onInteractionActiveChanged: {
+                            if (interactionActive) backend.beginHistoryGroup("Crop " + modelData.label.toLowerCase())
                             else backend.endHistoryGroup()
                         }
-                        onMoved: backend.setSetting(modelData.key, value)
+                        onUserMoved: function(newValue) { backend.setSetting(modelData.key, newValue) }
                     }
                 }
             }
@@ -40,14 +40,14 @@ ScrollView {
             MintLabel { text: "Horizontal"; color: theme.mutedTextColor }
             MintSlider {
                 Layout.fillWidth: true; from: -1; to: 1; stepSize: 0.01; value: backend.settingsMap.position_x
-                onPressedChanged: { if (pressed) backend.beginHistoryGroup("Fill position X"); else backend.endHistoryGroup() }
-                onMoved: backend.setSetting("position_x", value)
+                onInteractionActiveChanged: { if (interactionActive) backend.beginHistoryGroup("Fill position X"); else backend.endHistoryGroup() }
+                onUserMoved: function(newValue) { backend.setSetting("position_x", newValue) }
             }
             MintLabel { text: "Vertical"; color: theme.mutedTextColor }
             MintSlider {
                 Layout.fillWidth: true; from: -1; to: 1; stepSize: 0.01; value: backend.settingsMap.position_y
-                onPressedChanged: { if (pressed) backend.beginHistoryGroup("Fill position Y"); else backend.endHistoryGroup() }
-                onMoved: backend.setSetting("position_y", value)
+                onInteractionActiveChanged: { if (interactionActive) backend.beginHistoryGroup("Fill position Y"); else backend.endHistoryGroup() }
+                onUserMoved: function(newValue) { backend.setSetting("position_y", newValue) }
             }
         }
         MintLabel { Layout.fillWidth: true; color: theme.mutedTextColor; wrapMode: Text.WordWrap; text: "Flip, mirror and rotation tools are in Edit. Mirror tools expose movable blue axes directly on the preview." }

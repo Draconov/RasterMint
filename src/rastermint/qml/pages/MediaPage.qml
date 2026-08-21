@@ -21,7 +21,7 @@ Item {
                 onActivated: backend.setPlaybackSpeed([0.5, 1, 1.5, 2][currentIndex])
             }
         }
-        MintSlider { Layout.fillWidth: true; from: 0; to: backend.timelineDuration; value: backend.currentTime; onMoved: backend.setCurrentTime(value) }
+        MintSlider { Layout.fillWidth: true; from: 0; to: backend.timelineDuration; value: backend.currentTime; onUserMoved: function(newValue) { backend.setCurrentTime(newValue) } }
 
         RowLayout {
             Layout.fillWidth: true

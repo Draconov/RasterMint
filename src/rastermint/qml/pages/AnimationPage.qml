@@ -85,7 +85,7 @@ ScrollView {
                 onActivated: backend.setPlaybackMode(currentText)
             }
         }
-        MintSlider { Layout.fillWidth: true; from: 0; to: backend.timelineDuration; value: backend.currentTime; onMoved: backend.setCurrentTime(value) }
+        MintSlider { Layout.fillWidth: true; from: 0; to: backend.timelineDuration; value: backend.currentTime; onUserMoved: function(newValue) { backend.setCurrentTime(newValue) } }
         RowLayout {
             Layout.fillWidth: true
             MintLabel { Layout.fillWidth: true; text: backend.currentTime.toFixed(2) + " / " + backend.timelineDuration.toFixed(2) + " s"; color: theme.mutedTextColor }
