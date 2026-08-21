@@ -113,7 +113,8 @@ ApplicationWindow {
 
             Action { text: "Open File…"; shortcut: StandardKey.Open; onTriggered: openDialog.open() }
             MintMenuSeparator { }
-            Action { text: "Export Current Frame…"; enabled: backend.hasSource; shortcut: "Ctrl+E"; onTriggered: exportImageDialog.open() }
+            Action { text: "Quick Export Image…"; enabled: backend.hasSource; shortcut: "Ctrl+E"; onTriggered: quickExportImageDialog.open() }
+            Action { text: "Export Image…"; enabled: backend.hasSource; shortcut: "Ctrl+Shift+E"; onTriggered: advancedExportDialog.open() }
             Action { text: "Export Animation / Video…"; enabled: backend.hasSource; shortcut: "Ctrl+Alt+S"; onTriggered: exportMediaDialog.open() }
             Action { text: "Export PNG Sequence…"; enabled: backend.hasSource; shortcut: "Ctrl+Alt+P"; onTriggered: sequenceFolderDialog.open() }
             Action { text: "Batch Export Images…"; shortcut: "Ctrl+Shift+B"; onTriggered: batchSourceDialog.open() }
@@ -278,6 +279,10 @@ ApplicationWindow {
 
     SettingsDialog { id: settingsDialog }
     AboutDialog { id: aboutDialog }
+    ExportImageDialog {
+        id: advancedExportDialog
+        urlNormalizer: function(value) { return window.urlString(value) }
+    }
 
     FileDialog {
         id: openDialog
@@ -286,8 +291,8 @@ ApplicationWindow {
         onAccepted: backend.openFile(window.urlString(selectedFile))
     }
     FileDialog {
-        id: exportImageDialog
-        title: "Export current frame"
+        id: quickExportImageDialog
+        title: "Quick Export Image — 1× current output"
         fileMode: FileDialog.SaveFile
         defaultSuffix: "png"
         nameFilters: ["PNG (*.png)", "JPEG (*.jpg *.jpeg)", "WebP (*.webp)", "TIFF (*.tif *.tiff)", "SVG (*.svg)"]

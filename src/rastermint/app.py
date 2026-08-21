@@ -10,19 +10,16 @@ from pathlib import Path
 import sys
 import threading
 import traceback
-
 from PySide6.QtCore import QCoreApplication, QStandardPaths, QUrl, Qt
 from PySide6.QtGui import QFont, QGuiApplication, QIcon
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
-
 from rastermint import __app_name__, __version__
-from rastermint.core.presets import install_bundled_library
+from rastermint.qmlui.export_backend import RasterMintBackend
 from rastermint.qmlui.image_provider import RasterImageProvider
 from rastermint.qmlui.theme import ThemeManager
 
 _CRASH_LOG_HANDLE = None
-
 
 def _load_app_icon() -> QIcon | None:
     try:
@@ -33,7 +30,6 @@ def _load_app_icon() -> QIcon | None:
         pass
     return None
 
-
 def _install_crash_logging() -> Path | None:
     global _CRASH_LOG_HANDLE
     try:
@@ -42,11 +38,8 @@ def _install_crash_logging() -> Path | None:
         folder.mkdir(parents=True, exist_ok=True)
         path = folder / "crash.log"
         _CRASH_LOG_HANDLE = path.open("a", encoding="utf-8", buffering=1)
-        _CRASH_LOG_HANDLE.write(
-            f"\n--- RasterMint {__version__} session {datetime.now().isoformat(timespec='seconds')} ---\n"
-        )
+        _CRASH_LOG_HANDLE.write(f"\n--- RasterMint {__version__} session {datetime.now().isoformat(timespec='seconds')} ---\n")
         faulthandler.enable(_CRASH_LOG_HANDLE, all_threads=True)
-
         def write_exception(exc_type, exc_value, exc_tb) -> None:
             if issubclass(exc_type, KeyboardInterrupt):
                 return sys.__excepthook__(exc_type, exc_value, exc_tb)
@@ -54,7 +47,6 @@ def _install_crash_logging() -> Path | None:
             _CRASH_LOG_HANDLE.flush()
 
         sys.excepthook = write_exception
-
         def thread_exception(args: threading.ExceptHookArgs) -> None:
             write_exception(args.exc_type, args.exc_value, args.exc_traceback)
 
@@ -69,10 +61,6 @@ def main() -> int:
     QCoreApplication.setApplicationName(__app_name__)
     QCoreApplication.setApplicationVersion(__version__)
     _install_crash_logging()
-    # Register bundled JSON palettes/presets before the QML backend imports the
-    # built-in library constants.
-    install_bundled_library()
-    from rastermint.qmlui.preferences_backend import RasterMintBackend
     # RasterMint owns its menu styling and behavior in QML. Qt 6.8+ may
     # otherwise promote menus/menu bars to native windows depending on the
     # platform/style, bypassing our QML delegates. Keep them inside the Qt

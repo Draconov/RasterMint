@@ -130,8 +130,38 @@ Item {
             Layout.preferredHeight: 210
             clip: true
             spacing: 3
-            model: backend.allPaletteLibrary
             boundsBehavior: Flickable.StopAtBounds
+
+            // Build a real filtered model instead of keeping every palette in
+            // the ListView and collapsing non-matching delegates to height 0.
+            // This keeps category/search results compact and fixes the large
+            // gaps caused by ListView spacing between hidden delegates.
+            model: {
+                var items = backend.allPaletteLibrary || []
+                var query = searchField.text.trim().toLowerCase()
+                var category = categoryFilter.currentText
+                var filtered = []
+
+                for (var i = 0; i < items.length; ++i) {
+                    var item = items[i]
+                    if (category !== "All" && String(item.category || "") !== category)
+                        continue
+
+                    if (query.length > 0) {
+                        var haystack = (
+                            String(item.name || "") + " " +
+                            String(item.category || "") + " " +
+                            String(item.description || "")
+                        ).toLowerCase()
+                        if (haystack.indexOf(query) < 0)
+                            continue
+                    }
+
+                    filtered.push(item)
+                }
+
+                return filtered
+            }
 
             ScrollBar.vertical: ScrollBar {
                 policy: ScrollBar.AsNeeded
@@ -139,12 +169,8 @@ Item {
 
             delegate: Rectangle {
                 width: paletteList.width - 8
-                property bool matchesSearch: searchField.text.length === 0 || (modelData.name + " " + modelData.category + " " + modelData.description).toLowerCase().indexOf(searchField.text.toLowerCase()) >= 0
-                property bool matchesCategory: categoryFilter.currentText === "All" || String(modelData.category) === categoryFilter.currentText
-                property bool matches: matchesSearch && matchesCategory
                 property bool isUserPalette: Boolean(modelData.user)
-                height: matches ? 44 : 0
-                visible: matches
+                height: 44
                 radius: 6
                 color: paletteMouse.containsMouse ? theme.panelHoverColor : "transparent"
 
@@ -227,8 +253,21 @@ Item {
         MintLabel { text: "Lospec"; font.bold: true }
         RowLayout {
             Layout.fillWidth: true
-            MintTextField { id: lospecField; Layout.fillWidth: true; placeholderText: "slug or Lospec URL" }
-            MintButton { text: "Fetch"; enabled: lospecField.text.length > 0; onClicked: backend.fetchLospec(lospecField.text) }
+            MintTextField {
+                id: lospecField
+                Layout.fillWidth: true
+                placeholderText: "slug or Lospec URL"
+                onAccepted: {
+                    var value = text.trim()
+                    if (value.length > 0)
+                        backend.fetchLospec(value)
+                }
+            }
+            MintButton {
+                text: "Fetch"
+                enabled: lospecField.text.trim().length > 0
+                onClicked: backend.fetchLospec(lospecField.text.trim())
+            }
         }
 
         MintLabel { text: "Gradient"; font.bold: true }

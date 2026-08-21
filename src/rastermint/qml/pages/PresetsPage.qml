@@ -25,25 +25,27 @@ Item {
 
             MintButton {
                 text: "Load JSON…"
-                Layout.preferredWidth: 92
+                Layout.minimumWidth: implicitWidth
                 onClicked: loadPresetDialog.open()
             }
 
             MintButton {
                 text: "Save JSON…"
-                Layout.preferredWidth: 92
+                Layout.minimumWidth: implicitWidth
                 onClicked: savePresetDialog.open()
             }
 
             MintButton {
                 text: "Save to Library…"
-                Layout.preferredWidth: 116
+                Layout.minimumWidth: implicitWidth
                 onClicked: saveLibraryDialog.open()
             }
 
             MintButton {
                 text: "↻"
+                Layout.minimumWidth: 34
                 Layout.preferredWidth: 34
+                Layout.maximumWidth: 34
                 onClicked: backend.refreshPresetThumbnails()
 
                 ToolTip.visible: hovered

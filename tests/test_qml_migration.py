@@ -110,6 +110,7 @@ def test_custom_qml_popups_are_forced_into_the_quick_scene():
     layers = (PACKAGE / "qml" / "pages" / "LayersPage.qml").read_text(encoding="utf-8")
     settings = (PACKAGE / "qml" / "SettingsDialog.qml").read_text(encoding="utf-8")
     about = (PACKAGE / "qml" / "AboutDialog.qml").read_text(encoding="utf-8")
+    export_dialog = (PACKAGE / "qml" / "ExportImageDialog.qml").read_text(encoding="utf-8")
     # Qt 6.8+ can choose Window/Native popup implementations by style/platform.
     # RasterMint customizes these controls, so keep them in the same Quick scene.
     mint_menu = (PACKAGE / "qml" / "components" / "MintMenu.qml").read_text(encoding="utf-8")
@@ -119,6 +120,7 @@ def test_custom_qml_popups_are_forced_into_the_quick_scene():
     assert "popupType: Popup.Item" in layers
     assert "popupType: Popup.Item" in settings
     assert "popupType: Popup.Item" in about
+    assert "popupType: Popup.Item" in export_dialog
 
 def test_application_disables_native_menu_promotion_before_qguiapplication():
     app_py = (PACKAGE / "app.py").read_text(encoding="utf-8")
@@ -147,6 +149,8 @@ def test_qml_dialog_urls_are_normalized_before_python_slots():
     hardware = (PACKAGE / "qml" / "pages" / "HardwarePage.qml").read_text(encoding="utf-8")
     assert "backend.openFile(window.urlString(selectedFile))" in main
     assert "backend.exportImage(window.urlString(selectedFile))" in main
+    export_dialog = (PACKAGE / "qml" / "ExportImageDialog.qml").read_text(encoding="utf-8")
+    assert "backend.exportImageWithOptions(root.urlNormalizer(selectedFile)" in export_dialog
     assert "backend.exportMedia(window.urlString(selectedFile))" in main
     assert "backend.exportSequence(window.urlString(selectedFolder))" in main
     assert "window.urlStrings(selectedFiles)" in main
@@ -176,6 +180,7 @@ def test_every_backend_method_called_by_qml_exists_in_backend_class():
     backend_files = [
         PACKAGE / "qmlui" / "backend.py",
         PACKAGE / "qmlui" / "preferences_backend.py",
+        PACKAGE / "qmlui" / "export_backend.py",
     ]
     backend_text = "\n".join(path.read_text(encoding="utf-8") for path in backend_files if path.is_file())
 
