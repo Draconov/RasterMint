@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-moldy-plum",
+  "name": "Moldy Plum",
+  "category": "Abstract",
+  "colors": [
+    "#1C1D1F",
+    "#2C3745",
+    "#2641AA",
+    "#7F29E2",
+    "#DE38B8",
+    "#E58A86",
+    "#D2C766",
+    "#B0E9C9"
+  ],
+  "description": "8-color abstract palette.",
+  "source": "RasterMint bundled library"
+}

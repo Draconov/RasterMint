@@ -1,0 +1,15 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-costume",
+  "name": "Costume",
+  "category": "Halloween",
+  "colors": [
+    "#1A1711",
+    "#434626",
+    "#AC492E",
+    "#B79F4C"
+  ],
+  "description": "4-color halloween palette.",
+  "source": "RasterMint bundled library"
+}

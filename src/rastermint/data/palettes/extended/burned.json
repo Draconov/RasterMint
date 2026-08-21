@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-burned",
+  "name": "Burned",
+  "category": "Contrasts",
+  "colors": [
+    "#030101",
+    "#560000",
+    "#AC0000",
+    "#2B2B2B",
+    "#FA0000",
+    "#363636",
+    "#989898",
+    "#FEFEFE"
+  ],
+  "description": "8-color contrasts palette.",
+  "source": "RasterMint bundled library"
+}

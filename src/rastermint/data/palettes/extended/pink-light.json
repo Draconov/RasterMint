@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-pink-light",
+  "name": "Pink Light",
+  "category": "Prismatic",
+  "colors": [
+    "#201A1A",
+    "#695752",
+    "#989493",
+    "#EA4C5E",
+    "#F9747A",
+    "#B9BEC3",
+    "#F4B1B1",
+    "#F5EEE1"
+  ],
+  "description": "8-color prismatic palette.",
+  "source": "RasterMint bundled library"
+}

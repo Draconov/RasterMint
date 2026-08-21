@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-venom",
+  "name": "Venom",
+  "category": "Halloween",
+  "colors": [
+    "#211F1D",
+    "#393831",
+    "#803B30",
+    "#5C5649",
+    "#7F7864",
+    "#9F9A66",
+    "#A09E90",
+    "#E0E0DE"
+  ],
+  "description": "8-color halloween palette.",
+  "source": "RasterMint bundled library"
+}

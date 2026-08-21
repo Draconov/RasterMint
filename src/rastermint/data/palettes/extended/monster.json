@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-monster",
+  "name": "Monster",
+  "category": "Halloween",
+  "colors": [
+    "#282321",
+    "#442E2D",
+    "#702F3C",
+    "#993749",
+    "#5C6537",
+    "#839543",
+    "#9EAC6D",
+    "#F0F1E8"
+  ],
+  "description": "8-color halloween palette.",
+  "source": "RasterMint bundled library"
+}

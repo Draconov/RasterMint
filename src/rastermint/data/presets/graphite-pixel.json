@@ -1,0 +1,100 @@
+{
+  "format": "rastermint-preset",
+  "version": 1,
+  "id": "graphite-pixel",
+  "name": "Graphite Pixel",
+  "description": "Atkinson dithering with a compact four-color graphite palette.",
+  "settings": {
+    "algorithm": "Atkinson",
+    "brightness": 0,
+    "contrast": 8,
+    "saturation": -20,
+    "gamma": 1.0,
+    "grayscale": false,
+    "invert": false,
+    "blur_radius": 0.0,
+    "sharpen": 1.0,
+    "dither_strength": 1.0,
+    "pixel_size": 2,
+    "serpentine": true,
+    "output_divisor": 1,
+    "palette": [
+      "#101217",
+      "#4A4F59",
+      "#A9AFB9",
+      "#F4F6F8"
+    ],
+    "palette_locks": [
+      false,
+      false,
+      false,
+      false
+    ],
+    "palette_name": "Graphite Pixel",
+    "palette_author": "",
+    "palette_source": "",
+    "effect_stack": [
+      {
+        "id": "adjustments",
+        "kind": "Adjustments",
+        "enabled": true,
+        "params": {
+          "brightness": 0,
+          "contrast": 8,
+          "saturation": -20,
+          "gamma": 1.0
+        }
+      },
+      {
+        "id": "grayscale",
+        "kind": "Grayscale",
+        "enabled": false,
+        "params": {}
+      },
+      {
+        "id": "invert",
+        "kind": "Invert",
+        "enabled": false,
+        "params": {}
+      },
+      {
+        "id": "blur",
+        "kind": "Gaussian Blur",
+        "enabled": false,
+        "params": {
+          "radius": 0.0
+        }
+      },
+      {
+        "id": "sharpen",
+        "kind": "Sharpen",
+        "enabled": false,
+        "params": {
+          "amount": 1.0
+        }
+      },
+      {
+        "id": "pixelate",
+        "kind": "Pixelate",
+        "enabled": true,
+        "params": {
+          "size": 2
+        }
+      },
+      {
+        "id": "dither",
+        "kind": "Dither",
+        "enabled": true,
+        "params": {
+          "algorithm": "Atkinson",
+          "strength": 1.0,
+          "threshold": 0.5,
+          "serpentine": true
+        }
+      }
+    ],
+    "animation_duration": 4.0,
+    "animation_fps": 12,
+    "animation_tracks": []
+  }
+}

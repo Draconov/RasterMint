@@ -1,0 +1,107 @@
+{
+  "format": "rastermint-preset",
+  "version": 1,
+  "id": "extended-thermal",
+  "name": "Thermal",
+  "description": "Floyd-Steinberg · Heat palette.",
+  "settings": {
+    "hardware_profile_id": "custom",
+    "hardware_mode": "visual",
+    "hardware_constraints_enabled": false,
+    "hardware_constraints": {},
+    "display_profile": {},
+    "display_mode": "corrected",
+    "palette": [
+      "#5502F1",
+      "#FF4500",
+      "#3A72FF",
+      "#02A1F6",
+      "#00C2D7",
+      "#00DDAE",
+      "#46FB2F",
+      "#E0D11B"
+    ],
+    "palette_locks": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ],
+    "palette_name": "Heat",
+    "palette_author": "RasterMint",
+    "palette_source": "RasterMint bundled preset",
+    "effect_stack": [
+      {
+        "id": "adjustments",
+        "kind": "Adjustments",
+        "enabled": true,
+        "params": {
+          "brightness": 0,
+          "contrast": 0,
+          "saturation": 0,
+          "gamma": 1.0
+        }
+      },
+      {
+        "id": "grayscale",
+        "kind": "Grayscale",
+        "enabled": false,
+        "params": {}
+      },
+      {
+        "id": "invert",
+        "kind": "Invert",
+        "enabled": false,
+        "params": {}
+      },
+      {
+        "id": "blur",
+        "kind": "Gaussian Blur",
+        "enabled": false,
+        "params": {
+          "radius": 0
+        }
+      },
+      {
+        "id": "sharpen",
+        "kind": "Sharpen",
+        "enabled": false,
+        "params": {
+          "amount": 1.5
+        }
+      },
+      {
+        "id": "extended-thermal-depth",
+        "kind": "Posterize",
+        "enabled": true,
+        "params": {
+          "levels": 5
+        }
+      },
+      {
+        "id": "pixelate",
+        "kind": "Pixelate",
+        "enabled": true,
+        "params": {
+          "size": 5
+        }
+      },
+      {
+        "id": "dither",
+        "kind": "Dither",
+        "enabled": true,
+        "params": {
+          "algorithm": "Floyd-Steinberg",
+          "mix": 1.0,
+          "strength": 1.0,
+          "threshold": 0.5,
+          "serpentine": true
+        }
+      }
+    ]
+  }
+}

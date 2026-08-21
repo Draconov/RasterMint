@@ -1,0 +1,15 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-witching",
+  "name": "Witching",
+  "category": "Halloween",
+  "colors": [
+    "#2C2E2E",
+    "#594F57",
+    "#8B6D82",
+    "#B7B6AB"
+  ],
+  "description": "4-color halloween palette.",
+  "source": "RasterMint bundled library"
+}

@@ -1,0 +1,15 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-miami-3",
+  "name": "Miami 3",
+  "category": "Lofi Heat",
+  "colors": [
+    "#26292C",
+    "#FE5A98",
+    "#149FE0",
+    "#C5C2E5"
+  ],
+  "description": "4-color lofi heat palette.",
+  "source": "RasterMint bundled library"
+}

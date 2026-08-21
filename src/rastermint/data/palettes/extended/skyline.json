@@ -1,0 +1,15 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-skyline",
+  "name": "Skyline",
+  "category": "Lofi Heat",
+  "colors": [
+    "#9C61EF",
+    "#FE8A5F",
+    "#ABB2AB",
+    "#A0F063"
+  ],
+  "description": "4-color lofi heat palette.",
+  "source": "RasterMint bundled library"
+}

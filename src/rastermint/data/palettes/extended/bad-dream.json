@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-bad-dream",
+  "name": "Bad Dream",
+  "category": "Halloween",
+  "colors": [
+    "#11161B",
+    "#22282E",
+    "#3D3B42",
+    "#515B5E",
+    "#997179",
+    "#697F82",
+    "#959D97",
+    "#EDEEEE"
+  ],
+  "description": "8-color halloween palette.",
+  "source": "RasterMint bundled library"
+}

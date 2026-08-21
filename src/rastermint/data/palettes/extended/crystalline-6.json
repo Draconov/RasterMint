@@ -1,0 +1,17 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-crystalline-6",
+  "name": "Crystalline 6",
+  "category": "Abstract",
+  "colors": [
+    "#0C0A0B",
+    "#283241",
+    "#465573",
+    "#7891B9",
+    "#B4D2F5",
+    "#DCE6FF"
+  ],
+  "description": "6-color abstract palette.",
+  "source": "RasterMint bundled library"
+}

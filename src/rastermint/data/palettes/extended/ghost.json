@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-ghost",
+  "name": "Ghost",
+  "category": "Halloween",
+  "colors": [
+    "#1B1A1E",
+    "#3A2A3E",
+    "#2F3755",
+    "#594347",
+    "#555E7F",
+    "#71748C",
+    "#A4A5AE",
+    "#EFF0F1"
+  ],
+  "description": "8-color halloween palette.",
+  "source": "RasterMint bundled library"
+}

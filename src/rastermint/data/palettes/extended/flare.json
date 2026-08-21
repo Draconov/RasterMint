@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-flare",
+  "name": "Flare",
+  "category": "Contrasts",
+  "colors": [
+    "#000000",
+    "#001E92",
+    "#2B2C2F",
+    "#005DFC",
+    "#FD786E",
+    "#999999",
+    "#02C3FE",
+    "#FEFDFD"
+  ],
+  "description": "8-color contrasts palette.",
+  "source": "RasterMint bundled library"
+}

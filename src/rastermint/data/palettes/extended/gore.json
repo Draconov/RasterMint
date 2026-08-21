@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-gore",
+  "name": "Gore",
+  "category": "Halloween",
+  "colors": [
+    "#26221E",
+    "#333A44",
+    "#63312A",
+    "#4E5460",
+    "#8E493A",
+    "#7C797A",
+    "#A68562",
+    "#B1ABA4"
+  ],
+  "description": "8-color halloween palette.",
+  "source": "RasterMint bundled library"
+}

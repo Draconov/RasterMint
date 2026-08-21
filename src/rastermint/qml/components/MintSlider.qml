@@ -9,8 +9,8 @@ Slider {
     live: true
     snapMode: Slider.SnapAlways
 
-    // Use this instead of `pressed` for history grouping because pointer input
-    // is handled explicitly below so ScrollView cannot steal slider drags.
+    // Mouse dragging is handled across the whole slider surface, not just the knob.
+    // Keep this separate from Slider.pressed so ScrollView cannot steal the gesture.
     readonly property bool interactionActive: pointerArea.pressed
     property real dragValue: value
 
@@ -160,7 +160,7 @@ Slider {
                 // Preserve the exact point where the user grabbed the knob.
                 dragOffsetX = mouse.x - handleCenter
             } else {
-                // Clicking the track still jumps there and immediately becomes a drag.
+                // Press anywhere on the track, jump there, then scrub freely while held.
                 dragOffsetX = 0
                 control.updateFromPointer(mouse.x)
             }

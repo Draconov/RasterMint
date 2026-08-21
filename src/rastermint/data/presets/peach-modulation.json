@@ -1,0 +1,107 @@
+{
+  "format": "rastermint-preset",
+  "version": 1,
+  "id": "extended-peach-modulation",
+  "name": "Peach Modulation",
+  "description": "Sierra Two-Row · Peach palette.",
+  "settings": {
+    "hardware_profile_id": "custom",
+    "hardware_mode": "visual",
+    "hardware_constraints_enabled": false,
+    "hardware_constraints": {},
+    "display_profile": {},
+    "display_mode": "corrected",
+    "palette": [
+      "#020201",
+      "#20261D",
+      "#F0073A",
+      "#5A3530",
+      "#A52534",
+      "#FA5068",
+      "#E99198",
+      "#C3BABB"
+    ],
+    "palette_locks": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ],
+    "palette_name": "Peach",
+    "palette_author": "RasterMint",
+    "palette_source": "RasterMint bundled preset",
+    "effect_stack": [
+      {
+        "id": "adjustments",
+        "kind": "Adjustments",
+        "enabled": true,
+        "params": {
+          "brightness": 3,
+          "contrast": -46,
+          "saturation": 0,
+          "gamma": 0.67
+        }
+      },
+      {
+        "id": "grayscale",
+        "kind": "Grayscale",
+        "enabled": false,
+        "params": {}
+      },
+      {
+        "id": "invert",
+        "kind": "Invert",
+        "enabled": false,
+        "params": {}
+      },
+      {
+        "id": "blur",
+        "kind": "Gaussian Blur",
+        "enabled": true,
+        "params": {
+          "radius": 2.0
+        }
+      },
+      {
+        "id": "sharpen",
+        "kind": "Sharpen",
+        "enabled": false,
+        "params": {
+          "amount": 1.5
+        }
+      },
+      {
+        "id": "extended-peach-modulation-depth",
+        "kind": "Posterize",
+        "enabled": true,
+        "params": {
+          "levels": 8
+        }
+      },
+      {
+        "id": "pixelate",
+        "kind": "Pixelate",
+        "enabled": true,
+        "params": {
+          "size": 5
+        }
+      },
+      {
+        "id": "dither",
+        "kind": "Dither",
+        "enabled": true,
+        "params": {
+          "algorithm": "Sierra Two-Row",
+          "mix": 1.0,
+          "strength": 1.0,
+          "threshold": 0.33,
+          "serpentine": true
+        }
+      }
+    ]
+  }
+}

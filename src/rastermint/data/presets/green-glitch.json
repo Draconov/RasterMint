@@ -1,0 +1,99 @@
+{
+  "format": "rastermint-preset",
+  "version": 1,
+  "id": "extended-green-glitch",
+  "name": "Green Glitch",
+  "description": "Bayer 4x4 · Handheld palette.",
+  "settings": {
+    "hardware_profile_id": "custom",
+    "hardware_mode": "visual",
+    "hardware_constraints_enabled": false,
+    "hardware_constraints": {},
+    "display_profile": {},
+    "display_mode": "corrected",
+    "palette": [
+      "#0F380F",
+      "#306230",
+      "#8BAC0F",
+      "#9BBC0F"
+    ],
+    "palette_locks": [
+      false,
+      false,
+      false,
+      false
+    ],
+    "palette_name": "Handheld",
+    "palette_author": "RasterMint",
+    "palette_source": "RasterMint bundled preset",
+    "effect_stack": [
+      {
+        "id": "adjustments",
+        "kind": "Adjustments",
+        "enabled": true,
+        "params": {
+          "brightness": 3,
+          "contrast": -46,
+          "saturation": 0,
+          "gamma": 1.0
+        }
+      },
+      {
+        "id": "grayscale",
+        "kind": "Grayscale",
+        "enabled": false,
+        "params": {}
+      },
+      {
+        "id": "invert",
+        "kind": "Invert",
+        "enabled": false,
+        "params": {}
+      },
+      {
+        "id": "blur",
+        "kind": "Gaussian Blur",
+        "enabled": true,
+        "params": {
+          "radius": 1.0
+        }
+      },
+      {
+        "id": "sharpen",
+        "kind": "Sharpen",
+        "enabled": false,
+        "params": {
+          "amount": 1.5
+        }
+      },
+      {
+        "id": "extended-green-glitch-depth",
+        "kind": "Posterize",
+        "enabled": true,
+        "params": {
+          "levels": 7
+        }
+      },
+      {
+        "id": "pixelate",
+        "kind": "Pixelate",
+        "enabled": true,
+        "params": {
+          "size": 10
+        }
+      },
+      {
+        "id": "dither",
+        "kind": "Dither",
+        "enabled": true,
+        "params": {
+          "algorithm": "Bayer 4x4",
+          "mix": 1.0,
+          "strength": 1.0,
+          "threshold": 0.5,
+          "serpentine": true
+        }
+      }
+    ]
+  }
+}

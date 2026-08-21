@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-spectra",
+  "name": "Spectra",
+  "category": "Prismatic",
+  "colors": [
+    "#574C3A",
+    "#6759DB",
+    "#FC745A",
+    "#F485E7",
+    "#7DE4F3",
+    "#70FE6D",
+    "#F1F49C",
+    "#F1F3F9"
+  ],
+  "description": "8-color prismatic palette.",
+  "source": "RasterMint bundled library"
+}

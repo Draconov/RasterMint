@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-glowstick",
+  "name": "Glowstick",
+  "category": "Halloween",
+  "colors": [
+    "#121B1C",
+    "#1B3032",
+    "#29494A",
+    "#436E61",
+    "#678887",
+    "#76AA4E",
+    "#9BAE97",
+    "#F6F7F8"
+  ],
+  "description": "8-color halloween palette.",
+  "source": "RasterMint bundled library"
+}

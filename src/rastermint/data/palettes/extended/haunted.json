@@ -1,0 +1,27 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-haunted",
+  "name": "Haunted",
+  "category": "Halloween",
+  "colors": [
+    "#0D0C0D",
+    "#1F1A22",
+    "#351D51",
+    "#45246C",
+    "#352F32",
+    "#4C4446",
+    "#5D5063",
+    "#6F6852",
+    "#746776",
+    "#877494",
+    "#8E876D",
+    "#998FA1",
+    "#A39B89",
+    "#AEA878",
+    "#D6D2BE",
+    "#E6E7EB"
+  ],
+  "description": "16-color halloween palette.",
+  "source": "RasterMint bundled library"
+}

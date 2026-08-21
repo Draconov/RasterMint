@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-twilight",
+  "name": "Twilight",
+  "category": "Abstract",
+  "colors": [
+    "#030411",
+    "#473945",
+    "#B82089",
+    "#0B5AAB",
+    "#8E6255",
+    "#B6A349",
+    "#E2D9D6",
+    "#ECE875"
+  ],
+  "description": "8-color abstract palette.",
+  "source": "RasterMint bundled library"
+}

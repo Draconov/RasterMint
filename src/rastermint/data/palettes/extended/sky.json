@@ -1,0 +1,15 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-sky",
+  "name": "Sky",
+  "category": "Lofi Heat",
+  "colors": [
+    "#181A1B",
+    "#63ABC2",
+    "#D098BE",
+    "#D4E3F1"
+  ],
+  "description": "4-color lofi heat palette.",
+  "source": "RasterMint bundled library"
+}

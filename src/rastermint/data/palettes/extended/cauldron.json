@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-cauldron",
+  "name": "Cauldron",
+  "category": "Halloween",
+  "colors": [
+    "#251F2A",
+    "#351B49",
+    "#491E6B",
+    "#5D258B",
+    "#6625A5",
+    "#7724A5",
+    "#9749A6",
+    "#B7AAC2"
+  ],
+  "description": "8-color halloween palette.",
+  "source": "RasterMint bundled library"
+}

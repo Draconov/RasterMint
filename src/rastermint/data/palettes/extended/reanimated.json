@@ -1,0 +1,27 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-reanimated",
+  "name": "Reanimated",
+  "category": "Halloween",
+  "colors": [
+    "#0C0C0C",
+    "#271016",
+    "#4C1A31",
+    "#493537",
+    "#3A4030",
+    "#95426E",
+    "#536339",
+    "#895664",
+    "#706E6A",
+    "#6A823B",
+    "#928974",
+    "#92A26B",
+    "#9CA483",
+    "#A9A5A5",
+    "#B0B168",
+    "#F5F5F5"
+  ],
+  "description": "16-color halloween palette.",
+  "source": "RasterMint bundled library"
+}

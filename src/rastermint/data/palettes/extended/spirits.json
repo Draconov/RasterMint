@@ -1,0 +1,15 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-spirits",
+  "name": "Spirits",
+  "category": "Halloween",
+  "colors": [
+    "#241514",
+    "#3E3A48",
+    "#405487",
+    "#A49698"
+  ],
+  "description": "4-color halloween palette.",
+  "source": "RasterMint bundled library"
+}

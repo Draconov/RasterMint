@@ -1,0 +1,15 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-vice",
+  "name": "Vice",
+  "category": "Lofi Heat",
+  "colors": [
+    "#1F2422",
+    "#6F0487",
+    "#94E1BF",
+    "#9EFA15"
+  ],
+  "description": "4-color lofi heat palette.",
+  "source": "RasterMint bundled library"
+}

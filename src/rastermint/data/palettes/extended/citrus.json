@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-citrus",
+  "name": "Citrus",
+  "category": "Contrasts",
+  "colors": [
+    "#000000",
+    "#612500",
+    "#CC4600",
+    "#989898",
+    "#FE9324",
+    "#6FFE51",
+    "#F6E401",
+    "#FEFEFE"
+  ],
+  "description": "8-color contrasts palette.",
+  "source": "RasterMint bundled library"
+}

@@ -15,8 +15,9 @@ from PySide6.QtCore import QCoreApplication, QStandardPaths, QUrl, Qt
 from PySide6.QtGui import QFont, QGuiApplication, QIcon
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
+
 from rastermint import __app_name__, __version__
-from rastermint.qmlui.preferences_backend import RasterMintBackend
+from rastermint.core.presets import install_bundled_library
 from rastermint.qmlui.image_provider import RasterImageProvider
 from rastermint.qmlui.theme import ThemeManager
 
@@ -41,7 +42,9 @@ def _install_crash_logging() -> Path | None:
         folder.mkdir(parents=True, exist_ok=True)
         path = folder / "crash.log"
         _CRASH_LOG_HANDLE = path.open("a", encoding="utf-8", buffering=1)
-        _CRASH_LOG_HANDLE.write(f"\n--- RasterMint {__version__} session {datetime.now().isoformat(timespec='seconds')} ---\n")
+        _CRASH_LOG_HANDLE.write(
+            f"\n--- RasterMint {__version__} session {datetime.now().isoformat(timespec='seconds')} ---\n"
+        )
         faulthandler.enable(_CRASH_LOG_HANDLE, all_threads=True)
 
         def write_exception(exc_type, exc_value, exc_tb) -> None:
@@ -65,8 +68,11 @@ def main() -> int:
     QCoreApplication.setOrganizationName("RasterMint")
     QCoreApplication.setApplicationName(__app_name__)
     QCoreApplication.setApplicationVersion(__version__)
-
     _install_crash_logging()
+    # Register bundled JSON palettes/presets before the QML backend imports the
+    # built-in library constants.
+    install_bundled_library()
+    from rastermint.qmlui.preferences_backend import RasterMintBackend
     # RasterMint owns its menu styling and behavior in QML. Qt 6.8+ may
     # otherwise promote menus/menu bars to native windows depending on the
     # platform/style, bypassing our QML delegates. Keep them inside the Qt
@@ -81,7 +87,6 @@ def main() -> int:
     font = QFont()
     font.setPointSize(10)
     app.setFont(font)
-
     icon = _load_app_icon()
     if icon is not None and not icon.isNull():
         app.setWindowIcon(icon)
@@ -92,7 +97,6 @@ def main() -> int:
     engine.addImageProvider("rastermint", provider)
     engine.rootContext().setContextProperty("backend", backend)
     engine.rootContext().setContextProperty("theme", theme)
-
     qml_path = resources.files("rastermint").joinpath("qml/Main.qml")
     engine.load(QUrl.fromLocalFile(str(qml_path)))
     if not engine.rootObjects():

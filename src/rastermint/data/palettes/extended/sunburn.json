@@ -1,0 +1,15 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-sunburn",
+  "name": "Sunburn",
+  "category": "Lofi Heat",
+  "colors": [
+    "#FA0541",
+    "#FB5C53",
+    "#EFAD63",
+    "#E0C6B8"
+  ],
+  "description": "4-color lofi heat palette.",
+  "source": "RasterMint bundled library"
+}

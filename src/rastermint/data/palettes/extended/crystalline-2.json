@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-crystalline-2",
+  "name": "Crystalline 2",
+  "category": "Abstract",
+  "colors": [
+    "#22272C",
+    "#282828",
+    "#25303A",
+    "#283846",
+    "#3A79AF",
+    "#7ECCFF",
+    "#FAFDFF",
+    "#FFFFFF"
+  ],
+  "description": "8-color abstract palette.",
+  "source": "RasterMint bundled library"
+}

@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-fruity",
+  "name": "Fruity",
+  "category": "Contrasts",
+  "colors": [
+    "#000000",
+    "#484847",
+    "#6460FE",
+    "#A99C93",
+    "#FE9C03",
+    "#63EAE3",
+    "#8AFE58",
+    "#F7F9F5"
+  ],
+  "description": "8-color contrasts palette.",
+  "source": "RasterMint bundled library"
+}

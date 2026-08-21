@@ -1,0 +1,15 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-lime-2",
+  "name": "Lime 2",
+  "category": "Contrasts",
+  "colors": [
+    "#060606",
+    "#FE25F7",
+    "#729100",
+    "#DEDEDE"
+  ],
+  "description": "4-color contrasts palette.",
+  "source": "RasterMint bundled library"
+}

@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-lantern",
+  "name": "Lantern",
+  "category": "Halloween",
+  "colors": [
+    "#242831",
+    "#373F55",
+    "#872F23",
+    "#284577",
+    "#4C647F",
+    "#9B5729",
+    "#67798E",
+    "#D8BDAC"
+  ],
+  "description": "8-color halloween palette.",
+  "source": "RasterMint bundled library"
+}

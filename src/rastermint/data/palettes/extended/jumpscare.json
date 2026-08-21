@@ -1,0 +1,15 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-jumpscare",
+  "name": "Jumpscare",
+  "category": "Halloween",
+  "colors": [
+    "#191717",
+    "#88422F",
+    "#4B5A4E",
+    "#899075"
+  ],
+  "description": "4-color halloween palette.",
+  "source": "RasterMint bundled library"
+}

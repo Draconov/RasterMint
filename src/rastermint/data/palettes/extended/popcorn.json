@@ -1,0 +1,27 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-popcorn",
+  "name": "Popcorn",
+  "category": "Halloween",
+  "colors": [
+    "#1E1813",
+    "#311F15",
+    "#452617",
+    "#592E1B",
+    "#6F351E",
+    "#854424",
+    "#6A4D2D",
+    "#935A2C",
+    "#88714D",
+    "#A17332",
+    "#AC8A38",
+    "#AF9A3C",
+    "#AB9D6E",
+    "#B2A940",
+    "#B1AB96",
+    "#DFD6AF"
+  ],
+  "description": "16-color halloween palette.",
+  "source": "RasterMint bundled library"
+}

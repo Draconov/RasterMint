@@ -1,0 +1,15 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-rot",
+  "name": "Rot",
+  "category": "Halloween",
+  "colors": [
+    "#283739",
+    "#79362D",
+    "#4B6B6D",
+    "#B5C1C2"
+  ],
+  "description": "4-color halloween palette.",
+  "source": "RasterMint bundled library"
+}

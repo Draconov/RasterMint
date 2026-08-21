@@ -5,6 +5,8 @@ import QtQuick.Dialogs
 import "../components"
 
 Item {
+    id: root
+
     ColumnLayout {
         anchors.fill: parent
         spacing: 10
@@ -43,6 +45,12 @@ Item {
             }
         }
 
+        MintButton {
+            Layout.fillWidth: true
+            text: "Save current settings to Preset Library…"
+            onClicked: saveLibraryDialog.open()
+        }
+
         GridView {
             id: presetGrid
 
@@ -54,18 +62,21 @@ Item {
 
             cellWidth: width / columns
             cellHeight: 176
-            model: backend.builtinPresets
+            model: backend.allPresets
 
             ScrollBar.vertical: ScrollBar {
                 policy: ScrollBar.AsNeeded
             }
 
             delegate: Rectangle {
+                id: presetCard
                 width: presetGrid.cellWidth - 8
                 height: presetGrid.cellHeight - 8
                 radius: 8
                 color: presetMouse.containsMouse ? theme.panelHoverColor : theme.panelRaisedColor
                 border.color: theme.borderColor
+
+                property bool isUserPreset: Boolean(modelData.user)
 
                 Column {
                     anchors.fill: parent
@@ -89,8 +100,8 @@ Item {
                     }
 
                     Text {
-                        width: parent.width
-                        text: modelData.name
+                        width: parent.width - (presetCard.isUserPreset ? 30 : 0)
+                        text: modelData.name + (presetCard.isUserPreset ? " · custom" : "")
                         color: theme.textColor
                         font.bold: true
                         elide: Text.ElideRight
@@ -111,11 +122,60 @@ Item {
                     id: presetMouse
                     anchors.fill: parent
                     hoverEnabled: true
-                    onClicked: backend.applyBuiltinPreset(modelData.id)
+                    onClicked: backend.applyPreset(modelData.id)
+                }
+
+                MintButton {
+                    visible: presetCard.isUserPreset
+                    z: 2
+                    anchors.right: parent.right
+                    anchors.bottom: parent.bottom
+                    anchors.margins: 7
+                    width: 30
+                    height: 28
+                    text: "×"
+                    onClicked: backend.deletePresetFromLibrary(modelData.id)
+
+                    ToolTip.visible: hovered
+                    ToolTip.text: "Remove custom preset from library"
                 }
 
                 ToolTip.visible: presetMouse.containsMouse
                 ToolTip.text: modelData.description
+            }
+        }
+    }
+
+    Dialog {
+        id: saveLibraryDialog
+        title: "Save preset to library"
+        modal: true
+        width: Math.min(380, root.width - 24)
+        x: Math.round((root.width - width) / 2)
+        y: Math.max(12, Math.round((root.height - height) / 2))
+        standardButtons: Dialog.Save | Dialog.Cancel
+
+        onOpened: {
+            presetNameField.text = "Custom Preset"
+            presetDescriptionField.text = ""
+            presetNameField.forceActiveFocus()
+            presetNameField.selectAll()
+        }
+        onAccepted: backend.savePresetToLibrary(presetNameField.text, presetDescriptionField.text)
+
+        contentItem: ColumnLayout {
+            spacing: 8
+            MintLabel { text: "Name" }
+            MintTextField {
+                id: presetNameField
+                Layout.fillWidth: true
+                placeholderText: "Preset name"
+            }
+            MintLabel { text: "Description" }
+            MintTextField {
+                id: presetDescriptionField
+                Layout.fillWidth: true
+                placeholderText: "Optional description"
             }
         }
     }

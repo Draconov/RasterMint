@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-handheld-4",
+  "name": "Handheld 4",
+  "category": "Retro",
+  "colors": [
+    "#000000",
+    "#010000",
+    "#060D00",
+    "#2F4B01",
+    "#355303",
+    "#77B106",
+    "#78B305",
+    "#B6E42A"
+  ],
+  "description": "8-color retro palette.",
+  "source": "RasterMint bundled library"
+}

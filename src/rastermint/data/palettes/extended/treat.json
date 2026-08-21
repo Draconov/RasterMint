@@ -1,0 +1,15 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-treat",
+  "name": "Treat",
+  "category": "Halloween",
+  "colors": [
+    "#25111C",
+    "#571E3B",
+    "#8C3265",
+    "#F6F4F5"
+  ],
+  "description": "4-color halloween palette.",
+  "source": "RasterMint bundled library"
+}

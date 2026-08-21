@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-crush",
+  "name": "Crush",
+  "category": "Abstract",
+  "colors": [
+    "#040002",
+    "#3B1F30",
+    "#DD1184",
+    "#989898",
+    "#FE9AAA",
+    "#A4FE68",
+    "#9DFED0",
+    "#FEFFFE"
+  ],
+  "description": "8-color abstract palette.",
+  "source": "RasterMint bundled library"
+}

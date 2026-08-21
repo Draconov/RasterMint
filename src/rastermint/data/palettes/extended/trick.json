@@ -1,0 +1,15 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-trick",
+  "name": "Trick",
+  "category": "Halloween",
+  "colors": [
+    "#281B14",
+    "#592C1B",
+    "#8F3526",
+    "#DEC7C3"
+  ],
+  "description": "4-color halloween palette.",
+  "source": "RasterMint bundled library"
+}

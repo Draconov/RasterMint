@@ -1,0 +1,15 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-emerald",
+  "name": "Emerald",
+  "category": "Lofi Heat",
+  "colors": [
+    "#000405",
+    "#054146",
+    "#D1D440",
+    "#EAFFC9"
+  ],
+  "description": "4-color lofi heat palette.",
+  "source": "RasterMint bundled library"
+}

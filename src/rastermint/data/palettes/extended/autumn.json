@@ -1,0 +1,15 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-autumn",
+  "name": "Autumn",
+  "category": "Halloween",
+  "colors": [
+    "#1E1D1D",
+    "#565454",
+    "#9C5538",
+    "#9E9D9D"
+  ],
+  "description": "4-color halloween palette.",
+  "source": "RasterMint bundled library"
+}

@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-redwood-2",
+  "name": "Redwood 2",
+  "category": "Nature",
+  "colors": [
+    "#1E1105",
+    "#262625",
+    "#3C250D",
+    "#5F250C",
+    "#5C4728",
+    "#827151",
+    "#AB720D",
+    "#B67C70"
+  ],
+  "description": "8-color nature palette.",
+  "source": "RasterMint bundled library"
+}

@@ -1,45 +1,49 @@
 {
   "format": "rastermint-preset",
   "version": 1,
+  "id": "extended-big-bacteria",
+  "name": "Big Bacteria",
+  "description": "Atkinson · Bacterial palette.",
   "settings": {
-    "algorithm": "Atkinson",
-    "brightness": 0,
-    "contrast": 8,
-    "saturation": -20,
-    "gamma": 1.0,
-    "grayscale": false,
-    "invert": false,
-    "blur_radius": 0.0,
-    "sharpen": 1.0,
-    "dither_strength": 1.0,
-    "pixel_size": 2,
-    "serpentine": true,
-    "output_divisor": 1,
+    "hardware_profile_id": "custom",
+    "hardware_mode": "visual",
+    "hardware_constraints_enabled": false,
+    "hardware_constraints": {},
+    "display_profile": {},
+    "display_mode": "corrected",
     "palette": [
-      "#101217",
-      "#4A4F59",
-      "#A9AFB9",
-      "#F4F6F8"
+      "#28272D",
+      "#34307D",
+      "#3C38DC",
+      "#44A4F0",
+      "#66C5AD",
+      "#8FE56E",
+      "#C4F92E",
+      "#DBE5A7"
     ],
     "palette_locks": [
       false,
       false,
       false,
+      false,
+      false,
+      false,
+      false,
       false
     ],
-    "palette_name": "Graphite Pixel",
-    "palette_author": "",
-    "palette_source": "",
+    "palette_name": "Bacterial",
+    "palette_author": "RasterMint",
+    "palette_source": "RasterMint bundled preset",
     "effect_stack": [
       {
         "id": "adjustments",
         "kind": "Adjustments",
         "enabled": true,
         "params": {
-          "brightness": 0,
-          "contrast": 8,
-          "saturation": -20,
-          "gamma": 1.0
+          "brightness": -8,
+          "contrast": -8,
+          "saturation": 0,
+          "gamma": 1.09
         }
       },
       {
@@ -59,7 +63,7 @@
         "kind": "Gaussian Blur",
         "enabled": false,
         "params": {
-          "radius": 0.0
+          "radius": 0
         }
       },
       {
@@ -67,7 +71,15 @@
         "kind": "Sharpen",
         "enabled": false,
         "params": {
-          "amount": 1.0
+          "amount": 1.5
+        }
+      },
+      {
+        "id": "extended-big-bacteria-depth",
+        "kind": "Posterize",
+        "enabled": true,
+        "params": {
+          "levels": 5
         }
       },
       {
@@ -75,7 +87,7 @@
         "kind": "Pixelate",
         "enabled": true,
         "params": {
-          "size": 2
+          "size": 12
         }
       },
       {
@@ -84,14 +96,12 @@
         "enabled": true,
         "params": {
           "algorithm": "Atkinson",
+          "mix": 1.0,
           "strength": 1.0,
-          "threshold": 0.5,
+          "threshold": 0.94,
           "serpentine": true
         }
       }
-    ],
-    "animation_duration": 4.0,
-    "animation_fps": 12,
-    "animation_tracks": []
+    ]
   }
 }

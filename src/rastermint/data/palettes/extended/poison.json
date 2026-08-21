@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-poison",
+  "name": "Poison",
+  "category": "Contrasts",
+  "colors": [
+    "#000000",
+    "#1C182A",
+    "#5B7751",
+    "#FE9C00",
+    "#FCA52F",
+    "#8ABFCB",
+    "#F9FCE9",
+    "#FEFEFF"
+  ],
+  "description": "8-color contrasts palette.",
+  "source": "RasterMint bundled library"
+}

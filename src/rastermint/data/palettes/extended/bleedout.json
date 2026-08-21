@@ -1,0 +1,15 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-bleedout",
+  "name": "Bleedout",
+  "category": "Halloween",
+  "colors": [
+    "#232220",
+    "#822B2A",
+    "#B7666A",
+    "#908F8D"
+  ],
+  "description": "4-color halloween palette.",
+  "source": "RasterMint bundled library"
+}

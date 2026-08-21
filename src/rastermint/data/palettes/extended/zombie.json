@@ -1,0 +1,15 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-zombie",
+  "name": "Zombie",
+  "category": "Halloween",
+  "colors": [
+    "#100E14",
+    "#922AAD",
+    "#90B146",
+    "#E3D9E7"
+  ],
+  "description": "4-color halloween palette.",
+  "source": "RasterMint bundled library"
+}

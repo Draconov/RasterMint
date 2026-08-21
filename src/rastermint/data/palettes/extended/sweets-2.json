@@ -1,0 +1,15 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-sweets-2",
+  "name": "Sweets 2",
+  "category": "Contrasts",
+  "colors": [
+    "#082013",
+    "#5E6250",
+    "#FC4369",
+    "#E3DBD2"
+  ],
+  "description": "4-color contrasts palette.",
+  "source": "RasterMint bundled library"
+}

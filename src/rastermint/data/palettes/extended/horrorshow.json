@@ -1,0 +1,15 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-horrorshow",
+  "name": "Horrorshow",
+  "category": "Halloween",
+  "colors": [
+    "#1B171A",
+    "#832B29",
+    "#535459",
+    "#9D9C98"
+  ],
+  "description": "4-color halloween palette.",
+  "source": "RasterMint bundled library"
+}

@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-smoothie",
+  "name": "Smoothie",
+  "category": "Abstract",
+  "colors": [
+    "#0B0207",
+    "#631545",
+    "#C33D87",
+    "#FB89B4",
+    "#DACF8E",
+    "#91F56B",
+    "#89F2BA",
+    "#C6FAF4"
+  ],
+  "description": "8-color abstract palette.",
+  "source": "RasterMint bundled library"
+}

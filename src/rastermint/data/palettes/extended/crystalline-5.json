@@ -1,0 +1,15 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-crystalline-5",
+  "name": "Crystalline 5",
+  "category": "Abstract",
+  "colors": [
+    "#0F0F12",
+    "#2D3746",
+    "#5A6E91",
+    "#96BEE6"
+  ],
+  "description": "4-color abstract palette.",
+  "source": "RasterMint bundled library"
+}

@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-supersunset-2",
+  "name": "Supersunset 2",
+  "category": "Nature",
+  "colors": [
+    "#291014",
+    "#877069",
+    "#C5AC9E",
+    "#C38D6B",
+    "#F5BE8E",
+    "#A1301B",
+    "#F99D52",
+    "#EC6038"
+  ],
+  "description": "8-color nature palette.",
+  "source": "RasterMint bundled library"
+}

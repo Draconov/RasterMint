@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-fright",
+  "name": "Fright",
+  "category": "Halloween",
+  "colors": [
+    "#2A2622",
+    "#533243",
+    "#923956",
+    "#4E564C",
+    "#7B7553",
+    "#A8A09C",
+    "#ADAA52",
+    "#DCD9D6"
+  ],
+  "description": "8-color halloween palette.",
+  "source": "RasterMint bundled library"
+}

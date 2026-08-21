@@ -1,0 +1,15 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-candlelit",
+  "name": "Candlelit",
+  "category": "Halloween",
+  "colors": [
+    "#13070A",
+    "#915936",
+    "#8E8058",
+    "#B1B3AF"
+  ],
+  "description": "4-color halloween palette.",
+  "source": "RasterMint bundled library"
+}

@@ -1,0 +1,15 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-hocus",
+  "name": "Hocus",
+  "category": "Halloween",
+  "colors": [
+    "#322234",
+    "#623A4C",
+    "#988C8D",
+    "#E1DBDD"
+  ],
+  "description": "4-color halloween palette.",
+  "source": "RasterMint bundled library"
+}

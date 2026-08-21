@@ -1,0 +1,27 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-creature",
+  "name": "Creature",
+  "category": "Halloween",
+  "colors": [
+    "#11140E",
+    "#1C2314",
+    "#28371D",
+    "#542C21",
+    "#374A2A",
+    "#466031",
+    "#93523A",
+    "#4B6948",
+    "#60763D",
+    "#6D8B37",
+    "#738959",
+    "#759441",
+    "#A09B42",
+    "#88A088",
+    "#D9DCD6",
+    "#FAFAF9"
+  ],
+  "description": "16-color halloween palette.",
+  "source": "RasterMint bundled library"
+}

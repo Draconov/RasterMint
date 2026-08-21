@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-carving",
+  "name": "Carving",
+  "category": "Halloween",
+  "colors": [
+    "#291E1C",
+    "#392620",
+    "#533225",
+    "#784134",
+    "#975F3A",
+    "#A8975E",
+    "#B3B3A9",
+    "#F3EDE9"
+  ],
+  "description": "8-color halloween palette.",
+  "source": "RasterMint bundled library"
+}

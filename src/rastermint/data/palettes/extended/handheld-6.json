@@ -1,0 +1,15 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-handheld-6",
+  "name": "Handheld 6",
+  "category": "Retro",
+  "colors": [
+    "#465913",
+    "#78941E",
+    "#A9C76B",
+    "#ACDB0E"
+  ],
+  "description": "4-color retro palette.",
+  "source": "RasterMint bundled library"
+}

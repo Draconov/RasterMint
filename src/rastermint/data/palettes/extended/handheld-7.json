@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-handheld-7",
+  "name": "Handheld 7",
+  "category": "Retro",
+  "colors": [
+    "#27312A",
+    "#4C610D",
+    "#6F8720",
+    "#8AAF19",
+    "#94A773",
+    "#A2D20E",
+    "#BAE063",
+    "#C9F508"
+  ],
+  "description": "8-color retro palette.",
+  "source": "RasterMint bundled library"
+}

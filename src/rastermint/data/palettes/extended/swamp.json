@@ -1,0 +1,15 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-swamp",
+  "name": "Swamp",
+  "category": "Halloween",
+  "colors": [
+    "#161718",
+    "#5A7786",
+    "#A9A24C",
+    "#C1CBCF"
+  ],
+  "description": "4-color halloween palette.",
+  "source": "RasterMint bundled library"
+}

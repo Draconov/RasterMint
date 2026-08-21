@@ -1,0 +1,15 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-mirage",
+  "name": "Mirage",
+  "category": "Lofi Heat",
+  "colors": [
+    "#6C2E0C",
+    "#F07417",
+    "#A7B3A4",
+    "#B1BD3B"
+  ],
+  "description": "4-color lofi heat palette.",
+  "source": "RasterMint bundled library"
+}

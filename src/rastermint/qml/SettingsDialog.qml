@@ -9,7 +9,7 @@ Dialog {
     modal: true
     popupType: Popup.Item
     width: 420
-    height: 310
+    height: 330
     anchors.centerIn: Overlay.overlay
     standardButtons: Dialog.NoButton
     padding: 16
@@ -77,33 +77,80 @@ Dialog {
             text: "History"
             font.bold: true
         }
+
         RowLayout {
             Layout.fillWidth: true
-            spacing: 10
+            spacing: 8
 
             MintLabel {
                 text: "Undo history"
                 Layout.fillWidth: true
             }
-            MintSpinBox {
-                id: historyLimit
-                from: 10
-                to: 200
-                stepSize: 10
-                value: backend.historyLimit
-                onValueModified: backend.historyLimit = value
+            MintTextField {
+                id: historyLimitInput
+                Layout.preferredWidth: 62
+                horizontalAlignment: TextInput.AlignHCenter
+                inputMethodHints: Qt.ImhDigitsOnly
+                validator: IntValidator { bottom: 10; top: 200 }
+                text: String(backend.historyLimit)
+
+                function commitValue() {
+                    var parsed = parseInt(text, 10)
+                    if (isNaN(parsed))
+                        parsed = backend.historyLimit
+                    parsed = Math.max(10, Math.min(200, parsed))
+                    backend.historyLimit = parsed
+                    text = String(backend.historyLimit)
+                }
+
+                onEditingFinished: commitValue()
             }
             MintLabel {
                 text: "actions"
                 color: theme.mutedTextColor
             }
         }
+
+        MintSlider {
+            id: historyLimitSlider
+            Layout.fillWidth: true
+            from: 10
+            to: 200
+            stepSize: 1
+            snapMode: Slider.SnapAlways
+            value: backend.historyLimit
+            onUserMoved: function(newValue) { backend.historyLimit = Math.round(newValue) }
+        }
+
+        RowLayout {
+            Layout.fillWidth: true
+            MintLabel {
+                text: "10"
+                color: theme.mutedTextColor
+                font.pixelSize: 10
+            }
+            Item { Layout.fillWidth: true }
+            MintLabel {
+                text: "200"
+                color: theme.mutedTextColor
+                font.pixelSize: 10
+            }
+        }
+
         MintLabel {
             Layout.fillWidth: true
-            text: "Keep 10–200 undo steps. Higher values retain more editing history."
+            text: "Keep 10–200 undo steps. Higher values retain more editing history and use more memory."
             color: theme.mutedTextColor
             font.pixelSize: 11
             wrapMode: Text.WordWrap
+        }
+
+        Connections {
+            target: backend
+            function onHistoryLimitChanged() {
+                if (!historyLimitInput.activeFocus)
+                    historyLimitInput.text = String(backend.historyLimit)
+            }
         }
 
         Item { Layout.fillHeight: true }

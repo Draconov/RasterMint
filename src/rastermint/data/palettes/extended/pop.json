@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-pop",
+  "name": "Pop",
+  "category": "Contrasts",
+  "colors": [
+    "#000002",
+    "#4A00A6",
+    "#252D35",
+    "#E50962",
+    "#025ED1",
+    "#FE5D75",
+    "#989898",
+    "#FEFEFE"
+  ],
+  "description": "8-color contrasts palette.",
+  "source": "RasterMint bundled library"
+}

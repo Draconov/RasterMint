@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-blueshift",
+  "name": "Blueshift",
+  "category": "Abstract",
+  "colors": [
+    "#1B1A1B",
+    "#5E3436",
+    "#204086",
+    "#2B7AC5",
+    "#9A837F",
+    "#30BFD3",
+    "#73D8E3",
+    "#C4D3D8"
+  ],
+  "description": "8-color abstract palette.",
+  "source": "RasterMint bundled library"
+}

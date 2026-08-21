@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-goth",
+  "name": "Goth",
+  "category": "Halloween",
+  "colors": [
+    "#222223",
+    "#2E2E30",
+    "#464453",
+    "#685E5D",
+    "#6D6889",
+    "#A5988E",
+    "#B4B3AF",
+    "#FAFAFA"
+  ],
+  "description": "8-color halloween palette.",
+  "source": "RasterMint bundled library"
+}

@@ -1,0 +1,13 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-handheld-5",
+  "name": "Handheld 5",
+  "category": "Retro",
+  "colors": [
+    "#556B17",
+    "#A7D025"
+  ],
+  "description": "2-color retro palette.",
+  "source": "RasterMint bundled library"
+}

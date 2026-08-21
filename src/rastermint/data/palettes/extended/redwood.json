@@ -1,0 +1,15 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-redwood",
+  "name": "Redwood",
+  "category": "Nature",
+  "colors": [
+    "#241406",
+    "#282623",
+    "#533013",
+    "#9D7554"
+  ],
+  "description": "4-color nature palette.",
+  "source": "RasterMint bundled library"
+}

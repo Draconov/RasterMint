@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-ogre",
+  "name": "Ogre",
+  "category": "Halloween",
+  "colors": [
+    "#201D13",
+    "#3D4323",
+    "#8B4240",
+    "#54636E",
+    "#5A6934",
+    "#7B8649",
+    "#A3A898",
+    "#EBEDED"
+  ],
+  "description": "8-color halloween palette.",
+  "source": "RasterMint bundled library"
+}

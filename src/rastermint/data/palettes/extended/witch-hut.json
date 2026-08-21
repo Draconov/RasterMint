@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-witch-hut",
+  "name": "Witch Hut",
+  "category": "Halloween",
+  "colors": [
+    "#111111",
+    "#221915",
+    "#5C3223",
+    "#305528",
+    "#993E28",
+    "#A36A33",
+    "#91918D",
+    "#F8F8F8"
+  ],
+  "description": "8-color halloween palette.",
+  "source": "RasterMint bundled library"
+}

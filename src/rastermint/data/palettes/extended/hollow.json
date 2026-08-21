@@ -1,0 +1,15 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-hollow",
+  "name": "Hollow",
+  "category": "Halloween",
+  "colors": [
+    "#181616",
+    "#1A2951",
+    "#584433",
+    "#928768"
+  ],
+  "description": "4-color halloween palette.",
+  "source": "RasterMint bundled library"
+}

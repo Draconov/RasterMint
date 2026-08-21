@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-ultravio-2",
+  "name": "Ultravio 2",
+  "category": "Contrasts",
+  "colors": [
+    "#000001",
+    "#130024",
+    "#660159",
+    "#9A0064",
+    "#F90A7F",
+    "#989898",
+    "#FD92BF",
+    "#FEE2F0"
+  ],
+  "description": "8-color contrasts palette.",
+  "source": "RasterMint bundled library"
+}

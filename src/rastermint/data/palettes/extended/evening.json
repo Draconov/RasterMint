@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-evening",
+  "name": "Evening",
+  "category": "Halloween",
+  "colors": [
+    "#251410",
+    "#49414B",
+    "#404B8E",
+    "#6F4470",
+    "#9B3F68",
+    "#376727",
+    "#4B7082",
+    "#E4E0E2"
+  ],
+  "description": "8-color halloween palette.",
+  "source": "RasterMint bundled library"
+}

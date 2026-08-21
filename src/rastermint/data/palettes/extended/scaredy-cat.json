@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-scaredy-cat",
+  "name": "Scaredy Cat",
+  "category": "Halloween",
+  "colors": [
+    "#1A1B14",
+    "#3B3F27",
+    "#964428",
+    "#5B6341",
+    "#86896D",
+    "#819F3A",
+    "#BBC49D",
+    "#EDF1E4"
+  ],
+  "description": "8-color halloween palette.",
+  "source": "RasterMint bundled library"
+}

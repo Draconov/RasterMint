@@ -1,0 +1,27 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-pumpkins",
+  "name": "Pumpkins",
+  "category": "Halloween",
+  "colors": [
+    "#110E0E",
+    "#2E1C17",
+    "#4C261B",
+    "#3D3634",
+    "#683626",
+    "#5B4C45",
+    "#834732",
+    "#A3502F",
+    "#6B635D",
+    "#97614B",
+    "#867B73",
+    "#A27863",
+    "#A09286",
+    "#ACA598",
+    "#B4B4B1",
+    "#DEDCD9"
+  ],
+  "description": "16-color halloween palette.",
+  "source": "RasterMint bundled library"
+}

@@ -1,0 +1,15 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-insects",
+  "name": "Insects",
+  "category": "Halloween",
+  "colors": [
+    "#191D20",
+    "#495A58",
+    "#7A6873",
+    "#C7C4C7"
+  ],
+  "description": "4-color halloween palette.",
+  "source": "RasterMint bundled library"
+}

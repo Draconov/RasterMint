@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-slime",
+  "name": "Slime",
+  "category": "Halloween",
+  "colors": [
+    "#1D1816",
+    "#38342F",
+    "#3F3559",
+    "#7C3B73",
+    "#5C5C40",
+    "#847C6C",
+    "#A8A3A6",
+    "#FBFBFB"
+  ],
+  "description": "8-color halloween palette.",
+  "source": "RasterMint bundled library"
+}

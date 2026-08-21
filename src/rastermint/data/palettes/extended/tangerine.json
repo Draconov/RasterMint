@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-tangerine",
+  "name": "Tangerine",
+  "category": "Contrasts",
+  "colors": [
+    "#020202",
+    "#161616",
+    "#4D4D4F",
+    "#FE8300",
+    "#D9DAD7",
+    "#B4FEE4",
+    "#D2FDEE",
+    "#F7F7F7"
+  ],
+  "description": "8-color contrasts palette.",
+  "source": "RasterMint bundled library"
+}

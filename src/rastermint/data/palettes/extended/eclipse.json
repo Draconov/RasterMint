@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-eclipse",
+  "name": "Eclipse",
+  "category": "Halloween",
+  "colors": [
+    "#201E1D",
+    "#40312E",
+    "#64522E",
+    "#95462F",
+    "#72675A",
+    "#A79379",
+    "#AA9E45",
+    "#E5E3E1"
+  ],
+  "description": "8-color halloween palette.",
+  "source": "RasterMint bundled library"
+}

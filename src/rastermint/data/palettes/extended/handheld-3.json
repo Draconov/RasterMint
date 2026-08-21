@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-handheld-3",
+  "name": "Handheld 3",
+  "category": "Retro",
+  "colors": [
+    "#030403",
+    "#1B2510",
+    "#3A4348",
+    "#355102",
+    "#578205",
+    "#87907C",
+    "#78B105",
+    "#BCC9A7"
+  ],
+  "description": "8-color retro palette.",
+  "source": "RasterMint bundled library"
+}

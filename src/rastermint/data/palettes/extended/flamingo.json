@@ -1,0 +1,15 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-flamingo",
+  "name": "Flamingo",
+  "category": "Lofi Heat",
+  "colors": [
+    "#F51CF7",
+    "#E7A2EC",
+    "#88FD16",
+    "#D2D5D0"
+  ],
+  "description": "4-color lofi heat palette.",
+  "source": "RasterMint bundled library"
+}

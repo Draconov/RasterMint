@@ -46,7 +46,7 @@ package-dir = {"" = "src"}
 version = {file = ["VERSION"]}
 
 [tool.setuptools.package-data]
-rastermint = ["data/hardware_profiles/*.json", "data/icons/*", "data/themes/*.json", "qml/*.qml", "qml/components/*.qml", "qml/pages/*.qml"]
+rastermint = ["data/hardware_profiles/*.json", "data/icons/*", "data/themes/*.json", "data/palettes/*.json", "data/palettes/extended/*.json", "data/presets/*.json", "qml/*.qml", "qml/components/*.qml", "qml/pages/*.qml"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

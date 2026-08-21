@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-spicy",
+  "name": "Spicy",
+  "category": "Abstract",
+  "colors": [
+    "#8E0F0D",
+    "#E6071E",
+    "#F4117D",
+    "#D811E9",
+    "#EB5E15",
+    "#DB6CF8",
+    "#FA888F",
+    "#EEC7F2"
+  ],
+  "description": "8-color abstract palette.",
+  "source": "RasterMint bundled library"
+}

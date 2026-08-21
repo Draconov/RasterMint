@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-ghouls",
+  "name": "Ghouls",
+  "category": "Halloween",
+  "colors": [
+    "#1D1E13",
+    "#512D20",
+    "#434633",
+    "#A04736",
+    "#466E3F",
+    "#8E7861",
+    "#AF9D57",
+    "#DAD9D5"
+  ],
+  "description": "8-color halloween palette.",
+  "source": "RasterMint bundled library"
+}

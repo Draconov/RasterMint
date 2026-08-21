@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-electric",
+  "name": "Electric",
+  "category": "Contrasts",
+  "colors": [
+    "#000000",
+    "#2D2F2E",
+    "#FE3702",
+    "#8E5AFE",
+    "#FD8005",
+    "#989998",
+    "#69FE7A",
+    "#FEFEFE"
+  ],
+  "description": "8-color contrasts palette.",
+  "source": "RasterMint bundled library"
+}

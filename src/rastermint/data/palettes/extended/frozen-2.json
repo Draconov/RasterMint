@@ -1,0 +1,15 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-frozen-2",
+  "name": "Frozen 2",
+  "category": "Lofi Heat",
+  "colors": [
+    "#00001B",
+    "#0621DB",
+    "#00EDE7",
+    "#03FC7E"
+  ],
+  "description": "4-color lofi heat palette.",
+  "source": "RasterMint bundled library"
+}

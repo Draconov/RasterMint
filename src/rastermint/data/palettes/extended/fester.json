@@ -1,0 +1,15 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-fester",
+  "name": "Fester",
+  "category": "Halloween",
+  "colors": [
+    "#303B31",
+    "#64704D",
+    "#929C5F",
+    "#A6A8A3"
+  ],
+  "description": "4-color halloween palette.",
+  "source": "RasterMint bundled library"
+}

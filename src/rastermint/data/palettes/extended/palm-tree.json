@@ -1,0 +1,15 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-palm-tree",
+  "name": "Palm Tree",
+  "category": "Lofi Heat",
+  "colors": [
+    "#181818",
+    "#EA7233",
+    "#59E84C",
+    "#DBEDD9"
+  ],
+  "description": "4-color lofi heat palette.",
+  "source": "RasterMint bundled library"
+}

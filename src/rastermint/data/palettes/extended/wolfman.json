@@ -1,0 +1,15 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-wolfman",
+  "name": "Wolfman",
+  "category": "Halloween",
+  "colors": [
+    "#191210",
+    "#5D3B20",
+    "#976841",
+    "#B2AB80"
+  ],
+  "description": "4-color halloween palette.",
+  "source": "RasterMint bundled library"
+}

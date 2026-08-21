@@ -1,0 +1,15 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "extended-frozen",
+  "name": "Frozen",
+  "category": "Lofi Heat",
+  "colors": [
+    "#000231",
+    "#0419B8",
+    "#01F5B5",
+    "#FEFEFE"
+  ],
+  "description": "4-color lofi heat palette.",
+  "source": "RasterMint bundled library"
+}
