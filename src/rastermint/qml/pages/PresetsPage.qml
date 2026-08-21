@@ -36,6 +36,12 @@ Item {
             }
 
             MintButton {
+                text: "Save to Library…"
+                Layout.preferredWidth: 116
+                onClicked: saveLibraryDialog.open()
+            }
+
+            MintButton {
                 text: "↻"
                 Layout.preferredWidth: 34
                 onClicked: backend.refreshPresetThumbnails()
@@ -43,12 +49,6 @@ Item {
                 ToolTip.visible: hovered
                 ToolTip.text: "Refresh preset thumbnails"
             }
-        }
-
-        MintButton {
-            Layout.fillWidth: true
-            text: "Save current settings to Preset Library…"
-            onClicked: saveLibraryDialog.open()
         }
 
         GridView {

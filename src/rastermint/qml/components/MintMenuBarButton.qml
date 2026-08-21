@@ -17,7 +17,7 @@ Button {
 
     contentItem: Text {
         text: control.text
-        color: theme.textColor
+        color: control.menuOpen ? theme.accentColor : theme.textColor
         verticalAlignment: Text.AlignVCenter
         horizontalAlignment: Text.AlignHCenter
         font.pixelSize: 13
@@ -25,11 +25,24 @@ Button {
 
     background: Rectangle {
         radius: 4
-        color: control.menuOpen || control.hovered || control.down
-               ? theme.selectionColor
-               : "transparent"
-        border.color: control.visualFocus ? theme.accentColor : "transparent"
-        border.width: control.visualFocus ? 1 : 0
+        color: control.menuOpen
+               ? Qt.rgba(theme.accentColor.r, theme.accentColor.g, theme.accentColor.b, 0.22)
+               : (control.hovered || control.down ? theme.selectionColor : "transparent")
+        border.color: control.menuOpen || control.visualFocus
+                      ? theme.accentColor
+                      : "transparent"
+        border.width: control.menuOpen || control.visualFocus ? 1 : 0
+
+        Rectangle {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            height: 2
+            visible: control.menuOpen
+            color: theme.accentColor
+        }
+
         Behavior on color { ColorAnimation { duration: 70 } }
+        Behavior on border.color { ColorAnimation { duration: 70 } }
     }
 }

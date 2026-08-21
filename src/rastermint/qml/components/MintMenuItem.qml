@@ -62,11 +62,34 @@ MenuItem {
         implicitWidth: 220
         implicitHeight: 32
         radius: 5
-        color: control.highlighted || control.hovered
-               ? theme.selectionColor
-               : (control.checkable && control.checked
-                  ? Qt.rgba(theme.accentColor.r, theme.accentColor.g, theme.accentColor.b, 0.14)
+        color: control.checkable && control.checked
+               ? Qt.rgba(theme.accentColor.r,
+                         theme.accentColor.g,
+                         theme.accentColor.b,
+                         control.highlighted || control.hovered ? 0.34 : 0.26)
+               : (control.highlighted || control.hovered
+                  ? theme.selectionColor
                   : "transparent")
+        border.color: control.checkable && control.checked
+                      ? Qt.rgba(theme.accentColor.r,
+                                theme.accentColor.g,
+                                theme.accentColor.b,
+                                0.78)
+                      : "transparent"
+        border.width: control.checkable && control.checked ? 1 : 0
+
+        Rectangle {
+            anchors.left: parent.left
+            anchors.leftMargin: 1
+            anchors.verticalCenter: parent.verticalCenter
+            width: 3
+            height: parent.height - 10
+            radius: 2
+            visible: control.checkable && control.checked
+            color: theme.accentColor
+        }
+
         Behavior on color { ColorAnimation { duration: 70 } }
+        Behavior on border.color { ColorAnimation { duration: 70 } }
     }
 }

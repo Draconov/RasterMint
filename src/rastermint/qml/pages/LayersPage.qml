@@ -6,25 +6,41 @@ import "../components"
 Item {
     id: root
     property int addIndex: 0
+
+    // Layer-card drag state. The model itself is committed only on release;
+    // delegates are translated live so the user sees the final order while dragging.
     property int dragSourceIndex: -1
     property int dragTargetIndex: -1
+    property real dragDeltaY: 0
     readonly property int layerRowHeight: 48
     readonly property int layerRowSpacing: 4
+
+    // Keep one stable parameter-editor model while a slider is held.
+    // The backend emits layerSelectionChanged for every live parameter update;
+    // replacing a Repeater model during the gesture destroys the Slider and
+    // releases its mouse grab. We therefore resync only after the gesture ends.
+    property bool parameterInteractionActive: false
+    property var editorLayerParams: []
 
     function beginLayerDrag(index) {
         dragSourceIndex = index
         dragTargetIndex = index
+        dragDeltaY = 0
         backend.selectLayer(index)
     }
 
-    function updateLayerDrag(handleItem, localY) {
+    function updateLayerDrag(deltaY) {
         if (dragSourceIndex < 0 || layerList.count <= 0)
             return
 
-        var point = handleItem.mapToItem(layerList.contentItem, handleItem.width / 2, localY)
         var stride = layerRowHeight + layerRowSpacing
-        var target = Math.round((point.y - layerRowHeight / 2) / stride)
-        dragTargetIndex = Math.max(0, Math.min(layerList.count - 1, target))
+        var minimum = -dragSourceIndex * stride
+        var maximum = (layerList.count - 1 - dragSourceIndex) * stride
+        dragDeltaY = Math.max(minimum, Math.min(maximum, deltaY))
+        dragTargetIndex = Math.max(
+            0,
+            Math.min(layerList.count - 1, dragSourceIndex + Math.round(dragDeltaY / stride))
+        )
     }
 
     function finishLayerDrag() {
@@ -32,13 +48,42 @@ Item {
         var target = dragTargetIndex
         dragSourceIndex = -1
         dragTargetIndex = -1
+        dragDeltaY = 0
         if (source >= 0 && target >= 0 && source !== target)
             backend.moveLayer(source, target)
+    }
+
+    function syncEditorLayerParams() {
+        if (!parameterInteractionActive)
+            editorLayerParams = backend.selectedLayerParams
+    }
+
+    function beginParameterInteraction() {
+        // Do not touch editorLayerParams here: changing the Repeater model at
+        // press time would immediately destroy the slider that owns the grab.
+        parameterInteractionActive = true
+    }
+
+    function endParameterInteraction() {
+        parameterInteractionActive = false
+        // Let the release event finish first, then pull the final canonical
+        // value back from the backend once.
+        Qt.callLater(syncEditorLayerParams)
+    }
+
+    Component.onCompleted: syncEditorLayerParams()
+
+    Connections {
+        target: backend
+        function onLayerSelectionChanged() {
+            root.syncEditorLayerParams()
+        }
     }
 
     ColumnLayout {
         anchors.fill: parent
         spacing: 8
+
         RowLayout {
             Layout.fillWidth: true
             MintLabel { text: "Layers"; font.bold: true; font.pixelSize: 15; Layout.fillWidth: true }
@@ -54,6 +99,7 @@ Item {
                 }
             }
         }
+
         ListView {
             id: layerList
             Layout.fillWidth: true
@@ -63,99 +109,155 @@ Item {
             clip: true
             currentIndex: backend.selectedLayerIndex
             ScrollBar.vertical: ScrollBar { policy: ScrollBar.AlwaysOff }
+
             delegate: Rectangle {
                 id: layerDelegate
                 width: layerList.width
                 height: root.layerRowHeight
                 radius: 7
-                property bool isDragTarget: root.dragSourceIndex >= 0
-                                            && root.dragTargetIndex === index
-                                            && root.dragSourceIndex !== index
-                color: index === backend.selectedLayerIndex ? theme.selectionColor : (layerHover.hovered ? theme.panelHoverColor : theme.panelRaisedColor)
-                border.color: isDragTarget ? theme.textColor : theme.borderColor
-                border.width: isDragTarget ? 2 : 1
-                opacity: root.dragSourceIndex === index ? 0.62 : 1.0
+
+                property bool isDragging: root.dragSourceIndex === index
+                property real liveReorderOffset: {
+                    if (root.dragSourceIndex < 0 || root.dragTargetIndex === root.dragSourceIndex)
+                        return 0
+
+                    var stride = root.layerRowHeight + root.layerRowSpacing
+                    if (root.dragSourceIndex < root.dragTargetIndex
+                            && index > root.dragSourceIndex
+                            && index <= root.dragTargetIndex)
+                        return -stride
+                    if (root.dragSourceIndex > root.dragTargetIndex
+                            && index >= root.dragTargetIndex
+                            && index < root.dragSourceIndex)
+                        return stride
+                    return 0
+                }
+
+                z: isDragging ? 20 : 0
+                color: index === backend.selectedLayerIndex
+                       ? theme.selectionColor
+                       : (layerHover.hovered ? theme.panelHoverColor : theme.panelRaisedColor)
+                border.color: isDragging ? theme.accentColor : theme.borderColor
+                border.width: isDragging ? 2 : 1
+                opacity: isDragging ? 0.88 : 1.0
+
+                transform: Translate {
+                    y: layerDelegate.isDragging ? root.dragDeltaY : layerDelegate.liveReorderOffset
+                }
 
                 RowLayout {
-                    anchors.fill: parent; anchors.margins: 7; spacing: 7
+                    anchors.fill: parent
+                    anchors.margins: 7
+                    spacing: 7
 
-                    MintCheckBox { checked: layerEnabled; onToggled: backend.setLayerEnabled(index, checked) }
-                    ColumnLayout {
-                        Layout.fillWidth: true; spacing: 1
-                        Text { Layout.fillWidth: true; text: kind; color: theme.textColor; font.bold: true; elide: Text.ElideRight }
-                        Text { Layout.fillWidth: true; text: summary; color: theme.mutedTextColor; font.pixelSize: 10; elide: Text.ElideRight }
+                    MintCheckBox {
+                        checked: layerEnabled
+                        onToggled: backend.setLayerEnabled(index, checked)
                     }
 
-                    Item {
-                        id: dragGrip
-                        Layout.preferredWidth: 18
-                        Layout.fillHeight: true
-                        Layout.leftMargin: 10
-                        Layout.rightMargin: 5
-
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 1
                         Text {
-                            anchors.centerIn: parent
-                            text: "≡"
-                            color: dragGripHover.hovered || layerDragHandler.active ? theme.textColor : theme.mutedTextColor
-                            font.pixelSize: 16
+                            Layout.fillWidth: true
+                            text: kind
+                            color: theme.textColor
                             font.bold: true
+                            elide: Text.ElideRight
                         }
-
-                        HoverHandler {
-                            id: dragGripHover
-                            cursorShape: Qt.SizeVerCursor
+                        Text {
+                            Layout.fillWidth: true
+                            text: summary
+                            color: theme.mutedTextColor
+                            font.pixelSize: 10
+                            elide: Text.ElideRight
                         }
+                    }
 
-                        DragHandler {
-                            id: layerDragHandler
-                            target: null
-                            acceptedButtons: Qt.LeftButton
-                            onActiveChanged: {
-                                if (active) {
-                                    root.beginLayerDrag(index)
-                                } else if (root.dragSourceIndex === index) {
-                                    root.finishLayerDrag()
-                                }
-                            }
-                            onTranslationChanged: {
-                                if (active)
-                                    root.updateLayerDrag(dragGrip, dragGrip.height / 2 + translation.y)
-                            }
-                        }
-
-                        ToolTip.visible: dragGripHover.hovered && !layerDragHandler.active
-                        ToolTip.text: "Drag to reorder"
-                        ToolTip.delay: 450
+                    Text {
+                        text: "≡"
+                        color: layerDelegate.isDragging ? theme.textColor : theme.mutedTextColor
+                        font.pixelSize: 16
+                        font.bold: true
+                        Layout.leftMargin: 8
+                        Layout.rightMargin: 5
                     }
 
                     MintButton { text: "↑"; enabled: index > 0; onClicked: backend.moveLayer(index, index - 1) }
                     MintButton { text: "↓"; enabled: index < layerList.count - 1; onClicked: backend.moveLayer(index, index + 1) }
                 }
-                HoverHandler { id: layerHover }
-                TapHandler { onTapped: backend.selectLayer(index) }
+
+                HoverHandler {
+                    id: layerHover
+                    cursorShape: cardDrag.active ? Qt.ClosedHandCursor : Qt.OpenHandCursor
+                }
+
+                TapHandler {
+                    onTapped: backend.selectLayer(index)
+                }
+
+                // Dragging works from the whole layer card. Child buttons still
+                // receive ordinary clicks; moving beyond the drag threshold turns
+                // the same press into a card reorder gesture.
+                DragHandler {
+                    id: cardDrag
+                    target: null
+                    acceptedButtons: Qt.LeftButton
+                    xAxis.enabled: false
+                    yAxis.enabled: true
+
+                    onActiveChanged: {
+                        if (active) {
+                            root.beginLayerDrag(index)
+                        } else if (root.dragSourceIndex === index) {
+                            root.finishLayerDrag()
+                        }
+                    }
+
+                    onTranslationChanged: {
+                        if (active)
+                            root.updateLayerDrag(translation.y)
+                    }
+                }
+
+                ToolTip.visible: layerHover.hovered && !cardDrag.active
+                ToolTip.delay: 500
+                ToolTip.text: "Drag anywhere on the layer card to reorder"
             }
         }
+
         RowLayout {
             Layout.fillWidth: true
             MintButton { Layout.fillWidth: true; text: "Duplicate"; onClicked: backend.duplicateLayer(backend.selectedLayerIndex) }
             MintButton { Layout.fillWidth: true; text: "Remove"; onClicked: backend.removeLayer(backend.selectedLayerIndex) }
         }
+
         Rectangle { Layout.fillWidth: true; height: 1; color: theme.borderColor }
         MintLabel { text: backend.selectedLayerName; font.bold: true }
+
         ScrollView {
             id: paramScroll
-            Layout.fillWidth: true; Layout.fillHeight: true
+            Layout.fillWidth: true
+            Layout.fillHeight: true
             contentWidth: availableWidth
             ScrollBar.vertical.policy: ScrollBar.AlwaysOff
+
             ColumnLayout {
                 width: paramScroll.availableWidth
                 spacing: 8
+
                 Repeater {
-                    model: backend.selectedLayerParams
+                    model: root.editorLayerParams
                     delegate: Loader {
                         Layout.fillWidth: true
                         property var param: modelData
-                        sourceComponent: param.type === "bool" ? boolEditor : param.type === "choice" ? choiceEditor : param.type === "text" || param.type === "file" || param.type === "color" ? textEditor : numberEditor
+                        sourceComponent: param.type === "bool"
+                                         ? boolEditor
+                                         : param.type === "choice"
+                                           ? choiceEditor
+                                           : param.type === "text" || param.type === "file" || param.type === "color"
+                                             ? textEditor
+                                             : numberEditor
                     }
                 }
             }
@@ -166,13 +268,18 @@ Item {
         id: addPopup
         popupType: Popup.Item
         parent: Overlay.overlay
-        width: 250; height: Math.min(440, addList.contentHeight + 10); padding: 5
+        width: 250
+        height: Math.min(440, addList.contentHeight + 10)
+        padding: 5
         background: Rectangle { color: theme.panelRaisedColor; border.color: theme.borderColor; radius: 8 }
         contentItem: ListView {
-            id: addList; model: backend.layerKinds; clip: true
+            id: addList
+            model: backend.layerKinds
+            clip: true
             ScrollBar.vertical: ScrollBar { policy: ScrollBar.AlwaysOff }
             delegate: ItemDelegate {
-                width: addList.width; height: 32
+                width: addList.width
+                height: 32
                 contentItem: Text { text: modelData; color: theme.textColor; verticalAlignment: Text.AlignVCenter }
                 background: Rectangle { radius: 5; color: parent.hovered ? theme.selectionColor : "transparent" }
                 onClicked: { backend.addLayer(modelData); addPopup.close() }
@@ -189,49 +296,77 @@ Item {
             onToggled: backend.setLayerParam(param.key, checked)
         }
     }
+
     Component {
         id: choiceEditor
         ColumnLayout {
             spacing: 4
             MintLabel { text: param.label; color: theme.mutedTextColor }
             MintComboBox {
-                Layout.fillWidth: true; model: param.options; enabled: !param.animated
+                Layout.fillWidth: true
+                model: param.options
+                enabled: !param.animated
                 Component.onCompleted: currentIndex = Math.max(0, param.options.indexOf(String(param.value)))
                 onActivated: backend.setLayerParam(param.key, currentText)
             }
         }
     }
+
     Component {
         id: textEditor
         ColumnLayout {
             spacing: 4
             MintLabel { text: param.label; color: theme.mutedTextColor }
-            MintTextField { Layout.fillWidth: true; text: String(param.value); enabled: !param.animated; onEditingFinished: backend.setLayerParam(param.key, text) }
+            MintTextField {
+                Layout.fillWidth: true
+                text: String(param.value)
+                enabled: !param.animated
+                onEditingFinished: backend.setLayerParam(param.key, text)
+            }
         }
     }
+
     Component {
         id: numberEditor
         ColumnLayout {
             spacing: 4
+
             RowLayout {
                 Layout.fillWidth: true
-                MintLabel { text: param.label + (param.animated ? "  · animated" : ""); color: theme.mutedTextColor; Layout.fillWidth: true }
-                MintLabel { text: Number(param.value).toFixed(param.decimals !== undefined ? param.decimals : 0) + (param.suffix || "") }
+                MintLabel {
+                    text: param.label + (param.animated ? "  · animated" : "")
+                    color: theme.mutedTextColor
+                    Layout.fillWidth: true
+                }
+                MintLabel {
+                    text: Number(paramSlider.displayValue).toFixed(param.decimals !== undefined ? param.decimals : 0) + (param.suffix || "")
+                }
             }
+
             MintSlider {
+                id: paramSlider
                 Layout.fillWidth: true
                 enabled: !param.animated
                 from: Number(param.min)
                 to: Number(param.max)
                 stepSize: Number(param.step || 1)
                 value: Number(param.value)
+
                 onInteractionActiveChanged: {
-                    if (interactionActive)
+                    if (interactionActive) {
+                        root.beginParameterInteraction()
                         backend.beginHistoryGroup(backend.selectedLayerName + " · " + param.label)
-                    else
+                    } else {
                         backend.endHistoryGroup()
+                        root.endParameterInteraction()
+                    }
                 }
-                onUserMoved: function(newValue) { backend.setLayerParam(param.key, newValue) }
+
+                // Every pointer movement is applied immediately, so the preview
+                // updates continuously while the knob is held and dragged.
+                onUserMoved: function(newValue) {
+                    backend.setLayerParam(param.key, newValue)
+                }
             }
         }
     }

@@ -8,6 +8,22 @@ Item {
     id: root
     property int colorEditIndex: -1
 
+    readonly property var paletteCategories: {
+        var seen = {}
+        var categories = []
+        var items = backend.allPaletteLibrary || []
+        for (var i = 0; i < items.length; ++i) {
+            var category = String(items[i].category || "Other")
+            if (!seen[category]) {
+                seen[category] = true
+                categories.push(category)
+            }
+        }
+        categories.sort()
+        categories.unshift("All")
+        return categories
+    }
+
     ColumnLayout {
         anchors.fill: parent
         spacing: 9
@@ -90,23 +106,42 @@ Item {
             }
         }
 
-        MintTextField {
-            id: searchField
+        RowLayout {
             Layout.fillWidth: true
-            placeholderText: "Search palettes…"
+            spacing: 6
+
+            MintTextField {
+                id: searchField
+                Layout.fillWidth: true
+                placeholderText: "Search palettes…"
+            }
+
+            MintComboBox {
+                id: categoryFilter
+                Layout.preferredWidth: 145
+                model: root.paletteCategories
+                currentIndex: 0
+            }
         }
 
         ListView {
+            id: paletteList
             Layout.fillWidth: true
-            Layout.preferredHeight: 190
+            Layout.preferredHeight: 210
             clip: true
             spacing: 3
             model: backend.allPaletteLibrary
-            ScrollBar.vertical: ScrollBar { policy: ScrollBar.AlwaysOff }
+            boundsBehavior: Flickable.StopAtBounds
+
+            ScrollBar.vertical: ScrollBar {
+                policy: ScrollBar.AsNeeded
+            }
 
             delegate: Rectangle {
-                width: ListView.view.width
-                property bool matches: searchField.text.length === 0 || (modelData.name + " " + modelData.category + " " + modelData.description).toLowerCase().indexOf(searchField.text.toLowerCase()) >= 0
+                width: paletteList.width - 8
+                property bool matchesSearch: searchField.text.length === 0 || (modelData.name + " " + modelData.category + " " + modelData.description).toLowerCase().indexOf(searchField.text.toLowerCase()) >= 0
+                property bool matchesCategory: categoryFilter.currentText === "All" || String(modelData.category) === categoryFilter.currentText
+                property bool matches: matchesSearch && matchesCategory
                 property bool isUserPalette: Boolean(modelData.user)
                 height: matches ? 44 : 0
                 visible: matches
@@ -173,15 +208,9 @@ Item {
 
         RowLayout {
             Layout.fillWidth: true
+            spacing: 6
             MintButton { Layout.fillWidth: true; text: "Import…"; onClicked: importPaletteDialog.open() }
-            MintButton {
-                Layout.fillWidth: true
-                text: "Save to Library…"
-                onClicked: saveLibraryDialog.open()
-            }
-        }
-        RowLayout {
-            Layout.fillWidth: true
+            MintButton { Layout.fillWidth: true; text: "Save to Library…"; onClicked: saveLibraryDialog.open() }
             MintButton { Layout.fillWidth: true; text: "Export JSON…"; onClicked: exportJsonDialog.open() }
             MintButton { Layout.fillWidth: true; text: "Export HEX…"; onClicked: exportHexDialog.open() }
         }
@@ -239,7 +268,7 @@ Item {
         onOpened: {
             var currentName = backend.settingsMap.palette_name || ""
             paletteNameField.text = currentName === "Custom" ? "Custom Palette" : currentName
-            paletteCategoryField.text = "Custom"
+            paletteCategoryField.text = categoryFilter.currentText !== "All" ? categoryFilter.currentText : "Custom"
             paletteNameField.forceActiveFocus()
             paletteNameField.selectAll()
         }
