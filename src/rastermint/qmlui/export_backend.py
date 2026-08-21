@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from PIL import Image
-from PySide6.QtCore import Slot
+from PySide6.QtCore import QUrl, Slot
 
 from rastermint.core.animation import settings_at_time
 from rastermint.core.processor import (
@@ -142,6 +142,17 @@ class RasterMintBackend(PreferencesBackend):
             "width": max(1, int(width)),
             "height": max(1, int(height)),
         }
+
+    @Slot(str, result=str)
+    def suggestedExportFile(self, format_name: str = "PNG") -> str:
+        """Return a source-adjacent export URL using the original base filename."""
+        if self._current_file is None:
+            return ""
+
+        fmt = str(format_name or "PNG").strip().upper()
+        suffix = _FORMAT_SUFFIXES.get(fmt, ".png")
+        path = self._current_file.with_name(self._current_file.stem + suffix)
+        return QUrl.fromLocalFile(str(path)).toString()
 
     @staticmethod
     def _advanced_export_path(value: str, format_name: str) -> Path:

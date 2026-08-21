@@ -91,6 +91,11 @@ Dialog {
         applyScale(1.0)
     }
 
+    function openExportFileDialog() {
+        exportFileDialog.selectedFile = backend.suggestedExportFile(selectedFormat)
+        exportFileDialog.open()
+    }
+
     function exportOptions() {
         return {
             "width": exportWidth,
@@ -386,7 +391,7 @@ Dialog {
                 MintButton {
                     text: "Export…"
                     selected: true
-                    onClicked: exportFileDialog.open()
+                    onClicked: root.openExportFileDialog()
                 }
             }
         }

@@ -29,6 +29,11 @@ ApplicationWindow {
         return result
     }
 
+    function openQuickExportImageDialog() {
+        quickExportImageDialog.selectedFile = backend.suggestedExportFile("PNG")
+        quickExportImageDialog.open()
+    }
+
     function closeTopMenus(exceptMenu) {
         if (fileMenu !== exceptMenu && fileMenu.opened)
             fileMenu.close()
@@ -113,7 +118,7 @@ ApplicationWindow {
 
             Action { text: "Open File…"; shortcut: StandardKey.Open; onTriggered: openDialog.open() }
             MintMenuSeparator { }
-            Action { text: "Quick Export Image…"; enabled: backend.hasSource; shortcut: "Ctrl+E"; onTriggered: quickExportImageDialog.open() }
+            Action { text: "Quick Export Image…"; enabled: backend.hasSource; shortcut: "Ctrl+E"; onTriggered: window.openQuickExportImageDialog() }
             Action { text: "Export Image…"; enabled: backend.hasSource; shortcut: "Ctrl+Shift+E"; onTriggered: advancedExportDialog.open() }
             Action { text: "Export Animation / Video…"; enabled: backend.hasSource; shortcut: "Ctrl+Alt+S"; onTriggered: exportMediaDialog.open() }
             Action { text: "Export PNG Sequence…"; enabled: backend.hasSource; shortcut: "Ctrl+Alt+P"; onTriggered: sequenceFolderDialog.open() }
