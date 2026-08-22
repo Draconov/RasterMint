@@ -33,10 +33,17 @@ def test_layers_keep_slider_gesture_model_and_effect_categories():
 def test_presets_page_keeps_library_grid_and_custom_preset_controls():
     presets = (QML / "pages" / "PresetsPage.qml").read_text(encoding="utf-8")
 
-    # allPresets is the combined built-in + user library model. Using
-    # builtinPresets here silently removes the user's saved preset library.
+    # allPresets is still the single combined built-in + user library source.
+    # The categorized browser filters that source into per-category PresetGrid
+    # models instead of binding a GridView directly to backend.allPresets.
     assert "GridView" in presets
-    assert "model: backend.allPresets" in presets
+    assert "backend.allPresets ? backend.allPresets : []" in presets
+    assert "component PresetGrid: GridView" in presets
+    assert "model: presetModel" in presets
+    assert "presetCategories" in presets
+    assert "expandedPresetCategories" in presets
+    assert "togglePresetCategory" in presets
+    assert "property int presetColumns: width >= 500 ? 2 : 1" in presets
     assert "backend.applyPreset(modelData.id)" in presets
     assert 'text: "Save to Library"' in presets
     assert "backend.savePresetToLibrary" in presets

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+import math
 from io import BytesIO
 from pathlib import Path
 from typing import Any
@@ -168,6 +169,91 @@ EFFECT_DEFINITIONS: dict[str, dict[str, Any]] = {
         "outline": {"type": "int", "label": "Outline", "default": 1, "min": 0, "max": 8, "step": 1, "suffix": " px", "pixel_scaled": True},
         "shadow": {"type": "int", "label": "Shadow", "default": 0, "min": 0, "max": 16, "step": 1, "suffix": " px", "pixel_scaled": True},
     }},
+    "ASCII / Glyph": {"params": {
+        "character_set": {"type": "choice", "label": "Character set", "default": "Classic ASCII", "options": ["Classic ASCII", "Dense ASCII", "Blocks", "Binary", "Custom"]},
+        "custom_chars": {"type": "text", "label": "Custom characters", "default": " .:-=+*#%@"},
+        "cell_size": {"type": "int", "label": "Cell size", "default": 10, "min": 4, "max": 64, "step": 1, "suffix": " px", "animatable": True, "pixel_scaled": True},
+        "depth": {"type": "int", "label": "Character depth", "default": 10, "min": 2, "max": 64, "step": 1, "animatable": True},
+        "offset": {"type": "int", "label": "Character offset", "default": 0, "min": -32, "max": 32, "step": 1, "animatable": True},
+        "invert": {"type": "bool", "label": "Invert mapping", "default": False},
+        "color_mode": {"type": "choice", "label": "Colour mode", "default": "Source", "options": ["Source", "Palette", "Single Colour"]},
+        "foreground": {"type": "color", "label": "Foreground", "default": "#FFFFFF"},
+        "background": {"type": "color", "label": "Background", "default": "#101217"},
+        "font": {"type": "choice", "label": "Font", "default": "Mono", "options": ["Pixel", "Mono", "Sans", "Serif"]},
+        "font_scale": {"type": "float", "label": "Glyph scale", "default": 0.9, "min": 0.4, "max": 1.5, "step": 0.05, "decimals": 2, "animatable": True},
+    }},
+    "Pixel Text": {"params": {
+        "text": {"type": "text", "label": "Text", "default": "PIXEL TEXT"},
+        "x": {"type": "float", "label": "X", "default": 50.0, "min": 0.0, "max": 100.0, "step": 1.0, "decimals": 1, "suffix": "%", "animatable": True},
+        "y": {"type": "float", "label": "Y", "default": 50.0, "min": 0.0, "max": 100.0, "step": 1.0, "decimals": 1, "suffix": "%", "animatable": True},
+        "size": {"type": "int", "label": "Size", "default": 24, "min": 6, "max": 192, "step": 1, "suffix": " px", "animatable": True, "pixel_scaled": True},
+        "color": {"type": "color", "label": "Color", "default": "#FFFFFF"},
+        "font": {"type": "choice", "label": "Font", "default": "Pixel", "options": ["Pixel", "Mono", "Sans", "Serif"]},
+        "alignment": {"type": "choice", "label": "Alignment", "default": "Center", "options": ["Left", "Center", "Right"]},
+        "wrap_width": {"type": "float", "label": "Wrap width", "default": 80.0, "min": 10.0, "max": 100.0, "step": 1.0, "decimals": 1, "suffix": "%", "animatable": True},
+        "letter_spacing": {"type": "int", "label": "Letter spacing", "default": 1, "min": -4, "max": 32, "step": 1, "suffix": " px", "animatable": True, "pixel_scaled": True},
+        "line_spacing": {"type": "int", "label": "Line spacing", "default": 2, "min": 0, "max": 64, "step": 1, "suffix": " px", "animatable": True, "pixel_scaled": True},
+        "rotation": {"type": "float", "label": "Rotation", "default": 0.0, "min": -180.0, "max": 180.0, "step": 1.0, "decimals": 1, "suffix": "°", "animatable": True},
+        "outline": {"type": "int", "label": "Outline", "default": 0, "min": 0, "max": 8, "step": 1, "suffix": " px", "pixel_scaled": True},
+        "shadow": {"type": "int", "label": "Shadow", "default": 0, "min": 0, "max": 16, "step": 1, "suffix": " px", "pixel_scaled": True},
+    }},
+    "Text Pattern": {"params": {
+        "text": {"type": "text", "label": "Text", "default": "RASTERMINT"},
+        "size": {"type": "int", "label": "Size", "default": 16, "min": 6, "max": 128, "step": 1, "suffix": " px", "animatable": True, "pixel_scaled": True},
+        "color": {"type": "color", "label": "Color", "default": "#FFFFFF"},
+        "font": {"type": "choice", "label": "Font", "default": "Mono", "options": ["Pixel", "Mono", "Sans", "Serif"]},
+        "spacing_x": {"type": "int", "label": "Horizontal spacing", "default": 120, "min": 12, "max": 1024, "step": 1, "suffix": " px", "animatable": True, "pixel_scaled": True},
+        "spacing_y": {"type": "int", "label": "Vertical spacing", "default": 56, "min": 12, "max": 1024, "step": 1, "suffix": " px", "animatable": True, "pixel_scaled": True},
+        "offset_x": {"type": "int", "label": "Row offset", "default": 36, "min": -512, "max": 512, "step": 1, "suffix": " px", "animatable": True, "pixel_scaled": True},
+        "rotation": {"type": "float", "label": "Rotation", "default": -15.0, "min": -180.0, "max": 180.0, "step": 1.0, "decimals": 1, "suffix": "°", "animatable": True},
+        "opacity": {"type": "float", "label": "Opacity", "default": 0.55, "min": 0.0, "max": 1.0, "step": 0.05, "decimals": 2, "animatable": True},
+    }},
+    "Text Mask": {"params": {
+        "text": {"type": "text", "label": "Text", "default": "MASK"},
+        "x": {"type": "float", "label": "X", "default": 50.0, "min": 0.0, "max": 100.0, "step": 1.0, "decimals": 1, "suffix": "%", "animatable": True},
+        "y": {"type": "float", "label": "Y", "default": 50.0, "min": 0.0, "max": 100.0, "step": 1.0, "decimals": 1, "suffix": "%", "animatable": True},
+        "size": {"type": "int", "label": "Size", "default": 72, "min": 8, "max": 320, "step": 1, "suffix": " px", "animatable": True, "pixel_scaled": True},
+        "font": {"type": "choice", "label": "Font", "default": "Sans", "options": ["Pixel", "Mono", "Sans", "Serif"]},
+        "mode": {"type": "choice", "label": "Mode", "default": "Keep Inside", "options": ["Keep Inside", "Cut Out"]},
+        "background": {"type": "color", "label": "Background", "default": "#000000"},
+        "rotation": {"type": "float", "label": "Rotation", "default": 0.0, "min": -180.0, "max": 180.0, "step": 1.0, "decimals": 1, "suffix": "°", "animatable": True},
+    }},
+    "Wave / Jitter Text": {"params": {
+        "text": {"type": "text", "label": "Text", "default": "WAVE TEXT"},
+        "x": {"type": "float", "label": "X", "default": 50.0, "min": 0.0, "max": 100.0, "step": 1.0, "decimals": 1, "suffix": "%", "animatable": True},
+        "y": {"type": "float", "label": "Y", "default": 50.0, "min": 0.0, "max": 100.0, "step": 1.0, "decimals": 1, "suffix": "%", "animatable": True},
+        "size": {"type": "int", "label": "Size", "default": 28, "min": 6, "max": 192, "step": 1, "suffix": " px", "animatable": True, "pixel_scaled": True},
+        "color": {"type": "color", "label": "Color", "default": "#FFFFFF"},
+        "font": {"type": "choice", "label": "Font", "default": "Pixel", "options": ["Pixel", "Mono", "Sans", "Serif"]},
+        "amplitude": {"type": "float", "label": "Wave amplitude", "default": 8.0, "min": 0.0, "max": 128.0, "step": 1.0, "decimals": 1, "suffix": " px", "animatable": True, "pixel_scaled": True},
+        "wavelength": {"type": "float", "label": "Wavelength", "default": 5.0, "min": 1.0, "max": 32.0, "step": 0.5, "decimals": 1, "animatable": True},
+        "jitter": {"type": "float", "label": "Jitter", "default": 2.0, "min": 0.0, "max": 64.0, "step": 0.5, "decimals": 1, "suffix": " px", "animatable": True, "pixel_scaled": True},
+        "speed": {"type": "float", "label": "Speed", "default": 1.0, "min": 0.0, "max": 20.0, "step": 0.1, "decimals": 1, "suffix": " Hz", "animatable": True},
+        "seed": {"type": "int", "label": "Seed", "default": 1, "min": 0, "max": 999999, "step": 1},
+    }},
+    "Typewriter Text": {"params": {
+        "text": {"type": "text", "label": "Text", "default": "TYPE SOMETHING..."},
+        "x": {"type": "float", "label": "X", "default": 50.0, "min": 0.0, "max": 100.0, "step": 1.0, "decimals": 1, "suffix": "%", "animatable": True},
+        "y": {"type": "float", "label": "Y", "default": 50.0, "min": 0.0, "max": 100.0, "step": 1.0, "decimals": 1, "suffix": "%", "animatable": True},
+        "size": {"type": "int", "label": "Size", "default": 24, "min": 6, "max": 192, "step": 1, "suffix": " px", "animatable": True, "pixel_scaled": True},
+        "color": {"type": "color", "label": "Color", "default": "#FFFFFF"},
+        "font": {"type": "choice", "label": "Font", "default": "Mono", "options": ["Pixel", "Mono", "Sans", "Serif"]},
+        "progress": {"type": "float", "label": "Reveal", "default": 100.0, "min": 0.0, "max": 100.0, "step": 1.0, "decimals": 1, "suffix": "%", "animatable": True},
+        "cursor": {"type": "bool", "label": "Show cursor", "default": True},
+        "cursor_char": {"type": "text", "label": "Cursor", "default": "_"},
+    }},
+    "Text Glitch": {"params": {
+        "text": {"type": "text", "label": "Text", "default": "GLITCH"},
+        "x": {"type": "float", "label": "X", "default": 50.0, "min": 0.0, "max": 100.0, "step": 1.0, "decimals": 1, "suffix": "%", "animatable": True},
+        "y": {"type": "float", "label": "Y", "default": 50.0, "min": 0.0, "max": 100.0, "step": 1.0, "decimals": 1, "suffix": "%", "animatable": True},
+        "size": {"type": "int", "label": "Size", "default": 36, "min": 6, "max": 192, "step": 1, "suffix": " px", "animatable": True, "pixel_scaled": True},
+        "color": {"type": "color", "label": "Color", "default": "#FFFFFF"},
+        "font": {"type": "choice", "label": "Font", "default": "Pixel", "options": ["Pixel", "Mono", "Sans", "Serif"]},
+        "rgb_offset": {"type": "int", "label": "RGB offset", "default": 3, "min": 0, "max": 64, "step": 1, "suffix": " px", "animatable": True, "pixel_scaled": True},
+        "slice_shift": {"type": "int", "label": "Slice shift", "default": 8, "min": 0, "max": 128, "step": 1, "suffix": " px", "animatable": True, "pixel_scaled": True},
+        "slice_height": {"type": "int", "label": "Slice height", "default": 4, "min": 1, "max": 32, "step": 1, "suffix": " px", "pixel_scaled": True},
+        "seed": {"type": "int", "label": "Seed", "default": 1, "min": 0, "max": 999999, "step": 1},
+    }},
     "Dither": {"params": {
         "algorithm": {"type": "choice", "label": "Algorithm", "default": "Floyd-Steinberg", "options": ALGORITHMS},
         "mix": {"type": "float", "label": "Mix", "default": 1.0, "min": 0.0, "max": 1.0, "step": 0.05, "decimals": 2, "animatable": True},
@@ -198,7 +284,8 @@ EFFECT_CATEGORIES: tuple[tuple[str, tuple[str, ...]], ...] = (
         "Noise", "Temporal Flicker", "Temporal Pattern", "Cellular Automata",
     )),
     ("Text & Overlay", (
-        "Text Overlay",
+        "Text Overlay", "Pixel Text", "Text Pattern", "Text Mask",
+        "Wave / Jitter Text", "Typewriter Text", "Text Glitch", "ASCII / Glyph",
     )),
 )
 
@@ -807,6 +894,340 @@ def _pixel_material(image: Image.Image, style: str, cell_size: int, gap: int, ba
     return canvas
 
 
+
+_FONT_FILES = {
+    "Mono": "DejaVuSansMono.ttf",
+    "Sans": "DejaVuSans.ttf",
+    "Serif": "DejaVuSerif.ttf",
+}
+
+_GLYPH_SETS = {
+    "Classic ASCII": " .:-=+*#%@",
+    "Dense ASCII": " .'`^\",:;Il!i~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$",
+    "Blocks": " ░▒▓█",
+    "Binary": "01",
+}
+
+
+def _load_text_font(font_name: str, size: int) -> ImageFont.ImageFont:
+    size = max(6, int(size))
+    if font_name == "Pixel":
+        try:
+            return ImageFont.load_default(size=size)
+        except TypeError:
+            return ImageFont.load_default()
+    filename = _FONT_FILES.get(str(font_name), _FONT_FILES["Mono"])
+    try:
+        return ImageFont.truetype(filename, size=size)
+    except Exception:
+        try:
+            return ImageFont.load_default(size=size)
+        except TypeError:
+            return ImageFont.load_default()
+
+
+def _text_line_width(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.ImageFont, letter_spacing: int = 0) -> int:
+    if not text:
+        return 0
+    if letter_spacing == 0:
+        return max(1, int(round(draw.textlength(text, font=font))))
+    widths = [float(draw.textlength(ch, font=font)) for ch in text]
+    return max(1, int(round(sum(widths) + max(0, len(text) - 1) * letter_spacing)))
+
+
+def _wrap_text_lines(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.ImageFont, max_width: int, letter_spacing: int = 0) -> list[str]:
+    max_width = max(1, int(max_width))
+    result: list[str] = []
+    for paragraph in str(text).splitlines() or [""]:
+        words = paragraph.split(" ")
+        if not words:
+            result.append("")
+            continue
+        line = ""
+        for word in words:
+            candidate = word if not line else f"{line} {word}"
+            if not line or _text_line_width(draw, candidate, font, letter_spacing) <= max_width:
+                line = candidate
+                continue
+            result.append(line)
+            line = word
+            if _text_line_width(draw, line, font, letter_spacing) > max_width:
+                piece = ""
+                for ch in line:
+                    candidate_piece = piece + ch
+                    if piece and _text_line_width(draw, candidate_piece, font, letter_spacing) > max_width:
+                        result.append(piece)
+                        piece = ch
+                    else:
+                        piece = candidate_piece
+                line = piece
+        result.append(line)
+    return result or [""]
+
+
+def _draw_spaced_line(
+    draw: ImageDraw.ImageDraw,
+    pos: tuple[int, int],
+    text: str,
+    *,
+    font: ImageFont.ImageFont,
+    fill: tuple[int, int, int] | tuple[int, int, int, int],
+    letter_spacing: int = 0,
+    stroke_width: int = 0,
+    stroke_fill: tuple[int, int, int] | tuple[int, int, int, int] = (0, 0, 0),
+) -> None:
+    x, y = pos
+    if letter_spacing == 0:
+        draw.text((x, y), text, font=font, fill=fill, stroke_width=stroke_width, stroke_fill=stroke_fill)
+        return
+    cursor = float(x)
+    for ch in text:
+        draw.text((round(cursor), y), ch, font=font, fill=fill, stroke_width=stroke_width, stroke_fill=stroke_fill)
+        cursor += float(draw.textlength(ch, font=font)) + letter_spacing
+
+
+def _render_text_block(
+    text: str,
+    *,
+    size: int,
+    color: str,
+    font_name: str,
+    max_width: int,
+    alignment: str = "Center",
+    letter_spacing: int = 0,
+    line_spacing: int = 0,
+    outline: int = 0,
+    shadow: int = 0,
+) -> Image.Image:
+    font = _load_text_font(font_name, size)
+    probe = Image.new("RGBA", (max(2, max_width), max(2, size * 2)), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(probe)
+    lines = _wrap_text_lines(draw, str(text), font, max_width, letter_spacing)
+    bbox = draw.textbbox((0, 0), "Mg", font=font, stroke_width=max(0, int(outline)))
+    line_height = max(1, bbox[3] - bbox[1])
+    widths = [_text_line_width(draw, line, font, letter_spacing) for line in lines]
+    block_width = max(1, min(max_width, max(widths, default=1) + max(0, int(outline)) * 2 + max(0, int(shadow))))
+    block_height = max(1, len(lines) * line_height + max(0, len(lines) - 1) * max(0, int(line_spacing)) + max(0, int(outline)) * 2 + max(0, int(shadow)))
+    layer = Image.new("RGBA", (block_width, block_height), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(layer)
+    fill = (*hex_to_rgb(color), 255)
+    stroke = (0, 0, 0, 255)
+    y = max(0, int(outline))
+    for line, width in zip(lines, widths, strict=False):
+        if alignment == "Left":
+            x = max(0, int(outline))
+        elif alignment == "Right":
+            x = max(0, block_width - width - int(outline) - int(shadow))
+        else:
+            x = max(0, (block_width - width - int(shadow)) // 2)
+        if shadow > 0:
+            _draw_spaced_line(draw, (x + shadow, y + shadow), line, font=font, fill=(0, 0, 0, 200), letter_spacing=letter_spacing, stroke_width=max(0, int(outline)), stroke_fill=stroke)
+        _draw_spaced_line(draw, (x, y), line, font=font, fill=fill, letter_spacing=letter_spacing, stroke_width=max(0, int(outline)), stroke_fill=stroke)
+        y += line_height + max(0, int(line_spacing))
+    return layer
+
+
+def _paste_centered_rgba(base: Image.Image, layer: Image.Image, x_percent: float, y_percent: float) -> Image.Image:
+    canvas = base.convert("RGBA")
+    px = round(canvas.width * max(0.0, min(100.0, float(x_percent))) / 100.0)
+    py = round(canvas.height * max(0.0, min(100.0, float(y_percent))) / 100.0)
+    pos = (round(px - layer.width / 2), round(py - layer.height / 2))
+    canvas.alpha_composite(layer, dest=pos)
+    return canvas.convert("RGB")
+
+
+def _ascii_glyph(
+    image: Image.Image,
+    character_set: str,
+    custom_chars: str,
+    cell_size: int,
+    depth: int,
+    offset: int,
+    invert: bool,
+    color_mode: str,
+    foreground: str,
+    background: str,
+    font_name: str,
+    font_scale: float,
+    palette_np: np.ndarray,
+) -> Image.Image:
+    cell = max(4, int(cell_size))
+    chars = str(custom_chars) if character_set == "Custom" else _GLYPH_SETS.get(str(character_set), _GLYPH_SETS["Classic ASCII"])
+    chars = chars or " .:-=+*#%@"
+    depth = max(2, min(len(chars), int(depth)))
+    if len(chars) > depth:
+        indices = np.linspace(0, len(chars) - 1, depth).round().astype(int)
+        chars = "".join(chars[i] for i in indices)
+    offset = int(offset)
+    source = np.asarray(image.convert("RGB"), dtype=np.uint8)
+    canvas = Image.new("RGB", image.size, hex_to_rgb(background))
+    draw = ImageDraw.Draw(canvas)
+    font = _load_text_font(font_name, max(6, round(cell * max(0.4, min(1.5, float(font_scale))))))
+    single = hex_to_rgb(foreground)
+    for y in range(0, image.height, cell):
+        for x in range(0, image.width, cell):
+            region = source[y:min(source.shape[0], y + cell), x:min(source.shape[1], x + cell)]
+            if not region.size:
+                continue
+            mean = np.mean(region.reshape(-1, 3), axis=0)
+            lum = float(0.2126 * mean[0] + 0.7152 * mean[1] + 0.0722 * mean[2]) / 255.0
+            if invert:
+                lum = 1.0 - lum
+            index = int(round(lum * (len(chars) - 1)))
+            index = (index + offset) % len(chars)
+            char = chars[index]
+            if color_mode == "Single Colour":
+                color = single
+            elif color_mode == "Palette" and palette_np.size:
+                diff = palette_np.astype(np.float32) - mean.astype(np.float32)
+                color = tuple(int(v) for v in palette_np[int(np.argmin(np.sum(diff * diff, axis=1)))])
+            else:
+                color = tuple(int(round(v)) for v in mean)
+            bbox = draw.textbbox((0, 0), char, font=font)
+            tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
+            draw.text((x + (cell - tw) / 2, y + (cell - th) / 2 - bbox[1]), char, font=font, fill=color)
+    return canvas
+
+
+def _pixel_text(
+    image: Image.Image,
+    text: str,
+    x: float,
+    y: float,
+    size: int,
+    color: str,
+    font_name: str,
+    alignment: str,
+    wrap_width: float,
+    letter_spacing: int,
+    line_spacing: int,
+    rotation: float,
+    outline: int,
+    shadow: int,
+) -> Image.Image:
+    max_width = max(16, round(image.width * max(0.1, min(1.0, float(wrap_width) / 100.0))))
+    layer = _render_text_block(
+        text,
+        size=size,
+        color=color,
+        font_name=font_name,
+        max_width=max_width,
+        alignment=alignment,
+        letter_spacing=int(letter_spacing),
+        line_spacing=int(line_spacing),
+        outline=int(outline),
+        shadow=int(shadow),
+    )
+    if abs(float(rotation)) > 1e-6:
+        layer = layer.rotate(-float(rotation), resample=Image.Resampling.NEAREST, expand=True)
+    return _paste_centered_rgba(image, layer, x, y)
+
+
+def _text_pattern(image: Image.Image, text: str, size: int, color: str, font_name: str, spacing_x: int, spacing_y: int, offset_x: int, rotation: float, opacity: float) -> Image.Image:
+    overlay = Image.new("RGBA", image.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay)
+    font = _load_text_font(font_name, size)
+    rgb = hex_to_rgb(color)
+    alpha = round(255 * max(0.0, min(1.0, float(opacity))))
+    sx = max(12, int(spacing_x))
+    sy = max(12, int(spacing_y))
+    row = 0
+    for y in range(-sy, image.height + sy, sy):
+        shift = int(offset_x) if row % 2 else 0
+        for x in range(-sx, image.width + sx, sx):
+            draw.text((x + shift, y), str(text), font=font, fill=(*rgb, alpha))
+        row += 1
+    if abs(float(rotation)) > 1e-6:
+        overlay = overlay.rotate(-float(rotation), resample=Image.Resampling.BICUBIC, expand=False)
+    return Image.alpha_composite(image.convert("RGBA"), overlay).convert("RGB")
+
+
+def _text_mask(image: Image.Image, text: str, x: float, y: float, size: int, font_name: str, mode: str, background: str, rotation: float) -> Image.Image:
+    font = _load_text_font(font_name, size)
+    temp = Image.new("L", image.size, 0)
+    draw = ImageDraw.Draw(temp)
+    bbox = draw.multiline_textbbox((0, 0), str(text), font=font, align="center")
+    tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
+    px = round(image.width * max(0.0, min(100.0, float(x))) / 100.0)
+    py = round(image.height * max(0.0, min(100.0, float(y))) / 100.0)
+    draw.multiline_text((px - tw / 2, py - th / 2 - bbox[1]), str(text), font=font, fill=255, align="center")
+    if abs(float(rotation)) > 1e-6:
+        temp = temp.rotate(-float(rotation), resample=Image.Resampling.BICUBIC, expand=False)
+    mask = temp if str(mode) == "Keep Inside" else ImageOps.invert(temp)
+    bg = Image.new("RGB", image.size, hex_to_rgb(background))
+    return Image.composite(image.convert("RGB"), bg, mask)
+
+
+def _wave_jitter_text(image: Image.Image, text: str, x: float, y: float, size: int, color: str, font_name: str, amplitude: float, wavelength: float, jitter: float, speed: float, seed: int, frame_time: float) -> Image.Image:
+    img = image.convert("RGB").copy()
+    draw = ImageDraw.Draw(img)
+    font = _load_text_font(font_name, size)
+    value = str(text)
+    widths = [float(draw.textlength(ch, font=font)) for ch in value]
+    total = sum(widths)
+    start_x = image.width * max(0.0, min(100.0, float(x))) / 100.0 - total / 2
+    center_y = image.height * max(0.0, min(100.0, float(y))) / 100.0
+    rng = np.random.default_rng(int(seed))
+    jit = max(0.0, float(jitter))
+    amp = max(0.0, float(amplitude))
+    wave = max(1.0, float(wavelength))
+    phase = float(frame_time) * max(0.0, float(speed)) * math.tau
+    cursor = start_x
+    fill = hex_to_rgb(color)
+    for index, (ch, width) in enumerate(zip(value, widths, strict=False)):
+        jx = float(rng.uniform(-jit, jit)) if jit else 0.0
+        jy = float(rng.uniform(-jit, jit)) if jit else 0.0
+        wy = math.sin((index / wave) * math.tau + phase) * amp
+        bbox = draw.textbbox((0, 0), ch or " ", font=font)
+        th = bbox[3] - bbox[1]
+        draw.text((round(cursor + jx), round(center_y - th / 2 + wy + jy - bbox[1])), ch, font=font, fill=fill)
+        cursor += width
+    return img
+
+
+def _typewriter_text(image: Image.Image, text: str, x: float, y: float, size: int, color: str, font_name: str, progress: float, cursor: bool, cursor_char: str) -> Image.Image:
+    value = str(text)
+    count = max(0, min(len(value), round(len(value) * max(0.0, min(100.0, float(progress))) / 100.0)))
+    shown = value[:count]
+    if cursor and count < len(value):
+        shown += (str(cursor_char) or "_")[:1]
+    layer = _render_text_block(shown, size=size, color=color, font_name=font_name, max_width=max(16, round(image.width * 0.9)), alignment="Center")
+    return _paste_centered_rgba(image, layer, x, y)
+
+
+def _text_glitch(image: Image.Image, text: str, x: float, y: float, size: int, color: str, font_name: str, rgb_offset: int, slice_shift: int, slice_height: int, seed: int) -> Image.Image:
+    layer = Image.new("RGBA", image.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(layer)
+    font = _load_text_font(font_name, size)
+    bbox = draw.textbbox((0, 0), str(text), font=font)
+    tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
+    px = round(image.width * max(0.0, min(100.0, float(x))) / 100.0)
+    py = round(image.height * max(0.0, min(100.0, float(y))) / 100.0)
+    pos = (round(px - tw / 2), round(py - th / 2 - bbox[1]))
+    draw.text(pos, str(text), font=font, fill=(*hex_to_rgb(color), 255))
+    arr = np.asarray(layer, dtype=np.uint8).copy()
+    offset = max(0, int(rgb_offset))
+    if offset:
+        red = np.roll(arr[..., 3], offset, axis=1)
+        blue = np.roll(arr[..., 3], -offset, axis=1)
+        base_alpha = arr[..., 3]
+        rgb = np.zeros_like(arr)
+        rgb[..., 0] = red
+        rgb[..., 1] = base_alpha
+        rgb[..., 2] = blue
+        rgb[..., 3] = np.maximum.reduce([red, base_alpha, blue])
+        arr = rgb
+    shift = max(0, int(slice_shift))
+    band = max(1, int(slice_height))
+    if shift:
+        rng = np.random.default_rng(int(seed))
+        for yy in range(max(0, pos[1] - band), min(image.height, pos[1] + th + band), band):
+            dx = int(rng.integers(-shift, shift + 1))
+            arr[yy:min(image.height, yy + band)] = np.roll(arr[yy:min(image.height, yy + band)], dx, axis=1)
+    glitched = Image.fromarray(arr, "RGBA")
+    return Image.alpha_composite(image.convert("RGBA"), glitched).convert("RGB")
+
+
 def _text_overlay(image: Image.Image, text: str, x: float, y: float, size: int, color: str, outline: int, shadow: int) -> Image.Image:
     img = image.convert("RGB").copy()
     draw = ImageDraw.Draw(img)
@@ -899,6 +1320,13 @@ def apply_effect_stack(
         elif kind == "Channel Swap": img = _channel_swap(img, str(p["order"]))
         elif kind == "Pixel Material": img = _pixel_material(img, str(p["style"]), int(p["cell_size"]), int(p["gap"]), str(p["background"]), str(p["sprite_path"]))
         elif kind == "Text Overlay": img = _text_overlay(img, str(p["text"]), float(p["x"]), float(p["y"]), int(p["size"]), str(p["color"]), int(p["outline"]), int(p["shadow"]))
+        elif kind == "ASCII / Glyph": img = _ascii_glyph(img, str(p["character_set"]), str(p["custom_chars"]), int(p["cell_size"]), int(p["depth"]), int(p["offset"]), bool(p["invert"]), str(p["color_mode"]), str(p["foreground"]), str(p["background"]), str(p["font"]), float(p["font_scale"]), palette_np)
+        elif kind == "Pixel Text": img = _pixel_text(img, str(p["text"]), float(p["x"]), float(p["y"]), int(p["size"]), str(p["color"]), str(p["font"]), str(p["alignment"]), float(p["wrap_width"]), int(p["letter_spacing"]), int(p["line_spacing"]), float(p["rotation"]), int(p["outline"]), int(p["shadow"]))
+        elif kind == "Text Pattern": img = _text_pattern(img, str(p["text"]), int(p["size"]), str(p["color"]), str(p["font"]), int(p["spacing_x"]), int(p["spacing_y"]), int(p["offset_x"]), float(p["rotation"]), float(p["opacity"]))
+        elif kind == "Text Mask": img = _text_mask(img, str(p["text"]), float(p["x"]), float(p["y"]), int(p["size"]), str(p["font"]), str(p["mode"]), str(p["background"]), float(p["rotation"]))
+        elif kind == "Wave / Jitter Text": img = _wave_jitter_text(img, str(p["text"]), float(p["x"]), float(p["y"]), int(p["size"]), str(p["color"]), str(p["font"]), float(p["amplitude"]), float(p["wavelength"]), float(p["jitter"]), float(p["speed"]), int(p["seed"]), frame_time)
+        elif kind == "Typewriter Text": img = _typewriter_text(img, str(p["text"]), float(p["x"]), float(p["y"]), int(p["size"]), str(p["color"]), str(p["font"]), float(p["progress"]), bool(p["cursor"]), str(p["cursor_char"]))
+        elif kind == "Text Glitch": img = _text_glitch(img, str(p["text"]), float(p["x"]), float(p["y"]), int(p["size"]), str(p["color"]), str(p["font"]), int(p["rgb_offset"]), int(p["slice_shift"]), int(p["slice_height"]), int(p["seed"]))
         elif kind == "Dither":
             mix = max(0.0, min(1.0, float(p.get("mix", 1.0))))
             if mix <= 0.0:
