@@ -83,11 +83,17 @@ class RasterMintBackend(QObject):
     errorOccurred = Signal(str, str)
     infoOccurred = Signal(str, str)
     historyChanged = Signal()
+    showHotkeysChanged = Signal()
 
     def __init__(self, image_provider: RasterImageProvider, parent: QObject | None = None) -> None:
         super().__init__(parent)
         self.provider = image_provider
         self.app_settings = QSettings("RasterMint", "RasterMint")
+        raw_show_hotkeys = self.app_settings.value("showHotkeysQml", True)
+        if isinstance(raw_show_hotkeys, str):
+            self._show_hotkeys = raw_show_hotkeys.strip().lower() not in {"0", "false", "no", "off", ""}
+        else:
+            self._show_hotkeys = bool(raw_show_hotkeys)
 
         self.settings = ProcessingSettings()
         self.settings.effect_stack = default_effect_stack(self.settings)
@@ -185,6 +191,19 @@ class RasterMintBackend(QObject):
     @Property(str, notify=statusChanged)
     def statusText(self) -> str:
         return self._status
+
+    @Property(bool, notify=showHotkeysChanged)
+    def showHotkeys(self) -> bool:
+        return self._show_hotkeys
+
+    @Slot(bool)
+    def setShowHotkeys(self, enabled: bool) -> None:
+        enabled = bool(enabled)
+        if self._show_hotkeys == enabled:
+            return
+        self._show_hotkeys = enabled
+        self.app_settings.setValue("showHotkeysQml", enabled)
+        self.showHotkeysChanged.emit()
 
     @Property(bool, notify=historyChanged)
     def canUndo(self) -> bool:

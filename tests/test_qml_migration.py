@@ -190,7 +190,15 @@ def test_every_backend_method_called_by_qml_exists_in_backend_class():
     import re
 
     qml_text = "\n".join(path.read_text(encoding="utf-8") for path in (PACKAGE / "qml").rglob("*.qml"))
-    backend_text = (PACKAGE / "qmlui" / "backend.py").read_text(encoding="utf-8")
+    # The QML backend is composed through inheritance: export_backend ->
+    # preferences_backend -> backend. Scan the complete runtime API instead of
+    # incorrectly treating backend.py as the only implementation file.
+    backend_files = [
+        PACKAGE / "qmlui" / "backend.py",
+        PACKAGE / "qmlui" / "preferences_backend.py",
+        PACKAGE / "qmlui" / "export_backend.py",
+    ]
+    backend_text = "\n".join(path.read_text(encoding="utf-8") for path in backend_files if path.is_file())
     called = set(re.findall(r"\bbackend\.([A-Za-z_][A-Za-z0-9_]*)\s*\(", qml_text))
     defined = set(re.findall(r"^\s*def\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(", backend_text, re.MULTILINE))
     missing = sorted(called - defined)
@@ -309,7 +317,9 @@ def test_top_menu_focus_does_not_stick_after_popup_closes():
     assert "onClosed: fileMenuButton.focus = false" in main
     assert "onClosed: editMenuButton.focus = false" in main
     assert "onClosed: viewMenuButton.focus = false" in main
-    assert "control.menuOpen || control.hovered || control.down" in button
+    assert "control.menuOpen || control.down" in button
+    assert "control.hovered" in button
+    assert "visible: control.menuOpen" in button
     assert "control.activeFocus" not in button
     assert "control.visualFocus" in button
 
@@ -333,6 +343,8 @@ def test_view_can_toggle_native_shortcut_hints_without_disabling_shortcuts():
     assert "control.checkable && control.checked" in menu_item
     assert "theme.accentColor.r" in menu_item
     assert "0.14" in menu_item
+    assert "border.width: control.checkable && control.checked ? 1 : 0" in menu_item
+    assert "visible: control.checkable && control.checked" in menu_item
     assert 'text: "Mirror Image Horizontally"' in main
     assert 'checked: Boolean(backend.settingsMap.mirror_horizontal)' in main
     assert 'text: "Mirror Image Vertically"' in main

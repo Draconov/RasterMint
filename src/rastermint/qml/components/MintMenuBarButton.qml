@@ -17,7 +17,7 @@ Button {
 
     contentItem: Text {
         text: control.text
-        color: control.menuOpen ? theme.accentColor : theme.textColor
+        color: theme.textColor
         verticalAlignment: Text.AlignVCenter
         horizontalAlignment: Text.AlignHCenter
         font.pixelSize: 13
@@ -25,13 +25,14 @@ Button {
 
     background: Rectangle {
         radius: 4
-        color: control.menuOpen
-               ? Qt.rgba(theme.accentColor.r, theme.accentColor.g, theme.accentColor.b, 0.22)
-               : (control.hovered || control.down ? theme.selectionColor : "transparent")
-        border.color: control.menuOpen || control.visualFocus
-                      ? theme.accentColor
-                      : "transparent"
-        border.width: control.menuOpen || control.visualFocus ? 1 : 0
+        // Keep the clicked/open menu visually active, but do not use focus as
+        // an active-state signal. Main.qml clears focus when the popup closes.
+        color: control.menuOpen || control.down
+               ? theme.selectionColor
+               : (control.hovered ? theme.panelHoverColor : "transparent")
+        border.color: control.visualFocus ? theme.accentColor : "transparent"
+        border.width: control.visualFocus ? 1 : 0
+        Behavior on color { ColorAnimation { duration: 70 } }
 
         Rectangle {
             anchors.left: parent.left
@@ -41,8 +42,5 @@ Button {
             visible: control.menuOpen
             color: theme.accentColor
         }
-
-        Behavior on color { ColorAnimation { duration: 70 } }
-        Behavior on border.color { ColorAnimation { duration: 70 } }
     }
 }

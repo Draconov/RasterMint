@@ -10,14 +10,11 @@ MenuItem {
     rightPadding: 10
     spacing: 6
 
-    // Checkable menu actions keep their normal text alignment. Their active
-    // state is shown by a subtle theme-colored background instead of a
-    // checkmark/indicator.
+    // Checked actions use RasterMint's own subtle active highlight rather than
+    // Qt's checkmark. This keeps all menu labels aligned while still making
+    // persistent/toggled actions easy to spot.
     indicator: null
 
-    // Action.shortcut is a keysequence. A disabled Shortcut is used only as a
-    // formatter so the label follows the platform's native key naming without
-    // registering a second active shortcut.
     Shortcut {
         id: shortcutFormatter
         enabled: false
@@ -26,7 +23,6 @@ MenuItem {
 
     contentItem: Item {
         id: content
-
         implicitWidth: label.implicitWidth
                        + (shortcutLabel.visible ? shortcutLabel.implicitWidth + 18 : 0)
         implicitHeight: 32
@@ -62,34 +58,27 @@ MenuItem {
         implicitWidth: 220
         implicitHeight: 32
         radius: 5
-        color: control.checkable && control.checked
-               ? Qt.rgba(theme.accentColor.r,
-                         theme.accentColor.g,
-                         theme.accentColor.b,
-                         control.highlighted || control.hovered ? 0.34 : 0.26)
-               : (control.highlighted || control.hovered
-                  ? theme.selectionColor
+        color: control.highlighted || control.hovered
+               ? theme.selectionColor
+               : (control.checkable && control.checked
+                  ? Qt.rgba(theme.accentColor.r, theme.accentColor.g, theme.accentColor.b, 0.14)
                   : "transparent")
         border.color: control.checkable && control.checked
-                      ? Qt.rgba(theme.accentColor.r,
-                                theme.accentColor.g,
-                                theme.accentColor.b,
-                                0.78)
+                      ? Qt.rgba(theme.accentColor.r, theme.accentColor.g, theme.accentColor.b, 0.42)
                       : "transparent"
         border.width: control.checkable && control.checked ? 1 : 0
+        Behavior on color { ColorAnimation { duration: 70 } }
+        Behavior on border.color { ColorAnimation { duration: 70 } }
 
         Rectangle {
             anchors.left: parent.left
-            anchors.leftMargin: 1
+            anchors.leftMargin: 3
             anchors.verticalCenter: parent.verticalCenter
             width: 3
-            height: parent.height - 10
+            height: 18
             radius: 2
             visible: control.checkable && control.checked
             color: theme.accentColor
         }
-
-        Behavior on color { ColorAnimation { duration: 70 } }
-        Behavior on border.color { ColorAnimation { duration: 70 } }
     }
 }
