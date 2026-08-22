@@ -33,15 +33,16 @@ ApplicationWindow {
         quickExportImageDialog.open()
     }
 
-    function suggestedMediaFile(extension) {
+    function suggestedMediaBaseFile() {
         var base = backend.suggestedExportFile("PNG")
         if (!base || base.length === 0)
             return ""
-        return base.replace(/\.png$/i, extension)
+        return base.replace(/\.png$/i, "")
     }
 
     function openMediaExport() {
-        exportMediaDialog.selectedFile = window.suggestedMediaFile(".mp4")
+        exportMediaDialog.selectedNameFilter.index = 0
+        exportMediaDialog.selectedFile = window.suggestedMediaBaseFile()
         exportMediaDialog.open()
     }
 
@@ -60,6 +61,10 @@ ApplicationWindow {
             return
         }
         closeTopMenus(menu)
+        // Use Menu.popup(parent, x, y) explicitly instead of relying on the
+        // MenuBar/MenuBarItem auto-popup path. Qt documents these coordinates
+        // as relative to the supplied parent item, so this deterministically
+        // places the menu directly below the clicked button on every platform.
         menu.popup(button, 0, button.height)
     }
 
@@ -295,7 +300,11 @@ ApplicationWindow {
         id: advancedExportDialog
         urlNormalizer: function(value) { return window.urlString(value) }
     }
-    BatchExportDialog { id: batchExportDialog }
+    BatchExportDialog {
+        id: batchExportDialog
+        urlsNormalizer: function(selectedFiles) { return window.urlStrings(selectedFiles) }
+        urlNormalizer: function(selectedFolder) { return window.urlString(selectedFolder) }
+    }
 
     FileDialog {
         id: openDialog
@@ -315,17 +324,8 @@ ApplicationWindow {
         id: exportMediaDialog
         title: "Export animation / video"
         fileMode: FileDialog.SaveFile
-        defaultSuffix: selectedNameFilter.indexOf("GIF") >= 0 ? "gif" : "mp4"
+        defaultSuffix: selectedNameFilter.index === 1 ? "gif" : "mp4"
         nameFilters: ["MP4 video (*.mp4)", "Animated GIF (*.gif)"]
-
-        onSelectedNameFilterChanged: {
-            if (!visible)
-                return
-            selectedFile = window.suggestedMediaFile(
-                selectedNameFilter.indexOf("GIF") >= 0 ? ".gif" : ".mp4"
-            )
-        }
-
         onAccepted: backend.exportMedia(window.urlString(selectedFile))
     }
     FolderDialog { id: sequenceFolderDialog; title: "Choose PNG sequence folder"; onAccepted: backend.exportSequence(window.urlString(selectedFolder)) }

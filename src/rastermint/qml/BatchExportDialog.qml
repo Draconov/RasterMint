@@ -13,15 +13,20 @@ Dialog {
     padding: 18
 
     property var selectedFiles: []
-    property url outputFolder: ""
+    property string outputFolder: ""
     property var currentExportInfo: ({ sourceWidth: 1, sourceHeight: 1, width: 1, height: 1 })
-
+    property var urlNormalizer: function(value) { return value ? value.toString() : "" }
+    property var urlsNormalizer: function(values) {
+        var result = []
+        for (var i = 0; i < values.length; ++i)
+            result.push(root.urlNormalizer(values[i]))
+        return result
+    }
     readonly property real overlayWidth: Overlay.overlay ? Overlay.overlay.width : 760
     readonly property real overlayHeight: Overlay.overlay ? Overlay.overlay.height : 820
     readonly property real desiredDialogHeight: 46 + (padding * 2) + batchBody.implicitHeight
-    readonly property bool canStart: selectedFiles.length > 0 && outputFolder.toString().length > 0
+    readonly property bool canStart: selectedFiles.length > 0 && outputFolder.length > 0
     readonly property bool hasCurrentOutputReference: backend.hasSource
-
     width: Math.max(520, Math.min(680, overlayWidth - 24))
     height: Math.max(420, Math.min(Math.max(560, desiredDialogHeight), overlayHeight - 24))
     anchors.centerIn: Overlay.overlay
@@ -40,7 +45,6 @@ Dialog {
     header: Rectangle {
         implicitHeight: 46
         color: theme.panelRaisedColor
-
         Rectangle {
             anchors.left: parent.left
             anchors.right: parent.right
@@ -73,7 +77,6 @@ Dialog {
             overwriteMode = "replace"
         else if (overwriteCombo.currentIndex === 2)
             overwriteMode = "skip"
-
         backend.batchExportWithOptions(
             selectedFiles,
             outputFolder,
@@ -148,11 +151,11 @@ Dialog {
                         }
                         MintLabel {
                             Layout.fillWidth: true
-                            text: outputFolder.toString().length > 0
-                                  ? outputFolder.toString()
+                            text: outputFolder.length > 0
+                                  ? outputFolder
                                   : "No output folder selected"
                             wrapMode: Text.WrapAnywhere
-                            color: outputFolder.toString().length > 0 ? theme.textColor : theme.mutedTextColor
+                            color: outputFolder.length > 0 ? theme.textColor : theme.mutedTextColor
                         }
                     }
                 }
@@ -269,12 +272,12 @@ Dialog {
         title: "Select images for batch processing"
         fileMode: FileDialog.OpenFiles
         nameFilters: ["Images (*.png *.jpg *.jpeg *.bmp *.webp *.tif *.tiff)"]
-        onAccepted: root.selectedFiles = selectedFiles
+        onAccepted: root.selectedFiles = root.urlsNormalizer(selectedFiles)
     }
 
     FolderDialog {
         id: folderDialog
         title: "Choose batch output folder"
-        onAccepted: root.outputFolder = selectedFolder
+        onAccepted: root.outputFolder = root.urlNormalizer(selectedFolder)
     }
 }
