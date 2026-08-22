@@ -13,7 +13,10 @@ from PyInstaller.utils.hooks import collect_data_files, collect_submodules, copy
 ROOT = Path(SPECPATH).parent
 APP_VERSION = distribution_version("rastermint")
 
-hiddenimports = collect_submodules("PIL") + collect_submodules("imageio_ffmpeg")
+# imageio-ffmpeg is intentionally kept conservative because video must work fully
+# offline. Pillow is handled by our format-aware hook instead of collecting every
+# optional PIL module (ImageTk, development helpers, unsupported codecs, etc.).
+hiddenimports = collect_submodules("imageio_ffmpeg")
 metadata = copy_metadata("rastermint") + copy_metadata("imageio-ffmpeg")
 package_data = collect_data_files(
     "rastermint",
@@ -33,15 +36,17 @@ package_data = collect_data_files(
 ICON_DIR = ROOT / "src" / "rastermint" / "data" / "icons"
 HOOK_DIR = ROOT / "build" / "hooks"
 LEAN_QML_HOOK = HOOK_DIR / "hook-PySide6.QtQml.py"
+LEAN_PIL_HOOK = HOOK_DIR / "hook-PIL.Image.py"
 
 # Do not silently fall back to PyInstaller's stock QtQml hook. That hook copies
 # the complete PySide6 QML tree and makes the release roughly as large as the
 # unoptimized build. The custom hook must be tracked in git and present in CI.
-if not LEAN_QML_HOOK.is_file():
-    raise RuntimeError(
-        f"Required lean QML hook is missing: {LEAN_QML_HOOK}. "
-        "Check .gitignore and make sure build/hooks/hook-PySide6.QtQml.py is committed."
-    )
+for required_hook in (LEAN_QML_HOOK, LEAN_PIL_HOOK):
+    if not required_hook.is_file():
+        raise RuntimeError(
+            f"Required lean packaging hook is missing: {required_hook}. "
+            "Check .gitignore and make sure build/hooks is committed."
+        )
 
 # These bindings are not used by RasterMint. Keeping them out prevents an
 # accidental import or Qt dependency discovered by a hook from pulling large

@@ -12,6 +12,7 @@ build/*
 !build/hooks/
 build/hooks/*
 !build/hooks/hook-PySide6.QtQml.py
+!build/hooks/hook-PIL.Image.py
 build-temp/
 dist/
 release/
