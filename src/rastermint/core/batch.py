@@ -40,21 +40,19 @@ def _normalize_overwrite(value: object) -> str:
     return mode if mode in {"auto-rename", "replace", "skip"} else "auto-rename"
 
 
-def _normalize_size_mode(value: object) -> str:
-    mode = str(value or "relative").strip().lower()
-    return mode if mode in {"relative", "fixed-current"} else "relative"
+_RESAMPLING = {
+    "NEAREST": Image.Resampling.NEAREST,
+    "NEAREST (PIXEL-PERFECT)": Image.Resampling.NEAREST,
+    "BILINEAR": Image.Resampling.BILINEAR,
+    "BICUBIC": Image.Resampling.BICUBIC,
+    "LANCZOS": Image.Resampling.LANCZOS,
+}
 
 
-def _normalize_fixed_size(value: object) -> tuple[int, int] | None:
-    if value is None:
-        return None
-    try:
-        width, height = value
-        width = max(1, int(width))
-        height = max(1, int(height))
-    except Exception:
-        return None
-    return (width, height)
+def _normalize_resampling(value: object) -> Image.Resampling:
+    name = str(value or "Nearest (pixel-perfect)").strip().upper()
+    return _RESAMPLING.get(name, Image.Resampling.NEAREST)
+
 
 
 def _ensure_output_path(path: Path, overwrite: str) -> Path | None:
@@ -95,14 +93,26 @@ def _save_image(image: Image.Image, path: Path, format_name: str) -> None:
         image.save(path, format="PNG", optimize=True)
 
 
-def _apply_scaling(image: Image.Image, scale_percent: int) -> Image.Image:
+def _resize(
+    image: Image.Image,
+    size: tuple[int, int],
+    resampling: Image.Resampling,
+) -> Image.Image:
+    if image.size == size:
+        return image
+    return image.resize(size, resampling)
+
+
+def _apply_scaling(
+    image: Image.Image,
+    scale_percent: int,
+    resampling: Image.Resampling,
+) -> Image.Image:
     if scale_percent == 100:
         return image
     width = max(1, round(image.width * scale_percent / 100.0))
     height = max(1, round(image.height * scale_percent / 100.0))
-    if (width, height) == image.size:
-        return image
-    return image.resize((width, height), Image.Resampling.NEAREST)
+    return _resize(image, (width, height), resampling)
 
 
 def process_batch(
@@ -114,12 +124,10 @@ def process_batch(
     format_name: str = "PNG",
     scale_percent: int = 100,
     overwrite: str = "auto-rename",
-    size_mode: str = "relative",
-    fixed_output_size: tuple[int, int] | None = None,
+    resampling: str = "Nearest (pixel-perfect)",
 ) -> list[Path]:
     destination = Path(output_dir)
     destination.mkdir(parents=True, exist_ok=True)
-
     source_paths = [Path(p) for p in paths]
     total = len(source_paths)
     written: list[Path] = []
@@ -127,9 +135,7 @@ def process_batch(
     format_name = _normalize_format(format_name)
     scale_percent = _normalize_scale(scale_percent)
     overwrite = _normalize_overwrite(overwrite)
-    size_mode = _normalize_size_mode(size_mode)
-    fixed_output_size = _normalize_fixed_size(fixed_output_size)
-
+    resampling_filter = _normalize_resampling(resampling)
     animated = settings_at_time(settings, 0.0)
     display_mode = animated.display_mode if getattr(animated, "display_export", False) else "raw"
     include_grid = bool(getattr(animated, "grid_enabled", False) and getattr(animated, "grid_export", False))
@@ -138,7 +144,7 @@ def process_batch(
     for index, path in enumerate(source_paths, start=1):
         with Image.open(path) as opened:
             source = opened.copy()
-
+        source_size = source.size
         result = process_image(
             source,
             animated,
@@ -148,12 +154,11 @@ def process_batch(
             include_grid=include_grid,
         )
 
-        if size_mode == "fixed-current" and fixed_output_size is not None:
-            if result.size != fixed_output_size:
-                result = result.resize(fixed_output_size, Image.Resampling.NEAREST)
-
-        result = _apply_scaling(result, scale_percent)
-
+        # Batch exports always keep each source file's own pixel dimensions at
+        # 100%. Effects can internally render at a different raster size, so
+        # normalize the processed result back to that source before export scale.
+        result = _resize(result, source_size, resampling_filter)
+        result = _apply_scaling(result, scale_percent, resampling_filter)
         target = destination / f"{path.stem}-rastermint{suffix}"
         final_target = _ensure_output_path(target, overwrite)
         if final_target is not None:

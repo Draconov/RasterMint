@@ -8,7 +8,6 @@ from typing import Any
 
 from PIL import Image
 from PySide6.QtCore import QUrl, Slot
-
 from rastermint.core.animation import settings_at_time
 from rastermint.core.processor import (
     PREVIEW_MAX_SIDE,
@@ -22,9 +21,9 @@ from rastermint.core.processor import (
 from rastermint.core.svg_export import save_svg
 
 from .backend import _local_path
+from .batch_worker import BatchWorker
 from .preferences_backend import RasterMintBackend as PreferencesBackend
-from .workers import BatchWorker, ProcessingWorker
-
+from .workers import ProcessingWorker
 
 _FORMAT_SUFFIXES = {
     "PNG": ".png",
@@ -74,7 +73,6 @@ class RasterMintBackend(PreferencesBackend):
         source = self._active_source()
         if source is None:
             return
-
         settings = settings_at_time(self.settings, self._current_time)
         if label == "Quick":
             max_side = self._quick_side()
@@ -82,7 +80,6 @@ class RasterMintBackend(PreferencesBackend):
             max_side = adaptive_preview_max_side(self.settings, PREVIEW_MAX_SIDE)
         else:
             max_side = self._safe_full_side()
-
         final_size = target_raster_size(source.size, settings)
         preview_source = make_preview_source(source, max_side=int(max_side), settings=settings)
         preview_settings = make_preview_settings(settings, final_size, preview_source.size)
@@ -121,7 +118,6 @@ class RasterMintBackend(PreferencesBackend):
 
         if self._preview_running and self._latest_preview_job:
             self._preview_superseded_jobs().add(int(self._latest_preview_job))
-
         self._quick_timer.stop()
         self._stable_timer.stop()
         self._pending_preview_side = 0
@@ -147,7 +143,6 @@ class RasterMintBackend(PreferencesBackend):
             width, height = display_output_size(source.size, animated)
         else:
             width, height = processed_raster_size(source.size, animated)
-
         return {
             "sourceWidth": int(source.width),
             "sourceHeight": int(source.height),
@@ -159,7 +154,6 @@ class RasterMintBackend(PreferencesBackend):
     def suggestedExportFile(self, format_name: str = "PNG") -> str:
         if self._current_file is None:
             return ""
-
         fmt = str(format_name or "PNG").strip().upper()
         suffix = _FORMAT_SUFFIXES.get(fmt, ".png")
         path = self._current_file.with_name(self._current_file.stem + suffix)
@@ -191,13 +185,11 @@ class RasterMintBackend(PreferencesBackend):
         format_name = str(opts.get("format", "PNG") or "PNG").strip().upper()
         if format_name not in _FORMAT_SUFFIXES:
             format_name = "PNG"
-
         path = self._advanced_export_path(value, format_name)
         width = max(1, min(32768, int(opts.get("width", source.width) or source.width)))
         height = max(1, min(32768, int(opts.get("height", source.height) or source.height)))
         quality = max(1, min(100, int(opts.get("quality", 90) or 90)))
         resampling = str(opts.get("resampling", "Nearest (pixel-perfect)") or "Nearest (pixel-perfect)")
-
         animated = settings_at_time(self.settings, self._current_time)
         context = {
             "path": str(path),
@@ -208,7 +200,6 @@ class RasterMintBackend(PreferencesBackend):
             "quality": quality,
             "resampling": resampling,
         }
-
         job = self._next_job()
         self._export_jobs.add(job)
         worker = ProcessingWorker(
@@ -246,7 +237,6 @@ class RasterMintBackend(PreferencesBackend):
                 source_paths.append(str(path))
         if not source_paths:
             return
-
         destination = str(Path(_local_path(output_dir)))
         if not destination:
             return
@@ -259,26 +249,18 @@ class RasterMintBackend(PreferencesBackend):
         overwrite = str(opts.get("overwrite", "auto-rename") or "auto-rename").strip().lower()
         if overwrite not in {"auto-rename", "replace", "skip"}:
             overwrite = "auto-rename"
-
-        size_mode = str(opts.get("sizeMode", "relative") or "relative").strip().lower()
-        if size_mode not in {"relative", "fixed-current"}:
-            size_mode = "relative"
-
-        fixed_output_size: list[int] | None = None
-        if size_mode == "fixed-current" and self.hasSource:
-            info = self.exportImageInfo()
-            fixed_output_size = [int(info.get("width", 1)), int(info.get("height", 1))]
-        elif size_mode == "fixed-current":
-            size_mode = "relative"
+        resampling = str(
+            opts.get("resampling", "Nearest (pixel-perfect)") or "Nearest (pixel-perfect)"
+        ).strip()
+        if resampling.upper() not in _RESAMPLING:
+            resampling = "Nearest (pixel-perfect)"
 
         worker_options = {
             "format": format_name,
             "scalePercent": _clamp_scale_percent(opts.get("scalePercent", 100)),
             "overwrite": overwrite,
-            "sizeMode": size_mode,
-            "fixedOutputSize": fixed_output_size,
+            "resampling": resampling,
         }
-
         job = self._next_job()
         worker = BatchWorker(job, source_paths, destination, self.settings, worker_options)
         self._connect_worker(worker)
@@ -296,7 +278,6 @@ class RasterMintBackend(PreferencesBackend):
             context.get("resampling", "Nearest (pixel-perfect)") or "Nearest (pixel-perfect)"
         ).strip().upper()
         resampling = _RESAMPLING.get(resampling_name, Image.Resampling.NEAREST)
-
         output = result
         if output.size != (width, height):
             output = output.resize((width, height), resampling)
@@ -304,7 +285,6 @@ class RasterMintBackend(PreferencesBackend):
         if format_name == "SVG":
             save_svg(output, path)
             return path
-
         if format_name == "JPEG":
             output.convert("RGB").save(
                 path,
@@ -319,7 +299,6 @@ class RasterMintBackend(PreferencesBackend):
             output.save(path, format="TIFF", compression="tiff_deflate")
         else:
             output.save(path, format="PNG", optimize=True)
-
         return path
 
     @Slot(int, str, object, object)
@@ -334,7 +313,6 @@ class RasterMintBackend(PreferencesBackend):
             if valid and isinstance(result, Image.Image):
                 self._publish_preview(result)
             return
-
         if purpose == "preview" and int(job_id) in self._preview_superseded_jobs():
             self._preview_superseded_jobs().discard(int(job_id))
             self._preview_running = False
@@ -343,7 +321,6 @@ class RasterMintBackend(PreferencesBackend):
             if pending:
                 self._request_preview(pending)
             return
-
         if (
             purpose == "export-image"
             and isinstance(result, Image.Image)
@@ -357,5 +334,4 @@ class RasterMintBackend(PreferencesBackend):
             except Exception as exc:
                 self.errorOccurred.emit("Could not export image", str(exc))
             return
-
         super()._worker_finished(job_id, purpose, result, context)

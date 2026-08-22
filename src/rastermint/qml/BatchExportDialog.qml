@@ -14,7 +14,6 @@ Dialog {
 
     property var selectedFiles: []
     property string outputFolder: ""
-    property var currentExportInfo: ({ sourceWidth: 1, sourceHeight: 1, width: 1, height: 1 })
     property var urlNormalizer: function(value) { return value ? value.toString() : "" }
     property var urlsNormalizer: function(values) {
         var result = []
@@ -26,9 +25,8 @@ Dialog {
     readonly property real overlayHeight: Overlay.overlay ? Overlay.overlay.height : 820
     readonly property real desiredDialogHeight: 46 + (padding * 2) + batchBody.implicitHeight
     readonly property bool canStart: selectedFiles.length > 0 && outputFolder.length > 0
-    readonly property bool hasCurrentOutputReference: backend.hasSource
     width: Math.max(520, Math.min(680, overlayWidth - 24))
-    height: Math.max(420, Math.min(Math.max(560, desiredDialogHeight), overlayHeight - 24))
+    height: Math.max(420, Math.min(Math.max(480, desiredDialogHeight), overlayHeight - 24))
     anchors.centerIn: Overlay.overlay
 
     background: Rectangle {
@@ -64,14 +62,9 @@ Dialog {
         }
     }
 
-    function refreshCurrentOutputInfo() {
-        currentExportInfo = backend.exportImageInfo()
-    }
-
     function startExport() {
         if (!canStart)
             return
-        var geometryMode = geometryCombo.currentIndex === 1 ? "fixed-current" : "relative"
         var overwriteMode = "auto-rename"
         if (overwriteCombo.currentIndex === 1)
             overwriteMode = "replace"
@@ -84,13 +77,11 @@ Dialog {
                 format: formatCombo.currentText,
                 scalePercent: scaleSpin.value,
                 overwrite: overwriteMode,
-                sizeMode: geometryMode
+                resampling: resampleCombo.currentText
             }
         )
         close()
     }
-
-    onOpened: refreshCurrentOutputInfo()
 
     contentItem: ScrollView {
         id: batchScroll
@@ -200,13 +191,18 @@ Dialog {
                             stepSize: 10
                             editable: true
                             value: 100
-                            Layout.preferredWidth: 120
-                        }
-                        MintLabel {
                             Layout.fillWidth: true
-                            color: theme.mutedTextColor
-                            text: "Applied after RasterMint processing using nearest-neighbor scaling."
-                            wrapMode: Text.Wrap
+                        }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        MintLabel { text: "Resampling"; Layout.preferredWidth: 140 }
+                        MintComboBox {
+                            id: resampleCombo
+                            Layout.fillWidth: true
+                            model: ["Nearest (pixel-perfect)", "Bilinear", "Bicubic", "Lanczos"]
+                            currentIndex: 0
                         }
                     }
 
@@ -219,34 +215,6 @@ Dialog {
                             model: ["Auto rename", "Replace existing", "Skip existing"]
                             currentIndex: 0
                         }
-                    }
-
-                    RowLayout {
-                        Layout.fillWidth: true
-                        MintLabel { text: "Geometry"; Layout.preferredWidth: 140 }
-                        MintComboBox {
-                            id: geometryCombo
-                            Layout.fillWidth: true
-                            model: ["Relative to each source", "Use current 1× output size for all"]
-                            currentIndex: 0
-                        }
-                    }
-
-                    MintLabel {
-                        Layout.fillWidth: true
-                        visible: geometryCombo.currentIndex === 1
-                        color: hasCurrentOutputReference ? theme.mutedTextColor : theme.warningColor
-                        wrapMode: Text.Wrap
-                        text: hasCurrentOutputReference
-                              ? ("Current 1× output size: " + currentExportInfo.width + " × " + currentExportInfo.height + ". Every batch result will be resized to this size before export scaling is applied.")
-                              : "Load a source image first if you want to force the current 1× output size for every batch item. Otherwise RasterMint will fall back to relative sizing."
-                    }
-
-                    MintLabel {
-                        Layout.fillWidth: true
-                        color: theme.mutedTextColor
-                        wrapMode: Text.Wrap
-                        text: "Batch export uses your current RasterMint settings, layer stack, palette, and enabled effects. Files keep their source names and are saved as <source>-rastermint in the chosen format."
                     }
                 }
             }

@@ -29,3 +29,44 @@ def test_batch_processes_multiple_images(tmp_path):
     written = process_batch(inputs, out_dir, settings)
     assert len(written) == 2
     assert all(path.exists() for path in written)
+
+
+def test_batch_restores_each_source_size_before_export_scaling(tmp_path):
+    source_path = tmp_path / "source.png"
+    Image.new("RGB", (12, 8), "red").save(source_path)
+    settings = ProcessingSettings(
+        algorithm="Nearest Palette",
+        palette=["#000000", "#FFFFFF"],
+        target_enabled=True,
+        target_width=3,
+        target_height=2,
+    )
+    settings.effect_stack = default_effect_stack(settings)
+
+    written = process_batch(
+        [source_path],
+        tmp_path / "out",
+        settings,
+        scale_percent=200,
+        resampling="Bicubic",
+    )
+
+    with Image.open(written[0]) as exported:
+        assert exported.size == (24, 16)
+
+
+def test_batch_accepts_export_dialog_resampling_names(tmp_path):
+    source_path = tmp_path / "source.png"
+    Image.new("RGB", (5, 4), "blue").save(source_path)
+    settings = ProcessingSettings(algorithm="Nearest Palette", palette=["#000000", "#FFFFFF"])
+    settings.effect_stack = default_effect_stack(settings)
+
+    for name in ("Nearest (pixel-perfect)", "Bilinear", "Bicubic", "Lanczos"):
+        written = process_batch(
+            [source_path],
+            tmp_path / name.replace(" ", "-"),
+            settings,
+            resampling=name,
+        )
+        with Image.open(written[0]) as exported:
+            assert exported.size == (5, 4)
