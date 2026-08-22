@@ -16,7 +16,6 @@ ApplicationWindow {
     color: theme.windowColor
 
     property int inspectorIndex: 2
-    property var pendingBatchFiles: []
 
     function urlString(value) {
         return value ? value.toString() : ""
@@ -34,6 +33,18 @@ ApplicationWindow {
         quickExportImageDialog.open()
     }
 
+    function suggestedMediaFile(extension) {
+        var base = backend.suggestedExportFile("PNG")
+        if (!base || base.length === 0)
+            return ""
+        return base.replace(/\.png$/i, extension)
+    }
+
+    function openMediaExport() {
+        exportMediaDialog.selectedFile = window.suggestedMediaFile(".mp4")
+        exportMediaDialog.open()
+    }
+
     function closeTopMenus(exceptMenu) {
         if (fileMenu !== exceptMenu && fileMenu.opened)
             fileMenu.close()
@@ -49,10 +60,6 @@ ApplicationWindow {
             return
         }
         closeTopMenus(menu)
-        // Use Menu.popup(parent, x, y) explicitly instead of relying on the
-        // MenuBar/MenuBarItem auto-popup path. Qt documents these coordinates
-        // as relative to the supplied parent item, so this deterministically
-        // places the menu directly below the clicked button on every platform.
         menu.popup(button, 0, button.height)
     }
 
@@ -120,9 +127,9 @@ ApplicationWindow {
             MintMenuSeparator { }
             Action { text: "Quick Export Image…"; enabled: backend.hasSource; shortcut: "Ctrl+E"; onTriggered: window.openQuickExportImageDialog() }
             Action { text: "Export Image…"; enabled: backend.hasSource; shortcut: "Ctrl+Shift+E"; onTriggered: advancedExportDialog.open() }
-            Action { text: "Export Animation / Video…"; enabled: backend.hasSource; shortcut: "Ctrl+Alt+S"; onTriggered: exportMediaDialog.open() }
+            Action { text: "Export Animation / Video…"; enabled: backend.hasSource; shortcut: "Ctrl+Alt+S"; onTriggered: window.openMediaExport() }
             Action { text: "Export PNG Sequence…"; enabled: backend.hasSource; shortcut: "Ctrl+Alt+P"; onTriggered: sequenceFolderDialog.open() }
-            Action { text: "Batch Export Images…"; shortcut: "Ctrl+Shift+B"; onTriggered: batchSourceDialog.open() }
+            Action { text: "Batch Export Images…"; shortcut: "Ctrl+Shift+B"; onTriggered: batchExportDialog.open() }
             MintMenuSeparator { }
             Action { text: "Load Preset…"; shortcut: "Ctrl+L"; onTriggered: loadPresetDialog.open() }
             Action { text: "Save Preset…"; shortcut: "Ctrl+Shift+S"; onTriggered: savePresetDialog.open() }
@@ -288,6 +295,7 @@ ApplicationWindow {
         id: advancedExportDialog
         urlNormalizer: function(value) { return window.urlString(value) }
     }
+    BatchExportDialog { id: batchExportDialog }
 
     FileDialog {
         id: openDialog
@@ -307,19 +315,20 @@ ApplicationWindow {
         id: exportMediaDialog
         title: "Export animation / video"
         fileMode: FileDialog.SaveFile
-        defaultSuffix: "mp4"
+        defaultSuffix: selectedNameFilter.indexOf("GIF") >= 0 ? "gif" : "mp4"
         nameFilters: ["MP4 video (*.mp4)", "Animated GIF (*.gif)"]
+
+        onSelectedNameFilterChanged: {
+            if (!visible)
+                return
+            selectedFile = window.suggestedMediaFile(
+                selectedNameFilter.indexOf("GIF") >= 0 ? ".gif" : ".mp4"
+            )
+        }
+
         onAccepted: backend.exportMedia(window.urlString(selectedFile))
     }
     FolderDialog { id: sequenceFolderDialog; title: "Choose PNG sequence folder"; onAccepted: backend.exportSequence(window.urlString(selectedFolder)) }
-    FileDialog {
-        id: batchSourceDialog
-        title: "Select images for batch processing"
-        fileMode: FileDialog.OpenFiles
-        nameFilters: ["Images (*.png *.jpg *.jpeg *.bmp *.webp *.tif *.tiff)"]
-        onAccepted: { window.pendingBatchFiles = window.urlStrings(selectedFiles); batchFolderDialog.open() }
-    }
-    FolderDialog { id: batchFolderDialog; title: "Choose batch output folder"; onAccepted: backend.batchExport(window.pendingBatchFiles, window.urlString(selectedFolder)) }
     FileDialog { id: loadPresetDialog; title: "Load preset"; nameFilters: ["JSON preset (*.json)"]; onAccepted: backend.loadPreset(window.urlString(selectedFile)) }
     FileDialog { id: savePresetDialog; title: "Save preset"; fileMode: FileDialog.SaveFile; defaultSuffix: "json"; nameFilters: ["JSON preset (*.json)"]; onAccepted: backend.savePreset(window.urlString(selectedFile)) }
 

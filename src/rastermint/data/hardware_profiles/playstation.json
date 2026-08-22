@@ -1,0 +1,46 @@
+{
+  "id": "playstation",
+  "name": "Sony PlayStation",
+  "category": "Console",
+  "summary": "Common 320×240 CRT-oriented PlayStation profile with RGB555 color depth. The console supports several framebuffer and texture modes, so this is a practical still-image profile rather than GPU emulation.",
+  "raster": {
+    "width": 320,
+    "height": 240,
+    "pixel_aspect": [
+      1,
+      1
+    ],
+    "tile": [
+      0,
+      0
+    ],
+    "fit_mode": "fit"
+  },
+  "palette": {
+    "type": "native-depth",
+    "name": "PlayStation RGB555",
+    "description": "15-bit RGB display color; games and textures choose their own palettes."
+  },
+  "recommended_dither": "Nearest Palette",
+  "visual": {
+    "display": {
+      "kind": "crt",
+      "gamma": 1.05,
+      "blur": 0.5,
+      "color_bleed": 0.9,
+      "scanlines": 0.12,
+      "lcd_grid": 0.0
+    }
+  },
+  "strict": {
+    "supported": true,
+    "constraints": {
+      "channel_bits": [
+        5,
+        5,
+        5
+      ]
+    }
+  },
+  "sources": []
+}

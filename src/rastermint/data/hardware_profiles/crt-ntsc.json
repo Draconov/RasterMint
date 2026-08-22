@@ -1,0 +1,40 @@
+{
+  "id": "crt-ntsc",
+  "name": "CRT NTSC 4:3",
+  "category": "Display",
+  "summary": "720×480 NTSC-oriented 4:3 display treatment with non-square pixels, scanlines, blur, and horizontal color bleed.",
+  "raster": {
+    "width": 720,
+    "height": 480,
+    "pixel_aspect": [
+      8,
+      9
+    ],
+    "tile": [
+      0,
+      0
+    ],
+    "fit_mode": "fit"
+  },
+  "palette": {
+    "type": "native-depth",
+    "name": "Unrestricted RGB",
+    "description": "Display-only profile; no fixed source palette is imposed."
+  },
+  "recommended_dither": "Nearest Palette",
+  "visual": {
+    "display": {
+      "kind": "crt",
+      "gamma": 1.05,
+      "blur": 0.55,
+      "color_bleed": 1.2,
+      "scanlines": 0.14,
+      "lcd_grid": 0.0
+    }
+  },
+  "strict": {
+    "supported": false,
+    "constraints": {}
+  },
+  "sources": []
+}

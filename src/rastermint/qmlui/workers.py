@@ -8,8 +8,8 @@ from pathlib import Path
 
 from PIL import Image
 from PySide6.QtCore import QObject, QRunnable, Signal, Slot
-
 from rastermint.core.batch import process_batch
+from rastermint.core.gif_export import export_processed_video_gif
 from rastermint.core.media import (
     export_image_animation,
     export_image_sequence,
@@ -68,15 +68,26 @@ class ProcessingWorker(QRunnable):
                 display_mode=self.display_mode,
                 include_grid=self.include_grid,
             )
-            self.signals.finished.emit(self.job_id, self.purpose, result, self.context)
+            self.signals.finished.emit(
+                self.job_id, self.purpose, result, self.context
+            )
         except Exception:
-            self.signals.failed.emit(self.job_id, self.purpose, traceback.format_exc(), self.context)
+            self.signals.failed.emit(
+                self.job_id, self.purpose, traceback.format_exc(), self.context
+            )
 
 
 class VideoCurrentFrameWorker(QRunnable):
     """Decode and fully process one source-video frame for still export."""
 
-    def __init__(self, job_id: int, path: str, time_seconds: float, settings: ProcessingSettings, context: object = None) -> None:
+    def __init__(
+        self,
+        job_id: int,
+        path: str,
+        time_seconds: float,
+        settings: ProcessingSettings,
+        context: object = None,
+    ) -> None:
         super().__init__()
         self.job_id = job_id
         self.path = path
@@ -91,22 +102,39 @@ class VideoCurrentFrameWorker(QRunnable):
             source = read_video_frame(self.path, self.time_seconds)
             animated = settings_at_time(self.settings, self.time_seconds)
             info = probe_video(self.path)
-            frame_index = max(0, round(self.time_seconds * max(1.0, info.fps)))
+            frame_index = max(
+                0, round(self.time_seconds * max(1.0, info.fps))
+            )
             result = process_image(
                 source,
                 animated,
                 frame_time=self.time_seconds,
                 frame_index=frame_index,
-                display_mode=animated.display_mode if animated.display_export else "raw",
-                include_grid=animated.grid_enabled and animated.grid_export,
+                display_mode=(
+                    animated.display_mode
+                    if animated.display_export
+                    else "raw"
+                ),
+                include_grid=(
+                    animated.grid_enabled and animated.grid_export
+                ),
             )
-            self.signals.finished.emit(self.job_id, "export-video-frame", result, self.context)
+            self.signals.finished.emit(
+                self.job_id, "export-video-frame", result, self.context
+            )
         except Exception:
-            self.signals.failed.emit(self.job_id, "export-video-frame", traceback.format_exc(), self.context)
+            self.signals.failed.emit(
+                self.job_id,
+                "export-video-frame",
+                traceback.format_exc(),
+                self.context,
+            )
 
 
 class VideoFrameWorker(QRunnable):
-    def __init__(self, job_id: int, path: str, time_seconds: float) -> None:
+    def __init__(
+        self, job_id: int, path: str, time_seconds: float
+    ) -> None:
         super().__init__()
         self.job_id = job_id
         self.path = path
@@ -117,9 +145,16 @@ class VideoFrameWorker(QRunnable):
     def run(self) -> None:
         try:
             frame = read_video_frame(self.path, self.time_seconds)
-            self.signals.finished.emit(self.job_id, "video-frame", frame, self.time_seconds)
+            self.signals.finished.emit(
+                self.job_id, "video-frame", frame, self.time_seconds
+            )
         except Exception:
-            self.signals.failed.emit(self.job_id, "video-frame", traceback.format_exc(), self.time_seconds)
+            self.signals.failed.emit(
+                self.job_id,
+                "video-frame",
+                traceback.format_exc(),
+                self.time_seconds,
+            )
 
 
 class MediaExportWorker(QRunnable):
@@ -143,19 +178,33 @@ class MediaExportWorker(QRunnable):
         self.signals = WorkerSignals()
 
     def _progress(self, current: int, total: int) -> None:
-        self.signals.progress.emit(self.job_id, "media-export", current, total, Path(self.output).name)
+        self.signals.progress.emit(
+            self.job_id,
+            "media-export",
+            current,
+            total,
+            Path(self.output).name,
+        )
 
     @Slot()
     def run(self) -> None:
         try:
             if self.video_path:
-                result = export_processed_video(
-                    self.video_path,
-                    self.settings,
-                    self.output,
-                    include_audio=self.include_audio,
-                    progress=self._progress,
-                )
+                if Path(self.output).suffix.lower() == ".gif":
+                    result = export_processed_video_gif(
+                        self.video_path,
+                        self.settings,
+                        self.output,
+                        progress=self._progress,
+                    )
+                else:
+                    result = export_processed_video(
+                        self.video_path,
+                        self.settings,
+                        self.output,
+                        include_audio=self.include_audio,
+                        progress=self._progress,
+                    )
             elif self.image is not None:
                 result = export_image_animation(
                     self.image,
@@ -164,10 +213,19 @@ class MediaExportWorker(QRunnable):
                     progress=self._progress,
                 )
             else:
-                raise ValueError("No image or video source for media export")
-            self.signals.finished.emit(self.job_id, "media-export", str(result), self.output)
+                raise ValueError(
+                    "No image or video source for media export"
+                )
+            self.signals.finished.emit(
+                self.job_id, "media-export", str(result), self.output
+            )
         except Exception:
-            self.signals.failed.emit(self.job_id, "media-export", traceback.format_exc(), self.output)
+            self.signals.failed.emit(
+                self.job_id,
+                "media-export",
+                traceback.format_exc(),
+                self.output,
+            )
 
 
 class RenderedPreviewWorker(QRunnable):
@@ -195,7 +253,13 @@ class RenderedPreviewWorker(QRunnable):
         self.signals = WorkerSignals()
 
     def _progress(self, current: int, total: int) -> None:
-        self.signals.progress.emit(self.job_id, "rendered-preview", current, total, "frames")
+        self.signals.progress.emit(
+            self.job_id,
+            "rendered-preview",
+            current,
+            total,
+            "frames",
+        )
 
     @Slot()
     def run(self) -> None:
@@ -220,10 +284,25 @@ class RenderedPreviewWorker(QRunnable):
                 source = "image"
             else:
                 raise ValueError("No source for rendered preview")
-            result = {"frames": frames, "times": times, "fps": fps, "source": source}
-            self.signals.finished.emit(self.job_id, "rendered-preview", result, self.context)
+            result = {
+                "frames": frames,
+                "times": times,
+                "fps": fps,
+                "source": source,
+            }
+            self.signals.finished.emit(
+                self.job_id,
+                "rendered-preview",
+                result,
+                self.context,
+            )
         except Exception:
-            self.signals.failed.emit(self.job_id, "rendered-preview", traceback.format_exc(), self.context)
+            self.signals.failed.emit(
+                self.job_id,
+                "rendered-preview",
+                traceback.format_exc(),
+                self.context,
+            )
 
 
 class SequenceExportWorker(QRunnable):
@@ -247,42 +326,102 @@ class SequenceExportWorker(QRunnable):
         self.signals = WorkerSignals()
 
     def _progress(self, current: int, total: int) -> None:
-        self.signals.progress.emit(self.job_id, "png-sequence", current, total, Path(self.output_dir).name)
+        self.signals.progress.emit(
+            self.job_id,
+            "png-sequence",
+            current,
+            total,
+            Path(self.output_dir).name,
+        )
 
     @Slot()
     def run(self) -> None:
         try:
             if self.video_path:
                 written = export_processed_video_sequence(
-                    self.video_path, self.settings, self.output_dir, prefix=self.prefix, progress=self._progress
+                    self.video_path,
+                    self.settings,
+                    self.output_dir,
+                    prefix=self.prefix,
+                    progress=self._progress,
                 )
             elif self.image is not None:
                 written = export_image_sequence(
-                    self.image, self.settings, self.output_dir, prefix=self.prefix, progress=self._progress
+                    self.image,
+                    self.settings,
+                    self.output_dir,
+                    prefix=self.prefix,
+                    progress=self._progress,
                 )
             else:
                 raise ValueError("No source for PNG sequence export")
-            self.signals.finished.emit(self.job_id, "png-sequence", [str(p) for p in written], self.output_dir)
+            self.signals.finished.emit(
+                self.job_id,
+                "png-sequence",
+                [str(p) for p in written],
+                self.output_dir,
+            )
         except Exception:
-            self.signals.failed.emit(self.job_id, "png-sequence", traceback.format_exc(), self.output_dir)
+            self.signals.failed.emit(
+                self.job_id,
+                "png-sequence",
+                traceback.format_exc(),
+                self.output_dir,
+            )
 
 
 class BatchWorker(QRunnable):
-    def __init__(self, job_id: int, paths: list[str], output_dir: str, settings: ProcessingSettings) -> None:
+    def __init__(
+        self,
+        job_id: int,
+        paths: list[str],
+        output_dir: str,
+        settings: ProcessingSettings,
+        options: dict[str, object] | None = None,
+    ) -> None:
         super().__init__()
         self.job_id = job_id
         self.paths = paths
         self.output_dir = output_dir
         self.settings = ProcessingSettings.from_dict(settings.to_dict())
+        self.options = dict(options or {})
         self.signals = WorkerSignals()
 
-    def _progress(self, current: int, total: int, target: Path) -> None:
-        self.signals.progress.emit(self.job_id, "batch", current, total, target.name)
+    def _progress(
+        self, current: int, total: int, target: Path
+    ) -> None:
+        self.signals.progress.emit(
+            self.job_id,
+            "batch",
+            current,
+            total,
+            target.name,
+        )
 
     @Slot()
     def run(self) -> None:
         try:
-            written = process_batch(self.paths, self.output_dir, self.settings, progress=self._progress)
-            self.signals.finished.emit(self.job_id, "batch", [str(p) for p in written], self.output_dir)
+            written = process_batch(
+                self.paths,
+                self.output_dir,
+                self.settings,
+                progress=self._progress,
+                format_name=self.options.get("format", "PNG"),
+                scale_percent=self.options.get("scalePercent", 100),
+                overwrite=self.options.get("overwrite", "auto-rename"),
+                size_mode=self.options.get("sizeMode", "relative"),
+                fixed_output_size=self.options.get("fixedOutputSize"),
+            )
+            self.signals.finished.emit(
+                self.job_id,
+                "batch",
+                [str(p) for p in written],
+                self.output_dir,
+            )
         except Exception:
-            self.signals.failed.emit(self.job_id, "batch", traceback.format_exc(), self.output_dir)
+            self.signals.failed.emit(
+                self.job_id,
+                "batch",
+                traceback.format_exc(),
+                self.output_dir,
+            )

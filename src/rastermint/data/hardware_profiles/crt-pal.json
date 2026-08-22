@@ -1,0 +1,40 @@
+{
+  "id": "crt-pal",
+  "name": "CRT PAL 4:3",
+  "category": "Display",
+  "summary": "720×576 PAL-oriented 4:3 display treatment with non-square pixels, scanlines, blur, and modest color bleed.",
+  "raster": {
+    "width": 720,
+    "height": 576,
+    "pixel_aspect": [
+      16,
+      15
+    ],
+    "tile": [
+      0,
+      0
+    ],
+    "fit_mode": "fit"
+  },
+  "palette": {
+    "type": "native-depth",
+    "name": "Unrestricted RGB",
+    "description": "Display-only profile; no fixed source palette is imposed."
+  },
+  "recommended_dither": "Nearest Palette",
+  "visual": {
+    "display": {
+      "kind": "crt",
+      "gamma": 1.05,
+      "blur": 0.5,
+      "color_bleed": 0.9,
+      "scanlines": 0.12,
+      "lcd_grid": 0.0
+    }
+  },
+  "strict": {
+    "supported": false,
+    "constraints": {}
+  },
+  "sources": []
+}

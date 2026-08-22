@@ -1,0 +1,280 @@
+import QtQuick
+import QtQuick.Controls
+import QtQuick.Layouts
+import QtQuick.Dialogs
+import "components"
+
+Dialog {
+    id: root
+    title: "Batch Export Images"
+    modal: true
+    popupType: Popup.Item
+    standardButtons: Dialog.NoButton
+    padding: 18
+
+    property var selectedFiles: []
+    property url outputFolder: ""
+    property var currentExportInfo: ({ sourceWidth: 1, sourceHeight: 1, width: 1, height: 1 })
+
+    readonly property real overlayWidth: Overlay.overlay ? Overlay.overlay.width : 760
+    readonly property real overlayHeight: Overlay.overlay ? Overlay.overlay.height : 820
+    readonly property real desiredDialogHeight: 46 + (padding * 2) + batchBody.implicitHeight
+    readonly property bool canStart: selectedFiles.length > 0 && outputFolder.toString().length > 0
+    readonly property bool hasCurrentOutputReference: backend.hasSource
+
+    width: Math.max(520, Math.min(680, overlayWidth - 24))
+    height: Math.max(420, Math.min(Math.max(560, desiredDialogHeight), overlayHeight - 24))
+    anchors.centerIn: Overlay.overlay
+
+    background: Rectangle {
+        color: theme.panelColor
+        border.color: theme.borderColor
+        border.width: 1
+        radius: 10
+    }
+
+    Overlay.modal: Rectangle {
+        color: Qt.rgba(0, 0, 0, 0.45)
+    }
+
+    header: Rectangle {
+        implicitHeight: 46
+        color: theme.panelRaisedColor
+
+        Rectangle {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            height: 1
+            color: theme.borderColor
+        }
+
+        Text {
+            anchors.left: parent.left
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.leftMargin: 16
+            text: root.title
+            color: theme.textColor
+            font.bold: true
+            font.pixelSize: 13
+        }
+    }
+
+    function refreshCurrentOutputInfo() {
+        currentExportInfo = backend.exportImageInfo()
+    }
+
+    function startExport() {
+        if (!canStart)
+            return
+        var geometryMode = geometryCombo.currentIndex === 1 ? "fixed-current" : "relative"
+        var overwriteMode = "auto-rename"
+        if (overwriteCombo.currentIndex === 1)
+            overwriteMode = "replace"
+        else if (overwriteCombo.currentIndex === 2)
+            overwriteMode = "skip"
+
+        backend.batchExportWithOptions(
+            selectedFiles,
+            outputFolder,
+            {
+                format: formatCombo.currentText,
+                scalePercent: scaleSpin.value,
+                overwrite: overwriteMode,
+                sizeMode: geometryMode
+            }
+        )
+        close()
+    }
+
+    onOpened: refreshCurrentOutputInfo()
+
+    contentItem: ScrollView {
+        id: batchScroll
+        clip: true
+        contentWidth: availableWidth
+        contentHeight: batchBody.implicitHeight
+
+        ScrollBar.horizontal: ScrollBar { policy: ScrollBar.AlwaysOff }
+        ScrollBar.vertical: ScrollBar {
+            policy: batchScroll.contentHeight > batchScroll.availableHeight
+                    ? ScrollBar.AsNeeded
+                    : ScrollBar.AlwaysOff
+        }
+
+        ColumnLayout {
+            id: batchBody
+            width: batchScroll.availableWidth
+            spacing: 12
+
+            Rectangle {
+                Layout.fillWidth: true
+                color: theme.panelRaisedColor
+                border.color: theme.borderColor
+                radius: 8
+                implicitHeight: sourceBlock.implicitHeight + 16
+
+                ColumnLayout {
+                    id: sourceBlock
+                    anchors.fill: parent
+                    anchors.margins: 8
+                    spacing: 8
+
+                    MintLabel {
+                        text: "Sources and destination"
+                        font.bold: true
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        MintButton {
+                            text: "Choose Images"
+                            onClicked: filesDialog.open()
+                        }
+                        MintLabel {
+                            Layout.fillWidth: true
+                            text: selectedFiles.length > 0
+                                  ? (selectedFiles.length + " image" + (selectedFiles.length === 1 ? "" : "s") + " selected")
+                                  : "No images selected"
+                            wrapMode: Text.Wrap
+                        }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        MintButton {
+                            text: "Choose Output Folder"
+                            onClicked: folderDialog.open()
+                        }
+                        MintLabel {
+                            Layout.fillWidth: true
+                            text: outputFolder.toString().length > 0
+                                  ? outputFolder.toString()
+                                  : "No output folder selected"
+                            wrapMode: Text.WrapAnywhere
+                            color: outputFolder.toString().length > 0 ? theme.textColor : theme.mutedTextColor
+                        }
+                    }
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                color: theme.panelRaisedColor
+                border.color: theme.borderColor
+                radius: 8
+                implicitHeight: optionsBlock.implicitHeight + 16
+
+                ColumnLayout {
+                    id: optionsBlock
+                    anchors.fill: parent
+                    anchors.margins: 8
+                    spacing: 10
+
+                    MintLabel {
+                        text: "Batch export options"
+                        font.bold: true
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        MintLabel { text: "Format"; Layout.preferredWidth: 140 }
+                        MintComboBox {
+                            id: formatCombo
+                            Layout.fillWidth: true
+                            model: ["PNG", "JPEG", "WEBP", "TIFF", "BMP"]
+                            currentIndex: 0
+                        }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        MintLabel { text: "Scale (%)"; Layout.preferredWidth: 140 }
+                        MintSpinBox {
+                            id: scaleSpin
+                            from: 10
+                            to: 800
+                            stepSize: 10
+                            editable: true
+                            value: 100
+                            Layout.preferredWidth: 120
+                        }
+                        MintLabel {
+                            Layout.fillWidth: true
+                            color: theme.mutedTextColor
+                            text: "Applied after RasterMint processing using nearest-neighbor scaling."
+                            wrapMode: Text.Wrap
+                        }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        MintLabel { text: "Overwrite"; Layout.preferredWidth: 140 }
+                        MintComboBox {
+                            id: overwriteCombo
+                            Layout.fillWidth: true
+                            model: ["Auto rename", "Replace existing", "Skip existing"]
+                            currentIndex: 0
+                        }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        MintLabel { text: "Geometry"; Layout.preferredWidth: 140 }
+                        MintComboBox {
+                            id: geometryCombo
+                            Layout.fillWidth: true
+                            model: ["Relative to each source", "Use current 1× output size for all"]
+                            currentIndex: 0
+                        }
+                    }
+
+                    MintLabel {
+                        Layout.fillWidth: true
+                        visible: geometryCombo.currentIndex === 1
+                        color: hasCurrentOutputReference ? theme.mutedTextColor : theme.warningColor
+                        wrapMode: Text.Wrap
+                        text: hasCurrentOutputReference
+                              ? ("Current 1× output size: " + currentExportInfo.width + " × " + currentExportInfo.height + ". Every batch result will be resized to this size before export scaling is applied.")
+                              : "Load a source image first if you want to force the current 1× output size for every batch item. Otherwise RasterMint will fall back to relative sizing."
+                    }
+
+                    MintLabel {
+                        Layout.fillWidth: true
+                        color: theme.mutedTextColor
+                        wrapMode: Text.Wrap
+                        text: "Batch export uses your current RasterMint settings, layer stack, palette, and enabled effects. Files keep their source names and are saved as <source>-rastermint in the chosen format."
+                    }
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                Item { Layout.fillWidth: true }
+                MintButton {
+                    text: "Cancel"
+                    onClicked: root.close()
+                }
+                MintButton {
+                    text: "Start Batch Export"
+                    enabled: root.canStart
+                    onClicked: root.startExport()
+                }
+            }
+        }
+    }
+
+    FileDialog {
+        id: filesDialog
+        title: "Select images for batch processing"
+        fileMode: FileDialog.OpenFiles
+        nameFilters: ["Images (*.png *.jpg *.jpeg *.bmp *.webp *.tif *.tiff)"]
+        onAccepted: root.selectedFiles = selectedFiles
+    }
+
+    FolderDialog {
+        id: folderDialog
+        title: "Choose batch output folder"
+        onAccepted: root.outputFolder = selectedFolder
+    }
+}

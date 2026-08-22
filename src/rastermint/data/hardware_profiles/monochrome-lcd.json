@@ -1,0 +1,54 @@
+{
+  "id": "monochrome-lcd",
+  "name": "Monochrome LCD",
+  "category": "Display",
+  "summary": "Generic 320×240 four-level monochrome LCD profile with square pixels and a light LCD-cell grid treatment.",
+  "raster": {
+    "width": 320,
+    "height": 240,
+    "pixel_aspect": [
+      1,
+      1
+    ],
+    "tile": [
+      0,
+      0
+    ],
+    "fit_mode": "fit"
+  },
+  "palette": {
+    "type": "fixed",
+    "name": "Monochrome LCD 4",
+    "description": "Four luminance levels for a generic monochrome passive-matrix LCD look.",
+    "colors": [
+      "#1B1F1B",
+      "#596259",
+      "#A2AAA0",
+      "#E2E7DD"
+    ]
+  },
+  "recommended_dither": "Bayer 4x4",
+  "visual": {
+    "display": {
+      "kind": "lcd",
+      "gamma": 1.0,
+      "blur": 0.08,
+      "color_bleed": 0.0,
+      "scanlines": 0.0,
+      "lcd_grid": 0.14
+    }
+  },
+  "strict": {
+    "supported": true,
+    "constraints": {
+      "fixed_palette": [
+        "#1B1F1B",
+        "#596259",
+        "#A2AAA0",
+        "#E2E7DD"
+      ],
+      "max_colors_global": 4
+    }
+  },
+  "sources": []
+}

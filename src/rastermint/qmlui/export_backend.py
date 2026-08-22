@@ -23,7 +23,7 @@ from rastermint.core.svg_export import save_svg
 
 from .backend import _local_path
 from .preferences_backend import RasterMintBackend as PreferencesBackend
-from .workers import ProcessingWorker
+from .workers import BatchWorker, ProcessingWorker
 
 
 _FORMAT_SUFFIXES = {
@@ -32,6 +32,14 @@ _FORMAT_SUFFIXES = {
     "WEBP": ".webp",
     "TIFF": ".tif",
     "SVG": ".svg",
+}
+
+_BATCH_FORMAT_SUFFIXES = {
+    "PNG": ".png",
+    "JPEG": ".jpg",
+    "WEBP": ".webp",
+    "TIFF": ".tif",
+    "BMP": ".bmp",
 }
 
 _RESAMPLING = {
@@ -43,9 +51,16 @@ _RESAMPLING = {
 }
 
 
-class RasterMintBackend(PreferencesBackend):
-    """Add the still-image export workflow to the normal QML backend."""
+def _clamp_scale_percent(value: object) -> int:
+    try:
+        scale = int(value)
+    except (TypeError, ValueError):
+        scale = 100
+    return max(10, min(800, scale))
 
+
+class RasterMintBackend(PreferencesBackend):
+    """Add export workflows to the normal QML backend."""
 
     # ---------- immediate preview-mode switching ----------
     def _preview_superseded_jobs(self) -> set[int]:
@@ -104,8 +119,6 @@ class RasterMintBackend(PreferencesBackend):
         if label not in {"Quick", "Stable", "Full"} or label == self._preview_mode:
             return
 
-        # A normal preview from the previous mode may already be running. Mark
-        # it as superseded so it cannot flash over the newly selected mode.
         if self._preview_running and self._latest_preview_job:
             self._preview_superseded_jobs().add(int(self._latest_preview_job))
 
@@ -118,7 +131,6 @@ class RasterMintBackend(PreferencesBackend):
 
         if self.hasSource:
             self._start_mode_switch_preview(label)
-            # Quick still gets its normal refined pass after the immediate draft.
             if label == "Quick":
                 self._stable_timer.start(330)
 
@@ -145,7 +157,6 @@ class RasterMintBackend(PreferencesBackend):
 
     @Slot(str, result=str)
     def suggestedExportFile(self, format_name: str = "PNG") -> str:
-        """Return a source-adjacent export URL using the original base filename."""
         if self._current_file is None:
             return ""
 
@@ -220,6 +231,59 @@ class RasterMintBackend(PreferencesBackend):
         self._connect_worker(worker)
         self.thread_pool.start(worker)
         self._set_status(f"Exporting {path.name} at {width} × {height}…")
+
+    @Slot("QVariantList", "QVariant", "QVariantMap")
+    def batchExportWithOptions(
+        self,
+        paths: list[object] | None,
+        output_dir: object,
+        options: dict[str, Any] | None = None,
+    ) -> None:
+        source_paths = []
+        for raw in list(paths or []):
+            path = Path(_local_path(raw))
+            if str(path):
+                source_paths.append(str(path))
+        if not source_paths:
+            return
+
+        destination = str(Path(_local_path(output_dir)))
+        if not destination:
+            return
+
+        opts = dict(options or {})
+        format_name = str(opts.get("format", "PNG") or "PNG").strip().upper()
+        if format_name not in _BATCH_FORMAT_SUFFIXES:
+            format_name = "PNG"
+
+        overwrite = str(opts.get("overwrite", "auto-rename") or "auto-rename").strip().lower()
+        if overwrite not in {"auto-rename", "replace", "skip"}:
+            overwrite = "auto-rename"
+
+        size_mode = str(opts.get("sizeMode", "relative") or "relative").strip().lower()
+        if size_mode not in {"relative", "fixed-current"}:
+            size_mode = "relative"
+
+        fixed_output_size: list[int] | None = None
+        if size_mode == "fixed-current" and self.hasSource:
+            info = self.exportImageInfo()
+            fixed_output_size = [int(info.get("width", 1)), int(info.get("height", 1))]
+        elif size_mode == "fixed-current":
+            size_mode = "relative"
+
+        worker_options = {
+            "format": format_name,
+            "scalePercent": _clamp_scale_percent(opts.get("scalePercent", 100)),
+            "overwrite": overwrite,
+            "sizeMode": size_mode,
+            "fixedOutputSize": fixed_output_size,
+        }
+
+        job = self._next_job()
+        worker = BatchWorker(job, source_paths, destination, self.settings, worker_options)
+        self._connect_worker(worker)
+        self.thread_pool.start(worker)
+        self._set_status(f"Batch exporting {len(source_paths)} image(s)…")
 
     @staticmethod
     def _save_advanced_image(result: Image.Image, context: dict[str, Any]) -> Path:
