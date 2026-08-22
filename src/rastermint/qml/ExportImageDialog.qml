@@ -31,10 +31,15 @@ Dialog {
     property int exportHeight: 1
     property int exportQuality: 90
     property bool updatingDimensions: false
+    property bool sourceHasTransparency: false
 
     readonly property real baseAspect: baseHeight > 0 ? baseWidth / baseHeight : 1.0
     readonly property string selectedFormat: formatCombo.currentText
     readonly property bool lossyFormat: selectedFormat === "JPEG" || selectedFormat === "WebP"
+    readonly property bool transparencySupported: selectedFormat === "PNG"
+                                               || selectedFormat === "WebP"
+                                               || selectedFormat === "TIFF"
+                                               || selectedFormat === "SVG"
 
     function clampDimension(value) {
         return Math.max(1, Math.min(32768, Math.round(Number(value))))
@@ -84,10 +89,12 @@ Dialog {
         baseWidth = Math.max(1, Number(info.width || sourceWidth))
         baseHeight = Math.max(1, Number(info.height || sourceHeight))
         exportQuality = 90
+        sourceHasTransparency = Boolean(info.hasTransparency)
         aspectLock.checked = true
         scaleCombo.currentIndex = 2
         formatCombo.currentIndex = 0
         resampleCombo.currentIndex = 0
+        preserveTransparencyCheck.checked = sourceHasTransparency
         applyScale(1.0)
     }
 
@@ -102,7 +109,10 @@ Dialog {
             "height": exportHeight,
             "format": selectedFormat,
             "quality": exportQuality,
-            "resampling": resampleCombo.currentText
+            "resampling": resampleCombo.currentText,
+            "preserveTransparency": preserveTransparencyCheck.checked
+                                     && sourceHasTransparency
+                                     && transparencySupported
         }
     }
 
@@ -316,6 +326,12 @@ Dialog {
                     Layout.fillWidth: true
                     model: ["PNG", "JPEG", "WebP", "TIFF", "SVG"]
                     currentIndex: 0
+                    onActivated: {
+                        if (!root.transparencySupported)
+                            preserveTransparencyCheck.checked = false
+                        else if (root.sourceHasTransparency)
+                            preserveTransparencyCheck.checked = true
+                    }
                 }
             }
 
@@ -331,6 +347,13 @@ Dialog {
                     model: ["Nearest (pixel-perfect)", "Bilinear", "Bicubic", "Lanczos"]
                     currentIndex: 0
                 }
+            }
+
+            MintCheckBox {
+                id: preserveTransparencyCheck
+                text: "Preserve source transparency"
+                checked: false
+                enabled: root.sourceHasTransparency && root.transparencySupported
             }
 
             ColumnLayout {

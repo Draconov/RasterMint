@@ -56,6 +56,9 @@ class BatchWorker(QRunnable):
                 resampling=self.options.get(
                     "resampling", "Nearest (pixel-perfect)"
                 ),
+                preserve_transparency=bool(
+                    self.options.get("preserveTransparency", True)
+                ),
             )
             self.signals.finished.emit(
                 self.job_id,

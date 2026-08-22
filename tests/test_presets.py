@@ -1,6 +1,8 @@
 # Copyright © 2026 Draconov
 # SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
+import json
+
 from rastermint.core.presets import load_preset, save_preset
 from rastermint.core.settings import ProcessingSettings
 
@@ -21,8 +23,12 @@ def test_preset_roundtrip(tmp_path):
         serpentine=False,
         output_divisor=3,
         palette=["#112233", "#445566", "#FFFFFF"],
+        hardware_profile_id="game-boy",
+        hardware_mode="strict",
     )
     path = tmp_path / "test.json"
     save_preset(path, original)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    assert payload["hardware_reference"] == {"profile_id": "game-boy", "mode": "strict"}
     loaded = load_preset(path)
     assert loaded.to_dict() == original.to_dict()

@@ -88,6 +88,135 @@ def display_output_size(source_size: tuple[int, int], settings: ProcessingSettin
     return width, height
 
 
+def image_has_transparency(image: Image.Image) -> bool:
+    """Return True only when the image contains at least one non-opaque pixel."""
+    try:
+        if "A" in image.getbands() or "transparency" in image.info:
+            alpha = image.convert("RGBA").getchannel("A")
+            minimum, _maximum = alpha.getextrema()
+            return int(minimum) < 255
+    except Exception:
+        return False
+    return False
+
+
+def _apply_alpha_source_transform(alpha: Image.Image, settings: ProcessingSettings) -> Image.Image:
+    mask = alpha.convert("L")
+    w, h = mask.size
+    left = max(0, min(w - 1, round(w * settings.crop_left)))
+    top = max(0, min(h - 1, round(h * settings.crop_top)))
+    right = max(left + 1, min(w, round(w * (1.0 - settings.crop_right))))
+    bottom = max(top + 1, min(h, round(h * (1.0 - settings.crop_bottom))))
+    if (left, top, right, bottom) != (0, 0, w, h):
+        mask = mask.crop((left, top, right, bottom))
+    if settings.flip_horizontal:
+        mask = ImageOps.mirror(mask)
+    if settings.flip_vertical:
+        mask = ImageOps.flip(mask)
+    rotation = settings.rotation % 360
+    if rotation == 90:
+        mask = mask.transpose(Image.Transpose.ROTATE_270)
+    elif rotation == 180:
+        mask = mask.transpose(Image.Transpose.ROTATE_180)
+    elif rotation == 270:
+        mask = mask.transpose(Image.Transpose.ROTATE_90)
+    return mask
+
+
+def _apply_axis_mirror_alpha(alpha: Image.Image, settings: ProcessingSettings) -> Image.Image:
+    if not settings.mirror_horizontal and not settings.mirror_vertical:
+        return alpha.convert("L")
+
+    arr = np.asarray(alpha.convert("L"), dtype=np.uint8).copy()
+    height, width = arr.shape
+    if settings.mirror_horizontal and width > 1:
+        axis = max(0.0, min(1.0, settings.mirror_horizontal_axis)) * (width - 1)
+        for x in range(max(0, math.floor(axis) + 1), width):
+            source_x = int(round(2.0 * axis - x))
+            if 0 <= source_x < width:
+                arr[:, x] = arr[:, source_x]
+    if settings.mirror_vertical and height > 1:
+        axis = max(0.0, min(1.0, settings.mirror_vertical_axis)) * (height - 1)
+        for y in range(max(0, math.floor(axis) + 1), height):
+            source_y = int(round(2.0 * axis - y))
+            if 0 <= source_y < height:
+                arr[y, :] = arr[source_y, :]
+    return Image.fromarray(arr, "L")
+
+
+def _fit_alpha_to_target(
+    alpha: Image.Image,
+    target: tuple[int, int],
+    *,
+    fit_mode: str,
+    position_x: float,
+    position_y: float,
+) -> Image.Image:
+    tw, th = max(1, int(target[0])), max(1, int(target[1]))
+    mask = alpha.convert("L")
+    if mask.size == (tw, th):
+        return mask
+    mode = str(fit_mode or "fit").lower()
+    if mode == "stretch":
+        return mask.resize((tw, th), Image.Resampling.LANCZOS)
+
+    iw, ih = mask.size
+    if mode == "fill":
+        scale = max(tw / max(1, iw), th / max(1, ih))
+        rw, rh = max(1, round(iw * scale)), max(1, round(ih * scale))
+        resized = mask.resize((rw, rh), Image.Resampling.LANCZOS)
+        extra_x = max(0, rw - tw)
+        extra_y = max(0, rh - th)
+        fx = (max(-1.0, min(1.0, position_x)) + 1.0) * 0.5
+        fy = (max(-1.0, min(1.0, position_y)) + 1.0) * 0.5
+        left = round(extra_x * fx)
+        top = round(extra_y * fy)
+        return resized.crop((left, top, left + tw, top + th))
+
+    scale = min(tw / max(1, iw), th / max(1, ih))
+    rw, rh = max(1, round(iw * scale)), max(1, round(ih * scale))
+    resized = mask.resize((rw, rh), Image.Resampling.LANCZOS)
+    canvas = Image.new("L", (tw, th), 0)
+    fx = (max(-1.0, min(1.0, position_x)) + 1.0) * 0.5
+    fy = (max(-1.0, min(1.0, position_y)) + 1.0) * 0.5
+    left = round(max(0, tw - rw) * fx)
+    top = round(max(0, th - rh) * fy)
+    canvas.paste(resized, (left, top))
+    return canvas
+
+
+def prepare_transparency_mask(
+    image: Image.Image,
+    settings: ProcessingSettings,
+    *,
+    target_override: tuple[int, int] | None = None,
+    output_size: tuple[int, int] | None = None,
+) -> Image.Image | None:
+    """Transform source alpha through RasterMint geometry without altering it creatively.
+
+    The mask follows crop, flips, rotation, target fitting and mirror axes. Effects
+    keep the original transparency silhouette; if an effect/display stage changes
+    framebuffer dimensions the mask is expanded to that result using nearest
+    neighbour so transparent source regions stay transparent.
+    """
+    if not image_has_transparency(image):
+        return None
+    alpha = image.convert("RGBA").getchannel("A")
+    transformed = _apply_alpha_source_transform(alpha, settings)
+    target = target_override or target_raster_size(image.size, settings)
+    mask = _fit_alpha_to_target(
+        transformed,
+        target,
+        fit_mode=settings.fit_mode,
+        position_x=settings.position_x,
+        position_y=settings.position_y,
+    )
+    mask = _apply_axis_mirror_alpha(mask, settings)
+    if output_size is not None and mask.size != output_size:
+        mask = mask.resize(output_size, Image.Resampling.NEAREST)
+    return mask
+
+
 def _apply_source_transform(image: Image.Image, settings: ProcessingSettings) -> Image.Image:
     img = image if image.mode == "RGB" else image.convert("RGB")
     w, h = img.size

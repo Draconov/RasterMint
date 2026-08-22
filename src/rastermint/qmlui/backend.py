@@ -19,7 +19,7 @@ from rastermint.core.animation import EASINGS, normalize_tracks, settings_at_tim
 from rastermint.core.animation_presets import ANIMATION_PRESETS, apply_animation_preset
 from rastermint.core.builtin_presets import BUILTIN_PRESETS, build_builtin_preset
 from rastermint.core.dither import ALGORITHMS
-from rastermint.core.effect_stack import EFFECT_DEFINITIONS, default_effect_stack, new_effect, normalize_effect_stack
+from rastermint.core.effect_stack import EFFECT_DEFINITIONS, default_effect_stack, effect_categories, new_effect, normalize_effect_stack
 from rastermint.core.hardware import apply_profile_to_settings, load_builtin_profiles, load_profile_file, profile_summary
 from rastermint.core.history import UndoHistory
 from rastermint.core.lospec import fetch_lospec_palette
@@ -83,7 +83,6 @@ class RasterMintBackend(QObject):
     errorOccurred = Signal(str, str)
     infoOccurred = Signal(str, str)
     historyChanged = Signal()
-    uiPreferencesChanged = Signal()
 
     def __init__(self, image_provider: RasterImageProvider, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -111,7 +110,6 @@ class RasterMintBackend(QObject):
         self._rendered_fps = 0.0
 
         self._preview_mode = str(self.app_settings.value("previewModeQml", "Quick") or "Quick")
-        self._show_hotkeys = bool(self.app_settings.value("showHotkeysQml", True, type=bool))
         if self._preview_mode not in {"Quick", "Stable", "Full"}:
             self._preview_mode = "Quick"
         self._preview_revision = 0
@@ -196,10 +194,6 @@ class RasterMintBackend(QObject):
     def canRedo(self) -> bool:
         return self._history.can_redo
 
-    @Property(bool, notify=uiPreferencesChanged)
-    def showHotkeys(self) -> bool:
-        return self._show_hotkeys
-
     @Property(str, notify=settingsChanged)
     def previewMode(self) -> str:
         return self._preview_mode
@@ -211,6 +205,10 @@ class RasterMintBackend(QObject):
     @Property("QStringList", constant=True)
     def layerKinds(self) -> list[str]:
         return list(EFFECT_DEFINITIONS.keys())
+
+    @Property("QVariantList", constant=True)
+    def layerCategories(self) -> list[dict[str, Any]]:
+        return effect_categories()
 
     @Property(int, notify=layerSelectionChanged)
     def selectedLayerIndex(self) -> int:
@@ -291,7 +289,18 @@ class RasterMintBackend(QObject):
 
     @Property("QVariantList", constant=True)
     def builtinPresets(self) -> list[dict[str, Any]]:
-        return [{"id": p.id, "name": p.name, "description": p.description} for p in BUILTIN_PRESETS]
+        profile_names = {p.id: p.name for p in self._hardware_profiles}
+        return [
+            {
+                "id": p.id,
+                "name": p.name,
+                "description": p.description,
+                "hardwareProfileId": p.hardware_profile_id,
+                "hardwareProfileName": profile_names.get(p.hardware_profile_id, ""),
+                "hardwareMode": p.hardware_mode,
+            }
+            for p in BUILTIN_PRESETS
+        ]
 
     @Property("QStringList", constant=True)
     def animationPresetNames(self) -> list[str]:
@@ -391,16 +400,6 @@ class RasterMintBackend(QObject):
     @Slot(str)
     def reportAction(self, text: str) -> None:
         self._set_status(str(text))
-
-    @Slot(bool)
-    def setShowHotkeys(self, enabled: bool) -> None:
-        enabled = bool(enabled)
-        if enabled == self._show_hotkeys:
-            return
-        self._show_hotkeys = enabled
-        self.app_settings.setValue("showHotkeysQml", enabled)
-        self.uiPreferencesChanged.emit()
-        self._set_status(f"Hotkey labels: {'On' if enabled else 'Off'}")
 
     def _next_job(self) -> int:
         self._job_counter += 1
@@ -838,11 +837,6 @@ class RasterMintBackend(QObject):
         settings.effect_stack = default_effect_stack(settings)
         self._preview_mode = "Quick"
         self.app_settings.setValue("previewModeQml", "Quick")
-        hotkeys_changed = not self._show_hotkeys
-        self._show_hotkeys = True
-        self.app_settings.setValue("showHotkeysQml", True)
-        if hotkeys_changed:
-            self.uiPreferencesChanged.emit()
         self._replace_settings(settings, action="Reset settings")
 
     # ---------- palettes ----------

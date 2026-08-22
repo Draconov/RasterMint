@@ -9,7 +9,11 @@ from typing import Callable, Iterable
 from PIL import Image
 
 from rastermint.core.animation import settings_at_time
-from rastermint.core.processor import process_image
+from rastermint.core.processor import (
+    image_has_transparency,
+    prepare_transparency_mask,
+    process_image,
+)
 from rastermint.core.settings import ProcessingSettings
 
 
@@ -20,6 +24,7 @@ _FORMAT_SUFFIXES = {
     "TIFF": ".tif",
     "BMP": ".bmp",
 }
+_ALPHA_FORMATS = {"PNG", "WEBP", "TIFF"}
 
 
 def _normalize_format(value: object) -> str:
@@ -125,6 +130,7 @@ def process_batch(
     scale_percent: int = 100,
     overwrite: str = "auto-rename",
     resampling: str = "Nearest (pixel-perfect)",
+    preserve_transparency: bool = True,
 ) -> list[Path]:
     destination = Path(output_dir)
     destination.mkdir(parents=True, exist_ok=True)
@@ -143,8 +149,14 @@ def process_batch(
 
     for index, path in enumerate(source_paths, start=1):
         with Image.open(path) as opened:
-            source = opened.copy()
+            has_alpha = image_has_transparency(opened)
+            source = opened.convert("RGBA" if has_alpha else "RGB").copy()
         source_size = source.size
+        alpha_mask = (
+            prepare_transparency_mask(source, animated)
+            if preserve_transparency and format_name in _ALPHA_FORMATS and has_alpha
+            else None
+        )
         result = process_image(
             source,
             animated,
@@ -153,6 +165,12 @@ def process_batch(
             display_mode=display_mode,
             include_grid=include_grid,
         )
+
+        if alpha_mask is not None:
+            if alpha_mask.size != result.size:
+                alpha_mask = alpha_mask.resize(result.size, Image.Resampling.NEAREST)
+            result = result.convert("RGBA")
+            result.putalpha(alpha_mask)
 
         # Batch exports always keep each source file's own pixel dimensions at
         # 100%. Effects can internally render at a different raster size, so

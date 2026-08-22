@@ -9,6 +9,7 @@ ScrollView {
     contentWidth: availableWidth
     clip: true
     ScrollBar.vertical.policy: ScrollBar.AlwaysOff
+
     ColumnLayout {
         width: root.availableWidth
         spacing: 10
@@ -17,10 +18,32 @@ ScrollView {
         MintComboBox {
             id: hwCombo
             Layout.fillWidth: true
-            model: backend.hardwareProfileNames
-            ToolTip.visible: hovered && currentIndex >= 0
-            ToolTip.delay: 350
-            ToolTip.text: currentIndex >= 0 ? (modeCombo.currentText === "Strict" ? backend.hardwareProfiles[currentIndex].strictTooltip : backend.hardwareProfiles[currentIndex].visualTooltip) : ""
+            model: backend.hardwareProfiles
+            textRole: "name"
+            delegate: ItemDelegate {
+                required property int index
+                required property var modelData
+                width: hwCombo.width - 8
+                height: 32
+                highlighted: hwCombo.highlightedIndex === index
+                hoverEnabled: true
+                contentItem: Text {
+                    text: parent.modelData.name
+                    color: theme.textColor
+                    elide: Text.ElideRight
+                    verticalAlignment: Text.AlignVCenter
+                }
+                background: Rectangle {
+                    radius: 5
+                    color: parent.highlighted || parent.hovered ? theme.selectionColor : "transparent"
+                }
+                ToolTip.visible: hovered && hwCombo.popup.visible
+                ToolTip.delay: 250
+                ToolTip.timeout: 10000
+                ToolTip.text: modeCombo.currentText === "Strict"
+                    ? modelData.strictTooltip
+                    : modelData.visualTooltip
+            }
         }
         MintLabel { text: "Mode"; color: theme.mutedTextColor }
         MintComboBox { id: modeCombo; Layout.fillWidth: true; model: ["Visual", "Strict"] }
@@ -42,7 +65,7 @@ ScrollView {
                 text: "Apply profile"
                 enabled: hwCombo.currentIndex >= 0
                 onClicked: backend.applyHardware(
-                    backend.hardwareProfileIds[hwCombo.currentIndex],
+                    backend.hardwareProfiles[hwCombo.currentIndex].id,
                     modeCombo.currentText,
                     {
                         "raster": applyRaster.checked,
@@ -54,12 +77,6 @@ ScrollView {
                 )
             }
             MintButton { text: "Load JSON…"; onClicked: hardwareFileDialog.open() }
-        }
-        MintLabel {
-            Layout.fillWidth: true
-            text: "Hover the profile selector to see raster, pixel aspect, palette and strict-limit information."
-            color: theme.mutedTextColor
-            wrapMode: Text.WordWrap
         }
     }
 

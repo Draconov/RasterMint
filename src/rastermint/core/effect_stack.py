@@ -177,6 +177,51 @@ EFFECT_DEFINITIONS: dict[str, dict[str, Any]] = {
     }},
 }
 
+EFFECT_CATEGORIES: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("Color & Tone", (
+        "Adjustments", "Local Contrast", "Hue Rotate", "Grayscale", "Invert", "Posterize",
+    )),
+    ("Detail & Light", (
+        "Gaussian Blur", "Median Denoise", "Sharpen", "Glow", "Bloom",
+    )),
+    ("Pixel & Dither", (
+        "Pixelate", "Dither", "Pixel Material",
+    )),
+    ("Display & Analog", (
+        "Pixel Aspect Ratio", "Scanlines", "Interlace", "JPEG Compression",
+    )),
+    ("Glitch & Channels", (
+        "Chromatic Shift", "RGB Split", "Pixel Sort", "Screen Melt", "Block Shuffle",
+        "Pixel Scatter", "Data Shift", "Row Shift", "Column Shift", "Databend", "Channel Swap",
+    )),
+    ("Noise & Motion", (
+        "Noise", "Temporal Flicker", "Temporal Pattern", "Cellular Automata",
+    )),
+    ("Text & Overlay", (
+        "Text Overlay",
+    )),
+)
+
+
+def effect_categories() -> list[dict[str, object]]:
+    """Return effect categories for the add-layer UI.
+
+    Any future effect that has not been assigned yet is kept reachable in an
+    automatic Other category instead of silently disappearing from the UI.
+    """
+    grouped: list[dict[str, object]] = []
+    seen: set[str] = set()
+    for name, kinds in EFFECT_CATEGORIES:
+        available = [kind for kind in kinds if kind in EFFECT_DEFINITIONS]
+        if available:
+            grouped.append({"name": name, "effects": available})
+            seen.update(available)
+    uncategorized = [kind for kind in EFFECT_DEFINITIONS if kind not in seen]
+    if uncategorized:
+        grouped.append({"name": "Other", "effects": uncategorized})
+    return grouped
+
+
 # Numeric effect controls are animatable unless they are identity/random seeds.
 # This keeps the timeline capability aligned with the effect schema without
 # requiring a second hand-maintained list of motion-capable parameters.

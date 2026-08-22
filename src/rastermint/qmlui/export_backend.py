@@ -13,8 +13,10 @@ from rastermint.core.processor import (
     PREVIEW_MAX_SIDE,
     adaptive_preview_max_side,
     display_output_size,
+    image_has_transparency,
     make_preview_settings,
     make_preview_source,
+    prepare_transparency_mask,
     processed_raster_size,
     target_raster_size,
 )
@@ -40,6 +42,8 @@ _BATCH_FORMAT_SUFFIXES = {
     "TIFF": ".tif",
     "BMP": ".bmp",
 }
+_ALPHA_FORMATS = {"PNG", "WEBP", "TIFF", "SVG"}
+_BATCH_ALPHA_FORMATS = {"PNG", "WEBP", "TIFF"}
 
 _RESAMPLING = {
     "NEAREST": Image.Resampling.NEAREST,
@@ -60,6 +64,39 @@ def _clamp_scale_percent(value: object) -> int:
 
 class RasterMintBackend(PreferencesBackend):
     """Add export workflows to the normal QML backend."""
+
+    def _transparency_source(self) -> Image.Image | None:
+        """Reload the original still image when it contains real alpha.
+
+        The normal preview pipeline keeps an RGB working copy for speed. Export
+        reopens the source so alpha is not lost just because preview rendering is
+        RGB-only.
+        """
+        path = getattr(self, "_current_file", None)
+        if path is None or getattr(self, "_video_path", None) is not None:
+            return None
+        try:
+            with Image.open(path) as opened:
+                if not image_has_transparency(opened):
+                    return None
+                return opened.convert("RGBA").copy()
+        except Exception:
+            return None
+
+    def _source_has_transparency(self) -> bool:
+        return self._transparency_source() is not None
+
+    @staticmethod
+    def _format_from_path(path: Path) -> str:
+        return {
+            ".png": "PNG",
+            ".jpg": "JPEG",
+            ".jpeg": "JPEG",
+            ".webp": "WEBP",
+            ".tif": "TIFF",
+            ".tiff": "TIFF",
+            ".svg": "SVG",
+        }.get(path.suffix.lower(), "PNG")
 
     # ---------- immediate preview-mode switching ----------
     def _preview_superseded_jobs(self) -> set[int]:
@@ -136,7 +173,13 @@ class RasterMintBackend(PreferencesBackend):
     def exportImageInfo(self) -> dict[str, Any]:
         source = self._active_source()
         if source is None:
-            return {"sourceWidth": 1, "sourceHeight": 1, "width": 1, "height": 1}
+            return {
+                "sourceWidth": 1,
+                "sourceHeight": 1,
+                "width": 1,
+                "height": 1,
+                "hasTransparency": False,
+            }
 
         animated = settings_at_time(self.settings, self._current_time)
         if animated.display_export:
@@ -148,6 +191,7 @@ class RasterMintBackend(PreferencesBackend):
             "sourceHeight": int(source.height),
             "width": max(1, int(width)),
             "height": max(1, int(height)),
+            "hasTransparency": self._source_has_transparency(),
         }
 
     @Slot(str, result=str)
@@ -175,6 +219,52 @@ class RasterMintBackend(PreferencesBackend):
             path = path.with_suffix(suffix)
         return path
 
+    @Slot(str)
+    def exportImage(self, value: str) -> None:
+        """Quick export; alpha-capable formats preserve source transparency automatically."""
+        source = self._active_source()
+        if source is None:
+            return
+        path = Path(_local_path(value))
+        if not path.suffix:
+            path = path.with_suffix(".png")
+        format_name = self._format_from_path(path)
+        alpha_source = self._transparency_source() if format_name in _ALPHA_FORMATS else None
+        if alpha_source is None:
+            super().exportImage(str(path))
+            return
+
+        animated = settings_at_time(self.settings, self._current_time)
+        alpha_mask = prepare_transparency_mask(alpha_source, animated)
+        context = {
+            "path": str(path),
+            "quick_alpha_export": True,
+            "format": format_name,
+            "alpha_mask": alpha_mask,
+        }
+        job = self._next_job()
+        self._export_jobs.add(job)
+        worker = ProcessingWorker(
+            job,
+            "export-image",
+            alpha_source.copy(),
+            animated,
+            context,
+            frame_time=self._current_time,
+            frame_index=max(
+                0,
+                round(
+                    self._current_time
+                    * (self._video_info.fps if self._video_info else animated.animation_fps)
+                ),
+            ),
+            display_mode=animated.display_mode if animated.display_export else "raw",
+            include_grid=False,
+        )
+        self._connect_worker(worker)
+        self.thread_pool.start(worker)
+        self._set_status(f"Exporting {path.name}…")
+
     @Slot(str, "QVariantMap")
     def exportImageWithOptions(self, value: str, options: dict[str, Any] | None = None) -> None:
         source = self._active_source()
@@ -191,6 +281,18 @@ class RasterMintBackend(PreferencesBackend):
         quality = max(1, min(100, int(opts.get("quality", 90) or 90)))
         resampling = str(opts.get("resampling", "Nearest (pixel-perfect)") or "Nearest (pixel-perfect)")
         animated = settings_at_time(self.settings, self._current_time)
+        preserve_requested = bool(opts.get("preserveTransparency", True))
+        alpha_source = (
+            self._transparency_source()
+            if preserve_requested and format_name in _ALPHA_FORMATS
+            else None
+        )
+        source_for_worker = alpha_source if alpha_source is not None else source.copy()
+        alpha_mask = (
+            prepare_transparency_mask(alpha_source, animated)
+            if alpha_source is not None
+            else None
+        )
         context = {
             "path": str(path),
             "advanced_export": True,
@@ -199,13 +301,15 @@ class RasterMintBackend(PreferencesBackend):
             "format": format_name,
             "quality": quality,
             "resampling": resampling,
+            "preserve_transparency": alpha_mask is not None,
+            "alpha_mask": alpha_mask,
         }
         job = self._next_job()
         self._export_jobs.add(job)
         worker = ProcessingWorker(
             job,
             "export-image",
-            source.copy(),
+            source_for_worker.copy(),
             animated,
             context,
             frame_time=self._current_time,
@@ -260,6 +364,10 @@ class RasterMintBackend(PreferencesBackend):
             "scalePercent": _clamp_scale_percent(opts.get("scalePercent", 100)),
             "overwrite": overwrite,
             "resampling": resampling,
+            "preserveTransparency": bool(
+                opts.get("preserveTransparency", True)
+                and format_name in _BATCH_ALPHA_FORMATS
+            ),
         }
         job = self._next_job()
         worker = BatchWorker(job, source_paths, destination, self.settings, worker_options)
@@ -279,6 +387,17 @@ class RasterMintBackend(PreferencesBackend):
         ).strip().upper()
         resampling = _RESAMPLING.get(resampling_name, Image.Resampling.NEAREST)
         output = result
+        alpha_mask = context.get("alpha_mask")
+        if (
+            bool(context.get("preserve_transparency"))
+            and format_name in _ALPHA_FORMATS
+            and isinstance(alpha_mask, Image.Image)
+        ):
+            mask = alpha_mask.convert("L")
+            if mask.size != output.size:
+                mask = mask.resize(output.size, Image.Resampling.NEAREST)
+            output = output.convert("RGBA")
+            output.putalpha(mask)
         if output.size != (width, height):
             output = output.resize((width, height), resampling)
 
@@ -320,6 +439,30 @@ class RasterMintBackend(PreferencesBackend):
             self._pending_preview_side = 0
             if pending:
                 self._request_preview(pending)
+            return
+        if (
+            purpose == "export-image"
+            and isinstance(result, Image.Image)
+            and isinstance(context, dict)
+            and bool(context.get("quick_alpha_export"))
+        ):
+            self._export_jobs.discard(job_id)
+            path = Path(str(context.get("path", "output.png")))
+            try:
+                output = result.convert("RGBA")
+                alpha_mask = context.get("alpha_mask")
+                if isinstance(alpha_mask, Image.Image):
+                    mask = alpha_mask.convert("L")
+                    if mask.size != output.size:
+                        mask = mask.resize(output.size, Image.Resampling.NEAREST)
+                    output.putalpha(mask)
+                if path.suffix.lower() == ".svg":
+                    save_svg(output, path)
+                else:
+                    output.save(path)
+                self._set_status(f"Exported {path.name}")
+            except Exception as exc:
+                self.errorOccurred.emit("Could not export image", str(exc))
             return
         if (
             purpose == "export-image"

@@ -18,8 +18,9 @@ def test_builtin_profiles_cover_requested_families():
     profiles = profile_map(load_builtin_profiles())
     expected = {
         "game-boy", "game-boy-color", "game-boy-advance", "nes", "snes",
-        "mega-drive", "zx-spectrum", "cga-320", "ega-320", "c64-multicolor",
-        "amiga-ocs", "apple-ii-hgr",
+        "mega-drive", "playstation", "zx-spectrum", "cga-320", "ega-320",
+        "c64-multicolor", "amiga-ocs", "apple-ii-hgr", "crt-ntsc",
+        "crt-pal", "monochrome-lcd",
     }
     assert expected <= set(profiles)
 

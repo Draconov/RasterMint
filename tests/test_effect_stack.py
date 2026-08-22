@@ -4,7 +4,7 @@
 import numpy as np
 from PIL import Image
 
-from rastermint.core.effect_stack import apply_effect_stack, new_effect, normalize_effect_stack, scale_stack_for_preview
+from rastermint.core.effect_stack import EFFECT_DEFINITIONS, apply_effect_stack, effect_categories, new_effect, normalize_effect_stack, scale_stack_for_preview
 
 
 def test_effect_stack_executes_in_order():
@@ -59,3 +59,11 @@ def test_pixel_aspect_ratio_layer_changes_image_width_in_stack():
     layer["params"]["resample"] = "Nearest"
     out = apply_effect_stack(image, [layer], ["#000000", "#FFFFFF"])
     assert out.size == (16, 6)
+
+
+def test_every_effect_is_present_once_in_add_layer_categories():
+    categories = effect_categories()
+    flattened = [kind for category in categories for kind in category["effects"]]
+    assert set(flattened) == set(EFFECT_DEFINITIONS)
+    assert len(flattened) == len(set(flattened))
+    assert all(category["effects"] for category in categories)

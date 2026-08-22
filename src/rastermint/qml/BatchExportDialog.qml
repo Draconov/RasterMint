@@ -25,6 +25,9 @@ Dialog {
     readonly property real overlayHeight: Overlay.overlay ? Overlay.overlay.height : 820
     readonly property real desiredDialogHeight: 46 + (padding * 2) + batchBody.implicitHeight
     readonly property bool canStart: selectedFiles.length > 0 && outputFolder.length > 0
+    readonly property bool transparencySupported: formatCombo.currentText === "PNG"
+                                               || formatCombo.currentText === "WEBP"
+                                               || formatCombo.currentText === "TIFF"
     width: Math.max(520, Math.min(680, overlayWidth - 24))
     height: Math.max(420, Math.min(Math.max(480, desiredDialogHeight), overlayHeight - 24))
     anchors.centerIn: Overlay.overlay
@@ -77,7 +80,9 @@ Dialog {
                 format: formatCombo.currentText,
                 scalePercent: scaleSpin.value,
                 overwrite: overwriteMode,
-                resampling: resampleCombo.currentText
+                resampling: resampleCombo.currentText,
+                preserveTransparency: preserveTransparencyCheck.checked
+                                      && root.transparencySupported
             }
         )
         close()
@@ -178,6 +183,9 @@ Dialog {
                             Layout.fillWidth: true
                             model: ["PNG", "JPEG", "WEBP", "TIFF", "BMP"]
                             currentIndex: 0
+                            onActivated: {
+                                preserveTransparencyCheck.checked = root.transparencySupported
+                            }
                         }
                     }
 
@@ -203,6 +211,18 @@ Dialog {
                             Layout.fillWidth: true
                             model: ["Nearest (pixel-perfect)", "Bilinear", "Bicubic", "Lanczos"]
                             currentIndex: 0
+                        }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        MintLabel { text: "Transparency"; Layout.preferredWidth: 140 }
+                        MintCheckBox {
+                            id: preserveTransparencyCheck
+                            text: "Preserve source transparency"
+                            checked: true
+                            enabled: root.transparencySupported
+                            Layout.fillWidth: true
                         }
                     }
 
