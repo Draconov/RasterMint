@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any, Callable
 
 from .effect_stack import default_effect_stack, new_effect
 from .hardware import apply_profile_to_settings, load_builtin_profiles
@@ -81,21 +82,179 @@ BUILTIN_PRESETS: tuple[BuiltinPreset, ...] = (
 _PROFILE_CACHE = {profile.id: profile for profile in load_builtin_profiles()}
 
 
+def _palette_config(
+    palette: str,
+    *,
+    dither: str = "Nearest Palette",
+    strength: float = 1.0,
+    serpentine: bool | None = None,
+    target: tuple[int, int] | None = None,
+    pixel_aspect: tuple[float, float] | None = None,
+    pixelate: int | None = None,
+    effects: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    return {
+        "palette": palette,
+        "dither": {"algorithm": dither, "strength": strength, "serpentine": serpentine},
+        "target": target,
+        "pixel_aspect": pixel_aspect,
+        "pixelate": pixelate,
+        "effects": effects or [],
+    }
+
+
+def _profile_config(
+    profile_id: str,
+    *,
+    mode: str = "strict",
+    constraints: bool = True,
+    display: bool = True,
+    dither: str = "Nearest Palette",
+    strength: float = 1.0,
+    serpentine: bool | None = None,
+    pixelate: int | None = None,
+    effects: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    return {
+        "profile": {
+            "id": profile_id,
+            "mode": mode,
+            "constraints": constraints,
+            "display": display,
+        },
+        "dither": {"algorithm": dither, "strength": strength, "serpentine": serpentine},
+        "pixelate": pixelate,
+        "effects": effects or [],
+    }
+
+
+def _effect(kind: str, *, index: int | None = None, enabled: bool = True, **params: Any) -> dict[str, Any]:
+    return {"kind": kind, "index": index, "enabled": enabled, "params": params}
+
+
+# Most presets are declarative. Adding another palette/hardware look should
+# normally only require another entry here, not another branch in Python code.
+PRESET_CONFIGS: dict[str, dict[str, Any]] = {
+    "clean-quantize": _palette_config("Arcade 8"),
+    "game-boy": _profile_config("game-boy", mode="visual", constraints=False, dither="Bayer 4x4"),
+    "game-boy-pocket": _palette_config("Game Boy Pocket", dither="Bayer 4x4", target=(160, 144), pixelate=2),
+    "game-boy-light": _palette_config("Game Boy Light", dither="Bayer 4x4", target=(160, 144), pixelate=2),
+    "game-boy-color": _profile_config("game-boy-color", serpentine=False),
+    "game-boy-advance": _profile_config(
+        "game-boy-advance",
+        serpentine=False,
+        effects=[_effect("Local Contrast", index=1, amount=135, radius=1.6)],
+    ),
+    "virtual-boy": _palette_config("Virtual Boy", dither="Bayer 4x4", target=(384, 224), pixelate=2),
+    "nes": _profile_config("nes", dither="Bayer 4x4", strength=0.95),
+    "snes": _profile_config(
+        "snes",
+        serpentine=False,
+        effects=[_effect("Sharpen", index=4, amount=1.2)],
+    ),
+    "master-system": _palette_config("Master System Reference 16", dither="Floyd-Steinberg", strength=0.9, target=(256, 192), pixel_aspect=(8, 7), pixelate=2),
+    "game-gear": _palette_config("Game Gear Reference 16", dither="Floyd-Steinberg", strength=0.9, target=(160, 144), pixelate=2),
+    "mega-drive": _profile_config(
+        "mega-drive",
+        serpentine=False,
+        effects=[_effect("Local Contrast", index=1, amount=115, radius=1.4)],
+    ),
+    "playstation": _profile_config(
+        "playstation",
+        serpentine=False,
+        effects=[_effect("Row Shift", amount=1, period=5)],
+    ),
+    "apple-ii-hgr": _profile_config("apple-ii-hgr", mode="visual", constraints=False, dither="Bayer 4x4"),
+    "c64-multicolor": _profile_config("c64-multicolor", dither="Bayer 4x4", strength=0.9),
+    "vic-20": _palette_config("VIC-20", dither="Atkinson", strength=0.85, target=(176, 184), pixel_aspect=(6, 5), pixelate=2),
+    "plus4": _palette_config("Commodore Plus/4", dither="Floyd-Steinberg", strength=0.9, target=(320, 200), pixel_aspect=(5, 6), pixelate=2),
+    "zx-spectrum": _profile_config("zx-spectrum", dither="Bayer 4x4", strength=0.9),
+    "cga-neon": _profile_config("cga-320", dither="Bayer 4x4"),
+    "ega-crisp": _profile_config("ega-320", dither="Floyd-Steinberg", strength=0.8),
+    "amiga-ocs": _profile_config("amiga-ocs", serpentine=False),
+    "amiga-wb13": _palette_config("Amiga Workbench 1.3", target=(320, 256), pixel_aspect=(1, 1), pixelate=2),
+    "amiga-wb2": _palette_config("Amiga Workbench 2.x", target=(320, 256), pixelate=2),
+    "amiga-wb3": _palette_config("Amiga Workbench 3.x", target=(320, 256), pixelate=2),
+    "amstrad-cpc": _palette_config("Amstrad CPC 27", dither="Bayer 4x4", strength=0.95, target=(320, 200), pixel_aspect=(5, 6), pixelate=2),
+    "msx": _palette_config("MSX 15", dither="Floyd-Steinberg", strength=0.9, target=(256, 192), pixel_aspect=(8, 7), pixelate=2),
+    "ti994a": _palette_config("TI-99/4A", dither="Bayer 4x4", strength=0.9, target=(256, 192), pixel_aspect=(8, 7), pixelate=2),
+    "crt-ntsc": _profile_config("crt-ntsc", mode="visual", constraints=False, pixelate=2),
+    "crt-pal": _profile_config("crt-pal", mode="visual", constraints=False, pixelate=2),
+    "monochrome-lcd": _profile_config("monochrome-lcd", dither="Bayer 4x4", pixelate=2),
+    "green-crt": _palette_config(
+        "MDA Green 4",
+        dither="Atkinson",
+        strength=0.85,
+        effects=[
+            _effect("Local Contrast", index=1, amount=150, radius=1.8),
+            _effect("Scanlines", spacing=3, strength=0.18),
+        ],
+    ),
+    "amber-monitor": _palette_config(
+        "Amber Monitor 8",
+        dither="Atkinson",
+        strength=0.8,
+        pixelate=2,
+        effects=[_effect("Scanlines", spacing=3, strength=0.16)],
+    ),
+    "white-phosphor": _palette_config(
+        "White Phosphor 8",
+        dither="Atkinson",
+        strength=0.8,
+        pixelate=2,
+        effects=[_effect("Scanlines", spacing=3, strength=0.14)],
+    ),
+    "halftone-print": {
+        "palette_colors": ["#201A17", "#6F4A2F", "#C99255", "#F4E3B2"],
+        "palette_name": "Warm Print 4",
+        "palette_author": "RasterMint",
+        "palette_source": "builtin",
+        "dither": {"algorithm": "Halftone", "strength": 1.0},
+        "effects": [_effect("Local Contrast", index=1, amount=150, radius=1.5)],
+    },
+    "mac-classic": _palette_config("Classic Macintosh 1-bit", dither="Atkinson", target=(512, 342), pixelate=2),
+    "mac-gray": _palette_config("Macintosh Gray 4", dither="Bayer 4x4", target=(512, 342), pixelate=2),
+    "atari-st": _palette_config("Atari ST 16", dither="Floyd-Steinberg", strength=0.85, target=(320, 200), pixel_aspect=(5, 6), pixelate=2),
+    "atari-8bit": _palette_config("Atari 8-bit Reference 16", dither="Bayer 4x4", strength=0.9, target=(320, 192), pixel_aspect=(1, 1), pixelate=2),
+    "teletext": _palette_config("Teletext 8", target=(240, 200), pixelate=3),
+    "oric-atmos": _palette_config("Oric Atmos 8", dither="Bayer 4x4", strength=0.9, target=(240, 200), pixel_aspect=(1, 1), pixelate=2),
+    "dragon-coco": _palette_config("Dragon / CoCo Reference 8", dither="Bayer 4x4", strength=0.9, target=(256, 192), pixel_aspect=(1, 1), pixelate=2),
+    "coco3": _palette_config("CoCo 3 Reference 16", dither="Floyd-Steinberg", strength=0.85, target=(320, 225), pixel_aspect=(1, 1), pixelate=2),
+    "pc98": _palette_config("PC-98 16", target=(640, 400), pixelate=2),
+    "x68000": _palette_config("X68000 Reference 16", target=(512, 512), pixelate=2),
+    "fmtowns": _palette_config("FM Towns Reference 16", target=(320, 240), pixelate=2),
+    "sam-coupe": _palette_config("SAM Coupé 16", dither="Floyd-Steinberg", strength=0.85, target=(256, 192), pixelate=2),
+    "thomson": _palette_config("Thomson TO7/MO5 16", dither="Bayer 4x4", strength=0.9, target=(320, 200), pixelate=2),
+    "intellivision": _palette_config("Intellivision 16", dither="Bayer 4x4", strength=0.9, target=(320, 192), pixelate=2),
+    "colecovision": _palette_config("ColecoVision 16", dither="Bayer 4x4", strength=0.9, target=(256, 192), pixelate=2),
+    "neo-geo-pocket": _palette_config("Neo Geo Pocket Grayscale", dither="Atkinson", target=(160, 152), pixelate=2),
+    "wonderswan": _palette_config("WonderSwan Grayscale", dither="Atkinson", target=(224, 144), pixelate=2),
+    "pico-8": _palette_config("PICO-8", target=(128, 128), pixelate=4),
+    "tic-80": _palette_config("TIC-80", target=(240, 136), pixelate=3),
+    "vector": {
+        "palette_colors": ["#0E1116", "#2B3A67", "#5C80BC", "#C3E0E5", "#F8F5F2"],
+        "palette_name": "Vector Poster 5",
+        "palette_author": "RasterMint",
+        "palette_source": "builtin",
+        "dither": {"algorithm": "Nearest Palette", "strength": 1.0, "mix": 1.0, "serpentine": False},
+        "effects": [
+            _effect("Local Contrast", index=1, amount=180, radius=2.0),
+            _effect("Sharpen", index=5, amount=1.4),
+            _effect("Posterize", index=6, levels=5),
+        ],
+    },
+}
+
+
+# Escape hatch for genuinely procedural presets. Most presets should stay in
+# PRESET_CONFIGS; only add a builder here when a data specification cannot
+# express the effect correctly.
+PresetBuilder = Callable[[ProcessingSettings], ProcessingSettings]
+CUSTOM_PRESET_BUILDERS: dict[str, PresetBuilder] = {}
+
+
 def _find_profile(profile_id: str):
     return _PROFILE_CACHE.get(profile_id)
-
-
-def _set_dither(settings: ProcessingSettings, algorithm: str, strength: float = 1.0, *, mix: float | None = None, serpentine: bool | None = None) -> None:
-    for step in settings.effect_stack:
-        if step.get("kind") == "Dither":
-            params = step.setdefault("params", {})
-            params["algorithm"] = algorithm
-            params["strength"] = strength
-            if mix is not None:
-                params["mix"] = mix
-            if serpentine is not None:
-                params["serpentine"] = bool(serpentine)
-            return
 
 
 def _set_palette(settings: ProcessingSettings, name: str) -> None:
@@ -108,65 +267,90 @@ def _set_palette(settings: ProcessingSettings, name: str) -> None:
         settings.palette_locks = [False] * len(settings.palette)
 
 
-def _apply_profile(
-    settings: ProcessingSettings,
-    profile_id: str,
-    *,
-    mode: str = "visual",
-    apply_constraints: bool = True,
-    apply_display: bool = True,
-) -> ProcessingSettings:
-    profile = _find_profile(profile_id)
-    if not profile:
-        return settings
-    return apply_profile_to_settings(
-        settings,
-        profile,
-        mode=mode,
-        apply_resolution=True,
-        apply_palette=True,
-        apply_pixel_aspect=True,
-        apply_constraints=apply_constraints,
-        apply_display=apply_display,
-    )
-
-
-def _insert_effect(settings: ProcessingSettings, effect: dict, index: int | None = None) -> None:
-    if index is None:
-        settings.effect_stack.append(effect)
-    else:
-        settings.effect_stack.insert(index, effect)
+def _set_dither(settings: ProcessingSettings, spec: dict[str, Any]) -> None:
+    for step in settings.effect_stack:
+        if step.get("kind") != "Dither":
+            continue
+        params = step.setdefault("params", {})
+        params["algorithm"] = str(spec.get("algorithm") or "Nearest Palette")
+        params["strength"] = float(spec.get("strength", 1.0))
+        if spec.get("mix") is not None:
+            params["mix"] = float(spec["mix"])
+        if spec.get("serpentine") is not None:
+            params["serpentine"] = bool(spec["serpentine"])
+        return
 
 
 def _enable_pixelate(settings: ProcessingSettings, size: int) -> None:
-    pixelate = next((step for step in settings.effect_stack if step.get("kind") == "Pixelate"), None)
-    if pixelate:
-        pixelate["enabled"] = True
-        pixelate.setdefault("params", {})["size"] = int(size)
+    for step in settings.effect_stack:
+        if step.get("kind") == "Pixelate":
+            step["enabled"] = True
+            step.setdefault("params", {})["size"] = int(size)
+            return
 
 
-def _configure_palette_preset(
-    settings: ProcessingSettings,
-    palette_name: str,
-    *,
-    dither: str = "Nearest Palette",
-    strength: float = 1.0,
-    serpentine: bool | None = None,
-    target: tuple[int, int] | None = None,
-    pixel_aspect: tuple[float, float] | None = None,
-    pixelate: int | None = None,
-) -> None:
-    _set_palette(settings, palette_name)
-    _set_dither(settings, dither, strength, serpentine=serpentine)
-    if target is not None:
+def _apply_effect_specs(settings: ProcessingSettings, specs: list[dict[str, Any]]) -> None:
+    for spec in specs:
+        effect = new_effect(str(spec["kind"]), enabled=bool(spec.get("enabled", True)))
+        effect["params"].update(dict(spec.get("params") or {}))
+        index = spec.get("index")
+        if index is None:
+            settings.effect_stack.append(effect)
+        else:
+            settings.effect_stack.insert(int(index), effect)
+
+
+def _apply_data_config(settings: ProcessingSettings, config: dict[str, Any]) -> ProcessingSettings:
+    profile_spec = config.get("profile")
+    if isinstance(profile_spec, dict):
+        profile = _find_profile(str(profile_spec.get("id") or ""))
+        if profile is not None:
+            settings = apply_profile_to_settings(
+                settings,
+                profile,
+                mode=str(profile_spec.get("mode") or "visual"),
+                apply_resolution=True,
+                apply_palette=True,
+                apply_pixel_aspect=True,
+                apply_constraints=bool(profile_spec.get("constraints", True)),
+                apply_display=bool(profile_spec.get("display", True)),
+            )
+
+    palette_name = config.get("palette")
+    if palette_name:
+        _set_palette(settings, str(palette_name))
+
+    palette_colors = config.get("palette_colors")
+    if isinstance(palette_colors, list) and palette_colors:
+        settings.palette = [str(color) for color in palette_colors]
+        settings.palette_name = str(config.get("palette_name") or "Custom")
+        settings.palette_author = str(config.get("palette_author") or "RasterMint")
+        settings.palette_source = str(config.get("palette_source") or "builtin")
+        settings.palette_locks = [False] * len(settings.palette)
+
+    dither_spec = config.get("dither")
+    if isinstance(dither_spec, dict):
+        _set_dither(settings, dither_spec)
+
+    target = config.get("target")
+    if isinstance(target, (list, tuple)) and len(target) >= 2:
         settings.target_enabled = True
         settings.target_width = int(target[0])
         settings.target_height = int(target[1])
-    if pixel_aspect is not None:
+
+    pixel_aspect = config.get("pixel_aspect")
+    if isinstance(pixel_aspect, (list, tuple)) and len(pixel_aspect) >= 2:
         settings.pixel_aspect_x = float(pixel_aspect[0])
         settings.pixel_aspect_y = float(pixel_aspect[1])
-    if pixelate is not None:
-        _enable_pixelate(settings, pixelate)
+
+    if config.get("pixelate") is not None:
+        _enable_pixelate(settings, int(config["pixelate"]))
+
+    effects = config.get("effects")
+    if isinstance(effects, list):
+        _apply_effect_specs(settings, effects)
+
+    return settings
 
 
 def _clean_preset_base(base: ProcessingSettings | None) -> ProcessingSettings:
@@ -197,10 +381,7 @@ def _clean_preset_base(base: ProcessingSettings | None) -> ProcessingSettings:
     return settings
 
 
-def build_builtin_preset(preset_id: str, base: ProcessingSettings | None = None) -> ProcessingSettings:
-    # Built-in presets must be deterministic. Start from a clean base and only
-    # preserve source framing / transform context instead of inheriting the
-    # previous preset's creative/render state.
+def _new_preset_settings(base: ProcessingSettings | None) -> ProcessingSettings:
     settings = _clean_preset_base(base)
     settings.effect_stack = default_effect_stack(settings)
     settings.hardware_profile_id = "custom"
@@ -215,185 +396,17 @@ def build_builtin_preset(preset_id: str, base: ProcessingSettings | None = None)
     settings.target_height = 0
     settings.pixel_aspect_x = 1.0
     settings.pixel_aspect_y = 1.0
+    return settings
 
-    if preset_id == "game-boy":
-        settings = _apply_profile(settings, "game-boy", mode="visual", apply_constraints=False, apply_display=True)
-        _set_dither(settings, "Bayer 4x4", 1.0)
-    elif preset_id == "game-boy-pocket":
-        _configure_palette_preset(settings, "Game Boy Pocket", dither="Bayer 4x4", strength=1.0, target=(160, 144), pixelate=2)
-    elif preset_id == "game-boy-light":
-        _configure_palette_preset(settings, "Game Boy Light", dither="Bayer 4x4", strength=1.0, target=(160, 144), pixelate=2)
-    elif preset_id == "game-boy-color":
-        settings = _apply_profile(settings, "game-boy-color", mode="strict")
-        _set_dither(settings, "Nearest Palette", 1.0, serpentine=False)
-    elif preset_id == "game-boy-advance":
-        settings = _apply_profile(settings, "game-boy-advance", mode="strict")
-        _set_dither(settings, "Nearest Palette", 1.0, serpentine=False)
-        contrast = new_effect("Local Contrast")
-        contrast["params"].update(amount=135, radius=1.6)
-        _insert_effect(settings, contrast, 1)
-    elif preset_id == "virtual-boy":
-        _configure_palette_preset(settings, "Virtual Boy", dither="Bayer 4x4", strength=1.0, target=(384, 224), pixelate=2)
-    elif preset_id == "nes":
-        settings = _apply_profile(settings, "nes", mode="strict")
-        _set_dither(settings, "Bayer 4x4", 0.95)
-    elif preset_id == "snes":
-        settings = _apply_profile(settings, "snes", mode="strict")
-        _set_dither(settings, "Nearest Palette", 1.0, serpentine=False)
-        sharpen = new_effect("Sharpen")
-        sharpen["enabled"] = True
-        sharpen["params"]["amount"] = 1.2
-        _insert_effect(settings, sharpen, 4)
-    elif preset_id == "master-system":
-        _configure_palette_preset(settings, "Master System Reference 16", dither="Floyd-Steinberg", strength=0.9, target=(256, 192), pixel_aspect=(8, 7), pixelate=2)
-    elif preset_id == "game-gear":
-        _configure_palette_preset(settings, "Game Gear Reference 16", dither="Floyd-Steinberg", strength=0.9, target=(160, 144), pixelate=2)
-    elif preset_id == "mega-drive":
-        settings = _apply_profile(settings, "mega-drive", mode="strict")
-        _set_dither(settings, "Nearest Palette", 1.0, serpentine=False)
-        contrast = new_effect("Local Contrast")
-        contrast["params"].update(amount=115, radius=1.4)
-        _insert_effect(settings, contrast, 1)
-    elif preset_id == "playstation":
-        settings = _apply_profile(settings, "playstation", mode="strict")
-        _set_dither(settings, "Nearest Palette", 1.0, serpentine=False)
-        row = new_effect("Row Shift")
-        row["enabled"] = True
-        row["params"].update(amount=1, period=5)
-        _insert_effect(settings, row)
-    elif preset_id == "apple-ii-hgr":
-        settings = _apply_profile(settings, "apple-ii-hgr", mode="visual", apply_constraints=False)
-        _set_dither(settings, "Bayer 4x4", 1.0)
-    elif preset_id == "c64-multicolor":
-        settings = _apply_profile(settings, "c64-multicolor", mode="strict")
-        _set_dither(settings, "Bayer 4x4", 0.9)
-    elif preset_id == "vic-20":
-        _configure_palette_preset(settings, "VIC-20", dither="Atkinson", strength=0.85, target=(176, 184), pixel_aspect=(6, 5), pixelate=2)
-    elif preset_id == "plus4":
-        _configure_palette_preset(settings, "Commodore Plus/4", dither="Floyd-Steinberg", strength=0.9, target=(320, 200), pixel_aspect=(5, 6), pixelate=2)
-    elif preset_id == "zx-spectrum":
-        settings = _apply_profile(settings, "zx-spectrum", mode="strict")
-        _set_dither(settings, "Bayer 4x4", 0.9)
-    elif preset_id == "cga-neon":
-        settings = _apply_profile(settings, "cga-320", mode="strict")
-        _set_dither(settings, "Bayer 4x4", 1.0)
-    elif preset_id == "ega-crisp":
-        settings = _apply_profile(settings, "ega-320", mode="strict")
-        _set_dither(settings, "Floyd-Steinberg", 0.8)
-    elif preset_id == "amiga-ocs":
-        settings = _apply_profile(settings, "amiga-ocs", mode="strict")
-        _set_dither(settings, "Nearest Palette", 1.0, serpentine=False)
-    elif preset_id == "amiga-wb13":
-        _configure_palette_preset(settings, "Amiga Workbench 1.3", dither="Nearest Palette", strength=1.0, target=(320, 256), pixel_aspect=(1, 1), pixelate=2)
-    elif preset_id == "amiga-wb2":
-        _configure_palette_preset(settings, "Amiga Workbench 2.x", dither="Nearest Palette", strength=1.0, target=(320, 256), pixelate=2)
-    elif preset_id == "amiga-wb3":
-        _configure_palette_preset(settings, "Amiga Workbench 3.x", dither="Nearest Palette", strength=1.0, target=(320, 256), pixelate=2)
-    elif preset_id == "amstrad-cpc":
-        _configure_palette_preset(settings, "Amstrad CPC 27", dither="Bayer 4x4", strength=0.95, target=(320, 200), pixel_aspect=(5, 6), pixelate=2)
-    elif preset_id == "msx":
-        _configure_palette_preset(settings, "MSX 15", dither="Floyd-Steinberg", strength=0.9, target=(256, 192), pixel_aspect=(8, 7), pixelate=2)
-    elif preset_id == "ti994a":
-        _configure_palette_preset(settings, "TI-99/4A", dither="Bayer 4x4", strength=0.9, target=(256, 192), pixel_aspect=(8, 7), pixelate=2)
-    elif preset_id == "crt-ntsc":
-        settings = _apply_profile(settings, "crt-ntsc", mode="visual", apply_constraints=False, apply_display=True)
-        _set_dither(settings, "Nearest Palette", 1.0)
-        _enable_pixelate(settings, 2)
-    elif preset_id == "crt-pal":
-        settings = _apply_profile(settings, "crt-pal", mode="visual", apply_constraints=False, apply_display=True)
-        _set_dither(settings, "Nearest Palette", 1.0)
-        _enable_pixelate(settings, 2)
-    elif preset_id == "monochrome-lcd":
-        settings = _apply_profile(settings, "monochrome-lcd", mode="strict")
-        _set_dither(settings, "Bayer 4x4", 1.0)
-        _enable_pixelate(settings, 2)
-    elif preset_id == "green-crt":
-        _set_palette(settings, "MDA Green 4")
-        _set_dither(settings, "Atkinson", 0.85)
-        local = new_effect("Local Contrast")
-        local["params"].update(amount=150, radius=1.8)
-        scan = new_effect("Scanlines")
-        scan["params"].update(spacing=3, strength=0.18)
-        _insert_effect(settings, local, 1)
-        _insert_effect(settings, scan)
-    elif preset_id == "amber-monitor":
-        _configure_palette_preset(settings, "Amber Monitor 8", dither="Atkinson", strength=0.8, pixelate=2)
-        scan = new_effect("Scanlines")
-        scan["params"].update(spacing=3, strength=0.16)
-        _insert_effect(settings, scan)
-    elif preset_id == "white-phosphor":
-        _configure_palette_preset(settings, "White Phosphor 8", dither="Atkinson", strength=0.8, pixelate=2)
-        scan = new_effect("Scanlines")
-        scan["params"].update(spacing=3, strength=0.14)
-        _insert_effect(settings, scan)
-    elif preset_id == "halftone-print":
-        settings.palette = ["#201A17", "#6F4A2F", "#C99255", "#F4E3B2"]
-        settings.palette_name = "Warm Print 4"
-        settings.palette_author = "RasterMint"
-        settings.palette_source = "builtin"
-        settings.palette_locks = [False] * len(settings.palette)
-        _set_dither(settings, "Halftone", 1.0)
-        local = new_effect("Local Contrast")
-        local["params"].update(amount=150, radius=1.5)
-        _insert_effect(settings, local, 1)
-    elif preset_id == "mac-classic":
-        _configure_palette_preset(settings, "Classic Macintosh 1-bit", dither="Atkinson", strength=1.0, target=(512, 342), pixelate=2)
-    elif preset_id == "mac-gray":
-        _configure_palette_preset(settings, "Macintosh Gray 4", dither="Bayer 4x4", strength=1.0, target=(512, 342), pixelate=2)
-    elif preset_id == "atari-st":
-        _configure_palette_preset(settings, "Atari ST 16", dither="Floyd-Steinberg", strength=0.85, target=(320, 200), pixel_aspect=(5, 6), pixelate=2)
-    elif preset_id == "atari-8bit":
-        _configure_palette_preset(settings, "Atari 8-bit Reference 16", dither="Bayer 4x4", strength=0.9, target=(320, 192), pixel_aspect=(1, 1), pixelate=2)
-    elif preset_id == "teletext":
-        _configure_palette_preset(settings, "Teletext 8", dither="Nearest Palette", strength=1.0, target=(240, 200), pixelate=3)
-    elif preset_id == "oric-atmos":
-        _configure_palette_preset(settings, "Oric Atmos 8", dither="Bayer 4x4", strength=0.9, target=(240, 200), pixel_aspect=(1, 1), pixelate=2)
-    elif preset_id == "dragon-coco":
-        _configure_palette_preset(settings, "Dragon / CoCo Reference 8", dither="Bayer 4x4", strength=0.9, target=(256, 192), pixel_aspect=(1, 1), pixelate=2)
-    elif preset_id == "coco3":
-        _configure_palette_preset(settings, "CoCo 3 Reference 16", dither="Floyd-Steinberg", strength=0.85, target=(320, 225), pixel_aspect=(1, 1), pixelate=2)
-    elif preset_id == "pc98":
-        _configure_palette_preset(settings, "PC-98 16", dither="Nearest Palette", strength=1.0, target=(640, 400), pixelate=2)
-    elif preset_id == "x68000":
-        _configure_palette_preset(settings, "X68000 Reference 16", dither="Nearest Palette", strength=1.0, target=(512, 512), pixelate=2)
-    elif preset_id == "fmtowns":
-        _configure_palette_preset(settings, "FM Towns Reference 16", dither="Nearest Palette", strength=1.0, target=(320, 240), pixelate=2)
-    elif preset_id == "sam-coupe":
-        _configure_palette_preset(settings, "SAM Coupé 16", dither="Floyd-Steinberg", strength=0.85, target=(256, 192), pixelate=2)
-    elif preset_id == "thomson":
-        _configure_palette_preset(settings, "Thomson TO7/MO5 16", dither="Bayer 4x4", strength=0.9, target=(320, 200), pixelate=2)
-    elif preset_id == "intellivision":
-        _configure_palette_preset(settings, "Intellivision 16", dither="Bayer 4x4", strength=0.9, target=(320, 192), pixelate=2)
-    elif preset_id == "colecovision":
-        _configure_palette_preset(settings, "ColecoVision 16", dither="Bayer 4x4", strength=0.9, target=(256, 192), pixelate=2)
-    elif preset_id == "neo-geo-pocket":
-        _configure_palette_preset(settings, "Neo Geo Pocket Grayscale", dither="Atkinson", strength=1.0, target=(160, 152), pixelate=2)
-    elif preset_id == "wonderswan":
-        _configure_palette_preset(settings, "WonderSwan Grayscale", dither="Atkinson", strength=1.0, target=(224, 144), pixelate=2)
-    elif preset_id == "pico-8":
-        _configure_palette_preset(settings, "PICO-8", dither="Nearest Palette", strength=1.0, target=(128, 128), pixelate=4)
-    elif preset_id == "tic-80":
-        _configure_palette_preset(settings, "TIC-80", dither="Nearest Palette", strength=1.0, target=(240, 136), pixelate=3)
-    elif preset_id == "vector":
-        settings.palette = ["#0E1116", "#2B3A67", "#5C80BC", "#C3E0E5", "#F8F5F2"]
-        settings.palette_name = "Vector Poster 5"
-        settings.palette_author = "RasterMint"
-        settings.palette_source = "builtin"
-        settings.palette_locks = [False] * len(settings.palette)
-        _set_dither(settings, "Nearest Palette", 1.0, mix=1.0, serpentine=False)
-        posterize = new_effect("Posterize")
-        posterize["enabled"] = True
-        posterize["params"]["levels"] = 5
-        local = new_effect("Local Contrast")
-        local["params"].update(amount=180, radius=2.0)
-        sharpen = new_effect("Sharpen")
-        sharpen["enabled"] = True
-        sharpen["params"]["amount"] = 1.4
-        _insert_effect(settings, local, 1)
-        _insert_effect(settings, sharpen, 5)
-        _insert_effect(settings, posterize, 6)
-    else:  # clean-quantize
-        _set_palette(settings, "Arcade 8")
-        _set_dither(settings, "Nearest Palette", 1.0)
+
+def build_builtin_preset(preset_id: str, base: ProcessingSettings | None = None) -> ProcessingSettings:
+    settings = _new_preset_settings(base)
+
+    custom_builder = CUSTOM_PRESET_BUILDERS.get(preset_id)
+    if custom_builder is not None:
+        settings = custom_builder(settings)
+    else:
+        config = PRESET_CONFIGS.get(preset_id, PRESET_CONFIGS["clean-quantize"])
+        settings = _apply_data_config(settings, config)
 
     return ProcessingSettings.from_dict(settings.to_dict())
