@@ -55,15 +55,14 @@ Item {
 
         GridView {
             id: presetGrid
-
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true
 
-            property int columns: width >= 620 ? 3 : 2
+            property int columns: width >= 760 ? 2 : 1
 
             cellWidth: width / columns
-            cellHeight: 176
+            cellHeight: 212
             model: backend.allPresets
 
             ScrollBar.vertical: ScrollBar {
@@ -75,19 +74,25 @@ Item {
                 width: presetGrid.cellWidth - 8
                 height: presetGrid.cellHeight - 8
                 radius: 8
+                clip: true
                 color: presetMouse.containsMouse ? theme.panelHoverColor : theme.panelRaisedColor
                 border.color: theme.borderColor
 
                 property bool isUserPreset: Boolean(modelData.user)
+                property string descriptionText: modelData.description ? String(modelData.description) : ""
+                property string hardwareName: modelData.hardwareProfileName ? String(modelData.hardwareProfileName) : ""
+                property string hardwareMode: modelData.hardwareMode ? String(modelData.hardwareMode) : ""
+                property string hardwareText: hardwareName !== "" ? ("Hardware: " + hardwareName) : ""
 
-                Column {
+                ColumnLayout {
                     anchors.fill: parent
                     anchors.margins: 7
                     spacing: 6
 
                     Rectangle {
-                        width: parent.width
-                        height: 108
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 90
+                        Layout.maximumHeight: 90
                         radius: 5
                         color: theme.canvasColor
                         clip: true
@@ -102,22 +107,37 @@ Item {
                     }
 
                     Text {
-                        width: parent.width - (presetCard.isUserPreset ? 30 : 0)
+                        Layout.fillWidth: true
                         text: modelData.name + (presetCard.isUserPreset ? " · custom" : "")
                         color: theme.textColor
                         font.bold: true
+                        wrapMode: Text.WordWrap
+                        maximumLineCount: 2
                         elide: Text.ElideRight
                     }
 
                     Text {
-                        width: parent.width
-                        text: modelData.description
+                        Layout.fillWidth: true
+                        text: presetCard.descriptionText
                         color: theme.mutedTextColor
+                        font.pixelSize: 10
+                        wrapMode: Text.WordWrap
+                        maximumLineCount: presetCard.hardwareText !== "" ? 3 : 4
+                        elide: Text.ElideRight
+                    }
+
+                    Text {
+                        Layout.fillWidth: true
+                        visible: presetCard.hardwareText !== ""
+                        text: presetCard.hardwareText
+                        color: theme.accentColor
                         font.pixelSize: 10
                         wrapMode: Text.WordWrap
                         maximumLineCount: 2
                         elide: Text.ElideRight
                     }
+
+                    Item { Layout.fillHeight: true }
                 }
 
                 MouseArea {
@@ -143,7 +163,9 @@ Item {
                 }
 
                 ToolTip.visible: presetMouse.containsMouse
-                ToolTip.text: modelData.description
+                ToolTip.text: presetCard.hardwareText !== ""
+                    ? (presetCard.descriptionText + "\n" + presetCard.hardwareText + (presetCard.hardwareMode !== "" ? (" · " + presetCard.hardwareMode) : ""))
+                    : presetCard.descriptionText
             }
         }
     }
