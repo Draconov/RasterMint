@@ -49,7 +49,7 @@ class RasterMintBackend(BaseRasterMintBackend):
     """RasterMint backend with persistent UI preferences and user libraries."""
 
     historyLimitChanged = Signal()
-    paletteLibraryChanged = Signal()
+    userPaletteLibraryChanged = Signal()
     presetLibraryChanged = Signal()
 
     def __init__(self, image_provider, parent=None) -> None:
@@ -122,7 +122,7 @@ class RasterMintBackend(BaseRasterMintBackend):
             payload["user"] = True
             self._user_palettes[palette_id] = payload
 
-    @Property("QVariantList", notify=paletteLibraryChanged)
+    @Property("QVariantList", notify=userPaletteLibraryChanged)
     def allPaletteLibrary(self) -> list[dict[str, object]]:
         builtins = [
             {
@@ -233,7 +233,7 @@ class RasterMintBackend(BaseRasterMintBackend):
             payload["file"] = str(path)
             payload["user"] = True
             self._user_palettes[palette_id] = payload
-            self.paletteLibraryChanged.emit()
+            self.userPaletteLibraryChanged.emit()
 
             data = self.settings.to_dict()
             data.update(
@@ -261,7 +261,7 @@ class RasterMintBackend(BaseRasterMintBackend):
                 file_path.unlink()
             name = str(record.get("name", "Palette"))
             del self._user_palettes[str(palette_id)]
-            self.paletteLibraryChanged.emit()
+            self.userPaletteLibraryChanged.emit()
             self._set_status(f"Removed palette from library: {name}")
         except Exception as exc:
             self.errorOccurred.emit("Could not remove palette", str(exc))
