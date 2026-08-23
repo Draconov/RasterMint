@@ -354,9 +354,21 @@ def process_image(
         frame_index=frame_index,
     )
     if settings.hardware_constraints_enabled and settings.hardware_constraints:
-        result = apply_hardware_constraints(result, settings.hardware_constraints)
+        alpha = result.getchannel("A") if "A" in result.getbands() else None
+        result = apply_hardware_constraints(result.convert("RGB"), settings.hardware_constraints)
+        if alpha is not None:
+            if alpha.size != result.size:
+                alpha = alpha.resize(result.size, Image.Resampling.NEAREST)
+            result = result.convert("RGBA")
+            result.putalpha(alpha)
     if display_mode != "raw" or include_grid:
-        result = render_display_view(result, settings, mode=display_mode, include_grid=include_grid)
+        alpha = result.getchannel("A") if "A" in result.getbands() else None
+        result = render_display_view(result.convert("RGB"), settings, mode=display_mode, include_grid=include_grid)
+        if alpha is not None:
+            if alpha.size != result.size:
+                alpha = alpha.resize(result.size, Image.Resampling.NEAREST)
+            result = result.convert("RGBA")
+            result.putalpha(alpha)
     return result
 
 

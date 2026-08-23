@@ -32,10 +32,12 @@ Dialog {
     property int exportQuality: 90
     property bool updatingDimensions: false
     property bool sourceHasTransparency: false
+    property bool sourceHasAsciiLayer: false
 
     readonly property real baseAspect: baseHeight > 0 ? baseWidth / baseHeight : 1.0
     readonly property string selectedFormat: formatCombo.currentText
     readonly property bool lossyFormat: selectedFormat === "JPEG" || selectedFormat === "WebP"
+    readonly property bool textFormat: selectedFormat === "TXT"
     readonly property bool transparencySupported: selectedFormat === "PNG"
                                                || selectedFormat === "WebP"
                                                || selectedFormat === "TIFF"
@@ -90,6 +92,7 @@ Dialog {
         baseHeight = Math.max(1, Number(info.height || sourceHeight))
         exportQuality = 90
         sourceHasTransparency = Boolean(info.hasTransparency)
+        sourceHasAsciiLayer = Boolean(info.hasAsciiLayer)
         aspectLock.checked = true
         scaleCombo.currentIndex = 2
         formatCombo.currentIndex = 0
@@ -219,10 +222,12 @@ Dialog {
                 text: "Image Size"
                 font.bold: true
                 font.pixelSize: 14
+                visible: !root.textFormat
             }
 
             GridLayout {
                 Layout.fillWidth: true
+                visible: !root.textFormat
                 columns: 2
                 columnSpacing: 10
                 rowSpacing: 7
@@ -301,12 +306,14 @@ Dialog {
                 id: aspectLock
                 text: "Lock aspect ratio"
                 checked: true
+                visible: !root.textFormat
             }
 
             Rectangle {
                 Layout.fillWidth: true
                 height: 1
                 color: theme.borderColor
+                visible: !root.textFormat
             }
 
             MintLabel {
@@ -324,10 +331,10 @@ Dialog {
                 MintComboBox {
                     id: formatCombo
                     Layout.fillWidth: true
-                    model: ["PNG", "JPEG", "WebP", "TIFF", "SVG"]
+                    model: root.sourceHasAsciiLayer ? ["PNG", "JPEG", "WebP", "TIFF", "SVG", "TXT"] : ["PNG", "JPEG", "WebP", "TIFF", "SVG"]
                     currentIndex: 0
                     onActivated: {
-                        if (!root.transparencySupported)
+                        if (root.textFormat || !root.transparencySupported)
                             preserveTransparencyCheck.checked = false
                         else if (root.sourceHasTransparency)
                             preserveTransparencyCheck.checked = true
@@ -337,6 +344,7 @@ Dialog {
 
             RowLayout {
                 Layout.fillWidth: true
+                visible: !root.textFormat
                 MintLabel {
                     text: "Resampling"
                     Layout.preferredWidth: 90
@@ -353,6 +361,7 @@ Dialog {
                 id: preserveTransparencyCheck
                 text: "Preserve source transparency"
                 checked: false
+                visible: !root.textFormat
                 enabled: root.sourceHasTransparency && root.transparencySupported
             }
 
@@ -387,9 +396,11 @@ Dialog {
 
             MintLabel {
                 Layout.fillWidth: true
-                text: resampleCombo.currentIndex === 0
-                      ? "Nearest keeps hard pixel edges when scaling. Use Lanczos for photographic output."
-                      : "Scaling happens after RasterMint finishes processing, so your effect settings stay unchanged."
+                text: root.textFormat
+                      ? "TXT exports the actual character grid from the last enabled ASCII / Glyph layer as UTF-8 text."
+                      : (resampleCombo.currentIndex === 0
+                         ? "Nearest keeps hard pixel edges when scaling. Use Lanczos for photographic output."
+                         : "Scaling happens after RasterMint finishes processing, so your effect settings stay unchanged.")
                 color: theme.mutedTextColor
                 font.pixelSize: 11
                 wrapMode: Text.WordWrap
@@ -406,6 +417,7 @@ Dialog {
                 Item { Layout.fillWidth: true }
                 MintButton {
                     text: "Reset to 100%"
+                    visible: !root.textFormat
                     onClicked: {
                         scaleCombo.currentIndex = 2
                         root.applyScale(1.0)
@@ -427,12 +439,14 @@ Dialog {
         fileMode: FileDialog.SaveFile
         defaultSuffix: root.selectedFormat === "JPEG" ? "jpg"
                        : root.selectedFormat === "TIFF" ? "tif"
+                       : root.selectedFormat === "TXT" ? "txt"
                        : root.selectedFormat.toLowerCase()
         nameFilters: root.selectedFormat === "PNG" ? ["PNG (*.png)"]
                    : root.selectedFormat === "JPEG" ? ["JPEG (*.jpg *.jpeg)"]
                    : root.selectedFormat === "WebP" ? ["WebP (*.webp)"]
                    : root.selectedFormat === "TIFF" ? ["TIFF (*.tif *.tiff)"]
-                   : ["SVG (*.svg)"]
+                   : root.selectedFormat === "SVG" ? ["SVG (*.svg)"]
+                   : ["Text (*.txt)"]
 
         onAccepted: {
             backend.exportImageWithOptions(root.urlNormalizer(selectedFile), root.exportOptions())

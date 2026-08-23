@@ -22,6 +22,55 @@ Item {
     property bool parameterInteractionActive: false
     property var editorLayerParams: []
 
+    // Glyph picker metadata mirrors the core's 48 built-in sets plus Custom.
+    // The actual characters and density analysis stay in Python; QML only needs
+    // names and short previews for browsing.
+    property var glyphSetCategories: [
+        {"name": "ASCII & Punctuation", "sets": [
+            {"name": "Classic ASCII", "preview": " .:-=+*#%@"}, {"name": "Dense ASCII", "preview": " .'`^\",:;Il!i~+_-?..."},
+            {"name": "Minimal ASCII", "preview": " .-+*#@"}, {"name": "Punctuation", "preview": " .'`,:;!iI|/\\()[]{}<>?"},
+            {"name": "Typewriter", "preview": " .,:;i1tfLCG08@"}, {"name": "Technical", "preview": " ._-~=+<>[]{}()|/\\*#%@"}
+        ]},
+        {"name": "Numbers", "sets": [
+            {"name": "Binary", "preview": "01"}, {"name": "Decimal", "preview": " 0123456789"}, {"name": "Hex", "preview": " 0123456789ABCDEF"},
+            {"name": "Roman", "preview": " .IVXLCDM"}, {"name": "Digital", "preview": " .1470253689"}
+        ]},
+        {"name": "Blocks", "sets": [
+            {"name": "Blocks", "preview": " ░▒▓█"}, {"name": "Shade Blocks", "preview": " ░▒▓█"}, {"name": "Half Blocks", "preview": " ▂▄▆█"},
+            {"name": "Vertical Blocks", "preview": " ▁▂▃▄▅▆▇█"}, {"name": "Quadrants", "preview": " ▖▗▘▝▚▞▙▛▜▟█"}
+        ]},
+        {"name": "Braille", "sets": [
+            {"name": "Braille Low", "preview": " ⠂⠃⠇⠏⠟⠿⣿"}, {"name": "Braille Dense", "preview": " ⠁⠉⠋⠛⠟⠿⣿"},
+            {"name": "Braille Dots", "preview": " ⠂⠆⠇⠧⠷⠿⣿"}, {"name": "Braille Cells", "preview": " ⠀⠐⠒⠖⠶⠾⣿"}
+        ]},
+        {"name": "Geometric", "sets": [
+            {"name": "Squares", "preview": " ·▫▪□▣■"}, {"name": "Circles", "preview": " ·∘○◌◍●"}, {"name": "Diamonds", "preview": " ·◇◈◆"},
+            {"name": "Triangles", "preview": " ·△▽◁▷▲▼◀▶"}, {"name": "Mixed Geometry", "preview": " ·○□◇△◌◍▣◆●■"}
+        ]},
+        {"name": "Symbols", "sets": [
+            {"name": "Arrows", "preview": " ·←↑→↓↔↕⇐⇑⇒⇓"}, {"name": "Math", "preview": " .−+=×÷≈≠≤≥∞∑∫√"}, {"name": "Stars", "preview": " ·⋆✦✧★✹✺✸"},
+            {"name": "Currency", "preview": " .¢$€£¥₩₽₹"}, {"name": "Cards", "preview": " ·♤♡♢♧♠♥♦♣"}
+        ]},
+        {"name": "Line Art", "sets": [
+            {"name": "Box Light", "preview": " ·─│┌┐└┘├┤┬┴┼"}, {"name": "Box Heavy", "preview": " ·━┃┏┓┗┛┣┫┳┻╋"},
+            {"name": "Corners", "preview": " ·╭╮╰╯┌┐└┘"}, {"name": "Diagonals", "preview": " ./\\╱╲╳×#"}
+        ]},
+        {"name": "Letters", "sets": [
+            {"name": "Latin Lower", "preview": " .abcdefghijklmnopqrstuvwxyz"}, {"name": "Latin Upper", "preview": " .ABCDEFGHIJKLMNOPQRSTUVWXYZ"},
+            {"name": "Mixed Letters", "preview": " .ilIjtfrxvucszXYUJCLQOZ..."}, {"name": "Greek", "preview": " .ιτγλνχκπρσφωΨΩ"},
+            {"name": "Cyrillic", "preview": " .іґлптчжкмшщюяФЖШЩЮ"}
+        ]},
+        {"name": "Retro", "sets": [
+            {"name": "Terminal", "preview": " .,:;+*xX#%@"}, {"name": "DOS", "preview": " .░▒▓█"},
+            {"name": "Teletext", "preview": " .▖▗▘▝▚▞▙▛▜▟█"}, {"name": "LCD", "preview": " ._-:=+*#█"}
+        ]},
+        {"name": "Decorative", "sets": [
+            {"name": "Dots", "preview": " .·•∙●"}, {"name": "Crosses", "preview": " .+×✕✖✚✜"}, {"name": "Sparkles", "preview": " .·✧✦⋆★✹"},
+            {"name": "Flowers", "preview": " .·❀✿❁✾✽"}, {"name": "Music", "preview": " .·♪♫♩♬♭♯"}
+        ]},
+        {"name": "Custom", "sets": [{"name": "Custom", "preview": "Your characters"}]}
+    ]
+
     function beginLayerDrag(index) {
         dragSourceIndex = index
         dragTargetIndex = index
@@ -69,6 +118,42 @@ Item {
         // Let the release event finish first, then pull the final canonical
         // value back from the backend once.
         Qt.callLater(syncEditorLayerParams)
+    }
+
+    function selectedParamValue(key, fallback) {
+        for (var i = 0; i < editorLayerParams.length; ++i) {
+            if (editorLayerParams[i].key === key)
+                return editorLayerParams[i].value
+        }
+        return fallback
+    }
+
+    function paramVisible(param) {
+        if (backend.selectedLayerName === "ASCII / Glyph") {
+            if (param.key === "custom_chars")
+                return String(selectedParamValue("character_set", "Classic ASCII")) === "Custom"
+            if (param.key === "foreground")
+                return String(selectedParamValue("color_mode", "Source")) === "Single Colour"
+            if (param.key === "background")
+                return String(selectedParamValue("background_mode", "Solid Colour")) === "Solid Colour"
+        }
+        if (backend.selectedLayerName === "Text Mask" && param.key === "background")
+            return String(selectedParamValue("background_mode", "Solid Colour")) === "Solid Colour"
+        return true
+    }
+
+    function glyphPreview(name) {
+        if (String(name) === "Custom")
+            return String(selectedParamValue("custom_chars", " .:-=+*#%@"))
+        var categories = root.glyphSetCategories || []
+        for (var i = 0; i < categories.length; ++i) {
+            var sets = categories[i].sets || []
+            for (var j = 0; j < sets.length; ++j) {
+                if (String(sets[j].name) === String(name))
+                    return String(sets[j].preview || "")
+            }
+        }
+        return ""
     }
 
     Component.onCompleted: syncEditorLayerParams()
@@ -242,17 +327,36 @@ Item {
                     delegate: Loader {
                         Layout.fillWidth: true
                         property var param: modelData
+                        visible: root.paramVisible(param)
                         sourceComponent: param.type === "bool"
                                          ? boolEditor
-                                         : param.type === "choice"
-                                           ? choiceEditor
-                                           : param.type === "text" || param.type === "file" || param.type === "color"
-                                             ? textEditor
-                                             : numberEditor
+                                         : param.type === "glyph_set"
+                                           ? glyphSetEditor
+                                           : param.type === "choice"
+                                             ? choiceEditor
+                                             : param.type === "color"
+                                               ? colorEditor
+                                               : param.type === "text" || param.type === "file"
+                                                 ? textEditor
+                                                 : numberEditor
                     }
                 }
             }
         }
+    }
+
+    property var expandedGlyphCategories: ({})
+
+    function glyphCategoryExpanded(name) {
+        return Boolean(expandedGlyphCategories[name])
+    }
+
+    function toggleGlyphCategory(name) {
+        var next = {}
+        for (var key in expandedGlyphCategories)
+            next[key] = expandedGlyphCategories[key]
+        next[name] = !Boolean(next[name])
+        expandedGlyphCategories = next
     }
 
     property var expandedEffectCategories: ({})
@@ -403,6 +507,175 @@ Item {
                 text: String(param.value)
                 enabled: !param.animated
                 onEditingFinished: backend.setLayerParam(param.key, text)
+            }
+        }
+    }
+
+    Component {
+        id: colorEditor
+        ColumnLayout {
+            spacing: 4
+            MintLabel { text: param.label; color: theme.mutedTextColor }
+            MintColorPicker {
+                Layout.fillWidth: true
+                colorValue: String(param.value)
+                dialogTitle: "Choose " + String(param.label).toLowerCase()
+                enabled: !param.animated
+                onColorPicked: function(value) {
+                    backend.setLayerParam(param.key, value)
+                }
+            }
+        }
+    }
+
+    Component {
+        id: glyphSetEditor
+        ColumnLayout {
+            id: glyphEditor
+            spacing: 4
+            MintLabel { text: param.label; color: theme.mutedTextColor }
+
+            MintButton {
+                id: glyphButton
+                Layout.fillWidth: true
+                text: String(param.value || "Classic ASCII")
+                enabled: !param.animated
+                onClicked: {
+                    var point = glyphButton.mapToItem(Overlay.overlay, 0, glyphButton.height + 4)
+                    glyphPopup.x = Math.max(4, Math.min(point.x, Overlay.overlay.width - glyphPopup.width - 4))
+                    glyphPopup.y = Math.max(4, Math.min(point.y, Overlay.overlay.height - glyphPopup.height - 4))
+                    glyphPopup.open()
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 38
+                radius: 5
+                color: theme.canvasColor
+                border.color: theme.borderColor
+                clip: true
+                Text {
+                    anchors.fill: parent
+                    anchors.margins: 7
+                    text: root.glyphPreview(String(param.value || "Classic ASCII"))
+                    color: theme.textColor
+                    font.family: "monospace"
+                    font.pixelSize: 14
+                    verticalAlignment: Text.AlignVCenter
+                    elide: Text.ElideRight
+                }
+            }
+
+            Popup {
+                id: glyphPopup
+                popupType: Popup.Item
+                parent: Overlay.overlay
+                width: 360
+                height: Math.max(160, Math.min(500, glyphCategoryColumn.implicitHeight + 10, Overlay.overlay.height - y - 4))
+                padding: 5
+                background: Rectangle { color: theme.panelRaisedColor; border.color: theme.borderColor; radius: 8 }
+
+                contentItem: ScrollView {
+                    id: glyphScroll
+                    clip: true
+                    contentWidth: availableWidth
+                    ScrollBar.vertical.policy: ScrollBar.AlwaysOff
+
+                    ColumnLayout {
+                        id: glyphCategoryColumn
+                        width: glyphScroll.availableWidth
+                        spacing: 3
+
+                        Repeater {
+                            model: root.glyphSetCategories
+                            delegate: ColumnLayout {
+                                id: glyphCategoryDelegate
+                                required property var modelData
+                                Layout.fillWidth: true
+                                spacing: 2
+
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    implicitHeight: 34
+                                    radius: 5
+                                    color: glyphCategoryMouse.containsMouse ? theme.selectionColor : theme.panelRaisedColor
+                                    RowLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 8
+                                        anchors.rightMargin: 8
+                                        spacing: 7
+                                        Text {
+                                            text: root.glyphCategoryExpanded(glyphCategoryDelegate.modelData.name) ? "▾" : "▸"
+                                            color: theme.accentColor
+                                        }
+                                        Text {
+                                            Layout.fillWidth: true
+                                            text: glyphCategoryDelegate.modelData.name
+                                            color: theme.textColor
+                                            font.bold: true
+                                            elide: Text.ElideRight
+                                        }
+                                        Text {
+                                            text: String((glyphCategoryDelegate.modelData.sets || []).length)
+                                            color: theme.mutedTextColor
+                                            font.pixelSize: 10
+                                        }
+                                    }
+                                    MouseArea {
+                                        id: glyphCategoryMouse
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        onClicked: root.toggleGlyphCategory(glyphCategoryDelegate.modelData.name)
+                                    }
+                                }
+
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    visible: root.glyphCategoryExpanded(glyphCategoryDelegate.modelData.name)
+                                    spacing: 1
+                                    Repeater {
+                                        model: glyphCategoryDelegate.modelData.sets || []
+                                        delegate: ItemDelegate {
+                                            id: glyphSetItem
+                                            required property var modelData
+                                            Layout.fillWidth: true
+                                            implicitHeight: 36
+                                            leftPadding: 22
+                                            rightPadding: 8
+                                            contentItem: RowLayout {
+                                                spacing: 8
+                                                Text {
+                                                    Layout.preferredWidth: 112
+                                                    text: glyphSetItem.modelData.name
+                                                    color: theme.textColor
+                                                    elide: Text.ElideRight
+                                                }
+                                                Text {
+                                                    Layout.fillWidth: true
+                                                    text: glyphSetItem.modelData.preview
+                                                    color: theme.mutedTextColor
+                                                    font.family: "monospace"
+                                                    font.pixelSize: 11
+                                                    horizontalAlignment: Text.AlignRight
+                                                    elide: Text.ElideRight
+                                                }
+                                            }
+                                            background: Rectangle {
+                                                radius: 5
+                                                color: parent.hovered ? theme.selectionColor : "transparent"
+                                            }
+                                            onClicked: {
+                                                backend.setLayerParam(param.key, String(modelData.name))
+                                                glyphPopup.close()
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }

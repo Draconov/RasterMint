@@ -8,22 +8,6 @@ Item {
     id: root
     property int colorEditIndex: -1
 
-    readonly property var paletteCategories: {
-        var seen = {}
-        var categories = []
-        var items = backend.allPaletteLibrary || []
-        for (var i = 0; i < items.length; ++i) {
-            var category = String(items[i].category || "Other")
-            if (!seen[category]) {
-                seen[category] = true
-                categories.push(category)
-            }
-        }
-        categories.sort()
-        categories.unshift("All")
-        return categories
-    }
-
     ColumnLayout {
         anchors.fill: parent
         spacing: 9
@@ -94,120 +78,33 @@ Item {
                     colorDialog.open()
                 }
             }
-            MintButton {
-                text: "−"
-                enabled: (backend.settingsMap.palette || []).length > 1
-                onClicked: backend.removePaletteColor(-1)
-            }
-            MintButton {
-                Layout.fillWidth: true
-                text: "Randomize unlocked"
-                onClicked: backend.randomizePaletteUnlocked()
-            }
+            MintButton { text: "−"; enabled: (backend.settingsMap.palette || []).length > 1; onClicked: backend.removePaletteColor(-1) }
+            MintButton { Layout.fillWidth: true; text: "Shuffle unlocked"; onClicked: backend.shufflePaletteUnlocked() }
+            MintButton { Layout.fillWidth: true; text: "Randomize unlocked"; onClicked: backend.randomizePaletteUnlocked() }
         }
 
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: 6
-
-            MintTextField {
-                id: searchField
-                Layout.fillWidth: true
-                placeholderText: "Search palettes…"
-            }
-
-            MintComboBox {
-                id: categoryFilter
-                Layout.preferredWidth: 145
-                model: root.paletteCategories
-                currentIndex: 0
-            }
-        }
-
+        MintTextField { id: searchField; Layout.fillWidth: true; placeholderText: "Search palettes…" }
         ListView {
-            id: paletteList
             Layout.fillWidth: true
-            Layout.preferredHeight: 210
+            Layout.preferredHeight: 190
             clip: true
             spacing: 3
-            boundsBehavior: Flickable.StopAtBounds
-
-            // Build a real filtered model instead of keeping every palette in
-            // the ListView and collapsing non-matching delegates to height 0.
-            // This keeps category/search results compact and fixes the large
-            // gaps caused by ListView spacing between hidden delegates.
-            model: {
-                var items = backend.allPaletteLibrary || []
-                var query = searchField.text.trim().toLowerCase()
-                var category = categoryFilter.currentText
-                var filtered = []
-
-                for (var i = 0; i < items.length; ++i) {
-                    var item = items[i]
-                    if (category !== "All" && String(item.category || "") !== category)
-                        continue
-
-                    if (query.length > 0) {
-                        var haystack = (
-                            String(item.name || "") + " " +
-                            String(item.category || "") + " " +
-                            String(item.description || "")
-                        ).toLowerCase()
-                        if (haystack.indexOf(query) < 0)
-                            continue
-                    }
-
-                    filtered.push(item)
-                }
-
-                return filtered
-            }
-
-            ScrollBar.vertical: ScrollBar {
-                policy: ScrollBar.AsNeeded
-            }
-
+            model: backend.paletteLibrary
+            ScrollBar.vertical: ScrollBar { policy: ScrollBar.AlwaysOff }
             delegate: Rectangle {
-                width: paletteList.width - 8
-                property bool isUserPalette: Boolean(modelData.user)
-                height: 44
+                width: ListView.view.width
+                property bool matches: searchField.text.length === 0 || (modelData.name + " " + modelData.category + " " + modelData.description).toLowerCase().indexOf(searchField.text.toLowerCase()) >= 0
+                height: matches ? 44 : 0
+                visible: matches
                 radius: 6
                 color: paletteMouse.containsMouse ? theme.panelHoverColor : "transparent"
-
-                MouseArea {
-                    id: paletteMouse
-                    anchors.left: parent.left
-                    anchors.top: parent.top
-                    anchors.bottom: parent.bottom
-                    anchors.right: parent.right
-                    anchors.rightMargin: parent.isUserPalette ? 36 : 0
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: backend.applyPalette(modelData.id)
-                }
-
                 RowLayout {
-                    anchors.fill: parent
-                    anchors.margins: 5
-                    spacing: 6
-
+                    anchors.fill: parent; anchors.margins: 5
                     ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: 0
-                        Text {
-                            Layout.fillWidth: true
-                            text: modelData.name
-                            color: theme.textColor
-                            font.bold: true
-                            elide: Text.ElideRight
-                        }
-                        Text {
-                            text: modelData.category + " · " + modelData.colors.length + " colors" + (modelData.user ? " · custom" : "")
-                            color: theme.mutedTextColor
-                            font.pixelSize: 10
-                        }
+                        Layout.fillWidth: true; spacing: 0
+                        Text { text: modelData.name; color: theme.textColor; font.bold: true; elide: Text.ElideRight; Layout.fillWidth: true }
+                        Text { text: modelData.category + " · " + modelData.colors.length + " colors"; color: theme.mutedTextColor; font.pixelSize: 10 }
                     }
-
                     Row {
                         spacing: 0
                         Repeater {
@@ -215,18 +112,8 @@ Item {
                             Rectangle { width: 11; height: 24; color: modelData }
                         }
                     }
-
-                    MintButton {
-                        visible: Boolean(modelData.user)
-                        Layout.preferredWidth: 30
-                        text: "×"
-                        onClicked: backend.deletePaletteFromLibrary(modelData.id)
-
-                        ToolTip.visible: hovered
-                        ToolTip.text: "Remove custom palette from library"
-                    }
                 }
-
+                MouseArea { id: paletteMouse; anchors.fill: parent; hoverEnabled: true; onClicked: backend.applyPalette(modelData.id) }
                 ToolTip.visible: paletteMouse.containsMouse
                 ToolTip.text: modelData.description
             }
@@ -234,18 +121,15 @@ Item {
 
         RowLayout {
             Layout.fillWidth: true
-            spacing: 6
-            MintButton { Layout.fillWidth: true; text: "Import"; onClicked: importPaletteDialog.open() }
-            MintButton { Layout.fillWidth: true; text: "Save to Library"; onClicked: saveLibraryDialog.open() }
-            MintButton { Layout.fillWidth: true; text: "Export JSON"; onClicked: exportJsonDialog.open() }
-            MintButton { Layout.fillWidth: true; text: "Export HEX"; onClicked: exportHexDialog.open() }
+            MintButton { Layout.fillWidth: true; text: "Import…"; onClicked: importPaletteDialog.open() }
+            MintButton { Layout.fillWidth: true; text: "Export HEX…"; onClicked: exportPaletteDialog.open() }
         }
 
         Rectangle { Layout.fillWidth: true; height: 1; color: theme.borderColor }
         MintLabel { text: "Optimize from image"; font.bold: true }
         RowLayout {
             Layout.fillWidth: true
-            MintSpinBox { id: colorCount; from: 2; to: 256; value: 8; editable: true; Layout.preferredWidth: 90 }
+            SpinBox { id: colorCount; from: 2; to: 256; value: 8; editable: true; Layout.preferredWidth: 90 }
             MintComboBox { id: optimizer; Layout.fillWidth: true; model: backend.paletteOptimizerNames }
             MintButton { text: "Optimize"; enabled: backend.hasSource; onClicked: backend.optimizePalette(colorCount.value, optimizer.currentText) }
         }
@@ -253,34 +137,21 @@ Item {
         MintLabel { text: "Lospec"; font.bold: true }
         RowLayout {
             Layout.fillWidth: true
-            MintTextField {
-                id: lospecField
-                Layout.fillWidth: true
-                placeholderText: "slug or Lospec URL"
-                onAccepted: {
-                    var value = text.trim()
-                    if (value.length > 0)
-                        backend.fetchLospec(value)
-                }
-            }
-            MintButton {
-                text: "Fetch"
-                enabled: lospecField.text.trim().length > 0
-                onClicked: backend.fetchLospec(lospecField.text.trim())
-            }
+            MintTextField { id: lospecField; Layout.fillWidth: true; placeholderText: "slug or Lospec URL" }
+            MintButton { text: "Fetch"; enabled: lospecField.text.length > 0; onClicked: backend.fetchLospec(lospecField.text) }
         }
 
         MintLabel { text: "Gradient"; font.bold: true }
         RowLayout {
             Layout.fillWidth: true
-            MintTextField { id: startColor; Layout.fillWidth: true; text: "#163B2A" }
-            MintTextField { id: endColor; Layout.fillWidth: true; text: "#F1E66B" }
+            MintColorPicker { id: startColor; Layout.fillWidth: true; colorValue: "#163B2A"; dialogTitle: "Gradient start colour" }
+            MintColorPicker { id: endColor; Layout.fillWidth: true; colorValue: "#F1E66B"; dialogTitle: "Gradient end colour" }
         }
         RowLayout {
             Layout.fillWidth: true
-            MintSpinBox { id: gradientCount; from: 2; to: 256; value: 8; Layout.preferredWidth: 90 }
+            SpinBox { id: gradientCount; from: 2; to: 256; value: 8; Layout.preferredWidth: 90 }
             MintComboBox { id: colorSpace; Layout.fillWidth: true; model: ["OKLab", "RGB", "Linear RGB", "HSV", "HSL"] }
-            MintButton { text: "Generate"; onClicked: backend.generatePalette(startColor.text, endColor.text, gradientCount.value, colorSpace.currentText) }
+            MintButton { text: "Generate"; onClicked: backend.generatePalette(startColor.colorValue, endColor.colorValue, gradientCount.value, colorSpace.currentText) }
         }
         Item { Layout.fillHeight: true }
     }
@@ -294,51 +165,6 @@ Item {
             else backend.addPaletteColor(value)
         }
     }
-
-    Dialog {
-        id: saveLibraryDialog
-        title: "Save palette to library"
-        modal: true
-        width: Math.min(360, root.width - 24)
-        x: Math.round((root.width - width) / 2)
-        y: Math.max(12, Math.round((root.height - height) / 2))
-        standardButtons: Dialog.Save | Dialog.Cancel
-
-        onOpened: {
-            var currentName = backend.settingsMap.palette_name || ""
-            paletteNameField.text = currentName === "Custom" ? "Custom Palette" : currentName
-            paletteCategoryField.text = categoryFilter.currentText !== "All" ? categoryFilter.currentText : "Custom"
-            paletteNameField.forceActiveFocus()
-            paletteNameField.selectAll()
-        }
-        onAccepted: backend.savePaletteToLibrary(paletteNameField.text, paletteCategoryField.text)
-
-        contentItem: ColumnLayout {
-            spacing: 8
-            MintLabel { text: "Name" }
-            MintTextField { id: paletteNameField; Layout.fillWidth: true; placeholderText: "Palette name" }
-            MintLabel { text: "Category" }
-            MintTextField { id: paletteCategoryField; Layout.fillWidth: true; placeholderText: "Custom" }
-        }
-    }
-
-    FileDialog {
-        id: importPaletteDialog
-        nameFilters: ["Palette files (*.json *.hex *.txt *.gpl *.pal)", "All files (*)"]
-        onAccepted: backend.importPalette(selectedFile.toString())
-    }
-    FileDialog {
-        id: exportJsonDialog
-        fileMode: FileDialog.SaveFile
-        defaultSuffix: "json"
-        nameFilters: ["RasterMint palette (*.json)"]
-        onAccepted: backend.exportPaletteJson(selectedFile.toString())
-    }
-    FileDialog {
-        id: exportHexDialog
-        fileMode: FileDialog.SaveFile
-        defaultSuffix: "hex"
-        nameFilters: ["HEX palette (*.hex)"]
-        onAccepted: backend.exportPalette(selectedFile.toString())
-    }
+    FileDialog { id: importPaletteDialog; nameFilters: ["Palette files (*.hex *.txt *.gpl *.pal)", "All files (*)"]; onAccepted: backend.importPalette(selectedFile.toString()) }
+    FileDialog { id: exportPaletteDialog; fileMode: FileDialog.SaveFile; defaultSuffix: "hex"; nameFilters: ["HEX palette (*.hex)"]; onAccepted: backend.exportPalette(selectedFile.toString()) }
 }

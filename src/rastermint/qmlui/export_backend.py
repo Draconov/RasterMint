@@ -6,9 +6,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from PIL import Image
+from PIL import Image, ImageChops
 from PySide6.QtCore import QUrl, Slot
 from rastermint.core.animation import settings_at_time
+from rastermint.core.effect_stack import ascii_text_grid_for_stack, normalize_effect_stack
 from rastermint.core.processor import (
     PREVIEW_MAX_SIDE,
     adaptive_preview_max_side,
@@ -16,6 +17,7 @@ from rastermint.core.processor import (
     image_has_transparency,
     make_preview_settings,
     make_preview_source,
+    prepare_raster_source,
     prepare_transparency_mask,
     processed_raster_size,
     target_raster_size,
@@ -33,6 +35,7 @@ _FORMAT_SUFFIXES = {
     "WEBP": ".webp",
     "TIFF": ".tif",
     "SVG": ".svg",
+    "TXT": ".txt",
 }
 
 _BATCH_FORMAT_SUFFIXES = {
@@ -96,6 +99,7 @@ class RasterMintBackend(PreferencesBackend):
             ".tif": "TIFF",
             ".tiff": "TIFF",
             ".svg": "SVG",
+            ".txt": "TXT",
         }.get(path.suffix.lower(), "PNG")
 
     # ---------- immediate preview-mode switching ----------
@@ -179,6 +183,7 @@ class RasterMintBackend(PreferencesBackend):
                 "width": 1,
                 "height": 1,
                 "hasTransparency": False,
+                "hasAsciiLayer": False,
             }
 
         animated = settings_at_time(self.settings, self._current_time)
@@ -192,6 +197,10 @@ class RasterMintBackend(PreferencesBackend):
             "width": max(1, int(width)),
             "height": max(1, int(height)),
             "hasTransparency": self._source_has_transparency(),
+            "hasAsciiLayer": any(
+                step.get("enabled", True) and step.get("kind") == "ASCII / Glyph"
+                for step in normalize_effect_stack(animated.effect_stack, animated)
+            ),
         }
 
     @Slot(str, result=str)
@@ -214,6 +223,7 @@ class RasterMintBackend(PreferencesBackend):
             "WEBP": {".webp"},
             "TIFF": {".tif", ".tiff"},
             "SVG": {".svg"},
+            "TXT": {".txt"},
         }.get(fmt, {suffix})
         if path.suffix.lower() not in accepted:
             path = path.with_suffix(suffix)
@@ -281,6 +291,31 @@ class RasterMintBackend(PreferencesBackend):
         quality = max(1, min(100, int(opts.get("quality", 90) or 90)))
         resampling = str(opts.get("resampling", "Nearest (pixel-perfect)") or "Nearest (pixel-perfect)")
         animated = settings_at_time(self.settings, self._current_time)
+        if format_name == "TXT":
+            raster_source = prepare_raster_source(source, animated)
+            grid = ascii_text_grid_for_stack(
+                raster_source,
+                animated.effect_stack,
+                animated.palette,
+                frame_time=self._current_time,
+                frame_index=max(
+                    0,
+                    round(
+                        self._current_time
+                        * (self._video_info.fps if self._video_info else animated.animation_fps)
+                    ),
+                ),
+            )
+            if grid is None:
+                self.errorOccurred.emit("Could not export text", "Add and enable an ASCII / Glyph layer first.")
+                return
+            try:
+                path.write_text(grid, encoding="utf-8")
+                self._set_status(f"Exported {path.name}")
+            except Exception as exc:
+                self.errorOccurred.emit("Could not export text", str(exc))
+            return
+
         preserve_requested = bool(opts.get("preserveTransparency", True))
         alpha_source = (
             self._transparency_source()
@@ -396,7 +431,12 @@ class RasterMintBackend(PreferencesBackend):
             mask = alpha_mask.convert("L")
             if mask.size != output.size:
                 mask = mask.resize(output.size, Image.Resampling.NEAREST)
+            existing_alpha = output.getchannel("A") if "A" in output.getbands() else None
             output = output.convert("RGBA")
+            if existing_alpha is not None:
+                if existing_alpha.size != mask.size:
+                    existing_alpha = existing_alpha.resize(mask.size, Image.Resampling.NEAREST)
+                mask = ImageChops.multiply(existing_alpha, mask)
             output.putalpha(mask)
         if output.size != (width, height):
             output = output.resize((width, height), resampling)
@@ -455,6 +495,8 @@ class RasterMintBackend(PreferencesBackend):
                     mask = alpha_mask.convert("L")
                     if mask.size != output.size:
                         mask = mask.resize(output.size, Image.Resampling.NEAREST)
+                    existing_alpha = output.getchannel("A")
+                    mask = ImageChops.multiply(existing_alpha, mask)
                     output.putalpha(mask)
                 if path.suffix.lower() == ".svg":
                     save_svg(output, path)

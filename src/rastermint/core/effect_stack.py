@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from functools import lru_cache
 import math
 from io import BytesIO
 from pathlib import Path
@@ -11,7 +12,7 @@ from typing import Any
 from uuid import uuid4
 
 import numpy as np
-from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont, ImageOps
+from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter, ImageFont, ImageOps
 
 from .dither import ALGORITHMS, apply_dither
 from .palette import hex_to_rgb, palette_array
@@ -170,15 +171,19 @@ EFFECT_DEFINITIONS: dict[str, dict[str, Any]] = {
         "shadow": {"type": "int", "label": "Shadow", "default": 0, "min": 0, "max": 16, "step": 1, "suffix": " px", "pixel_scaled": True},
     }},
     "ASCII / Glyph": {"params": {
-        "character_set": {"type": "choice", "label": "Character set", "default": "Classic ASCII", "options": ["Classic ASCII", "Dense ASCII", "Blocks", "Binary", "Custom"]},
+        "character_set": {"type": "glyph_set", "label": "Character set", "default": "Classic ASCII"},
         "custom_chars": {"type": "text", "label": "Custom characters", "default": " .:-=+*#%@"},
+        "auto_density": {"type": "bool", "label": "Auto-sort by visual density", "default": True},
         "cell_size": {"type": "int", "label": "Cell size", "default": 10, "min": 4, "max": 64, "step": 1, "suffix": " px", "animatable": True, "pixel_scaled": True},
-        "depth": {"type": "int", "label": "Character depth", "default": 10, "min": 2, "max": 64, "step": 1, "animatable": True},
-        "offset": {"type": "int", "label": "Character offset", "default": 0, "min": -32, "max": 32, "step": 1, "animatable": True},
+        "spacing_x": {"type": "int", "label": "Horizontal spacing", "default": 0, "min": -8, "max": 32, "step": 1, "suffix": " px", "animatable": True, "pixel_scaled": True},
+        "spacing_y": {"type": "int", "label": "Vertical spacing", "default": 0, "min": -8, "max": 32, "step": 1, "suffix": " px", "animatable": True, "pixel_scaled": True},
+        "depth": {"type": "int", "label": "Character depth", "default": 10, "min": 2, "max": 96, "step": 1, "animatable": True},
+        "offset": {"type": "int", "label": "Character offset", "default": 0, "min": -64, "max": 64, "step": 1, "animatable": True},
         "invert": {"type": "bool", "label": "Invert mapping", "default": False},
         "color_mode": {"type": "choice", "label": "Colour mode", "default": "Source", "options": ["Source", "Palette", "Single Colour"]},
         "foreground": {"type": "color", "label": "Foreground", "default": "#FFFFFF"},
-        "background": {"type": "color", "label": "Background", "default": "#101217"},
+        "background_mode": {"type": "choice", "label": "Background", "default": "Solid Colour", "options": ["Transparent", "Solid Colour", "Source Image"]},
+        "background": {"type": "color", "label": "Background colour", "default": "#101217"},
         "font": {"type": "choice", "label": "Font", "default": "Mono", "options": ["Pixel", "Mono", "Sans", "Serif"]},
         "font_scale": {"type": "float", "label": "Glyph scale", "default": 0.9, "min": 0.4, "max": 1.5, "step": 0.05, "decimals": 2, "animatable": True},
     }},
@@ -215,7 +220,11 @@ EFFECT_DEFINITIONS: dict[str, dict[str, Any]] = {
         "size": {"type": "int", "label": "Size", "default": 72, "min": 8, "max": 320, "step": 1, "suffix": " px", "animatable": True, "pixel_scaled": True},
         "font": {"type": "choice", "label": "Font", "default": "Sans", "options": ["Pixel", "Mono", "Sans", "Serif"]},
         "mode": {"type": "choice", "label": "Mode", "default": "Keep Inside", "options": ["Keep Inside", "Cut Out"]},
-        "background": {"type": "color", "label": "Background", "default": "#000000"},
+        "background_mode": {"type": "choice", "label": "Background", "default": "Solid Colour", "options": ["Transparent", "Solid Colour"]},
+        "background": {"type": "color", "label": "Background colour", "default": "#000000"},
+        "threshold": {"type": "float", "label": "Threshold", "default": 0.0, "min": 0.0, "max": 1.0, "step": 0.01, "decimals": 2, "animatable": True},
+        "feather": {"type": "float", "label": "Feather", "default": 0.0, "min": 0.0, "max": 32.0, "step": 0.5, "decimals": 1, "suffix": " px", "animatable": True, "pixel_scaled": True},
+        "invert": {"type": "bool", "label": "Invert mask", "default": False},
         "rotation": {"type": "float", "label": "Rotation", "default": 0.0, "min": -180.0, "max": 180.0, "step": 1.0, "decimals": 1, "suffix": "°", "animatable": True},
     }},
     "Wave / Jitter Text": {"params": {
@@ -239,8 +248,11 @@ EFFECT_DEFINITIONS: dict[str, dict[str, Any]] = {
         "color": {"type": "color", "label": "Color", "default": "#FFFFFF"},
         "font": {"type": "choice", "label": "Font", "default": "Mono", "options": ["Pixel", "Mono", "Sans", "Serif"]},
         "progress": {"type": "float", "label": "Reveal", "default": 100.0, "min": 0.0, "max": 100.0, "step": 1.0, "decimals": 1, "suffix": "%", "animatable": True},
+        "reveal_mode": {"type": "choice", "label": "Reveal by", "default": "Characters", "options": ["Characters", "Words", "Lines"]},
         "cursor": {"type": "bool", "label": "Show cursor", "default": True},
         "cursor_char": {"type": "text", "label": "Cursor", "default": "_"},
+        "cursor_blink": {"type": "bool", "label": "Blink cursor", "default": True},
+        "cursor_blink_speed": {"type": "float", "label": "Cursor blink speed", "default": 2.0, "min": 0.1, "max": 20.0, "step": 0.1, "decimals": 1, "suffix": " Hz", "animatable": True},
     }},
     "Text Glitch": {"params": {
         "text": {"type": "text", "label": "Text", "default": "GLITCH"},
@@ -252,6 +264,10 @@ EFFECT_DEFINITIONS: dict[str, dict[str, Any]] = {
         "rgb_offset": {"type": "int", "label": "RGB offset", "default": 3, "min": 0, "max": 64, "step": 1, "suffix": " px", "animatable": True, "pixel_scaled": True},
         "slice_shift": {"type": "int", "label": "Slice shift", "default": 8, "min": 0, "max": 128, "step": 1, "suffix": " px", "animatable": True, "pixel_scaled": True},
         "slice_height": {"type": "int", "label": "Slice height", "default": 4, "min": 1, "max": 32, "step": 1, "suffix": " px", "pixel_scaled": True},
+        "vertical_jitter": {"type": "int", "label": "Vertical jitter", "default": 0, "min": 0, "max": 64, "step": 1, "suffix": " px", "animatable": True, "pixel_scaled": True},
+        "dropout": {"type": "float", "label": "Slice dropout", "default": 0.0, "min": 0.0, "max": 1.0, "step": 0.05, "decimals": 2, "animatable": True},
+        "opacity": {"type": "float", "label": "Opacity", "default": 1.0, "min": 0.0, "max": 1.0, "step": 0.05, "decimals": 2, "animatable": True},
+        "temporal": {"type": "bool", "label": "Animate glitch", "default": False},
         "seed": {"type": "int", "label": "Seed", "default": 1, "min": 0, "max": 999999, "step": 1},
     }},
     "Dither": {"params": {
@@ -390,7 +406,7 @@ def normalize_effect_stack(stack: list[dict[str, Any]] | None, settings: Any | N
                     value = str(value)
                     if options and value not in options:
                         value = str(spec.get("default", options[0]))
-                elif ptype in {"text", "file"}:
+                elif ptype in {"text", "file", "glyph_set"}:
                     value = str(value)
                 elif ptype == "color":
                     text = str(value).strip().upper()
@@ -901,12 +917,173 @@ _FONT_FILES = {
     "Serif": "DejaVuSerif.ttf",
 }
 
+_GLYPH_SET_CATEGORIES: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
+    ("ASCII & Punctuation", (
+        ("Classic ASCII", " .:-=+*#%@"),
+        ("Dense ASCII", " .'`^\",:;Il!i~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$"),
+        ("Minimal ASCII", " .-+*#@"),
+        ("Punctuation", " .'`,:;!iI|/\\()[]{}<>?*#@"),
+        ("Typewriter", " .,:;i1tfLCG08@"),
+        ("Technical", " ._-~=+<>[]{}()|/\\*#%@"),
+    )),
+    ("Numbers", (
+        ("Binary", "01"),
+        ("Decimal", " 0123456789"),
+        ("Hex", " 0123456789ABCDEF"),
+        ("Roman", " .IVXLCDM"),
+        ("Digital", " .1470253689"),
+    )),
+    ("Blocks", (
+        ("Blocks", " ░▒▓█"),
+        ("Shade Blocks", " ░▒▓█"),
+        ("Half Blocks", " ▂▄▆█"),
+        ("Vertical Blocks", " ▁▂▃▄▅▆▇█"),
+        ("Quadrants", " ▖▗▘▝▚▞▙▛▜▟█"),
+    )),
+    ("Braille", (
+        ("Braille Low", " ⠂⠃⠇⠏⠟⠿⣿"),
+        ("Braille Dense", " ⠁⠉⠋⠛⠟⠿⣿"),
+        ("Braille Dots", " ⠂⠆⠇⠧⠷⠿⣿"),
+        ("Braille Cells", " ⠀⠐⠒⠖⠶⠾⣿"),
+    )),
+    ("Geometric", (
+        ("Squares", " ·▫▪□▣■"),
+        ("Circles", " ·∘○◌◍●"),
+        ("Diamonds", " ·◇◈◆"),
+        ("Triangles", " ·△▽◁▷▲▼◀▶"),
+        ("Mixed Geometry", " ·○□◇△◌◍▣◆●■"),
+    )),
+    ("Symbols", (
+        ("Arrows", " ·←↑→↓↔↕⇐⇑⇒⇓"),
+        ("Math", " .−+=×÷≈≠≤≥∞∑∫√"),
+        ("Stars", " ·⋆✦✧★✹✺✸"),
+        ("Currency", " .¢$€£¥₩₽₹"),
+        ("Cards", " ·♤♡♢♧♠♥♦♣"),
+    )),
+    ("Line Art", (
+        ("Box Light", " ·─│┌┐└┘├┤┬┴┼"),
+        ("Box Heavy", " ·━┃┏┓┗┛┣┫┳┻╋"),
+        ("Corners", " ·╭╮╰╯┌┐└┘"),
+        ("Diagonals", " ./\\╱╲╳×#"),
+    )),
+    ("Letters", (
+        ("Latin Lower", " .abcdefghijklmnopqrstuvwxyz"),
+        ("Latin Upper", " .ABCDEFGHIJKLMNOPQRSTUVWXYZ"),
+        ("Mixed Letters", " .ilIjtfrxvucszXYUJCLQOZmwqpdbkhaoMW"),
+        ("Greek", " .ιτγλνχκπρσφωΨΩ"),
+        ("Cyrillic", " .іґлптчжкмшщюяФЖШЩЮ"),
+    )),
+    ("Retro", (
+        ("Terminal", " .,:;+*xX#%@"),
+        ("DOS", " .░▒▓█"),
+        ("Teletext", " .▖▗▘▝▚▞▙▛▜▟█"),
+        ("LCD", " ._-:=+*#█"),
+    )),
+    ("Decorative", (
+        ("Dots", " .·•∙●"),
+        ("Crosses", " .+×✕✖✚✜"),
+        ("Sparkles", " .·✧✦⋆★✹"),
+        ("Flowers", " .·❀✿❁✾✽"),
+        ("Music", " .·♪♫♩♬♭♯"),
+    )),
+    ("Custom", (
+        ("Custom", ""),
+    )),
+)
+
 _GLYPH_SETS = {
-    "Classic ASCII": " .:-=+*#%@",
-    "Dense ASCII": " .'`^\",:;Il!i~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$",
-    "Blocks": " ░▒▓█",
-    "Binary": "01",
+    name: chars
+    for _category, sets in _GLYPH_SET_CATEGORIES
+    for name, chars in sets
+    if name != "Custom"
 }
+
+
+def glyph_set_categories() -> list[dict[str, object]]:
+    return [
+        {
+            "name": category,
+            "sets": [
+                {
+                    "name": name,
+                    "preview": (chars[:28] + ("…" if len(chars) > 28 else "")) if chars else "Your characters",
+                }
+                for name, chars in sets
+            ],
+        }
+        for category, sets in _GLYPH_SET_CATEGORIES
+    ]
+
+
+def _decode_custom_glyphs(value: str) -> str:
+    text = str(value or "")
+    out: list[str] = []
+    i = 0
+    while i < len(text):
+        ch = text[i]
+        if ch == "\\" and i + 1 < len(text):
+            nxt = text[i + 1]
+            if nxt == "s":
+                out.append(" ")
+                i += 2
+                continue
+            if nxt == "\\":
+                out.append("\\")
+                i += 2
+                continue
+            if nxt == "u" and i + 5 < len(text):
+                token = text[i + 2:i + 6]
+                try:
+                    out.append(chr(int(token, 16)))
+                    i += 6
+                    continue
+                except ValueError:
+                    pass
+        if ch not in "\r\n\t" and (ord(ch) >= 32 or ch == " "):
+            out.append(ch)
+        i += 1
+
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for ch in out:
+        if ch not in seen:
+            deduped.append(ch)
+            seen.add(ch)
+    return "".join(deduped)
+
+
+def _glyph_chars(character_set: str, custom_chars: str) -> str:
+    if str(character_set) == "Custom":
+        chars = _decode_custom_glyphs(custom_chars)
+    else:
+        chars = _GLYPH_SETS.get(str(character_set), _GLYPH_SETS["Classic ASCII"])
+    return chars if len(chars) >= 2 else _GLYPH_SETS["Classic ASCII"]
+
+
+@lru_cache(maxsize=256)
+def _glyph_density_order(chars: str, font_name: str, font_size: int) -> str:
+    font = _load_text_font(font_name, max(6, int(font_size)))
+    canvas_size = max(24, int(font_size) * 2)
+    scored: list[tuple[float, int, str]] = []
+    for index, ch in enumerate(chars):
+        if ch == " ":
+            scored.append((0.0, index, ch))
+            continue
+        mask = Image.new("L", (canvas_size, canvas_size), 0)
+        draw = ImageDraw.Draw(mask)
+        bbox = draw.textbbox((0, 0), ch, font=font)
+        width = max(1, bbox[2] - bbox[0])
+        height = max(1, bbox[3] - bbox[1])
+        draw.text(
+            ((canvas_size - width) / 2 - bbox[0], (canvas_size - height) / 2 - bbox[1]),
+            ch,
+            font=font,
+            fill=255,
+        )
+        arr = np.asarray(mask, dtype=np.float32) / 255.0
+        scored.append((float(arr.mean()), index, ch))
+    scored.sort(key=lambda item: (item[0], item[1]))
+    return "".join(item[2] for item in scored)
 
 
 def _load_text_font(font_name: str, size: int) -> ImageFont.ImageFont:
@@ -1036,46 +1213,219 @@ def _paste_centered_rgba(base: Image.Image, layer: Image.Image, x_percent: float
     return canvas.convert("RGB")
 
 
-def _ascii_glyph(
+def _ascii_mapping_chars(
+    character_set: str,
+    custom_chars: str,
+    depth: int,
+    offset: int,
+    auto_density: bool,
+    font_name: str,
+    font_size: int,
+) -> str:
+    chars = _glyph_chars(character_set, custom_chars)
+    if auto_density:
+        chars = _glyph_density_order(chars, font_name, max(6, int(font_size)))
+    depth = max(2, min(len(chars), int(depth)))
+    if len(chars) > depth:
+        indices = np.linspace(0, len(chars) - 1, depth).round().astype(int)
+        chars = "".join(chars[i] for i in indices)
+    if not chars:
+        chars = " .:-=+*#%@"
+    shift = int(offset) % len(chars)
+    if shift:
+        chars = chars[-shift:] + chars[:-shift]
+    return chars
+
+
+def _ascii_grid_data(
     image: Image.Image,
     character_set: str,
     custom_chars: str,
     cell_size: int,
+    spacing_x: int,
+    spacing_y: int,
+    depth: int,
+    offset: int,
+    invert: bool,
+    auto_density: bool,
+    font_name: str,
+    font_scale: float,
+) -> tuple[list[str], list[list[np.ndarray]]]:
+    cell = max(4, int(cell_size))
+    pitch_x = max(1, cell + int(spacing_x))
+    pitch_y = max(1, cell + int(spacing_y))
+    font_size = max(6, round(cell * max(0.4, min(1.5, float(font_scale)))))
+    chars = _ascii_mapping_chars(
+        character_set,
+        custom_chars,
+        depth,
+        offset,
+        auto_density,
+        font_name,
+        font_size,
+    )
+    rgba = np.asarray(image.convert("RGBA"), dtype=np.uint8)
+    lines: list[str] = []
+    colors: list[list[np.ndarray]] = []
+    for y in range(0, image.height, pitch_y):
+        line_chars: list[str] = []
+        line_colors: list[np.ndarray] = []
+        for x in range(0, image.width, pitch_x):
+            region = rgba[y:min(rgba.shape[0], y + cell), x:min(rgba.shape[1], x + cell)]
+            if not region.size:
+                continue
+            alpha = region[..., 3].astype(np.float32) / 255.0
+            alpha_mean = float(alpha.mean())
+            if alpha_mean <= 0.01:
+                mean = np.array([0.0, 0.0, 0.0], dtype=np.float32)
+                char = " "
+            else:
+                rgb = region[..., :3].astype(np.float32)
+                weights = alpha[..., None]
+                denom = max(1e-6, float(weights.sum()))
+                mean = (rgb * weights).sum(axis=(0, 1)) / denom
+                lum = float(0.2126 * mean[0] + 0.7152 * mean[1] + 0.0722 * mean[2]) / 255.0
+                if invert:
+                    lum = 1.0 - lum
+                index = max(0, min(len(chars) - 1, int(round(lum * (len(chars) - 1)))))
+                char = chars[index]
+            line_chars.append(char)
+            line_colors.append(mean)
+        lines.append("".join(line_chars).rstrip())
+        colors.append(line_colors)
+    while lines and lines[-1] == "":
+        lines.pop()
+        colors.pop()
+    return lines or [""], colors or [[]]
+
+
+def ascii_text_grid(
+    image: Image.Image,
+    *,
+    character_set: str,
+    custom_chars: str,
+    cell_size: int,
+    spacing_x: int,
+    spacing_y: int,
+    depth: int,
+    offset: int,
+    invert: bool,
+    auto_density: bool,
+    font_name: str,
+    font_scale: float,
+) -> str:
+    lines, _colors = _ascii_grid_data(
+        image,
+        character_set,
+        custom_chars,
+        cell_size,
+        spacing_x,
+        spacing_y,
+        depth,
+        offset,
+        invert,
+        auto_density,
+        font_name,
+        font_scale,
+    )
+    return "\n".join(lines) + "\n"
+
+
+def ascii_text_grid_for_stack(
+    image: Image.Image,
+    stack: list[dict[str, Any]],
+    palette: list[str],
+    *,
+    frame_time: float = 0.0,
+    frame_index: int = 0,
+) -> str | None:
+    normalized = normalize_effect_stack(stack)
+    target_index = -1
+    for index, step in enumerate(normalized):
+        if step.get("enabled", True) and step.get("kind") == "ASCII / Glyph":
+            target_index = index
+    if target_index < 0:
+        return None
+    if target_index == 0:
+        before = image
+    else:
+        before = apply_effect_stack(
+            image,
+            normalized[:target_index],
+            palette,
+            frame_time=frame_time,
+            frame_index=frame_index,
+        )
+    p = normalized[target_index]["params"]
+    return ascii_text_grid(
+        before,
+        character_set=str(p.get("character_set", "Classic ASCII")),
+        custom_chars=str(p.get("custom_chars", " .:-=+*#%@")),
+        cell_size=int(p.get("cell_size", 10)),
+        spacing_x=int(p.get("spacing_x", 0)),
+        spacing_y=int(p.get("spacing_y", 0)),
+        depth=int(p.get("depth", 10)),
+        offset=int(p.get("offset", 0)),
+        invert=bool(p.get("invert", False)),
+        auto_density=bool(p.get("auto_density", True)),
+        font_name=str(p.get("font", "Mono")),
+        font_scale=float(p.get("font_scale", 0.9)),
+    )
+
+
+def _ascii_glyph(
+    image: Image.Image,
+    character_set: str,
+    custom_chars: str,
+    auto_density: bool,
+    cell_size: int,
+    spacing_x: int,
+    spacing_y: int,
     depth: int,
     offset: int,
     invert: bool,
     color_mode: str,
     foreground: str,
+    background_mode: str,
     background: str,
     font_name: str,
     font_scale: float,
     palette_np: np.ndarray,
 ) -> Image.Image:
     cell = max(4, int(cell_size))
-    chars = str(custom_chars) if character_set == "Custom" else _GLYPH_SETS.get(str(character_set), _GLYPH_SETS["Classic ASCII"])
-    chars = chars or " .:-=+*#%@"
-    depth = max(2, min(len(chars), int(depth)))
-    if len(chars) > depth:
-        indices = np.linspace(0, len(chars) - 1, depth).round().astype(int)
-        chars = "".join(chars[i] for i in indices)
-    offset = int(offset)
-    source = np.asarray(image.convert("RGB"), dtype=np.uint8)
-    canvas = Image.new("RGB", image.size, hex_to_rgb(background))
+    pitch_x = max(1, cell + int(spacing_x))
+    pitch_y = max(1, cell + int(spacing_y))
+    lines, mean_colors = _ascii_grid_data(
+        image,
+        character_set,
+        custom_chars,
+        cell,
+        spacing_x,
+        spacing_y,
+        depth,
+        offset,
+        invert,
+        auto_density,
+        font_name,
+        font_scale,
+    )
+    mode = str(background_mode)
+    if mode == "Transparent":
+        canvas = Image.new("RGBA", image.size, (0, 0, 0, 0))
+    elif mode == "Source Image":
+        canvas = image.convert("RGBA")
+    else:
+        canvas = Image.new("RGBA", image.size, (*hex_to_rgb(background), 255))
     draw = ImageDraw.Draw(canvas)
     font = _load_text_font(font_name, max(6, round(cell * max(0.4, min(1.5, float(font_scale))))))
     single = hex_to_rgb(foreground)
-    for y in range(0, image.height, cell):
-        for x in range(0, image.width, cell):
-            region = source[y:min(source.shape[0], y + cell), x:min(source.shape[1], x + cell)]
-            if not region.size:
-                continue
-            mean = np.mean(region.reshape(-1, 3), axis=0)
-            lum = float(0.2126 * mean[0] + 0.7152 * mean[1] + 0.0722 * mean[2]) / 255.0
-            if invert:
-                lum = 1.0 - lum
-            index = int(round(lum * (len(chars) - 1)))
-            index = (index + offset) % len(chars)
-            char = chars[index]
+
+    for row, line in enumerate(lines):
+        y = row * pitch_y
+        row_colors = mean_colors[row] if row < len(mean_colors) else []
+        for col, char in enumerate(line):
+            x = col * pitch_x
+            mean = row_colors[col] if col < len(row_colors) else np.array(single, dtype=np.float32)
             if color_mode == "Single Colour":
                 color = single
             elif color_mode == "Palette" and palette_np.size:
@@ -1085,7 +1435,12 @@ def _ascii_glyph(
                 color = tuple(int(round(v)) for v in mean)
             bbox = draw.textbbox((0, 0), char, font=font)
             tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
-            draw.text((x + (cell - tw) / 2, y + (cell - th) / 2 - bbox[1]), char, font=font, fill=color)
+            draw.text(
+                (x + (cell - tw) / 2, y + (cell - th) / 2 - bbox[1]),
+                char,
+                font=font,
+                fill=(*color, 255),
+            )
     return canvas
 
 
@@ -1142,7 +1497,21 @@ def _text_pattern(image: Image.Image, text: str, size: int, color: str, font_nam
     return Image.alpha_composite(image.convert("RGBA"), overlay).convert("RGB")
 
 
-def _text_mask(image: Image.Image, text: str, x: float, y: float, size: int, font_name: str, mode: str, background: str, rotation: float) -> Image.Image:
+def _text_mask(
+    image: Image.Image,
+    text: str,
+    x: float,
+    y: float,
+    size: int,
+    font_name: str,
+    mode: str,
+    background_mode: str,
+    background: str,
+    threshold: float,
+    feather: float,
+    invert: bool,
+    rotation: float,
+) -> Image.Image:
     font = _load_text_font(font_name, size)
     temp = Image.new("L", image.size, 0)
     draw = ImageDraw.Draw(temp)
@@ -1153,9 +1522,22 @@ def _text_mask(image: Image.Image, text: str, x: float, y: float, size: int, fon
     draw.multiline_text((px - tw / 2, py - th / 2 - bbox[1]), str(text), font=font, fill=255, align="center")
     if abs(float(rotation)) > 1e-6:
         temp = temp.rotate(-float(rotation), resample=Image.Resampling.BICUBIC, expand=False)
+    threshold_value = max(0.0, min(1.0, float(threshold)))
+    if threshold_value > 0:
+        cutoff = round(threshold_value * 255)
+        temp = temp.point(lambda value: 255 if value >= cutoff else 0)
+    if feather > 0:
+        temp = temp.filter(ImageFilter.GaussianBlur(radius=max(0.0, float(feather))))
+    if invert:
+        temp = ImageOps.invert(temp)
     mask = temp if str(mode) == "Keep Inside" else ImageOps.invert(temp)
-    bg = Image.new("RGB", image.size, hex_to_rgb(background))
-    return Image.composite(image.convert("RGB"), bg, mask)
+
+    foreground = image.convert("RGBA")
+    if str(background_mode) == "Transparent":
+        bg = Image.new("RGBA", image.size, (0, 0, 0, 0))
+    else:
+        bg = Image.new("RGBA", image.size, (*hex_to_rgb(background), 255))
+    return Image.composite(foreground, bg, mask)
 
 
 def _wave_jitter_text(image: Image.Image, text: str, x: float, y: float, size: int, color: str, font_name: str, amplitude: float, wavelength: float, jitter: float, speed: float, seed: int, frame_time: float) -> Image.Image:
@@ -1185,17 +1567,78 @@ def _wave_jitter_text(image: Image.Image, text: str, x: float, y: float, size: i
     return img
 
 
-def _typewriter_text(image: Image.Image, text: str, x: float, y: float, size: int, color: str, font_name: str, progress: float, cursor: bool, cursor_char: str) -> Image.Image:
+def _typewriter_text(
+    image: Image.Image,
+    text: str,
+    x: float,
+    y: float,
+    size: int,
+    color: str,
+    font_name: str,
+    progress: float,
+    reveal_mode: str,
+    cursor: bool,
+    cursor_char: str,
+    cursor_blink: bool,
+    cursor_blink_speed: float,
+    frame_time: float,
+) -> Image.Image:
     value = str(text)
-    count = max(0, min(len(value), round(len(value) * max(0.0, min(100.0, float(progress))) / 100.0)))
-    shown = value[:count]
-    if cursor and count < len(value):
+    amount = max(0.0, min(100.0, float(progress))) / 100.0
+    mode = str(reveal_mode)
+    if mode == "Words":
+        import re
+        parts = re.findall(r"\S+\s*", value)
+        count = max(0, min(len(parts), round(len(parts) * amount)))
+        shown = "".join(parts[:count])
+        complete = count >= len(parts)
+    elif mode == "Lines":
+        parts = value.splitlines(keepends=True)
+        if not parts:
+            parts = [value]
+        count = max(0, min(len(parts), round(len(parts) * amount)))
+        shown = "".join(parts[:count])
+        complete = count >= len(parts)
+    else:
+        count = max(0, min(len(value), round(len(value) * amount)))
+        shown = value[:count]
+        complete = count >= len(value)
+
+    cursor_visible = bool(cursor) and not complete
+    if cursor_visible and cursor_blink:
+        speed = max(0.1, float(cursor_blink_speed))
+        cursor_visible = int(math.floor(float(frame_time) * speed * 2.0)) % 2 == 0
+    if cursor_visible:
         shown += (str(cursor_char) or "_")[:1]
-    layer = _render_text_block(shown, size=size, color=color, font_name=font_name, max_width=max(16, round(image.width * 0.9)), alignment="Center")
+    layer = _render_text_block(
+        shown,
+        size=size,
+        color=color,
+        font_name=font_name,
+        max_width=max(16, round(image.width * 0.9)),
+        alignment="Center",
+    )
     return _paste_centered_rgba(image, layer, x, y)
 
 
-def _text_glitch(image: Image.Image, text: str, x: float, y: float, size: int, color: str, font_name: str, rgb_offset: int, slice_shift: int, slice_height: int, seed: int) -> Image.Image:
+def _text_glitch(
+    image: Image.Image,
+    text: str,
+    x: float,
+    y: float,
+    size: int,
+    color: str,
+    font_name: str,
+    rgb_offset: int,
+    slice_shift: int,
+    slice_height: int,
+    vertical_jitter: int,
+    dropout: float,
+    opacity: float,
+    temporal: bool,
+    seed: int,
+    frame_index: int,
+) -> Image.Image:
     layer = Image.new("RGBA", image.size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(layer)
     font = _load_text_font(font_name, size)
@@ -1208,24 +1651,45 @@ def _text_glitch(image: Image.Image, text: str, x: float, y: float, size: int, c
     arr = np.asarray(layer, dtype=np.uint8).copy()
     offset = max(0, int(rgb_offset))
     if offset:
-        red = np.roll(arr[..., 3], offset, axis=1)
-        blue = np.roll(arr[..., 3], -offset, axis=1)
-        base_alpha = arr[..., 3]
+        alpha = arr[..., 3]
+        red_alpha = np.roll(alpha, offset, axis=1)
+        blue_alpha = np.roll(alpha, -offset, axis=1)
         rgb = np.zeros_like(arr)
-        rgb[..., 0] = red
-        rgb[..., 1] = base_alpha
-        rgb[..., 2] = blue
-        rgb[..., 3] = np.maximum.reduce([red, base_alpha, blue])
+        rgb[..., 0] = np.roll(arr[..., 0], offset, axis=1)
+        rgb[..., 1] = arr[..., 1]
+        rgb[..., 2] = np.roll(arr[..., 2], -offset, axis=1)
+        rgb[..., 3] = np.maximum.reduce([red_alpha, alpha, blue_alpha])
         arr = rgb
+
+    effective_seed = int(seed) + (int(frame_index) * 7919 if temporal else 0)
+    rng = np.random.default_rng(effective_seed)
     shift = max(0, int(slice_shift))
     band = max(1, int(slice_height))
-    if shift:
-        rng = np.random.default_rng(int(seed))
-        for yy in range(max(0, pos[1] - band), min(image.height, pos[1] + th + band), band):
-            dx = int(rng.integers(-shift, shift + 1))
-            arr[yy:min(image.height, yy + band)] = np.roll(arr[yy:min(image.height, yy + band)], dx, axis=1)
+    vjit = max(0, int(vertical_jitter))
+    drop = max(0.0, min(1.0, float(dropout)))
+    top = max(0, pos[1] - band)
+    bottom = min(image.height, pos[1] + th + band)
+    original = arr.copy()
+    for yy in range(top, bottom, band):
+        y2 = min(image.height, yy + band)
+        band_pixels = original[yy:y2].copy()
+        if drop > 0 and float(rng.random()) < drop:
+            arr[yy:y2] = 0
+            continue
+        dx = int(rng.integers(-shift, shift + 1)) if shift else 0
+        dy = int(rng.integers(-vjit, vjit + 1)) if vjit else 0
+        shifted = np.roll(band_pixels, dx, axis=1)
+        target_y = max(0, min(image.height - (y2 - yy), yy + dy))
+        arr[yy:y2] = 0
+        arr[target_y:target_y + (y2 - yy)] = np.maximum(
+            arr[target_y:target_y + (y2 - yy)], shifted
+        )
+
+    alpha_scale = max(0.0, min(1.0, float(opacity)))
+    if alpha_scale < 1.0:
+        arr[..., 3] = np.clip(arr[..., 3].astype(np.float32) * alpha_scale, 0, 255).astype(np.uint8)
     glitched = Image.fromarray(arr, "RGBA")
-    return Image.alpha_composite(image.convert("RGBA"), glitched).convert("RGB")
+    return Image.alpha_composite(image.convert("RGBA"), glitched)
 
 
 def _text_overlay(image: Image.Image, text: str, x: float, y: float, size: int, color: str, outline: int, shadow: int) -> Image.Image:
@@ -1277,6 +1741,9 @@ def apply_effect_stack(
             continue
         kind = step["kind"]
         p = step["params"]
+        alpha_before = img.getchannel("A") if "A" in img.getbands() else None
+        if alpha_before is not None:
+            img = img.convert("RGB")
 
         if kind == "Adjustments":
             brightness = int(p.get("brightness", 0)); contrast = int(p.get("contrast", 0)); saturation = int(p.get("saturation", 0)); gamma = float(p.get("gamma", 1.0))
@@ -1320,13 +1787,34 @@ def apply_effect_stack(
         elif kind == "Channel Swap": img = _channel_swap(img, str(p["order"]))
         elif kind == "Pixel Material": img = _pixel_material(img, str(p["style"]), int(p["cell_size"]), int(p["gap"]), str(p["background"]), str(p["sprite_path"]))
         elif kind == "Text Overlay": img = _text_overlay(img, str(p["text"]), float(p["x"]), float(p["y"]), int(p["size"]), str(p["color"]), int(p["outline"]), int(p["shadow"]))
-        elif kind == "ASCII / Glyph": img = _ascii_glyph(img, str(p["character_set"]), str(p["custom_chars"]), int(p["cell_size"]), int(p["depth"]), int(p["offset"]), bool(p["invert"]), str(p["color_mode"]), str(p["foreground"]), str(p["background"]), str(p["font"]), float(p["font_scale"]), palette_np)
+        elif kind == "ASCII / Glyph":
+            img = _ascii_glyph(
+                img, str(p["character_set"]), str(p["custom_chars"]), bool(p.get("auto_density", True)),
+                int(p["cell_size"]), int(p.get("spacing_x", 0)), int(p.get("spacing_y", 0)), int(p["depth"]), int(p["offset"]),
+                bool(p["invert"]), str(p["color_mode"]), str(p["foreground"]), str(p.get("background_mode", "Solid Colour")),
+                str(p["background"]), str(p["font"]), float(p["font_scale"]), palette_np,
+            )
         elif kind == "Pixel Text": img = _pixel_text(img, str(p["text"]), float(p["x"]), float(p["y"]), int(p["size"]), str(p["color"]), str(p["font"]), str(p["alignment"]), float(p["wrap_width"]), int(p["letter_spacing"]), int(p["line_spacing"]), float(p["rotation"]), int(p["outline"]), int(p["shadow"]))
         elif kind == "Text Pattern": img = _text_pattern(img, str(p["text"]), int(p["size"]), str(p["color"]), str(p["font"]), int(p["spacing_x"]), int(p["spacing_y"]), int(p["offset_x"]), float(p["rotation"]), float(p["opacity"]))
-        elif kind == "Text Mask": img = _text_mask(img, str(p["text"]), float(p["x"]), float(p["y"]), int(p["size"]), str(p["font"]), str(p["mode"]), str(p["background"]), float(p["rotation"]))
+        elif kind == "Text Mask":
+            img = _text_mask(
+                img, str(p["text"]), float(p["x"]), float(p["y"]), int(p["size"]), str(p["font"]), str(p["mode"]),
+                str(p.get("background_mode", "Solid Colour")), str(p["background"]), float(p.get("threshold", 0.0)),
+                float(p.get("feather", 0.0)), bool(p.get("invert", False)), float(p["rotation"]),
+            )
         elif kind == "Wave / Jitter Text": img = _wave_jitter_text(img, str(p["text"]), float(p["x"]), float(p["y"]), int(p["size"]), str(p["color"]), str(p["font"]), float(p["amplitude"]), float(p["wavelength"]), float(p["jitter"]), float(p["speed"]), int(p["seed"]), frame_time)
-        elif kind == "Typewriter Text": img = _typewriter_text(img, str(p["text"]), float(p["x"]), float(p["y"]), int(p["size"]), str(p["color"]), str(p["font"]), float(p["progress"]), bool(p["cursor"]), str(p["cursor_char"]))
-        elif kind == "Text Glitch": img = _text_glitch(img, str(p["text"]), float(p["x"]), float(p["y"]), int(p["size"]), str(p["color"]), str(p["font"]), int(p["rgb_offset"]), int(p["slice_shift"]), int(p["slice_height"]), int(p["seed"]))
+        elif kind == "Typewriter Text":
+            img = _typewriter_text(
+                img, str(p["text"]), float(p["x"]), float(p["y"]), int(p["size"]), str(p["color"]), str(p["font"]),
+                float(p["progress"]), str(p.get("reveal_mode", "Characters")), bool(p["cursor"]), str(p["cursor_char"]),
+                bool(p.get("cursor_blink", True)), float(p.get("cursor_blink_speed", 2.0)), frame_time,
+            )
+        elif kind == "Text Glitch":
+            img = _text_glitch(
+                img, str(p["text"]), float(p["x"]), float(p["y"]), int(p["size"]), str(p["color"]), str(p["font"]),
+                int(p["rgb_offset"]), int(p["slice_shift"]), int(p["slice_height"]), int(p.get("vertical_jitter", 0)),
+                float(p.get("dropout", 0.0)), float(p.get("opacity", 1.0)), bool(p.get("temporal", False)), int(p["seed"]), frame_index,
+            )
         elif kind == "Dither":
             mix = max(0.0, min(1.0, float(p.get("mix", 1.0))))
             if mix <= 0.0:
@@ -1339,4 +1827,15 @@ def apply_effect_stack(
             )
             dithered = Image.fromarray(np.clip(result, 0, 255).astype(np.uint8), "RGB")
             img = dithered if mix >= 1.0 else Image.blend(before, dithered, mix)
+
+        if alpha_before is not None:
+            alpha = alpha_before
+            if alpha.size != img.size:
+                alpha = alpha.resize(img.size, Image.Resampling.NEAREST)
+            if "A" in img.getbands():
+                generated_alpha = img.getchannel("A")
+                alpha = ImageChops.multiply(alpha, generated_alpha)
+            rgba = img.convert("RGBA")
+            rgba.putalpha(alpha)
+            img = rgba
     return img

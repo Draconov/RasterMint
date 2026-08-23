@@ -6,7 +6,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Callable, Iterable
 
-from PIL import Image
+from PIL import Image, ImageChops
 
 from rastermint.core.animation import settings_at_time
 from rastermint.core.processor import (
@@ -169,7 +169,10 @@ def process_batch(
         if alpha_mask is not None:
             if alpha_mask.size != result.size:
                 alpha_mask = alpha_mask.resize(result.size, Image.Resampling.NEAREST)
+            existing_alpha = result.getchannel("A") if "A" in result.getbands() else None
             result = result.convert("RGBA")
+            if existing_alpha is not None:
+                alpha_mask = ImageChops.multiply(existing_alpha, alpha_mask)
             result.putalpha(alpha_mask)
 
         # Batch exports always keep each source file's own pixel dimensions at

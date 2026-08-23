@@ -145,8 +145,8 @@ Item {
 
                 Rectangle {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 90
-                    Layout.maximumHeight: 90
+                    Layout.preferredHeight: 112
+                    Layout.maximumHeight: 112
                     radius: 5
                     color: theme.canvasColor
                     clip: true
