@@ -1,0 +1,13 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "mda-green-2",
+  "name": "MDA Green 2",
+  "category": "Monochrome Monitor",
+  "colors": [
+    "#050D05",
+    "#66FF66"
+  ],
+  "description": "Two-level green phosphor terminal look.",
+  "source": ""
+}

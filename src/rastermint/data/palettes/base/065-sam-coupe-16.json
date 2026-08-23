@@ -1,0 +1,27 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "sam-coupe-16",
+  "name": "SAM Coupé 16",
+  "category": "MGT",
+  "colors": [
+    "#000000",
+    "#0000AA",
+    "#AA0000",
+    "#AA00AA",
+    "#00AA00",
+    "#00AAAA",
+    "#AAAA00",
+    "#AAAAAA",
+    "#555555",
+    "#5555FF",
+    "#FF5555",
+    "#FF55FF",
+    "#55FF55",
+    "#55FFFF",
+    "#FFFF55",
+    "#FFFFFF"
+  ],
+  "description": "Representative 16-color subset of the SAM Coupé palette space.",
+  "source": ""
+}

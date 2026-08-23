@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "teletext-8",
+  "name": "Teletext 8",
+  "category": "Broadcast",
+  "colors": [
+    "#000000",
+    "#FF0000",
+    "#00FF00",
+    "#FFFF00",
+    "#0000FF",
+    "#FF00FF",
+    "#00FFFF",
+    "#FFFFFF"
+  ],
+  "description": "Classic teletext RGB primary palette.",
+  "source": ""
+}

@@ -1,0 +1,27 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "atari2600-16",
+  "name": "Atari 2600 Reference 16",
+  "category": "Atari",
+  "colors": [
+    "#000000",
+    "#404040",
+    "#6C6C6C",
+    "#909090",
+    "#B0B0B0",
+    "#ECECEC",
+    "#444400",
+    "#646410",
+    "#846830",
+    "#A87844",
+    "#A03030",
+    "#C05050",
+    "#345C98",
+    "#5084CC",
+    "#208030",
+    "#40A050"
+  ],
+  "description": "Representative NTSC-style subset; actual console color output varies by standard and display.",
+  "source": ""
+}

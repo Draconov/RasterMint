@@ -1,0 +1,15 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "gb-dmg",
+  "name": "Game Boy DMG",
+  "category": "Nintendo",
+  "colors": [
+    "#0F380F",
+    "#306230",
+    "#8BAC0F",
+    "#9BBC0F"
+  ],
+  "description": "Four-shade green LCD approximation used for the original Game Boy look.",
+  "source": ""
+}

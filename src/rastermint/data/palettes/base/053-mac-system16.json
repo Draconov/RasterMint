@@ -1,0 +1,27 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "mac-system16",
+  "name": "Macintosh System 16",
+  "category": "Apple",
+  "colors": [
+    "#FFFFFF",
+    "#FCF305",
+    "#FF6402",
+    "#DD0806",
+    "#F20884",
+    "#4600A5",
+    "#0000D4",
+    "#02ABEA",
+    "#1FB714",
+    "#006411",
+    "#562C05",
+    "#90713A",
+    "#C0C0C0",
+    "#808080",
+    "#404040",
+    "#000000"
+  ],
+  "description": "Representative classic Macintosh 16-color desktop palette.",
+  "source": ""
+}

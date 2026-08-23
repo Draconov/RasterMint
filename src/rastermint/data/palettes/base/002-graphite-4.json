@@ -1,0 +1,15 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "graphite-4",
+  "name": "Graphite 4",
+  "category": "RasterMint",
+  "colors": [
+    "#101217",
+    "#4A4F59",
+    "#A9AFB9",
+    "#F4F6F8"
+  ],
+  "description": "Neutral four-step grayscale.",
+  "source": ""
+}

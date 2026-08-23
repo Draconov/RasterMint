@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "mda-green-8",
+  "name": "MDA Green 8",
+  "category": "Monochrome Monitor",
+  "colors": [
+    "#050D05",
+    "#132F13",
+    "#215221",
+    "#2F752F",
+    "#3C973C",
+    "#4ABA4A",
+    "#58DC58",
+    "#66FF66"
+  ],
+  "description": "Eight-level green phosphor terminal ramp.",
+  "source": ""
+}

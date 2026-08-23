@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "oric-8",
+  "name": "Oric Atmos 8",
+  "category": "Oric",
+  "colors": [
+    "#000000",
+    "#FF0000",
+    "#00FF00",
+    "#FFFF00",
+    "#0000FF",
+    "#FF00FF",
+    "#00FFFF",
+    "#FFFFFF"
+  ],
+  "description": "Eight-color RGB-style Oric palette.",
+  "source": ""
+}

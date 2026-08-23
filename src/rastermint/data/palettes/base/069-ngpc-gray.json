@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "ngpc-gray",
+  "name": "Neo Geo Pocket Grayscale",
+  "category": "SNK",
+  "colors": [
+    "#0C0C0B",
+    "#2B2B28",
+    "#4B4B45",
+    "#6A6A63",
+    "#8A8A80",
+    "#A9A99D",
+    "#C9C9BB",
+    "#E8E8D8"
+  ],
+  "description": "Eight-step grayscale approximation for the original monochrome Neo Geo Pocket.",
+  "source": ""
+}

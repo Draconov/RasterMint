@@ -1,0 +1,27 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "atari-8bit16",
+  "name": "Atari 8-bit Reference 16",
+  "category": "Atari",
+  "colors": [
+    "#000000",
+    "#444444",
+    "#888888",
+    "#CCCCCC",
+    "#7C2C20",
+    "#B45C38",
+    "#E08C58",
+    "#E8C078",
+    "#2450A4",
+    "#4C78CC",
+    "#70A0E8",
+    "#388438",
+    "#58AC48",
+    "#8CD060",
+    "#A85898",
+    "#D080C0"
+  ],
+  "description": "Representative 16-color subset of Atari 8-bit luminance/hue output.",
+  "source": ""
+}

@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "rgb-8",
+  "name": "RGB 8",
+  "category": "RGB",
+  "colors": [
+    "#000000",
+    "#0000FF",
+    "#00FF00",
+    "#00FFFF",
+    "#FF0000",
+    "#FF00FF",
+    "#FFFF00",
+    "#FFFFFF"
+  ],
+  "description": "Three-bit RGB: one bit per channel, eight primary/additive colors.",
+  "source": ""
+}

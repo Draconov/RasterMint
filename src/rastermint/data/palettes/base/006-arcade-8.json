@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "arcade-8",
+  "name": "Arcade 8",
+  "category": "RasterMint",
+  "colors": [
+    "#151515",
+    "#E83B3B",
+    "#FF8C42",
+    "#F4E04D",
+    "#57C84D",
+    "#36A2AE",
+    "#4D63D6",
+    "#E8E8E8"
+  ],
+  "description": "Small saturated arcade-style set.",
+  "source": ""
+}

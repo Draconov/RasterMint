@@ -1,0 +1,27 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "nes-reference",
+  "name": "NES Reference 16",
+  "category": "Nintendo",
+  "colors": [
+    "#000000",
+    "#FCFCFC",
+    "#F8B800",
+    "#F87858",
+    "#B80000",
+    "#D800CC",
+    "#6844FC",
+    "#0058F8",
+    "#0078F8",
+    "#00B8F8",
+    "#00B800",
+    "#58D854",
+    "#B8F818",
+    "#F8D878",
+    "#F878F8",
+    "#A4E4FC"
+  ],
+  "description": "Representative subset of commonly reproduced NES/Famicom output colors; not a full master palette.",
+  "source": ""
+}

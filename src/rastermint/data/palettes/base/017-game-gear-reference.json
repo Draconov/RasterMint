@@ -1,0 +1,27 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "game-gear-reference",
+  "name": "Game Gear Reference 16",
+  "category": "Sega",
+  "colors": [
+    "#000000",
+    "#202040",
+    "#405080",
+    "#6080C0",
+    "#90B0E0",
+    "#E0F0FF",
+    "#204020",
+    "#408040",
+    "#70B050",
+    "#B0D070",
+    "#704020",
+    "#B07040",
+    "#D0A060",
+    "#702050",
+    "#B05090",
+    "#F090C0"
+  ],
+  "description": "LCD-oriented representative subset; Game Gear hardware supported a larger RGB444 space.",
+  "source": ""
+}

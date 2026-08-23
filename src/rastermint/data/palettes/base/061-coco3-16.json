@@ -1,0 +1,27 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "coco3-16",
+  "name": "CoCo 3 Reference 16",
+  "category": "Tandy",
+  "colors": [
+    "#000000",
+    "#202020",
+    "#606060",
+    "#A0A0A0",
+    "#FFFFFF",
+    "#804000",
+    "#C06020",
+    "#E0A040",
+    "#800000",
+    "#D02020",
+    "#006000",
+    "#20B040",
+    "#004080",
+    "#2080D0",
+    "#600080",
+    "#B040D0"
+  ],
+  "description": "Creative 16-color subset for CoCo 3-era RGB output.",
+  "source": ""
+}

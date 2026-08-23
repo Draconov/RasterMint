@@ -1,0 +1,26 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "zx-full",
+  "name": "ZX Spectrum 15",
+  "category": "Sinclair",
+  "colors": [
+    "#000000",
+    "#0000D7",
+    "#D70000",
+    "#D700D7",
+    "#00D700",
+    "#00D7D7",
+    "#D7D700",
+    "#D7D7D7",
+    "#0000FF",
+    "#FF0000",
+    "#FF00FF",
+    "#00FF00",
+    "#00FFFF",
+    "#FFFF00",
+    "#FFFFFF"
+  ],
+  "description": "Combined normal and bright Spectrum colors; black is shared.",
+  "source": ""
+}

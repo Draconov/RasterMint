@@ -1,0 +1,15 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "amber-monitor-4",
+  "name": "Amber Monitor 4",
+  "category": "Monochrome Monitor",
+  "colors": [
+    "#0D0903",
+    "#5E4116",
+    "#AE7928",
+    "#FFB13B"
+  ],
+  "description": "Four-level amber phosphor ramp.",
+  "source": ""
+}

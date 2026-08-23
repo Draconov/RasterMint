@@ -1,0 +1,27 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "pc98-16",
+  "name": "PC-98 16",
+  "category": "NEC",
+  "colors": [
+    "#000000",
+    "#0000AA",
+    "#00AA00",
+    "#00AAAA",
+    "#AA0000",
+    "#AA00AA",
+    "#AAAA00",
+    "#AAAAAA",
+    "#555555",
+    "#5555FF",
+    "#55FF55",
+    "#55FFFF",
+    "#FF5555",
+    "#FF55FF",
+    "#FFFF55",
+    "#FFFFFF"
+  ],
+  "description": "Representative 16-color digital RGB set used in PC-98-era graphics.",
+  "source": ""
+}

@@ -1,0 +1,27 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "genesis-reference",
+  "name": "Mega Drive / Genesis 16",
+  "category": "Sega",
+  "colors": [
+    "#000000",
+    "#222222",
+    "#555555",
+    "#AAAAAA",
+    "#FFFFFF",
+    "#002266",
+    "#0044AA",
+    "#2288DD",
+    "#006622",
+    "#22AA44",
+    "#88CC44",
+    "#662200",
+    "#AA4422",
+    "#DD8844",
+    "#662266",
+    "#BB55AA"
+  ],
+  "description": "Representative 16-color subset for RGB333-era Sega artwork.",
+  "source": ""
+}

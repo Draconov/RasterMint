@@ -1,0 +1,13 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "mac-1bit",
+  "name": "Classic Macintosh 1-bit",
+  "category": "Apple",
+  "colors": [
+    "#000000",
+    "#FFFFFF"
+  ],
+  "description": "Black-and-white compact Macintosh bitmap look.",
+  "source": ""
+}

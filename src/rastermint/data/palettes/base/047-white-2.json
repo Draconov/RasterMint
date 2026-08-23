@@ -1,0 +1,13 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "white-2",
+  "name": "White Phosphor 2",
+  "category": "Monochrome Monitor",
+  "colors": [
+    "#0C0C0C",
+    "#F4F7EE"
+  ],
+  "description": "Two-level white phosphor look.",
+  "source": ""
+}

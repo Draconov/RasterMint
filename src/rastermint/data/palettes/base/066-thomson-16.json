@@ -1,0 +1,27 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "thomson-16",
+  "name": "Thomson TO7/MO5 16",
+  "category": "Thomson",
+  "colors": [
+    "#000000",
+    "#0000FF",
+    "#FF0000",
+    "#FF00FF",
+    "#00FF00",
+    "#00FFFF",
+    "#FFFF00",
+    "#FFFFFF",
+    "#777777",
+    "#000077",
+    "#770000",
+    "#770077",
+    "#007700",
+    "#007777",
+    "#777700",
+    "#BBBBBB"
+  ],
+  "description": "Representative 16-color French microcomputer palette.",
+  "source": ""
+}

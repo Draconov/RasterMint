@@ -1,0 +1,15 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "gb-light",
+  "name": "Game Boy Light",
+  "category": "Nintendo",
+  "colors": [
+    "#082B28",
+    "#145C4C",
+    "#5FAF7A",
+    "#C5F0A4"
+  ],
+  "description": "Backlit handheld-inspired green/cyan four-shade approximation.",
+  "source": ""
+}

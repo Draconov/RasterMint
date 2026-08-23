@@ -1,0 +1,27 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "sms-reference",
+  "name": "Master System Reference 16",
+  "category": "Sega",
+  "colors": [
+    "#000000",
+    "#555555",
+    "#AAAAAA",
+    "#FFFFFF",
+    "#0000AA",
+    "#0055FF",
+    "#00AA00",
+    "#55FF55",
+    "#00AAAA",
+    "#55FFFF",
+    "#AA0000",
+    "#FF5555",
+    "#AA00AA",
+    "#FF55FF",
+    "#AAAA00",
+    "#FFFF55"
+  ],
+  "description": "Representative subset of the Master System 6-bit RGB color space.",
+  "source": ""
+}

@@ -1,0 +1,15 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "gb-pocket",
+  "name": "Game Boy Pocket",
+  "category": "Nintendo",
+  "colors": [
+    "#111111",
+    "#555555",
+    "#AAAAAA",
+    "#E8E8E8"
+  ],
+  "description": "Neutral grayscale approximation for the later reflective LCD.",
+  "source": ""
+}

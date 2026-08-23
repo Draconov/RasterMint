@@ -1,0 +1,15 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "virtual-boy",
+  "name": "Virtual Boy",
+  "category": "Nintendo",
+  "colors": [
+    "#000000",
+    "#550000",
+    "#AA0000",
+    "#FF0000"
+  ],
+  "description": "Four-step red monochrome look.",
+  "source": ""
+}

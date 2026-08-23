@@ -1,0 +1,15 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "forest-4",
+  "name": "Forest 4",
+  "category": "RasterMint",
+  "colors": [
+    "#0D1B16",
+    "#244D3D",
+    "#6B9B64",
+    "#D6E7B0"
+  ],
+  "description": "Dark organic green ramp.",
+  "source": ""
+}

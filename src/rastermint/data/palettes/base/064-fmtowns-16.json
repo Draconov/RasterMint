@@ -1,0 +1,27 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "fmtowns-16",
+  "name": "FM Towns Reference 16",
+  "category": "Fujitsu",
+  "colors": [
+    "#000000",
+    "#000080",
+    "#008000",
+    "#008080",
+    "#800000",
+    "#800080",
+    "#808000",
+    "#C0C0C0",
+    "#808080",
+    "#0000FF",
+    "#00FF00",
+    "#00FFFF",
+    "#FF0000",
+    "#FF00FF",
+    "#FFFF00",
+    "#FFFFFF"
+  ],
+  "description": "Representative 16-color PC-like subset for FM Towns-style artwork.",
+  "source": ""
+}

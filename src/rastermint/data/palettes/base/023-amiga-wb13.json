@@ -1,0 +1,15 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "amiga-wb13",
+  "name": "Amiga Workbench 1.3",
+  "category": "Commodore",
+  "colors": [
+    "#0055AA",
+    "#FFFFFF",
+    "#000000",
+    "#FF8800"
+  ],
+  "description": "Classic four-color Workbench-era UI look.",
+  "source": ""
+}

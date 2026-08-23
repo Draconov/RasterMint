@@ -1,0 +1,15 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "mac-gray4",
+  "name": "Macintosh Gray 4",
+  "category": "Apple",
+  "colors": [
+    "#000000",
+    "#555555",
+    "#AAAAAA",
+    "#FFFFFF"
+  ],
+  "description": "Four-level grayscale Mac-style palette.",
+  "source": ""
+}

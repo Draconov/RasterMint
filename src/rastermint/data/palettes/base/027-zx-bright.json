@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "zx-bright",
+  "name": "ZX Spectrum Bright",
+  "category": "Sinclair",
+  "colors": [
+    "#000000",
+    "#0000FF",
+    "#FF0000",
+    "#FF00FF",
+    "#00FF00",
+    "#00FFFF",
+    "#FFFF00",
+    "#FFFFFF"
+  ],
+  "description": "Bright ZX Spectrum colors plus black.",
+  "source": ""
+}

@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "wonderswan-gray",
+  "name": "WonderSwan Grayscale",
+  "category": "Bandai",
+  "colors": [
+    "#0B0B0A",
+    "#292925",
+    "#474740",
+    "#65655B",
+    "#828277",
+    "#A0A092",
+    "#BEBEAD",
+    "#DCDCC8"
+  ],
+  "description": "Eight-step grayscale approximation for the original WonderSwan LCD.",
+  "source": ""
+}

@@ -1,0 +1,15 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "cga-p1-high",
+  "name": "CGA Palette 1 High",
+  "category": "IBM PC",
+  "colors": [
+    "#000000",
+    "#55FFFF",
+    "#FF55FF",
+    "#FFFFFF"
+  ],
+  "description": "CGA 320×200 palette 1 in high intensity.",
+  "source": ""
+}

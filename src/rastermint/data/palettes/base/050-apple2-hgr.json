@@ -1,0 +1,17 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "apple2-hgr",
+  "name": "Apple II HGR Approx.",
+  "category": "Apple",
+  "colors": [
+    "#000000",
+    "#FFFFFF",
+    "#D043E8",
+    "#2CE446",
+    "#2D6CFF",
+    "#FF6A3C"
+  ],
+  "description": "Creative approximation of common NTSC artifact colors.",
+  "source": ""
+}

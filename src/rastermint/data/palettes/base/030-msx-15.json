@@ -1,0 +1,26 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "msx-15",
+  "name": "MSX 15",
+  "category": "MSX",
+  "colors": [
+    "#000000",
+    "#3EB849",
+    "#74D07D",
+    "#5955E0",
+    "#8076F1",
+    "#B95E51",
+    "#65DBEF",
+    "#DB6559",
+    "#FF897D",
+    "#CCC35E",
+    "#DED087",
+    "#3AA241",
+    "#B766B5",
+    "#CCCCCC",
+    "#FFFFFF"
+  ],
+  "description": "Common RGB approximation of the MSX/TMS9918 fixed color set, excluding transparent.",
+  "source": ""
+}

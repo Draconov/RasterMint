@@ -1,0 +1,27 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "snes-reference",
+  "name": "SNES Reference 16",
+  "category": "Nintendo",
+  "colors": [
+    "#000000",
+    "#FFFFFF",
+    "#7B2D26",
+    "#D95763",
+    "#F2A65A",
+    "#F4D35E",
+    "#70C1B3",
+    "#247BA0",
+    "#1B4965",
+    "#5C4B99",
+    "#9B5DE5",
+    "#F15BB5",
+    "#00BBF9",
+    "#00F5D4",
+    "#9BDEAC",
+    "#C7F9CC"
+  ],
+  "description": "Creative 16-color subset for SNES-style artwork; the hardware itself used a much larger RGB555 color space.",
+  "source": ""
+}

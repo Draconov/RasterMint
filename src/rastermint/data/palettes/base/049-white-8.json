@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "white-8",
+  "name": "White Phosphor 8",
+  "category": "Monochrome Monitor",
+  "colors": [
+    "#0C0C0C",
+    "#2D2E2C",
+    "#4E4F4C",
+    "#70716D",
+    "#91928D",
+    "#B2B4AD",
+    "#D3D5CE",
+    "#F4F7EE"
+  ],
+  "description": "Eight-level white phosphor ramp.",
+  "source": ""
+}

@@ -1,0 +1,13 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "amber-2",
+  "name": "Amber Monitor 2",
+  "category": "Monochrome Monitor",
+  "colors": [
+    "#0D0903",
+    "#FFB13B"
+  ],
+  "description": "Two-level amber phosphor look.",
+  "source": ""
+}

@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "zx-normal",
+  "name": "ZX Spectrum Normal",
+  "category": "Sinclair",
+  "colors": [
+    "#000000",
+    "#0000D7",
+    "#D70000",
+    "#D700D7",
+    "#00D700",
+    "#00D7D7",
+    "#D7D700",
+    "#D7D7D7"
+  ],
+  "description": "Normal-brightness ZX Spectrum colors.",
+  "source": ""
+}

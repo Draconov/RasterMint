@@ -1,0 +1,27 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "x68000-16",
+  "name": "X68000 Reference 16",
+  "category": "Sharp",
+  "colors": [
+    "#000000",
+    "#202020",
+    "#606060",
+    "#A0A0A0",
+    "#FFFFFF",
+    "#7A2030",
+    "#C04050",
+    "#F08090",
+    "#205080",
+    "#4080C0",
+    "#80B0F0",
+    "#206030",
+    "#40A050",
+    "#90D070",
+    "#804080",
+    "#D080D0"
+  ],
+  "description": "Creative representative subset; X68000 hardware supported a much larger color space.",
+  "source": ""
+}

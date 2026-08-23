@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "dragon-8",
+  "name": "Dragon / CoCo Reference 8",
+  "category": "Motorola 6847",
+  "colors": [
+    "#000000",
+    "#00FF00",
+    "#FFFF00",
+    "#0000FF",
+    "#FF0000",
+    "#FFFFFF",
+    "#00FFFF",
+    "#FF00FF"
+  ],
+  "description": "Representative eight-color set for 6847-era microcomputer graphics.",
+  "source": ""
+}

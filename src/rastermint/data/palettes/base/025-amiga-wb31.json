@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "amiga-wb31",
+  "name": "Amiga Workbench 3.x",
+  "category": "Commodore",
+  "colors": [
+    "#959595",
+    "#000000",
+    "#FFFFFF",
+    "#3B67A2",
+    "#FF8A00",
+    "#5A5A5A",
+    "#BDBDBD",
+    "#D6D6D6"
+  ],
+  "description": "Representative Workbench 3.x desktop colors.",
+  "source": ""
+}

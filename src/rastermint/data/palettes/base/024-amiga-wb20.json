@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "amiga-wb20",
+  "name": "Amiga Workbench 2.x",
+  "category": "Commodore",
+  "colors": [
+    "#AAAAAA",
+    "#000000",
+    "#FFFFFF",
+    "#6688BB",
+    "#FF9900",
+    "#335577",
+    "#777777",
+    "#CCCCCC"
+  ],
+  "description": "Representative Workbench 2.x desktop colors.",
+  "source": ""
+}

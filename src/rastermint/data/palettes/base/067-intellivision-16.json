@@ -1,0 +1,27 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "intellivision-16",
+  "name": "Intellivision 16",
+  "category": "Mattel",
+  "colors": [
+    "#000000",
+    "#002DFF",
+    "#FF3D10",
+    "#C9C744",
+    "#00A756",
+    "#FAEA50",
+    "#A7A8A8",
+    "#FFFFFF",
+    "#BD95FF",
+    "#25C5FF",
+    "#FF5B5B",
+    "#B84C00",
+    "#00D0A0",
+    "#7C7C00",
+    "#5A5A5A",
+    "#FF9A00"
+  ],
+  "description": "Common RGB approximation of the Intellivision fixed color set.",
+  "source": ""
+}

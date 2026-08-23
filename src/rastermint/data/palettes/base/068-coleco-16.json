@@ -1,0 +1,27 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "coleco-16",
+  "name": "ColecoVision 16",
+  "category": "Coleco",
+  "colors": [
+    "#000000",
+    "#000000",
+    "#21C842",
+    "#5EDC78",
+    "#5455ED",
+    "#7D76FC",
+    "#D4524D",
+    "#42EBF5",
+    "#FC5554",
+    "#FF7978",
+    "#D4C154",
+    "#E6CE80",
+    "#21B03B",
+    "#C95BBA",
+    "#CCCCCC",
+    "#FFFFFF"
+  ],
+  "description": "TMS9918-based color set, closely related to TI-99/MSX video hardware.",
+  "source": ""
+}

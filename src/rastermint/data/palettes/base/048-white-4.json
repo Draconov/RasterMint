@@ -1,0 +1,15 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "white-4",
+  "name": "White Phosphor 4",
+  "category": "Monochrome Monitor",
+  "colors": [
+    "#0C0C0C",
+    "#595B57",
+    "#A7A9A3",
+    "#F4F7EE"
+  ],
+  "description": "Four-level white phosphor ramp.",
+  "source": ""
+}

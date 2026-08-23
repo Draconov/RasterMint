@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "bbc-8",
+  "name": "BBC Micro 8",
+  "category": "Acorn",
+  "colors": [
+    "#000000",
+    "#FF0000",
+    "#00FF00",
+    "#FFFF00",
+    "#0000FF",
+    "#FF00FF",
+    "#00FFFF",
+    "#FFFFFF"
+  ],
+  "description": "Eight logical RGB primaries used by the BBC Micro palette model.",
+  "source": ""
+}

@@ -1,0 +1,27 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "vic20-16",
+  "name": "VIC-20",
+  "category": "Commodore",
+  "colors": [
+    "#000000",
+    "#FFFFFF",
+    "#A83D34",
+    "#6ABFC6",
+    "#A85FB4",
+    "#50A04F",
+    "#4E4A9E",
+    "#D5D578",
+    "#A76B2D",
+    "#6B4B1F",
+    "#E38A83",
+    "#887ECB",
+    "#B7B7B7",
+    "#9EE493",
+    "#8A85D1",
+    "#D9D9D9"
+  ],
+  "description": "Common RGB approximation of the VIC family palette.",
+  "source": ""
+}

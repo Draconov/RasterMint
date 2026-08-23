@@ -1,0 +1,19 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "amber-8",
+  "name": "Amber Monitor 8",
+  "category": "Monochrome Monitor",
+  "colors": [
+    "#0D0903",
+    "#2F210B",
+    "#523913",
+    "#75511B",
+    "#976923",
+    "#BA812B",
+    "#DC9933",
+    "#FFB13B"
+  ],
+  "description": "Eight-level amber phosphor ramp.",
+  "source": ""
+}

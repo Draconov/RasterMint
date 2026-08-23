@@ -1,0 +1,13 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "ink",
+  "name": "Ink",
+  "category": "RasterMint",
+  "colors": [
+    "#0B1020",
+    "#F3F7FF"
+  ],
+  "description": "High-contrast two-color palette.",
+  "source": ""
+}

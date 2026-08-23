@@ -1,0 +1,27 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "ti99-16",
+  "name": "TI-99/4A",
+  "category": "Texas Instruments",
+  "colors": [
+    "#000000",
+    "#000000",
+    "#21C842",
+    "#5EDC78",
+    "#5455ED",
+    "#7D76FC",
+    "#D4524D",
+    "#42EBF5",
+    "#FC5554",
+    "#FF7978",
+    "#D4C154",
+    "#E6CE80",
+    "#21B03B",
+    "#C95BBA",
+    "#CCCCCC",
+    "#FFFFFF"
+  ],
+  "description": "Common RGB approximation of the TMS9918 color set.",
+  "source": ""
+}

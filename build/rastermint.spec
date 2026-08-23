@@ -25,6 +25,7 @@ package_data = collect_data_files(
         "data/icons/*",
         "data/themes/*.json",
         "data/palettes/*.json",
+        "data/palettes/base/*.json",
         "data/palettes/extended/*.json",
         "data/presets/*.json",
         "qml/*.qml",

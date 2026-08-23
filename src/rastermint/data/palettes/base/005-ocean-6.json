@@ -1,0 +1,17 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "ocean-6",
+  "name": "Ocean 6",
+  "category": "RasterMint",
+  "colors": [
+    "#08131D",
+    "#12344A",
+    "#1E6070",
+    "#3F8E95",
+    "#88BFB7",
+    "#E2EFE7"
+  ],
+  "description": "Cool six-color ramp.",
+  "source": ""
+}

@@ -1,0 +1,27 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "vga-16",
+  "name": "VGA Default 16",
+  "category": "IBM PC",
+  "colors": [
+    "#000000",
+    "#0000AA",
+    "#00AA00",
+    "#00AAAA",
+    "#AA0000",
+    "#AA00AA",
+    "#AA5500",
+    "#AAAAAA",
+    "#555555",
+    "#5555FF",
+    "#55FF55",
+    "#55FFFF",
+    "#FF5555",
+    "#FF55FF",
+    "#FFFF55",
+    "#FFFFFF"
+  ],
+  "description": "Classic VGA-compatible default 16-color set.",
+  "source": ""
+}

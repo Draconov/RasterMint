@@ -1,0 +1,15 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "cga-p0-low",
+  "name": "CGA Palette 0 Low",
+  "category": "IBM PC",
+  "colors": [
+    "#000000",
+    "#00AA00",
+    "#AA0000",
+    "#AA5500"
+  ],
+  "description": "CGA 320×200 palette 0 in low intensity.",
+  "source": ""
+}

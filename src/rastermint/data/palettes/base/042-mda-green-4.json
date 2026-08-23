@@ -1,0 +1,15 @@
+{
+  "format": "rastermint-palette",
+  "version": 1,
+  "id": "mda-green-4",
+  "name": "MDA Green 4",
+  "category": "Monochrome Monitor",
+  "colors": [
+    "#050D05",
+    "#255E25",
+    "#46AE46",
+    "#66FF66"
+  ],
+  "description": "Four-level green phosphor terminal ramp.",
+  "source": ""
+}
