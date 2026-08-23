@@ -652,7 +652,6 @@ Item {
                         }
                     }
                 }
-            }
 
             MintLabel {
                 text: "Anchor colours"
