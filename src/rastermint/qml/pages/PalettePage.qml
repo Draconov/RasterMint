@@ -21,14 +21,6 @@ Item {
         return positions
     }
 
-    function previewGradientPositions(preset) {
-        var colors = preset.colors || []
-        var positions = preset.positions || []
-        if (positions.length === colors.length)
-            return positions
-        return evenGradientPositions(colors.length)
-    }
-
     function updateGradientStop(index, value) {
         var next = gradientStops.slice(0)
         next[index] = value
@@ -619,59 +611,30 @@ Item {
                         rowSpacing: 6
 
                         Repeater {
-                            // Do not construct 176 preview delegates while this section is
-                            // collapsed. This used to create and paint 176 Canvas objects as
-                            // part of Main.qml startup in the frozen Windows build.
+                            // Keep the preset list fully text-only. Gradient previews were
+                            // introduced just before the Windows startup access violation, so
+                            // no preview render objects are created here at all.
                             model: root.gradientPresetsExpanded ? root.gradientPresets : []
 
                             delegate: Rectangle {
                                 id: presetCard
                                 required property var modelData
-                                property var previewColors: modelData.colors || []
-                                property var previewPositions: root.previewGradientPositions(modelData)
-                                property real previewStart: previewPositions.length ? Math.max(0, Math.min(1, Number(previewPositions[0]))) : 0
-                                property real previewEnd: previewPositions.length ? Math.max(previewStart, Math.min(1, Number(previewPositions[previewPositions.length - 1]))) : 1
                                 Layout.fillWidth: true
-                                Layout.preferredHeight: 38
+                                Layout.preferredHeight: 34
                                 radius: 5
-                                color: previewColors.length ? previewColors[0] : theme.canvasColor
+                                color: presetMouse.containsMouse ? theme.panelHoverColor : theme.panelColor
                                 border.color: root.gradientPresetSelected(modelData) ? theme.accentColor : theme.borderColor
                                 border.width: root.gradientPresetSelected(modelData) ? 2 : 1
-                                clip: true
 
-                                // Render the preview with ordinary Qt Quick rectangles instead
-                                // of Canvas. This preserves the smooth multi-stop gradient but
-                                // avoids creating a large batch of Canvas render targets.
-                                Row {
-                                    id: presetGradientRow
-                                    x: presetCard.previewStart * presetCard.width
-                                    width: Math.max(0, (presetCard.previewEnd - presetCard.previewStart) * presetCard.width)
-                                    height: parent.height
-                                    visible: presetCard.previewColors.length > 1 && width > 0
-
-                                    Repeater {
-                                        model: Math.max(0, presetCard.previewColors.length - 1)
-                                        delegate: Rectangle {
-                                            required property int index
-                                            property real span: Math.max(0, Number(presetCard.previewPositions[index + 1]) - Number(presetCard.previewPositions[index]))
-                                            width: presetCard.previewEnd > presetCard.previewStart
-                                                ? presetGradientRow.width * span / (presetCard.previewEnd - presetCard.previewStart) : 0
-                                            height: presetGradientRow.height
-                                            gradient: Gradient {
-                                                orientation: Gradient.Horizontal
-                                                GradientStop { position: 0.0; color: presetCard.previewColors[index] }
-                                                GradientStop { position: 1.0; color: presetCard.previewColors[index + 1] }
-                                            }
-                                        }
-                                    }
-                                }
-
-                                Rectangle {
-                                    visible: presetCard.previewColors.length > 0 && presetCard.previewEnd < 1
-                                    x: presetCard.previewEnd * parent.width
-                                    width: Math.max(0, parent.width - x)
-                                    height: parent.height
-                                    color: presetCard.previewColors[presetCard.previewColors.length - 1]
+                                Text {
+                                    anchors.fill: parent
+                                    anchors.leftMargin: 9
+                                    anchors.rightMargin: 9
+                                    text: presetCard.modelData.name || "Gradient preset"
+                                    color: theme.textColor
+                                    font.pixelSize: 11
+                                    verticalAlignment: Text.AlignVCenter
+                                    elide: Text.ElideRight
                                 }
 
                                 MouseArea {
@@ -683,8 +646,9 @@ Item {
                                 }
 
                                 ToolTip.visible: presetMouse.containsMouse
-                                ToolTip.text: presetCard.modelData.name
+                                ToolTip.text: presetCard.modelData.name || "Gradient preset"
                             }
+                        }
                         }
                     }
                 }

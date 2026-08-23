@@ -114,11 +114,15 @@ def test_main_lazily_instantiates_inspector_pages() -> None:
         assert f"Pages.{page}" in text
 
 
-def test_gradient_presets_do_not_allocate_canvas_targets_at_startup() -> None:
+def test_gradient_presets_are_text_only_and_lazy() -> None:
     palette_page = ROOT / "src" / "rastermint" / "qml" / "pages" / "PalettePage.qml"
     text = palette_page.read_text(encoding="utf-8")
 
     assert "property bool gradientPresetsExpanded: false" in text
     assert "model: root.gradientPresetsExpanded ? root.gradientPresets : []" in text
     assert "Canvas {" not in text
-    assert "orientation: Gradient.Horizontal" in text
+    assert "gradient: Gradient {" not in text
+    assert "GradientStop {" not in text
+    assert "previewGradientPositions" not in text
+    assert "previewColors" not in text
+    assert 'text: presetCard.modelData.name || "Gradient preset"' in text
