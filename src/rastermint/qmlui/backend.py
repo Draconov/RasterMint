@@ -137,7 +137,15 @@ class RasterMintBackend(QObject):
         self._random_history: list[dict[str, Any]] = []
         self._random_index = -1
         self._hardware_profiles = load_builtin_profiles()
-        self._user_palettes = self._load_user_palettes()
+
+        # Initialize base-owned user-palette state without virtual dispatch.
+        # PreferencesBackend overrides _load_user_palettes(); calling it from
+        # this base constructor can run subclass code before the subclass has
+        # created its own _user_palettes storage.
+        self._user_palettes: list[dict[str, Any]] = []
+        loaded_user_palettes = RasterMintBackend._load_user_palettes(self)
+        if loaded_user_palettes is not None:
+            self._user_palettes = loaded_user_palettes
 
         self.thread_pool = QThreadPool(self)
         self.thread_pool.setMaxThreadCount(max(2, min(4, QThreadPool.globalInstance().maxThreadCount())))
