@@ -30,6 +30,7 @@ Item {
     property real pickerSaturation: 0.0
     property real pickerBrightness: 1.0
     property real pickerAlpha: 1.0
+    property var _eyedropperDialog: null
 
     function clamp01(v) {
         return Math.max(0, Math.min(1, Number(v)))
@@ -126,7 +127,7 @@ Item {
         alphaSlider.value = pickerAlpha * 100
         hexField.text = colorToHex(popup.workingColor, false)
         _syncing = false
-        svCanvas.requestPaint()
+        requestPickerPaint()
     }
 
     function syncColorFromPicker() {
@@ -137,7 +138,12 @@ Item {
                                      clamp01(pickerBrightness),
                                      alphaEnabled ? clamp01(pickerAlpha) : 1.0)
         hexField.text = colorToHex(popup.workingColor, false)
-        svCanvas.requestPaint()
+        requestPickerPaint()
+    }
+
+    function requestPickerPaint() {
+        if (pickerSurfaceLoader.item)
+            pickerSurfaceLoader.item.requestSvPaint()
     }
 
     function setHueFromPoint(px, py, size) {
@@ -176,6 +182,15 @@ Item {
         popup.open()
     }
 
+    function openEyedropper() {
+        if (!_eyedropperDialog)
+            _eyedropperDialog = eyedropperComponent.createObject(root)
+        if (!_eyedropperDialog)
+            return
+        _eyedropperDialog.selectedColor = popup.workingColor
+        _eyedropperDialog.open()
+    }
+
     function positionPopupInViewport() {
         if (!popup.parent)
             return
@@ -196,6 +211,126 @@ Item {
             popup.y = aboveY
         else
             popup.y = Math.max(margin, Math.min(belowY, maxY))
+    }
+
+    Component {
+        id: pickerSurfaceComponent
+
+        Item {
+            implicitWidth: 246
+            implicitHeight: 246
+
+            function requestSvPaint() {
+                svCanvas.requestPaint()
+            }
+
+            function requestAllPaint() {
+                wheelCanvas.requestPaint()
+                svCanvas.requestPaint()
+            }
+
+            Canvas {
+                id: wheelCanvas
+                anchors.fill: parent
+                property real ringWidth: 20
+                property real innerRadius: Math.min(width, height) / 2 - ringWidth - 2
+
+                onPaint: {
+                    var ctx = getContext("2d")
+                    ctx.clearRect(0, 0, width, height)
+                    var cx = width / 2
+                    var cy = height / 2
+                    var radius = Math.min(width, height) / 2 - ringWidth / 2 - 2
+                    for (var i = 0; i < 360; ++i) {
+                        var start = (i - 90) * Math.PI / 180
+                        var end = (i + 1.5 - 90) * Math.PI / 180
+                        ctx.beginPath()
+                        ctx.strokeStyle = Qt.hsla(i / 360.0, 1.0, 0.5, 1.0)
+                        ctx.lineWidth = ringWidth
+                        ctx.arc(cx, cy, radius, start, end, false)
+                        ctx.stroke()
+                    }
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.CrossCursor
+                    onPressed: function(mouse) {
+                        root.setHueFromPoint(mouse.x, mouse.y, wheelCanvas.width)
+                    }
+                    onPositionChanged: function(mouse) {
+                        if (pressed)
+                            root.setHueFromPoint(mouse.x, mouse.y, wheelCanvas.width)
+                    }
+                }
+            }
+
+            // Hue marker on the outer ring.
+            Rectangle {
+                width: 12
+                height: 12
+                radius: 6
+                color: "transparent"
+                border.color: "#FFFFFF"
+                border.width: 2
+                property real markerRadius: wheelCanvas.width / 2 - wheelCanvas.ringWidth / 2 - 2
+                property real markerAngle: root.pickerHue * Math.PI * 2 - Math.PI / 2
+                x: wheelCanvas.width / 2 + Math.cos(markerAngle) * markerRadius - width / 2
+                y: wheelCanvas.height / 2 + Math.sin(markerAngle) * markerRadius - height / 2
+            }
+
+            Canvas {
+                id: svCanvas
+                // Keep every corner safely inside the hue ring's inner edge.
+                // The old 146 px square had a diagonal slightly larger than
+                // the available inner diameter, so its corners touched the ring.
+                property real ringGap: 5
+                width: Math.floor(Math.SQRT2 * Math.max(1, wheelCanvas.innerRadius - ringGap))
+                height: width
+                anchors.centerIn: parent
+
+                onPaint: {
+                    var ctx = getContext("2d")
+                    ctx.clearRect(0, 0, width, height)
+
+                    var hueColor = Qt.hsva(root.pickerHue, 1.0, 1.0, 1.0)
+                    var horizontal = ctx.createLinearGradient(0, 0, width, 0)
+                    horizontal.addColorStop(0.0, "#FFFFFF")
+                    horizontal.addColorStop(1.0, hueColor)
+                    ctx.fillStyle = horizontal
+                    ctx.fillRect(0, 0, width, height)
+
+                    var vertical = ctx.createLinearGradient(0, 0, 0, height)
+                    vertical.addColorStop(0.0, Qt.rgba(0, 0, 0, 0))
+                    vertical.addColorStop(1.0, "#000000")
+                    ctx.fillStyle = vertical
+                    ctx.fillRect(0, 0, width, height)
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.CrossCursor
+                    onPressed: function(mouse) {
+                        root.setSaturationValueFromPoint(mouse.x, mouse.y, svCanvas.width, svCanvas.height)
+                    }
+                    onPositionChanged: function(mouse) {
+                        if (pressed)
+                            root.setSaturationValueFromPoint(mouse.x, mouse.y, svCanvas.width, svCanvas.height)
+                    }
+                }
+
+                Rectangle {
+                    width: 12
+                    height: 12
+                    radius: 6
+                    color: "transparent"
+                    border.color: "#FFFFFF"
+                    border.width: 2
+                    x: Math.max(-width / 2, Math.min(svCanvas.width - width / 2, root.pickerSaturation * svCanvas.width - width / 2))
+                    y: Math.max(-height / 2, Math.min(svCanvas.height - height / 2, (1.0 - root.pickerBrightness) * svCanvas.height - height / 2))
+                }
+            }
+        }
     }
 
     Component.onCompleted: loadRecentColors()
@@ -298,111 +433,17 @@ Item {
             // Advanced wheel + saturation/value square. This is the primary
             // custom colour selection surface; the sliders below are only for
             // alpha, where precision is useful.
-            Item {
+            Loader {
+                id: pickerSurfaceLoader
                 Layout.alignment: Qt.AlignHCenter
                 Layout.preferredWidth: 246
                 Layout.preferredHeight: 246
+                active: popup.visible
+                sourceComponent: pickerSurfaceComponent
 
-                Canvas {
-                    id: wheelCanvas
-                    anchors.fill: parent
-                    property real ringWidth: 20
-                    property real innerRadius: Math.min(width, height) / 2 - ringWidth - 2
-
-                    onPaint: {
-                        var ctx = getContext("2d")
-                        ctx.clearRect(0, 0, width, height)
-                        var cx = width / 2
-                        var cy = height / 2
-                        var radius = Math.min(width, height) / 2 - ringWidth / 2 - 2
-                        for (var i = 0; i < 360; ++i) {
-                            var start = (i - 90) * Math.PI / 180
-                            var end = (i + 1.5 - 90) * Math.PI / 180
-                            ctx.beginPath()
-                            ctx.strokeStyle = Qt.hsla(i / 360.0, 1.0, 0.5, 1.0)
-                            ctx.lineWidth = ringWidth
-                            ctx.arc(cx, cy, radius, start, end, false)
-                            ctx.stroke()
-                        }
-                    }
-
-                    MouseArea {
-                        anchors.fill: parent
-                        cursorShape: Qt.CrossCursor
-                        onPressed: function(mouse) {
-                            root.setHueFromPoint(mouse.x, mouse.y, wheelCanvas.width)
-                        }
-                        onPositionChanged: function(mouse) {
-                            if (pressed)
-                                root.setHueFromPoint(mouse.x, mouse.y, wheelCanvas.width)
-                        }
-                    }
-                }
-
-                // Hue marker on the outer ring.
-                Rectangle {
-                    width: 12
-                    height: 12
-                    radius: 6
-                    color: "transparent"
-                    border.color: "#FFFFFF"
-                    border.width: 2
-                    property real markerRadius: wheelCanvas.width / 2 - wheelCanvas.ringWidth / 2 - 2
-                    property real markerAngle: root.pickerHue * Math.PI * 2 - Math.PI / 2
-                    x: wheelCanvas.width / 2 + Math.cos(markerAngle) * markerRadius - width / 2
-                    y: wheelCanvas.height / 2 + Math.sin(markerAngle) * markerRadius - height / 2
-                }
-
-                Canvas {
-                    id: svCanvas
-                    // Keep every corner safely inside the hue ring's inner edge.
-                    // The old 146 px square had a diagonal slightly larger than
-                    // the available inner diameter, so its corners touched the ring.
-                    property real ringGap: 5
-                    width: Math.floor(Math.SQRT2 * Math.max(1, wheelCanvas.innerRadius - ringGap))
-                    height: width
-                    anchors.centerIn: parent
-
-                    onPaint: {
-                        var ctx = getContext("2d")
-                        ctx.clearRect(0, 0, width, height)
-
-                        var hueColor = Qt.hsva(root.pickerHue, 1.0, 1.0, 1.0)
-                        var horizontal = ctx.createLinearGradient(0, 0, width, 0)
-                        horizontal.addColorStop(0.0, "#FFFFFF")
-                        horizontal.addColorStop(1.0, hueColor)
-                        ctx.fillStyle = horizontal
-                        ctx.fillRect(0, 0, width, height)
-
-                        var vertical = ctx.createLinearGradient(0, 0, 0, height)
-                        vertical.addColorStop(0.0, Qt.rgba(0, 0, 0, 0))
-                        vertical.addColorStop(1.0, "#000000")
-                        ctx.fillStyle = vertical
-                        ctx.fillRect(0, 0, width, height)
-                    }
-
-                    MouseArea {
-                        anchors.fill: parent
-                        cursorShape: Qt.CrossCursor
-                        onPressed: function(mouse) {
-                            root.setSaturationValueFromPoint(mouse.x, mouse.y, svCanvas.width, svCanvas.height)
-                        }
-                        onPositionChanged: function(mouse) {
-                            if (pressed)
-                                root.setSaturationValueFromPoint(mouse.x, mouse.y, svCanvas.width, svCanvas.height)
-                        }
-                    }
-
-                    Rectangle {
-                        width: 12
-                        height: 12
-                        radius: 6
-                        color: "transparent"
-                        border.color: "#FFFFFF"
-                        border.width: 2
-                        x: Math.max(-width / 2, Math.min(svCanvas.width - width / 2, root.pickerSaturation * svCanvas.width - width / 2))
-                        y: Math.max(-height / 2, Math.min(svCanvas.height - height / 2, (1.0 - root.pickerBrightness) * svCanvas.height - height / 2))
-                    }
+                onLoaded: {
+                    if (item)
+                        item.requestAllPaint()
                 }
             }
 
@@ -449,10 +490,7 @@ Item {
 
                 Button {
                     text: "Eyedropper"
-                    onClicked: {
-                        eyedropperDialog.selectedColor = popup.workingColor
-                        eyedropperDialog.open()
-                    }
+                    onClicked: root.openEyedropper()
                 }
             }
 
@@ -594,12 +632,15 @@ Item {
         }
     }
 
-    // Kept only as the OS screen-sampling bridge for the eyedropper action;
-    // normal colour selection always happens in the custom RasterMint picker.
-    ColorDialog {
-        id: eyedropperDialog
-        title: "Sample colour"
-        options: root.alphaEnabled ? ColorDialog.ShowAlphaChannel : 0
-        onAccepted: root.syncUiFromColor(selectedColor)
+    // Keep the native dialog lazy too. Creating one ColorDialog per picker during
+    // Main.qml startup needlessly enters the platform-dialog path before it is used.
+    Component {
+        id: eyedropperComponent
+
+        ColorDialog {
+            title: "Sample colour"
+            options: root.alphaEnabled ? ColorDialog.ShowAlphaChannel : 0
+            onAccepted: root.syncUiFromColor(selectedColor)
+        }
     }
 }

@@ -11,6 +11,7 @@ from typing import Any, Iterable
 PALETTE_FORMAT = "rastermint-palette"
 PALETTE_VERSION = 1
 _HEX_RE = re.compile(r"^#?([0-9A-Fa-f]{6})$")
+_BASE_NAME_NUMBER_RE = re.compile(r"^\s*\d+\s*(?:[._):\-]\s*|\s+)")
 
 
 def slugify_palette_name(value: str) -> str:
@@ -42,7 +43,6 @@ def normalize_palette_payload(
         raise ValueError("Not a RasterMint palette")
     if int(payload.get("version", 0)) > PALETTE_VERSION:
         raise ValueError("Palette was created by a newer RasterMint version")
-
     name = str(payload.get("name") or fallback_name).strip()
     if not name:
         raise ValueError("Palette name is missing")
@@ -50,7 +50,6 @@ def normalize_palette_payload(
     palette_id = str(payload.get("id") or fallback_id).strip()
     if not palette_id:
         palette_id = slugify_palette_name(name)
-
     return {
         "format": PALETTE_FORMAT,
         "version": PALETTE_VERSION,
@@ -63,16 +62,25 @@ def normalize_palette_payload(
     }
 
 
+def _clean_base_palette_name(value: str) -> str:
+    original = str(value or "").strip()
+    cleaned = _BASE_NAME_NUMBER_RE.sub("", original, count=1).strip()
+    return cleaned or original
+
+
 def load_palette_json(path: str | Path) -> dict[str, Any]:
     source = Path(path)
     payload = json.loads(source.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
         raise ValueError("Palette JSON must contain an object")
-    return normalize_palette_payload(
+    result = normalize_palette_payload(
         payload,
         fallback_id=source.stem,
         fallback_name=source.stem.replace("-", " ").title(),
     )
+    if source.parent.name.casefold() == "base":
+        result["name"] = _clean_base_palette_name(result["name"])
+    return result
 
 
 def write_palette_json(
