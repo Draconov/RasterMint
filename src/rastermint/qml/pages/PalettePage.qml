@@ -54,8 +54,8 @@ Item {
                                     backend.setPaletteLock(index, !parent.locked)
                                 } else {
                                     root.colorEditIndex = index
-                                    colorDialog.selectedColor = parent.color
-                                    colorDialog.open()
+                                    paletteColorPicker.dialogTitle = "Edit palette color"
+                                    paletteColorPicker.openPicker(modelData)
                                 }
                             }
                         }
@@ -74,8 +74,8 @@ Item {
                 onClicked: {
                     root.colorEditIndex = -1
                     var colors = backend.settingsMap.palette || []
-                    colorDialog.selectedColor = colors.length ? colors[colors.length - 1] : "#FFFFFF"
-                    colorDialog.open()
+                    paletteColorPicker.dialogTitle = "Add palette color"
+                    paletteColorPicker.openPicker(colors.length ? colors[colors.length - 1] : "#FFFFFF")
                 }
             }
             MintButton { text: "−"; enabled: (backend.settingsMap.palette || []).length > 1; onClicked: backend.removePaletteColor(-1) }
@@ -129,7 +129,7 @@ Item {
         MintLabel { text: "Optimize from image"; font.bold: true }
         RowLayout {
             Layout.fillWidth: true
-            SpinBox { id: colorCount; from: 2; to: 256; value: 8; editable: true; Layout.preferredWidth: 90 }
+            MintSpinBox { id: colorCount; from: 2; to: 256; value: 8; editable: true; Layout.preferredWidth: 90 }
             MintComboBox { id: optimizer; Layout.fillWidth: true; model: backend.paletteOptimizerNames }
             MintButton { text: "Optimize"; enabled: backend.hasSource; onClicked: backend.optimizePalette(colorCount.value, optimizer.currentText) }
         }
@@ -149,20 +149,26 @@ Item {
         }
         RowLayout {
             Layout.fillWidth: true
-            SpinBox { id: gradientCount; from: 2; to: 256; value: 8; Layout.preferredWidth: 90 }
+            MintSpinBox { id: gradientCount; from: 2; to: 256; value: 8; Layout.preferredWidth: 90 }
             MintComboBox { id: colorSpace; Layout.fillWidth: true; model: ["OKLab", "RGB", "Linear RGB", "HSV", "HSL"] }
             MintButton { text: "Generate"; onClicked: backend.generatePalette(startColor.colorValue, endColor.colorValue, gradientCount.value, colorSpace.currentText) }
         }
         Item { Layout.fillHeight: true }
     }
 
-    ColorDialog {
-        id: colorDialog
-        title: root.colorEditIndex >= 0 ? "Edit palette color" : "Add palette color"
-        onAccepted: {
-            var value = selectedColor.toString()
-            if (root.colorEditIndex >= 0) backend.setPaletteColor(root.colorEditIndex, value)
-            else backend.addPaletteColor(value)
+    MintColorPicker {
+        id: paletteColorPicker
+        showButton: false
+        width: 1
+        height: 1
+        x: Math.max(0, Math.round((root.width - 324) / 2))
+        y: 48
+        alphaEnabled: false
+        onColorPicked: function(value) {
+            if (root.colorEditIndex >= 0)
+                backend.setPaletteColor(root.colorEditIndex, value)
+            else
+                backend.addPaletteColor(value)
         }
     }
     FileDialog { id: importPaletteDialog; nameFilters: ["Palette files (*.hex *.txt *.gpl *.pal)", "All files (*)"]; onAccepted: backend.importPalette(selectedFile.toString()) }
