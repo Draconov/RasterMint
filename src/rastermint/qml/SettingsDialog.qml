@@ -9,7 +9,7 @@ Dialog {
     modal: true
     popupType: Popup.Item
     width: 420
-    height: 330
+    height: 390
     anchors.centerIn: Overlay.overlay
     standardButtons: Dialog.NoButton
     padding: 16
@@ -152,9 +152,16 @@ Dialog {
         }
 
         Item { Layout.fillHeight: true }
+    }
+
+    footer: Item {
+        implicitHeight: 58
 
         RowLayout {
-            Layout.fillWidth: true
+            anchors.fill: parent
+            anchors.leftMargin: 16
+            anchors.rightMargin: 16
+            anchors.bottomMargin: 10
             spacing: 6
 
             MintButton { text: "Close"; onClicked: root.close() }

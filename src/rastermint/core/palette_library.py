@@ -62,6 +62,33 @@ BBC_8 = ("#000000", "#FF0000", "#00FF00", "#FFFF00", "#0000FF", "#FF00FF", "#00F
 
 APPLE_II_6 = ("#000000", "#FFFFFF", "#D043E8", "#2CE446", "#2D6CFF", "#FF6A3C")
 
+# Generic RGB palette spaces. These are useful both as retro targets and as
+# neutral baselines when a hardware-specific palette is not desired.
+RGB_8 = (
+    "#000000", "#0000FF", "#00FF00", "#00FFFF",
+    "#FF0000", "#FF00FF", "#FFFF00", "#FFFFFF",
+)
+RGB_6BIT_64 = tuple(
+    rgb_to_hex((r, g, b))
+    for r in (0, 85, 170, 255)
+    for g in (0, 85, 170, 255)
+    for b in (0, 85, 170, 255)
+)
+RGB_8BIT_256 = tuple(
+    rgb_to_hex((round(r * 255 / 7), round(g * 255 / 7), round(b * 255 / 3)))
+    for r in range(8)
+    for g in range(8)
+    for b in range(4)
+)
+
+# The twenty static colors reserved by classic Windows palette management.
+WINDOWS_20 = (
+    "#000000", "#800000", "#008000", "#808000", "#000080",
+    "#800080", "#008080", "#C0C0C0", "#C0DCC0", "#A6CAF0",
+    "#FFFBF0", "#A0A0A4", "#808080", "#FF0000", "#00FF00",
+    "#FFFF00", "#0000FF", "#FF00FF", "#00FFFF", "#FFFFFF",
+)
+
 TI99_16 = (
     "#000000", "#000000", "#21C842", "#5EDC78", "#5455ED", "#7D76FC", "#D4524D", "#42EBF5",
     "#FC5554", "#FF7978", "#D4C154", "#E6CE80", "#21B03B", "#C95BBA", "#CCCCCC", "#FFFFFF",
@@ -88,6 +115,10 @@ PALETTE_LIBRARY: tuple[PaletteRecord, ...] = (
     _record("ocean-6", "Ocean 6", "RasterMint", ("#08131D", "#12344A", "#1E6070", "#3F8E95", "#88BFB7", "#E2EFE7"), "Cool six-color ramp."),
     _record("arcade-8", "Arcade 8", "RasterMint", ("#151515", "#E83B3B", "#FF8C42", "#F4E04D", "#57C84D", "#36A2AE", "#4D63D6", "#E8E8E8"), "Small saturated arcade-style set."),
 
+    _record("rgb-8", "RGB 8", "RGB", RGB_8, "Three-bit RGB: one bit per channel, eight primary/additive colors."),
+    _record("rgb-6bit-64", "6-bit RGB 64", "RGB", RGB_6BIT_64, "Uniform 2-bit-per-channel RGB cube with 64 colors."),
+    _record("rgb-8bit-256", "8-bit RGB 256", "RGB", RGB_8BIT_256, "RGB332 palette: 3 red bits, 3 green bits and 2 blue bits for 256 colors."),
+
     _record("gb-dmg", "Game Boy DMG", "Nintendo", ("#0F380F", "#306230", "#8BAC0F", "#9BBC0F"), "Four-shade green LCD approximation used for the original Game Boy look."),
     _record("gb-pocket", "Game Boy Pocket", "Nintendo", ("#111111", "#555555", "#AAAAAA", "#E8E8E8"), "Neutral grayscale approximation for the later reflective LCD."),
     _record("gb-light", "Game Boy Light", "Nintendo", ("#082B28", "#145C4C", "#5FAF7A", "#C5F0A4"), "Backlit handheld-inspired green/cyan four-shade approximation."),
@@ -99,6 +130,7 @@ PALETTE_LIBRARY: tuple[PaletteRecord, ...] = (
     _record("game-gear-reference", "Game Gear Reference 16", "Sega", ("#000000", "#202040", "#405080", "#6080C0", "#90B0E0", "#E0F0FF", "#204020", "#408040", "#70B050", "#B0D070", "#704020", "#B07040", "#D0A060", "#702050", "#B05090", "#F090C0"), "LCD-oriented representative subset; Game Gear hardware supported a larger RGB444 space."),
     _record("genesis-reference", "Mega Drive / Genesis 16", "Sega", ("#000000", "#222222", "#555555", "#AAAAAA", "#FFFFFF", "#002266", "#0044AA", "#2288DD", "#006622", "#22AA44", "#88CC44", "#662200", "#AA4422", "#DD8844", "#662266", "#BB55AA"), "Representative 16-color subset for RGB333-era Sega artwork."),
 
+    _record("c16-reference-16", "Commodore 16", "Commodore", ("#000000", "#FFFFFF", "#681010", "#70A4B2", "#6F3D86", "#588D43", "#352879", "#B8C76F", "#6F4F25", "#433900", "#9A6759", "#444444", "#6C6C6C", "#9AD284", "#6C5EB5", "#959595"), "Representative 16-color subset of the Commodore 16 TED color space."),
     _record("c64-16", "Commodore 64", "Commodore", C64_16, "Common modern RGB approximation of the C64 fixed 16-color set."),
     _record("vic20-16", "VIC-20", "Commodore", ("#000000", "#FFFFFF", "#A83D34", "#6ABFC6", "#A85FB4", "#50A04F", "#4E4A9E", "#D5D578", "#A76B2D", "#6B4B1F", "#E38A83", "#887ECB", "#B7B7B7", "#9EE493", "#8A85D1", "#D9D9D9"), "Common RGB approximation of the VIC family palette."),
     _record("plus4-16", "Commodore Plus/4", "Commodore", ("#000000", "#FFFFFF", "#681010", "#70A4B2", "#6F3D86", "#588D43", "#352879", "#B8C76F", "#6F4F25", "#433900", "#9A6759", "#444444", "#6C6C6C", "#9AD284", "#6C5EB5", "#959595"), "Representative 16-color subset of the TED palette."),
@@ -122,6 +154,7 @@ PALETTE_LIBRARY: tuple[PaletteRecord, ...] = (
     _record("ega-16", "EGA 16", "IBM PC", CGA_RGBI, "Common 16-color EGA/RGBI subset."),
     _record("vga-16", "VGA Default 16", "IBM PC", CGA_RGBI, "Classic VGA-compatible default 16-color set."),
     _record("vga-gray16", "VGA Grayscale 16", "IBM PC", tuple(rgb_to_hex((i, i, i)) for i in range(0, 256, 17)), "Sixteen-step grayscale useful for VGA-era monochrome looks."),
+    _record("windows-20", "Windows 20", "IBM PC", WINDOWS_20, "Classic 20-color Windows system palette."),
 
     _record("mda-green-2", "MDA Green 2", "Monochrome Monitor", _mono_ramp("#66FF66", 2), "Two-level green phosphor terminal look."),
     _record("mda-green-4", "MDA Green 4", "Monochrome Monitor", _mono_ramp("#66FF66", 4), "Four-level green phosphor terminal ramp."),

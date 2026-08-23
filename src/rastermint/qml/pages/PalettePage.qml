@@ -8,6 +8,7 @@ Item {
     id: root
     property int colorEditIndex: -1
     property var expandedPaletteCategories: ({})
+    property var optimizedPaletteCounts: [2, 3, 6, 8, 12, 16, 32, 256]
 
     function paletteCategoryExpanded(name) {
         // Search results should be immediately visible without forcing the user
@@ -78,9 +79,33 @@ Item {
         }
     }
 
+    function allPaletteItems() {
+        // Optimized entries are dynamic library actions: choosing one extracts
+        // that many colours from the currently loaded source image using the
+        // optimizer selected below the library.
+        var result = []
+        for (var i = 0; i < optimizedPaletteCounts.length; ++i) {
+            var count = optimizedPaletteCounts[i]
+            result.push({
+                "id": "optimized-" + count,
+                "name": "Optimized " + count,
+                "category": "Optimized",
+                "description": "Extract " + count + " colours from the current source image.",
+                "colors": [],
+                "optimized": true,
+                "count": count
+            })
+        }
+
+        var library = backend.paletteLibrary || []
+        for (var j = 0; j < library.length; ++j)
+            result.push(library[j])
+        return result
+    }
+
     function palettesForCategory(categoryName) {
         var result = []
-        var palettes = backend.paletteLibrary || []
+        var palettes = allPaletteItems()
         for (var i = 0; i < palettes.length; ++i) {
             var palette = palettes[i]
             if (paletteDisplayCategory(palette) === categoryName && paletteMatches(palette))
@@ -92,7 +117,7 @@ Item {
     function visiblePaletteCategories() {
         var result = []
         var seen = {}
-        var palettes = backend.paletteLibrary || []
+        var palettes = allPaletteItems()
         for (var i = 0; i < palettes.length; ++i) {
             var palette = palettes[i]
             var category = paletteDisplayCategory(palette)
@@ -339,7 +364,9 @@ Item {
 
                                                         Text {
                                                             Layout.fillWidth: true
-                                                            text: modelData.colors.length + " colors"
+                                                            text: modelData.optimized
+                                                                  ? ("Pull " + modelData.count + " colors from source")
+                                                                  : (modelData.colors.length + " colors")
                                                             color: theme.mutedTextColor
                                                             font.pixelSize: 10
                                                             elide: Text.ElideRight
@@ -347,11 +374,20 @@ Item {
                                                     }
 
                                                     Row {
+                                                        visible: !Boolean(modelData.optimized)
                                                         spacing: 0
                                                         Repeater {
-                                                            model: modelData.colors.slice(0, 8)
+                                                            model: modelData.optimized ? [] : modelData.colors.slice(0, 8)
                                                             Rectangle { width: 11; height: 24; color: modelData }
                                                         }
+                                                    }
+
+                                                    Text {
+                                                        visible: Boolean(modelData.optimized)
+                                                        text: "IMAGE"
+                                                        color: backend.hasSource ? theme.accentColor : theme.mutedTextColor
+                                                        font.bold: true
+                                                        font.pixelSize: 9
                                                     }
                                                 }
 
@@ -359,12 +395,20 @@ Item {
                                                     id: paletteMouse
                                                     anchors.fill: parent
                                                     hoverEnabled: true
-                                                    cursorShape: Qt.PointingHandCursor
-                                                    onClicked: backend.applyPalette(modelData.id)
+                                                    enabled: !Boolean(modelData.optimized) || backend.hasSource
+                                                    cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                                    onClicked: {
+                                                        if (modelData.optimized)
+                                                            backend.optimizePalette(modelData.count, optimizer.currentText)
+                                                        else
+                                                            backend.applyPalette(modelData.id)
+                                                    }
                                                 }
 
                                                 ToolTip.visible: paletteMouse.containsMouse
-                                                ToolTip.text: modelData.description
+                                                ToolTip.text: modelData.optimized && !backend.hasSource
+                                                              ? "Load an image to extract this optimized palette."
+                                                              : modelData.description
                                             }
                                         }
                                     }

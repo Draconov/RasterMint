@@ -307,6 +307,7 @@ Item {
                     id: wheelCanvas
                     anchors.fill: parent
                     property real ringWidth: 20
+                    property real innerRadius: Math.min(width, height) / 2 - ringWidth - 2
 
                     onPaint: {
                         var ctx = getContext("2d")
@@ -354,8 +355,12 @@ Item {
 
                 Canvas {
                     id: svCanvas
-                    width: 146
-                    height: 146
+                    // Keep every corner safely inside the hue ring's inner edge.
+                    // The old 146 px square had a diagonal slightly larger than
+                    // the available inner diameter, so its corners touched the ring.
+                    property real ringGap: 5
+                    width: Math.floor(Math.SQRT2 * Math.max(1, wheelCanvas.innerRadius - ringGap))
+                    height: width
                     anchors.centerIn: parent
 
                     onPaint: {
