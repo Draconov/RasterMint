@@ -11,7 +11,7 @@ Item {
     property var optimizedPaletteCounts: [2, 3, 6, 8, 12, 16, 32, 256]
     property var gradientStops: ["#163B2A", "#F1E66B"]
     property var gradientStopPositions: [0.0, 1.0]
-    property bool gradientPresetsExpanded: true
+    property bool gradientPresetsExpanded: false
     property var gradientPresets: backend.gradientPresets || []
 
     function evenGradientPositions(count) {
@@ -19,6 +19,14 @@ Item {
         for (var i = 0; i < count; ++i)
             positions.push(count <= 1 ? 0.0 : i / (count - 1))
         return positions
+    }
+
+    function previewGradientPositions(preset) {
+        var colors = preset.colors || []
+        var positions = preset.positions || []
+        if (positions.length === colors.length)
+            return positions
+        return evenGradientPositions(colors.length)
     }
 
     function updateGradientStop(index, value) {
@@ -611,40 +619,59 @@ Item {
                         rowSpacing: 6
 
                         Repeater {
-                            model: root.gradientPresets
+                            // Do not construct 176 preview delegates while this section is
+                            // collapsed. This used to create and paint 176 Canvas objects as
+                            // part of Main.qml startup in the frozen Windows build.
+                            model: root.gradientPresetsExpanded ? root.gradientPresets : []
 
                             delegate: Rectangle {
                                 id: presetCard
                                 required property var modelData
+                                property var previewColors: modelData.colors || []
+                                property var previewPositions: root.previewGradientPositions(modelData)
+                                property real previewStart: previewPositions.length ? Math.max(0, Math.min(1, Number(previewPositions[0]))) : 0
+                                property real previewEnd: previewPositions.length ? Math.max(previewStart, Math.min(1, Number(previewPositions[previewPositions.length - 1]))) : 1
                                 Layout.fillWidth: true
                                 Layout.preferredHeight: 38
                                 radius: 5
-                                color: theme.canvasColor
+                                color: previewColors.length ? previewColors[0] : theme.canvasColor
                                 border.color: root.gradientPresetSelected(modelData) ? theme.accentColor : theme.borderColor
                                 border.width: root.gradientPresetSelected(modelData) ? 2 : 1
                                 clip: true
 
-                                Canvas {
-                                    id: presetCanvas
-                                    anchors.fill: parent
-                                    anchors.margins: 3
-                                    onPaint: {
-                                        var ctx = getContext("2d")
-                                        ctx.clearRect(0, 0, width, height)
-                                        var gradient = ctx.createLinearGradient(0, 0, width, 0)
-                                        var colors = presetCard.modelData.colors
-                                        var positions = presetCard.modelData.positions || []
-                                        for (var i = 0; i < colors.length; ++i) {
-                                            var position = positions.length === colors.length
-                                                ? positions[i] : (colors.length === 1 ? 0 : i / (colors.length - 1))
-                                            gradient.addColorStop(position, colors[i])
+                                // Render the preview with ordinary Qt Quick rectangles instead
+                                // of Canvas. This preserves the smooth multi-stop gradient but
+                                // avoids creating a large batch of Canvas render targets.
+                                Row {
+                                    id: presetGradientRow
+                                    x: presetCard.previewStart * presetCard.width
+                                    width: Math.max(0, (presetCard.previewEnd - presetCard.previewStart) * presetCard.width)
+                                    height: parent.height
+                                    visible: presetCard.previewColors.length > 1 && width > 0
+
+                                    Repeater {
+                                        model: Math.max(0, presetCard.previewColors.length - 1)
+                                        delegate: Rectangle {
+                                            required property int index
+                                            property real span: Math.max(0, Number(presetCard.previewPositions[index + 1]) - Number(presetCard.previewPositions[index]))
+                                            width: presetCard.previewEnd > presetCard.previewStart
+                                                ? presetGradientRow.width * span / (presetCard.previewEnd - presetCard.previewStart) : 0
+                                            height: presetGradientRow.height
+                                            gradient: Gradient {
+                                                orientation: Gradient.Horizontal
+                                                GradientStop { position: 0.0; color: presetCard.previewColors[index] }
+                                                GradientStop { position: 1.0; color: presetCard.previewColors[index + 1] }
+                                            }
                                         }
-                                        ctx.fillStyle = gradient
-                                        ctx.fillRect(0, 0, width, height)
                                     }
-                                    Component.onCompleted: requestPaint()
-                                    onWidthChanged: requestPaint()
-                                    onHeightChanged: requestPaint()
+                                }
+
+                                Rectangle {
+                                    visible: presetCard.previewColors.length > 0 && presetCard.previewEnd < 1
+                                    x: presetCard.previewEnd * parent.width
+                                    width: Math.max(0, parent.width - x)
+                                    height: parent.height
+                                    color: presetCard.previewColors[presetCard.previewColors.length - 1]
                                 }
 
                                 MouseArea {
