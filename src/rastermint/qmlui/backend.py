@@ -22,6 +22,7 @@ from rastermint.core.animation_presets import ANIMATION_PRESETS, apply_animation
 from rastermint.core.builtin_presets import BUILTIN_PRESETS, build_builtin_preset
 from rastermint.core.dither import ALGORITHMS
 from rastermint.core.effect_stack import EFFECT_DEFINITIONS, default_effect_stack, effect_categories, new_effect, normalize_effect_stack
+from rastermint.core.gradient_presets import GRADIENT_PRESETS
 from rastermint.core.hardware import apply_profile_to_settings, load_builtin_profiles, load_profile_file, profile_summary
 from rastermint.core.history import UndoHistory
 from rastermint.core.lospec import fetch_lospec_palette
@@ -315,6 +316,17 @@ class RasterMintBackend(QObject):
     def _save_user_palettes(self) -> None:
         self.app_settings.setValue(self._USER_PALETTES_SETTINGS_KEY, json.dumps(self._user_palettes, ensure_ascii=False))
         self.app_settings.sync()
+
+    @Property("QVariantList", constant=True)
+    def gradientPresets(self) -> list[dict[str, Any]]:
+        return [
+            {
+                "name": str(item["name"]),
+                "colors": list(item["colors"]),
+                "positions": list(item["positions"]),
+            }
+            for item in GRADIENT_PRESETS
+        ]
 
     @Property("QVariantList", notify=paletteLibraryChanged)
     def paletteLibrary(self) -> list[dict[str, Any]]:
@@ -1075,6 +1087,30 @@ class RasterMintBackend(QObject):
                 palette_source=f"generated from {stop_count} anchor colors",
             )
             self._replace_settings(ProcessingSettings.from_dict(data), action=f"Generated palette: {space} · {len(colors)} colors · {stop_count} anchors")
+        except Exception as exc:
+            self.errorOccurred.emit("Could not generate palette", str(exc))
+
+    @Slot("QVariantList", "QVariantList", int, str)
+    def generatePaletteFromPositionedStops(
+        self, stops: list[Any], positions: list[Any], count: int, space: str
+    ) -> None:
+        try:
+            cleaned_stops = [str(stop) for stop in stops]
+            cleaned_positions = [float(value) for value in positions]
+            colors = interpolate_palette_stops(cleaned_stops, count, space, cleaned_positions)
+            data = self.settings.to_dict()
+            stop_count = len([stop for stop in cleaned_stops if stop.strip()])
+            data.update(
+                palette=colors,
+                palette_locks=[False] * len(colors),
+                palette_name=f"{space} Gradient {count}",
+                palette_author="RasterMint",
+                palette_source=f"generated from {stop_count} positioned anchor colors",
+            )
+            self._replace_settings(
+                ProcessingSettings.from_dict(data),
+                action=f"Generated palette: {space} · {len(colors)} colors · {stop_count} anchors",
+            )
         except Exception as exc:
             self.errorOccurred.emit("Could not generate palette", str(exc))
 

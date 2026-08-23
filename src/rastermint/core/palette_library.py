@@ -307,25 +307,51 @@ def interpolate_palette(start: str, end: str, count: int = 8, space: str = "OKLa
     return interpolate_palette_stops([start, end], count, space)
 
 
-def interpolate_palette_stops(stops: Iterable[str], count: int = 8, space: str = "OKLab") -> list[str]:
-    """Generate a color ramp through multiple anchor colors, including endpoints."""
+def interpolate_palette_stops(
+    stops: Iterable[str],
+    count: int = 8,
+    space: str = "OKLab",
+    positions: Iterable[float] | None = None,
+) -> list[str]:
+    """Generate a color ramp through multiple anchor colors.
+
+    ``positions`` optionally supplies normalized 0..1 stop locations. When it
+    is omitted RasterMint keeps the historical equal-spacing behavior.
+    """
     normalized = [str(stop).strip().upper() for stop in stops if str(stop).strip()]
     if len(normalized) < 2:
         raise ValueError("At least two colors are required to generate a gradient palette")
 
     count = max(2, min(256, int(count)))
     mode = str(space or "OKLab").strip().upper().replace(" ", "")
-    if len(normalized) == 2:
-        return [_interpolate_pair(normalized[0], normalized[1], i / (count - 1), mode) for i in range(count)]
 
-    segment_count = len(normalized) - 1
+    if positions is None:
+        stop_positions = [i / (len(normalized) - 1) for i in range(len(normalized))]
+    else:
+        stop_positions = [max(0.0, min(1.0, float(value))) for value in positions]
+        if len(stop_positions) != len(normalized):
+            raise ValueError("Gradient stop colors and positions must have the same length")
+        if any(stop_positions[i] > stop_positions[i + 1] for i in range(len(stop_positions) - 1)):
+            raise ValueError("Gradient stop positions must be in ascending order")
+
     result: list[str] = []
     for i in range(count):
-        if i == count - 1:
+        t = i / (count - 1)
+        if t <= stop_positions[0]:
+            result.append(normalized[0])
+            continue
+        if t >= stop_positions[-1]:
             result.append(normalized[-1])
             continue
-        position = (i / (count - 1)) * segment_count
-        segment_index = min(segment_count - 1, int(position))
-        local_t = position - segment_index
+
+        segment_index = 0
+        for j in range(len(stop_positions) - 1):
+            if stop_positions[j] <= t <= stop_positions[j + 1]:
+                segment_index = j
+                break
+
+        left = stop_positions[segment_index]
+        right = stop_positions[segment_index + 1]
+        local_t = 1.0 if right <= left else (t - left) / (right - left)
         result.append(_interpolate_pair(normalized[segment_index], normalized[segment_index + 1], local_t, mode))
     return result

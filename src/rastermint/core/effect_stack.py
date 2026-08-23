@@ -27,6 +27,11 @@ EFFECT_DEFINITIONS: dict[str, dict[str, Any]] = {
         "saturation": {"type": "int", "label": "Saturation", "default": 0, "min": -100, "max": 100, "step": 1, "animatable": True},
         "gamma": {"type": "float", "label": "Gamma", "default": 1.0, "min": 0.1, "max": 4.0, "step": 0.05, "decimals": 2, "animatable": True},
     }},
+    "Levels": {"params": {
+        "black_point": {"type": "int", "label": "Black point", "default": 0, "min": 0, "max": 254, "step": 1, "animatable": True},
+        "white_point": {"type": "int", "label": "White point", "default": 255, "min": 1, "max": 255, "step": 1, "animatable": True},
+        "gamma": {"type": "float", "label": "Midtone gamma", "default": 1.0, "min": 0.1, "max": 4.0, "step": 0.05, "decimals": 2, "animatable": True},
+    }},
     "Local Contrast": {"params": {
         "amount": {"type": "int", "label": "Amount", "default": 120, "min": 0, "max": 400, "step": 5, "suffix": "%", "animatable": True},
         "radius": {"type": "float", "label": "Radius", "default": 2.0, "min": 0.1, "max": 30.0, "step": 0.25, "decimals": 2, "suffix": " px", "animatable": True, "pixel_scaled": True},
@@ -281,7 +286,7 @@ EFFECT_DEFINITIONS: dict[str, dict[str, Any]] = {
 
 EFFECT_CATEGORIES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("Color & Tone", (
-        "Adjustments", "Local Contrast", "Hue Rotate", "Grayscale", "Invert", "Posterize",
+        "Adjustments", "Levels", "Local Contrast", "Hue Rotate", "Grayscale", "Invert", "Posterize",
     )),
     ("Detail & Light", (
         "Gaussian Blur", "Median Denoise", "Sharpen", "Glow", "Bloom",
@@ -519,6 +524,18 @@ def _hue_rotate(image: Image.Image, degrees: int) -> Image.Image:
     shift = int(round((degrees % 360) / 360.0 * 255.0))
     hsv[..., 0] = (hsv[..., 0].astype(np.uint16) + shift) % 256
     return Image.fromarray(hsv.astype(np.uint8), "HSV").convert("RGB")
+
+
+def _levels(image: Image.Image, black_point: int, white_point: int, gamma: float) -> Image.Image:
+    black = max(0, min(254, int(black_point)))
+    white = max(black + 1, min(255, int(white_point)))
+    gamma = max(0.1, min(4.0, float(gamma)))
+    if black == 0 and white == 255 and abs(gamma - 1.0) <= 1e-6:
+        return image
+    arr = np.asarray(image.convert("RGB"), dtype=np.float32)
+    normalized = np.clip((arr - black) / max(1.0, float(white - black)), 0.0, 1.0)
+    normalized = np.power(normalized, 1.0 / gamma)
+    return Image.fromarray(np.clip(np.rint(normalized * 255.0), 0, 255).astype(np.uint8), "RGB")
 
 
 def _local_contrast(image: Image.Image, amount: int, radius: float, threshold: int) -> Image.Image:
@@ -1753,6 +1770,7 @@ def apply_effect_stack(
             if abs(gamma - 1.0) > 1e-6:
                 inv_gamma = 1.0 / max(0.1, gamma)
                 img = img.point([round(255 * ((i / 255) ** inv_gamma)) for i in range(256)] * 3)
+        elif kind == "Levels": img = _levels(img, int(p["black_point"]), int(p["white_point"]), float(p["gamma"]))
         elif kind == "Local Contrast": img = _local_contrast(img, int(p["amount"]), float(p["radius"]), int(p["threshold"]))
         elif kind == "Hue Rotate": img = _hue_rotate(img, int(p["degrees"]))
         elif kind == "Grayscale": img = ImageOps.grayscale(img).convert("RGB")

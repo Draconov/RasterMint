@@ -10,6 +10,16 @@ Item {
     property var expandedPaletteCategories: ({})
     property var optimizedPaletteCounts: [2, 3, 6, 8, 12, 16, 32, 256]
     property var gradientStops: ["#163B2A", "#F1E66B"]
+    property var gradientStopPositions: [0.0, 1.0]
+    property bool gradientPresetsExpanded: true
+    property var gradientPresets: backend.gradientPresets || []
+
+    function evenGradientPositions(count) {
+        var positions = []
+        for (var i = 0; i < count; ++i)
+            positions.push(count <= 1 ? 0.0 : i / (count - 1))
+        return positions
+    }
 
     function updateGradientStop(index, value) {
         var next = gradientStops.slice(0)
@@ -23,6 +33,7 @@ Item {
         var next = gradientStops.slice(0)
         next.push(next.length ? next[next.length - 1] : "#FFFFFF")
         gradientStops = next
+        gradientStopPositions = evenGradientPositions(next.length)
     }
 
     function removeGradientStop(index) {
@@ -31,6 +42,7 @@ Item {
         var next = gradientStops.slice(0)
         next.splice(index, 1)
         gradientStops = next
+        gradientStopPositions = evenGradientPositions(next.length)
     }
 
     function moveGradientStop(index, delta) {
@@ -42,6 +54,23 @@ Item {
         next.splice(index, 1)
         next.splice(target, 0, value)
         gradientStops = next
+    }
+
+    function applyGradientPreset(preset) {
+        gradientStops = (preset.colors || []).slice(0)
+        var positions = preset.positions || []
+        gradientStopPositions = positions.length === gradientStops.length
+            ? positions.slice(0) : evenGradientPositions(gradientStops.length)
+        // The reference previews are CSS-style sRGB gradients, so use RGB
+        // interpolation when one is selected. Users can switch spaces after.
+        colorSpace.currentIndex = 1
+    }
+
+    function gradientPresetSelected(preset) {
+        var positions = preset.positions || []
+        return JSON.stringify(gradientStops) === JSON.stringify(preset.colors || [])
+            && JSON.stringify(gradientStopPositions) === JSON.stringify(positions.length === gradientStops.length
+                ? positions : evenGradientPositions(gradientStops.length))
     }
 
     function paletteLibraryCategoryChoices() {
@@ -519,6 +548,121 @@ Item {
             }
 
             MintLabel { text: "Gradient"; font.bold: true }
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 38
+                radius: 7
+                color: gradientPresetMouse.containsMouse ? theme.panelHoverColor : theme.panelRaisedColor
+                border.color: theme.borderColor
+
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: 10
+                    anchors.rightMargin: 10
+                    spacing: 8
+                    Text {
+                        text: root.gradientPresetsExpanded ? "▾" : "▸"
+                        color: theme.accentColor
+                        font.pixelSize: 14
+                    }
+                    Text {
+                        Layout.fillWidth: true
+                        text: "Gradient Presets"
+                        color: theme.textColor
+                        font.bold: true
+                        font.pixelSize: 12
+                    }
+                    Text {
+                        text: String(root.gradientPresets.length)
+                        color: theme.mutedTextColor
+                        font.pixelSize: 10
+                    }
+                }
+                MouseArea {
+                    id: gradientPresetMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.gradientPresetsExpanded = !root.gradientPresetsExpanded
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: root.gradientPresetsExpanded ? 176 : 0
+                visible: root.gradientPresetsExpanded
+                radius: 7
+                color: theme.panelRaisedColor
+                border.color: theme.borderColor
+                clip: true
+
+                ScrollView {
+                    anchors.fill: parent
+                    anchors.margins: 7
+                    clip: true
+                    contentWidth: availableWidth
+                    ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                    ScrollBar.vertical.policy: ScrollBar.AsNeeded
+
+                    GridLayout {
+                        width: parent.width
+                        columns: width >= 500 ? 4 : (width >= 350 ? 3 : 2)
+                        columnSpacing: 6
+                        rowSpacing: 6
+
+                        Repeater {
+                            model: root.gradientPresets
+
+                            delegate: Rectangle {
+                                id: presetCard
+                                required property var modelData
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: 38
+                                radius: 5
+                                color: theme.canvasColor
+                                border.color: root.gradientPresetSelected(modelData) ? theme.accentColor : theme.borderColor
+                                border.width: root.gradientPresetSelected(modelData) ? 2 : 1
+                                clip: true
+
+                                Canvas {
+                                    id: presetCanvas
+                                    anchors.fill: parent
+                                    anchors.margins: 3
+                                    onPaint: {
+                                        var ctx = getContext("2d")
+                                        ctx.clearRect(0, 0, width, height)
+                                        var gradient = ctx.createLinearGradient(0, 0, width, 0)
+                                        var colors = presetCard.modelData.colors
+                                        var positions = presetCard.modelData.positions || []
+                                        for (var i = 0; i < colors.length; ++i) {
+                                            var position = positions.length === colors.length
+                                                ? positions[i] : (colors.length === 1 ? 0 : i / (colors.length - 1))
+                                            gradient.addColorStop(position, colors[i])
+                                        }
+                                        ctx.fillStyle = gradient
+                                        ctx.fillRect(0, 0, width, height)
+                                    }
+                                    Component.onCompleted: requestPaint()
+                                    onWidthChanged: requestPaint()
+                                    onHeightChanged: requestPaint()
+                                }
+
+                                MouseArea {
+                                    id: presetMouse
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: root.applyGradientPreset(presetCard.modelData)
+                                }
+
+                                ToolTip.visible: presetMouse.containsMouse
+                                ToolTip.text: presetCard.modelData.name
+                            }
+                        }
+                    }
+                }
+            }
+
             MintLabel {
                 text: "Anchor colours"
                 color: theme.mutedTextColor
@@ -584,7 +728,7 @@ Item {
                 MintComboBox { id: colorSpace; Layout.fillWidth: true; model: ["OKLab", "RGB", "Linear RGB", "HSV", "HSL"] }
                 MintButton {
                     text: "Generate"
-                    onClicked: backend.generatePaletteFromStops(root.gradientStops, gradientCount.value, colorSpace.currentText)
+                    onClicked: backend.generatePaletteFromPositionedStops(root.gradientStops, root.gradientStopPositions, gradientCount.value, colorSpace.currentText)
                 }
             }
 

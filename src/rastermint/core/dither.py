@@ -95,9 +95,39 @@ CLUSTERED_MATRICES = {
     "Clustered Dot 8x8": _clustered_matrix(8),
 }
 
+# Additional deterministic threshold screens. These are intentionally fixed so
+# still images and animation frames do not shimmer simply because the algorithm
+# was re-evaluated.
+def _structured_pattern_matrix(size: int = 8) -> np.ndarray:
+    # Rank every cell exactly once while favouring diagonal/cross-hatch groups.
+    # A full 0..N²-1 rank range keeps the tone response balanced.
+    coords = []
+    for y in range(size):
+        for x in range(size):
+            coords.append((((x + y) % 4), ((x - y) % size), ((x + 2 * y) % size), y, x))
+    coords.sort()
+    matrix = np.zeros((size, size), dtype=np.float32)
+    for rank, (*_, y, x) in enumerate(coords):
+        matrix[y, x] = rank
+    return matrix
+
+
+_random_order = np.arange(64, dtype=np.float32)
+np.random.default_rng(0x524D2026).shuffle(_random_order)
+PATTERN_MATRICES: dict[str, np.ndarray] = {
+    "Random Ordered": _random_order.reshape(8, 8),
+    "Bit Tone": np.array(
+        [[0, 12, 3, 15], [8, 4, 11, 7], [2, 14, 1, 13], [10, 6, 9, 5]],
+        dtype=np.float32,
+    ),
+    "Pattern": _structured_pattern_matrix(8),
+    "Dot Pattern": _clustered_matrix(6),
+}
+
 ALGORITHM_GROUPS: dict[str, list[str]] = {
     "Quantization": ["Nearest Palette", "Threshold", "Random", "Interleaved Gradient Noise", "Blue Noise"],
-    "Ordered": [*BAYER_MATRICES.keys(), *CLUSTERED_MATRICES.keys(), "Halftone"],
+    "Ordered": [*BAYER_MATRICES.keys(), *CLUSTERED_MATRICES.keys(), "Random Ordered", "Halftone"],
+    "Pattern": ["Bit Tone", "Pattern", "Dot Pattern", "Modulation"],
     "Error Diffusion": [*ERROR_DIFFUSION_KERNELS.keys()],
     "Advanced": ["Dot Diffusion", "Riemersma"],
 }
@@ -158,6 +188,22 @@ def blue_noise_dither(image: np.ndarray, palette: np.ndarray, strength: float) -
     mask = _blue_noise_mask()
     tiled = np.tile(mask, (math.ceil(h / 64), math.ceil(w / 64)))[:h, :w]
     adjusted = np.clip(image + tiled[:, :, None] * 128.0 * strength, 0, 255)
+    return quantize_nearest(adjusted, palette)
+
+
+def modulation_dither(image: np.ndarray, palette: np.ndarray, strength: float = 1.0) -> np.ndarray:
+    """Palette-aware sinusoidal screen with luminance-modulated phase.
+
+    The carrier remains position-stable (useful for animation) while the image
+    luminance changes the local phase/weight, producing the flowing stripe
+    texture associated with modulation-style halftoning.
+    """
+    h, w = image.shape[:2]
+    yy, xx = np.mgrid[0:h, 0:w]
+    luminance = (0.2126 * image[..., 0] + 0.7152 * image[..., 1] + 0.0722 * image[..., 2]) / 255.0
+    phase = (xx * (2.0 * np.pi / 7.0)) + (yy * (2.0 * np.pi / 19.0)) + luminance * np.pi * 1.5
+    carrier = np.sin(phase) * (0.55 + 0.45 * np.cos(yy * (2.0 * np.pi / 13.0)))
+    adjusted = np.clip(image + carrier[..., None] * (72.0 * max(0.0, float(strength))), 0, 255)
     return quantize_nearest(adjusted, palette)
 
 
@@ -362,6 +408,10 @@ def apply_dither(
         return ordered_dither(image, palette, BAYER_MATRICES[algorithm], strength)
     if algorithm in CLUSTERED_MATRICES:
         return ordered_dither(image, palette, CLUSTERED_MATRICES[algorithm], strength)
+    if algorithm in PATTERN_MATRICES:
+        return ordered_dither(image, palette, PATTERN_MATRICES[algorithm], strength)
+    if algorithm == "Modulation":
+        return modulation_dither(image, palette, strength)
     if algorithm == "Halftone":
         return halftone_dither(image, palette)
     if algorithm in ERROR_DIFFUSION_KERNELS:
