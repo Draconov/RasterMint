@@ -14,7 +14,8 @@ Item {
     property bool showButton: true
     signal colorPicked(string value)
 
-    implicitHeight: showButton ? 34 : 0
+    // Match the main palette swatches instead of using a tiny colour chip.
+    implicitHeight: showButton ? 46 : 0
     implicitWidth: showButton ? 150 : 0
 
     Settings {
@@ -25,6 +26,10 @@ Item {
 
     property var recentColors: []
     property bool _syncing: false
+    property real pickerHue: 0.0
+    property real pickerSaturation: 0.0
+    property real pickerBrightness: 1.0
+    property real pickerAlpha: 1.0
 
     function clamp01(v) {
         return Math.max(0, Math.min(1, Number(v)))
@@ -114,22 +119,41 @@ Item {
         _syncing = true
         popup.workingColor = colorFromHex(value, popup.workingColor)
         var hsv = rgbToHsv(popup.workingColor.r, popup.workingColor.g, popup.workingColor.b)
-        hueSlider.value = hsv.h * 359
-        saturationSlider.value = hsv.s * 100
-        valueSlider.value = hsv.v * 100
-        alphaSlider.value = popup.workingColor.a * 100
+        pickerHue = hsv.h
+        pickerSaturation = hsv.s
+        pickerBrightness = hsv.v
+        pickerAlpha = popup.workingColor.a
+        alphaSlider.value = pickerAlpha * 100
         hexField.text = colorToHex(popup.workingColor, false)
         _syncing = false
+        svCanvas.requestPaint()
     }
 
-    function syncColorFromControls() {
+    function syncColorFromPicker() {
         if (_syncing)
             return
-        popup.workingColor = Qt.hsva(hueSlider.value / 359.0,
-                                     saturationSlider.value / 100.0,
-                                     valueSlider.value / 100.0,
-                                     alphaEnabled ? alphaSlider.value / 100.0 : 1.0)
+        popup.workingColor = Qt.hsva(clamp01(pickerHue),
+                                     clamp01(pickerSaturation),
+                                     clamp01(pickerBrightness),
+                                     alphaEnabled ? clamp01(pickerAlpha) : 1.0)
         hexField.text = colorToHex(popup.workingColor, false)
+        svCanvas.requestPaint()
+    }
+
+    function setHueFromPoint(px, py, size) {
+        var center = size / 2
+        var angle = Math.atan2(py - center, px - center) + Math.PI / 2
+        var hue = angle / (Math.PI * 2)
+        if (hue < 0)
+            hue += 1
+        pickerHue = hue
+        syncColorFromPicker()
+    }
+
+    function setSaturationValueFromPoint(px, py, width, height) {
+        pickerSaturation = clamp01(px / Math.max(1, width))
+        pickerBrightness = clamp01(1.0 - (py / Math.max(1, height)))
+        syncColorFromPicker()
     }
 
     function applyHexField() {
@@ -152,6 +176,28 @@ Item {
         popup.open()
     }
 
+    function positionPopupInViewport() {
+        if (!popup.parent)
+            return
+
+        var margin = 8
+        var gap = 4
+        var origin = root.mapToItem(popup.parent, 0, 0)
+        var maxX = Math.max(margin, popup.parent.width - popup.width - margin)
+        var belowY = origin.y + root.height + gap
+        var aboveY = origin.y - popup.height - gap
+        var maxY = Math.max(margin, popup.parent.height - popup.height - margin)
+
+        popup.x = Math.max(margin, Math.min(origin.x, maxX))
+
+        if (belowY + popup.height <= popup.parent.height - margin)
+            popup.y = belowY
+        else if (aboveY >= margin)
+            popup.y = aboveY
+        else
+            popup.y = Math.max(margin, Math.min(belowY, maxY))
+    }
+
     Component.onCompleted: loadRecentColors()
 
     Button {
@@ -165,27 +211,23 @@ Item {
 
         contentItem: RowLayout {
             spacing: 8
+
             Rectangle {
-                Layout.preferredWidth: 24
-                Layout.preferredHeight: 20
-                radius: 4
+                Layout.preferredWidth: 38
+                Layout.preferredHeight: 38
+                radius: 5
                 border.color: theme.borderColor
                 border.width: 1
+                color: "#FFFFFF"
 
                 Rectangle {
                     anchors.fill: parent
                     anchors.margins: 1
-                    radius: 3
-                    color: "#FFFFFF"
-                    opacity: 1
-                }
-                Rectangle {
-                    anchors.fill: parent
-                    anchors.margins: 1
-                    radius: 3
+                    radius: 4
                     color: root.normalized(root.colorValue)
                 }
             }
+
             Text {
                 Layout.fillWidth: true
                 text: root.normalized(root.colorValue).toUpperCase()
@@ -193,11 +235,6 @@ Item {
                 verticalAlignment: Text.AlignVCenter
                 elide: Text.ElideRight
                 font.pixelSize: 12
-            }
-            Text {
-                text: "▾"
-                color: theme.mutedTextColor
-                verticalAlignment: Text.AlignVCenter
             }
         }
 
@@ -213,14 +250,26 @@ Item {
 
     Popup {
         id: popup
-        y: root.height + 4
-        width: 324
-        padding: 10
+        parent: Overlay.overlay
+        width: Math.min(354, Math.max(220, parent ? parent.width - 16 : 354))
+        height: Math.min(pickerColumn.implicitHeight + topPadding + bottomPadding,
+                         Math.max(180, parent ? parent.height - 16 : pickerColumn.implicitHeight + topPadding + bottomPadding))
+        padding: 12
         modal: true
         focus: true
-        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutsideParent
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
 
         property color workingColor: root.normalized(root.colorValue)
+
+        onAboutToShow: Qt.callLater(root.positionPopupInViewport)
+        onWidthChanged: {
+            if (visible)
+                Qt.callLater(root.positionPopupInViewport)
+        }
+        onHeightChanged: {
+            if (visible)
+                Qt.callLater(root.positionPopupInViewport)
+        }
 
         background: Rectangle {
             radius: 8
@@ -228,14 +277,128 @@ Item {
             border.color: theme.borderColor
         }
 
-        contentItem: ColumnLayout {
-            spacing: 10
+        contentItem: ScrollView {
+            id: pickerScroll
+            clip: true
+            contentWidth: availableWidth
+            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
 
-            Text {
-                text: root.dialogTitle
+            ColumnLayout {
+                id: pickerColumn
+                width: pickerScroll.availableWidth
+                spacing: 10
+
+                Text {
+                    text: root.dialogTitle
                 color: theme.textColor
                 font.bold: true
                 font.pixelSize: 13
+            }
+
+            // Advanced wheel + saturation/value square. This is the primary
+            // custom colour selection surface; the sliders below are only for
+            // alpha, where precision is useful.
+            Item {
+                Layout.alignment: Qt.AlignHCenter
+                Layout.preferredWidth: 246
+                Layout.preferredHeight: 246
+
+                Canvas {
+                    id: wheelCanvas
+                    anchors.fill: parent
+                    property real ringWidth: 20
+
+                    onPaint: {
+                        var ctx = getContext("2d")
+                        ctx.clearRect(0, 0, width, height)
+                        var cx = width / 2
+                        var cy = height / 2
+                        var radius = Math.min(width, height) / 2 - ringWidth / 2 - 2
+                        for (var i = 0; i < 360; ++i) {
+                            var start = (i - 90) * Math.PI / 180
+                            var end = (i + 1.5 - 90) * Math.PI / 180
+                            ctx.beginPath()
+                            ctx.strokeStyle = Qt.hsla(i / 360.0, 1.0, 0.5, 1.0)
+                            ctx.lineWidth = ringWidth
+                            ctx.arc(cx, cy, radius, start, end, false)
+                            ctx.stroke()
+                        }
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.CrossCursor
+                        onPressed: function(mouse) {
+                            root.setHueFromPoint(mouse.x, mouse.y, wheelCanvas.width)
+                        }
+                        onPositionChanged: function(mouse) {
+                            if (pressed)
+                                root.setHueFromPoint(mouse.x, mouse.y, wheelCanvas.width)
+                        }
+                    }
+                }
+
+                // Hue marker on the outer ring.
+                Rectangle {
+                    width: 12
+                    height: 12
+                    radius: 6
+                    color: "transparent"
+                    border.color: "#FFFFFF"
+                    border.width: 2
+                    property real markerRadius: wheelCanvas.width / 2 - wheelCanvas.ringWidth / 2 - 2
+                    property real markerAngle: root.pickerHue * Math.PI * 2 - Math.PI / 2
+                    x: wheelCanvas.width / 2 + Math.cos(markerAngle) * markerRadius - width / 2
+                    y: wheelCanvas.height / 2 + Math.sin(markerAngle) * markerRadius - height / 2
+                }
+
+                Canvas {
+                    id: svCanvas
+                    width: 146
+                    height: 146
+                    anchors.centerIn: parent
+
+                    onPaint: {
+                        var ctx = getContext("2d")
+                        ctx.clearRect(0, 0, width, height)
+
+                        var hueColor = Qt.hsva(root.pickerHue, 1.0, 1.0, 1.0)
+                        var horizontal = ctx.createLinearGradient(0, 0, width, 0)
+                        horizontal.addColorStop(0.0, "#FFFFFF")
+                        horizontal.addColorStop(1.0, hueColor)
+                        ctx.fillStyle = horizontal
+                        ctx.fillRect(0, 0, width, height)
+
+                        var vertical = ctx.createLinearGradient(0, 0, 0, height)
+                        vertical.addColorStop(0.0, Qt.rgba(0, 0, 0, 0))
+                        vertical.addColorStop(1.0, "#000000")
+                        ctx.fillStyle = vertical
+                        ctx.fillRect(0, 0, width, height)
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.CrossCursor
+                        onPressed: function(mouse) {
+                            root.setSaturationValueFromPoint(mouse.x, mouse.y, svCanvas.width, svCanvas.height)
+                        }
+                        onPositionChanged: function(mouse) {
+                            if (pressed)
+                                root.setSaturationValueFromPoint(mouse.x, mouse.y, svCanvas.width, svCanvas.height)
+                        }
+                    }
+
+                    Rectangle {
+                        width: 12
+                        height: 12
+                        radius: 6
+                        color: "transparent"
+                        border.color: "#FFFFFF"
+                        border.width: 2
+                        x: Math.max(-width / 2, Math.min(svCanvas.width - width / 2, root.pickerSaturation * svCanvas.width - width / 2))
+                        y: Math.max(-height / 2, Math.min(svCanvas.height - height / 2, (1.0 - root.pickerBrightness) * svCanvas.height - height / 2))
+                    }
+                }
             }
 
             RowLayout {
@@ -243,8 +406,8 @@ Item {
                 spacing: 10
 
                 Rectangle {
-                    Layout.preferredWidth: 58
-                    Layout.preferredHeight: 58
+                    Layout.preferredWidth: 44
+                    Layout.preferredHeight: 44
                     radius: 6
                     border.color: theme.borderColor
                     border.width: 1
@@ -260,7 +423,7 @@ Item {
 
                 ColumnLayout {
                     Layout.fillWidth: true
-                    spacing: 4
+                    spacing: 3
 
                     Text {
                         Layout.fillWidth: true
@@ -271,70 +434,54 @@ Item {
                     }
                     Text {
                         Layout.fillWidth: true
-                        text: root.alphaEnabled ? ("Alpha: " + Math.round(alphaSlider.value) + "%") : "Alpha: 100%"
+                        text: "H " + Math.round(root.pickerHue * 359)
+                              + "°   S " + Math.round(root.pickerSaturation * 100)
+                              + "%   V " + Math.round(root.pickerBrightness * 100) + "%"
                         color: theme.mutedTextColor
-                        font.pixelSize: 11
+                        font.pixelSize: 10
                     }
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: 6
-                        Button {
-                            text: "Eyedropper"
-                            onClicked: {
-                                eyedropperDialog.selectedColor = popup.workingColor
-                                eyedropperDialog.open()
-                            }
-                        }
-                        Button {
-                            text: "Copy HEX"
-                            onClicked: hexField.selectAll()
-                        }
+                }
+
+                Button {
+                    text: "Eyedropper"
+                    onClicked: {
+                        eyedropperDialog.selectedColor = popup.workingColor
+                        eyedropperDialog.open()
                     }
                 }
             }
 
-            GridLayout {
+            RowLayout {
                 Layout.fillWidth: true
-                columns: 2
-                rowSpacing: 8
-                columnSpacing: 8
+                visible: root.alphaEnabled
+                spacing: 8
 
-                Text { text: "Hue"; color: theme.mutedTextColor }
-                Slider {
-                    id: hueSlider
-                    Layout.fillWidth: true
-                    from: 0
-                    to: 359
-                    onValueChanged: root.syncColorFromControls()
+                Text {
+                    text: "Alpha"
+                    color: theme.mutedTextColor
+                    font.pixelSize: 11
                 }
 
-                Text { text: "Saturation"; color: theme.mutedTextColor }
-                Slider {
-                    id: saturationSlider
-                    Layout.fillWidth: true
-                    from: 0
-                    to: 100
-                    onValueChanged: root.syncColorFromControls()
-                }
-
-                Text { text: "Brightness"; color: theme.mutedTextColor }
-                Slider {
-                    id: valueSlider
-                    Layout.fillWidth: true
-                    from: 0
-                    to: 100
-                    onValueChanged: root.syncColorFromControls()
-                }
-
-                Text { text: "Alpha"; color: theme.mutedTextColor; visible: root.alphaEnabled }
                 Slider {
                     id: alphaSlider
                     Layout.fillWidth: true
-                    visible: root.alphaEnabled
                     from: 0
                     to: 100
                     value: 100
-                    onValueChanged: root.syncColorFromControls()
+                    onValueChanged: {
+                        if (!root._syncing) {
+                            root.pickerAlpha = value / 100.0
+                            root.syncColorFromPicker()
+                        }
+                    }
+                }
+
+                Text {
+                    text: Math.round(alphaSlider.value) + "%"
+                    color: theme.textColor
+                    font.pixelSize: 11
+                    Layout.preferredWidth: 34
+                    horizontalAlignment: Text.AlignRight
                 }
             }
 
@@ -398,8 +545,8 @@ Item {
                         model: root.recentColors
                         delegate: Button {
                             required property string modelData
-                            implicitWidth: 42
-                            implicitHeight: 28
+                            implicitWidth: 46
+                            implicitHeight: 30
                             leftPadding: 0
                             rightPadding: 0
                             topPadding: 0
@@ -426,24 +573,27 @@ Item {
                 }
             }
 
-            RowLayout {
-                Layout.fillWidth: true
-                Item { Layout.fillWidth: true }
-                Button {
-                    text: "Cancel"
-                    onClicked: popup.close()
-                }
-                Button {
-                    text: "Apply"
-                    onClicked: root.commitColor()
+                RowLayout {
+                    Layout.fillWidth: true
+                    Item { Layout.fillWidth: true }
+                    Button {
+                        text: "Cancel"
+                        onClicked: popup.close()
+                    }
+                    Button {
+                        text: "Apply"
+                        onClicked: root.commitColor()
+                    }
                 }
             }
         }
     }
 
+    // Kept only as the OS screen-sampling bridge for the eyedropper action;
+    // normal colour selection always happens in the custom RasterMint picker.
     ColorDialog {
         id: eyedropperDialog
-        title: "Pick colour"
+        title: "Sample colour"
         options: root.alphaEnabled ? ColorDialog.ShowAlphaChannel : 0
         onAccepted: root.syncUiFromColor(selectedColor)
     }
