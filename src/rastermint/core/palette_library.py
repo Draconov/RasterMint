@@ -26,6 +26,85 @@ class PaletteRecord:
 
 _PALETTE_ROOT = Path(__file__).resolve().parent.parent / "data" / "palettes"
 
+# Keep the original curated base-palette order even though the bundled JSON
+# filenames no longer carry numeric sequence prefixes. New base palettes that
+# are not listed here are appended alphabetically after the existing set.
+_BASE_PALETTE_ORDER = (
+    "ink",
+    "graphite-4",
+    "forest-4",
+    "amber-4",
+    "ocean-6",
+    "arcade-8",
+    "rgb-8",
+    "rgb-6bit-64",
+    "rgb-8bit-256",
+    "gb-dmg",
+    "gb-pocket",
+    "gb-light",
+    "virtual-boy",
+    "nes-reference",
+    "snes-reference",
+    "sms-reference",
+    "game-gear-reference",
+    "genesis-reference",
+    "c16-reference-16",
+    "c64-16",
+    "vic20-16",
+    "plus4-16",
+    "amiga-wb13",
+    "amiga-wb20",
+    "amiga-wb31",
+    "zx-normal",
+    "zx-bright",
+    "zx-full",
+    "amstrad-cpc-27",
+    "msx-15",
+    "ti99-16",
+    "cga-p0-low",
+    "cga-p0-high",
+    "cga-p1-low",
+    "cga-p1-high",
+    "rgbi-16",
+    "ega-16",
+    "vga-16",
+    "vga-gray16",
+    "windows-20",
+    "mda-green-2",
+    "mda-green-4",
+    "mda-green-8",
+    "amber-2",
+    "amber-monitor-4",
+    "amber-8",
+    "white-2",
+    "white-4",
+    "white-8",
+    "apple2-hgr",
+    "mac-1bit",
+    "mac-gray4",
+    "mac-system16",
+    "atari-st16",
+    "atari-8bit16",
+    "atari2600-16",
+    "bbc-8",
+    "teletext-8",
+    "oric-8",
+    "dragon-8",
+    "coco3-16",
+    "pc98-16",
+    "x68000-16",
+    "fmtowns-16",
+    "sam-coupe-16",
+    "thomson-16",
+    "intellivision-16",
+    "coleco-16",
+    "ngpc-gray",
+    "wonderswan-gray",
+    "pico8",
+    "tic80",
+)
+_BASE_PALETTE_ORDER_INDEX = {palette_id: index for index, palette_id in enumerate(_BASE_PALETTE_ORDER)}
+
 
 def _normalize_palette_color(value: object) -> str:
     text = str(value or "").strip()
@@ -88,7 +167,16 @@ def load_bundled_palettes() -> tuple[PaletteRecord, ...]:
     # Base comes first to preserve the long-standing built-in library ordering;
     # extended palettes are appended and use the exact same JSON schema.
     for folder in ("base", "extended"):
-        for record in _load_palette_directory(_PALETTE_ROOT / folder):
+        folder_records = _load_palette_directory(_PALETTE_ROOT / folder)
+        if folder == "base":
+            fallback_index = len(_BASE_PALETTE_ORDER_INDEX)
+            folder_records.sort(
+                key=lambda record: (
+                    _BASE_PALETTE_ORDER_INDEX.get(record.id, fallback_index),
+                    record.name.casefold(),
+                )
+            )
+        for record in folder_records:
             if record.id in seen_ids or record.name in seen_names:
                 warnings.warn(
                     f"Skipping duplicate bundled palette {record.name!r} ({record.id!r})",
