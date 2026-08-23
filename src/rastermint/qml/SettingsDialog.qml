@@ -8,15 +8,17 @@ Dialog {
     title: "Settings"
     modal: true
     popupType: Popup.Item
-    readonly property real overlayWidth: Overlay.overlay ? Overlay.overlay.width : 520
-    readonly property real overlayHeight: Overlay.overlay ? Overlay.overlay.height : 520
-    readonly property real desiredDialogHeight: 46 + (padding * 2) + settingsBody.implicitHeight
-
-    width: Math.max(320, Math.min(420, overlayWidth - 24))
-    height: Math.max(260, Math.min(Math.max(330, desiredDialogHeight), overlayHeight - 24))
+    width: 420
+    height: 330
     anchors.centerIn: Overlay.overlay
     standardButtons: Dialog.NoButton
     padding: 16
+
+    function resetWindowSettings() {
+        theme.resetTheme()
+        backend.historyLimit = 50
+        themeChooser.syncThemeIndex()
+    }
 
     background: Rectangle {
         color: theme.panelColor
@@ -24,6 +26,7 @@ Dialog {
         border.width: 1
         radius: 10
     }
+
     Overlay.modal: Rectangle {
         color: Qt.rgba(0, 0, 0, 0.45)
     }
@@ -31,7 +34,6 @@ Dialog {
     header: Rectangle {
         implicitHeight: 46
         color: theme.panelRaisedColor
-
         Rectangle {
             anchors.left: parent.left
             anchors.right: parent.right
@@ -50,25 +52,8 @@ Dialog {
         }
     }
 
-    contentItem: ScrollView {
-        id: settingsScroll
-        clip: true
-        contentWidth: availableWidth
-        contentHeight: settingsBody.implicitHeight
-
-        ScrollBar.horizontal: ScrollBar {
-            policy: ScrollBar.AlwaysOff
-        }
-        ScrollBar.vertical: ScrollBar {
-            policy: settingsScroll.contentHeight > settingsScroll.availableHeight
-                    ? ScrollBar.AsNeeded
-                    : ScrollBar.AlwaysOff
-        }
-
-        ColumnLayout {
-            id: settingsBody
-            width: settingsScroll.availableWidth
-            spacing: 12
+    contentItem: ColumnLayout {
+        spacing: 12
 
         MintLabel {
             text: "Appearance"
@@ -83,7 +68,6 @@ Dialog {
             function syncThemeIndex() {
                 currentIndex = Math.max(0, theme.themeIds.indexOf(theme.themeId))
             }
-
             onActivated: {
                 theme.setTheme(theme.themeIds[currentIndex])
                 backend.reportAction("Theme: " + currentText)
@@ -102,7 +86,6 @@ Dialog {
         RowLayout {
             Layout.fillWidth: true
             spacing: 8
-
             MintLabel {
                 text: "Undo history"
                 Layout.fillWidth: true
@@ -114,7 +97,6 @@ Dialog {
                 inputMethodHints: Qt.ImhDigitsOnly
                 validator: IntValidator { bottom: 10; top: 200 }
                 text: String(backend.historyLimit)
-
                 function commitValue() {
                     var parsed = parseInt(text, 10)
                     if (isNaN(parsed))
@@ -123,7 +105,6 @@ Dialog {
                     backend.historyLimit = parsed
                     text = String(backend.historyLimit)
                 }
-
                 onEditingFinished: commitValue()
             }
             MintLabel {
@@ -131,7 +112,6 @@ Dialog {
                 color: theme.mutedTextColor
             }
         }
-
         MintSlider {
             id: historyLimitSlider
             Layout.fillWidth: true
@@ -142,7 +122,6 @@ Dialog {
             value: backend.historyLimit
             onUserMoved: function(newValue) { backend.historyLimit = Math.round(newValue) }
         }
-
         RowLayout {
             Layout.fillWidth: true
             MintLabel {
@@ -157,7 +136,6 @@ Dialog {
                 font.pixelSize: 10
             }
         }
-
         MintLabel {
             Layout.fillWidth: true
             text: "Keep 10–200 undo steps. Higher values retain more editing history and use more memory."
@@ -165,7 +143,6 @@ Dialog {
             font.pixelSize: 11
             wrapMode: Text.WordWrap
         }
-
         Connections {
             target: backend
             function onHistoryLimitChanged() {
@@ -174,20 +151,29 @@ Dialog {
             }
         }
 
-            Item { Layout.preferredHeight: 2 }
-            RowLayout {
+        Item { Layout.fillHeight: true }
+
+        RowLayout {
             Layout.fillWidth: true
+            spacing: 6
+
             MintButton { text: "Close"; onClicked: root.close() }
             Item { Layout.fillWidth: true }
             MintButton {
                 text: "Reset Settings"
+                ToolTip.visible: hovered
+                ToolTip.text: "Reset only the options shown in this Settings window"
+                onClicked: root.resetWindowSettings()
+            }
+            MintButton {
+                text: "Full Reset"
+                ToolTip.visible: hovered
+                ToolTip.text: "Reset RasterMint processing and app settings to defaults"
                 onClicked: {
-                    theme.resetTheme()
+                    root.resetWindowSettings()
                     backend.resetSettings()
-                    themeChooser.syncThemeIndex()
                 }
             }
-        }
         }
     }
 }

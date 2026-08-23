@@ -33,12 +33,57 @@ Item {
         return haystack.toLowerCase().indexOf(query) >= 0
     }
 
+    function paletteDisplayCategory(palette) {
+        var category = String(palette.category || "Other")
+        switch (category) {
+        case "RasterMint":
+            return "RasterMint"
+        case "Nintendo":
+            return "Nintendo"
+        case "Sega":
+            return "Sega"
+        case "Commodore":
+            return "Commodore & Amiga"
+        case "IBM PC":
+            return "IBM PC"
+        case "Monochrome Monitor":
+            return "Monochrome Displays"
+        case "NEC":
+        case "Sharp":
+        case "Fujitsu":
+            return "Japanese Computers"
+        case "Mattel":
+        case "Coleco":
+        case "SNK":
+        case "Bandai":
+            return "Other Consoles & Handhelds"
+        case "Fantasy Console":
+            return "Fantasy Consoles"
+        case "Sinclair":
+        case "Amstrad":
+        case "MSX":
+        case "Texas Instruments":
+        case "Apple":
+        case "Atari":
+        case "Acorn":
+        case "Broadcast":
+        case "Oric":
+        case "Motorola 6847":
+        case "Tandy":
+        case "MGT":
+        case "Thomson":
+            return "Home Computers"
+        default:
+            return category
+        }
+    }
+
     function palettesForCategory(categoryName) {
         var result = []
         var palettes = backend.paletteLibrary || []
         for (var i = 0; i < palettes.length; ++i) {
             var palette = palettes[i]
-            if (String(palette.category || "") === categoryName && paletteMatches(palette))
+            if (paletteDisplayCategory(palette) === categoryName && paletteMatches(palette))
                 result.push(palette)
         }
         return result
@@ -50,7 +95,7 @@ Item {
         var palettes = backend.paletteLibrary || []
         for (var i = 0; i < palettes.length; ++i) {
             var palette = palettes[i]
-            var category = String(palette.category || "Other")
+            var category = paletteDisplayCategory(palette)
             if (!seen[category] && paletteMatches(palette)) {
                 seen[category] = true
                 result.push(category)
@@ -167,134 +212,168 @@ Item {
             Rectangle { Layout.fillWidth: true; height: 1; color: theme.borderColor }
             MintLabel { text: "Palette Library"; font.bold: true }
 
-            MintTextField {
-                id: searchField
+            Rectangle {
+                id: paletteLibraryPanel
                 Layout.fillWidth: true
-                placeholderText: "Search palettes…"
-            }
+                Layout.preferredHeight: Math.min(330, Math.max(220, root.height * 0.42))
+                Layout.minimumHeight: 220
+                Layout.maximumHeight: 330
+                radius: 8
+                color: theme.panelRaisedColor
+                border.color: theme.borderColor
+                clip: true
 
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: 6
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: 8
+                    spacing: 7
 
-                Repeater {
-                    model: root.visiblePaletteCategories()
-
-                    delegate: ColumnLayout {
-                        id: categorySection
-                        required property string modelData
-                        property string categoryName: modelData
-                        property var categoryPalettes: root.palettesForCategory(categoryName)
+                    MintTextField {
+                        id: searchField
                         Layout.fillWidth: true
-                        spacing: 4
+                        placeholderText: "Search palettes…"
+                    }
 
-                        Rectangle {
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: 38
-                            radius: 7
-                            color: categoryMouse.containsMouse ? theme.panelHoverColor : theme.panelRaisedColor
-                            border.color: theme.borderColor
-
-                            RowLayout {
-                                anchors.fill: parent
-                                anchors.leftMargin: 10
-                                anchors.rightMargin: 10
-                                spacing: 8
-
-                                Text {
-                                    text: root.paletteCategoryExpanded(categorySection.categoryName) ? "▾" : "▸"
-                                    color: theme.accentColor
-                                    font.pixelSize: 14
-                                }
-
-                                Text {
-                                    Layout.fillWidth: true
-                                    text: categorySection.categoryName
-                                    color: theme.textColor
-                                    font.bold: true
-                                    font.pixelSize: 12
-                                    elide: Text.ElideRight
-                                }
-
-                                Text {
-                                    text: String(categorySection.categoryPalettes.length)
-                                    color: theme.mutedTextColor
-                                    font.pixelSize: 10
-                                }
-                            }
-
-                            MouseArea {
-                                id: categoryMouse
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: root.togglePaletteCategory(categorySection.categoryName)
-                            }
-                        }
+                    ScrollView {
+                        id: libraryScroll
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        clip: true
+                        contentWidth: availableWidth
+                        ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                        ScrollBar.vertical.policy: ScrollBar.AsNeeded
 
                         ColumnLayout {
-                            Layout.fillWidth: true
-                            spacing: 2
-                            visible: root.paletteCategoryExpanded(categorySection.categoryName)
+                            id: libraryColumn
+                            width: libraryScroll.availableWidth
+                            spacing: 6
 
                             Repeater {
-                                model: root.paletteCategoryExpanded(categorySection.categoryName)
-                                       ? categorySection.categoryPalettes : []
+                                model: root.visiblePaletteCategories()
 
-                                delegate: Rectangle {
-                                    required property var modelData
+                                delegate: ColumnLayout {
+                                    id: categorySection
+                                    required property string modelData
+                                    property string categoryName: modelData
+                                    property var categoryPalettes: root.palettesForCategory(categoryName)
                                     Layout.fillWidth: true
-                                    Layout.preferredHeight: 46
-                                    radius: 6
-                                    color: paletteMouse.containsMouse ? theme.panelHoverColor : "transparent"
+                                    spacing: 4
 
-                                    RowLayout {
-                                        anchors.fill: parent
-                                        anchors.leftMargin: 6
-                                        anchors.rightMargin: 6
-                                        spacing: 8
+                                    Rectangle {
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: 38
+                                        radius: 7
+                                        color: categoryMouse.containsMouse ? theme.panelHoverColor : theme.panelColor
+                                        border.color: theme.borderColor
 
-                                        ColumnLayout {
-                                            Layout.fillWidth: true
-                                            spacing: 0
+                                        RowLayout {
+                                            anchors.fill: parent
+                                            anchors.leftMargin: 10
+                                            anchors.rightMargin: 10
+                                            spacing: 8
+
+                                            Text {
+                                                text: root.paletteCategoryExpanded(categorySection.categoryName) ? "▾" : "▸"
+                                                color: theme.accentColor
+                                                font.pixelSize: 14
+                                            }
 
                                             Text {
                                                 Layout.fillWidth: true
-                                                text: modelData.name
+                                                text: categorySection.categoryName
                                                 color: theme.textColor
                                                 font.bold: true
+                                                font.pixelSize: 12
                                                 elide: Text.ElideRight
                                             }
 
                                             Text {
-                                                Layout.fillWidth: true
-                                                text: modelData.colors.length + " colors"
+                                                text: String(categorySection.categoryPalettes.length)
                                                 color: theme.mutedTextColor
                                                 font.pixelSize: 10
-                                                elide: Text.ElideRight
                                             }
                                         }
 
-                                        Row {
-                                            spacing: 0
-                                            Repeater {
-                                                model: modelData.colors.slice(0, 8)
-                                                Rectangle { width: 11; height: 24; color: modelData }
-                                            }
+                                        MouseArea {
+                                            id: categoryMouse
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: root.togglePaletteCategory(categorySection.categoryName)
                                         }
                                     }
 
-                                    MouseArea {
-                                        id: paletteMouse
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        cursorShape: Qt.PointingHandCursor
-                                        onClicked: backend.applyPalette(modelData.id)
-                                    }
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 2
+                                        visible: root.paletteCategoryExpanded(categorySection.categoryName)
 
-                                    ToolTip.visible: paletteMouse.containsMouse
-                                    ToolTip.text: modelData.description
+                                        Repeater {
+                                            model: root.paletteCategoryExpanded(categorySection.categoryName)
+                                                   ? categorySection.categoryPalettes : []
+
+                                            delegate: Rectangle {
+                                                required property var modelData
+                                                Layout.fillWidth: true
+                                                Layout.preferredHeight: 46
+                                                radius: 6
+                                                color: paletteMouse.containsMouse ? theme.panelHoverColor : "transparent"
+
+                                                RowLayout {
+                                                    anchors.fill: parent
+                                                    anchors.leftMargin: 6
+                                                    anchors.rightMargin: 6
+                                                    spacing: 8
+
+                                                    ColumnLayout {
+                                                        Layout.fillWidth: true
+                                                        spacing: 0
+
+                                                        Text {
+                                                            Layout.fillWidth: true
+                                                            text: modelData.name
+                                                            color: theme.textColor
+                                                            font.bold: true
+                                                            elide: Text.ElideRight
+                                                        }
+
+                                                        Text {
+                                                            Layout.fillWidth: true
+                                                            text: modelData.colors.length + " colors"
+                                                            color: theme.mutedTextColor
+                                                            font.pixelSize: 10
+                                                            elide: Text.ElideRight
+                                                        }
+                                                    }
+
+                                                    Row {
+                                                        spacing: 0
+                                                        Repeater {
+                                                            model: modelData.colors.slice(0, 8)
+                                                            Rectangle { width: 11; height: 24; color: modelData }
+                                                        }
+                                                    }
+                                                }
+
+                                                MouseArea {
+                                                    id: paletteMouse
+                                                    anchors.fill: parent
+                                                    hoverEnabled: true
+                                                    cursorShape: Qt.PointingHandCursor
+                                                    onClicked: backend.applyPalette(modelData.id)
+                                                }
+
+                                                ToolTip.visible: paletteMouse.containsMouse
+                                                ToolTip.text: modelData.description
+                                            }
+                                        }
+                                    }
                                 }
+                            }
+
+                            Item {
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: 2
                             }
                         }
                     }
