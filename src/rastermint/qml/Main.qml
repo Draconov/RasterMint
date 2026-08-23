@@ -277,93 +277,16 @@ ApplicationWindow {
                         StackLayout {
                             anchors.fill: parent
                             currentIndex: window.inspectorIndex
-                            // Inspector pages are intentionally lazy. StackLayout normally
-                            // constructs every child immediately, which previously meant the
-                            // 176 gradient-preview delegates on PalettePage were created while
-                            // Main.qml itself was still loading. On Windows/Qt 6.11 this could
-                            // take the process down inside QQmlApplicationEngine::load before
-                            // RasterMint ever showed a window. A page is created on first visit
-                            // and then kept alive so its local UI state is preserved.
-                            Loader {
-                                Layout.fillWidth: true
-                                Layout.fillHeight: true
-                                property bool visited: false
-                                active: visited || window.inspectorIndex === 0
-                                onLoaded: visited = true
-                                sourceComponent: Component { Pages.PresetsPage { } }
-                            }
-                            Loader {
-                                Layout.fillWidth: true
-                                Layout.fillHeight: true
-                                property bool visited: false
-                                active: visited || window.inspectorIndex === 1
-                                onLoaded: visited = true
-                                sourceComponent: Component { Pages.PreviewPage { onFitRequested: canvas.resetView() } }
-                            }
-                            Loader {
-                                Layout.fillWidth: true
-                                Layout.fillHeight: true
-                                property bool visited: false
-                                active: visited || window.inspectorIndex === 2
-                                onLoaded: visited = true
-                                sourceComponent: Component { Pages.LayersPage { } }
-                            }
-                            Loader {
-                                Layout.fillWidth: true
-                                Layout.fillHeight: true
-                                property bool visited: false
-                                active: visited || window.inspectorIndex === 3
-                                onLoaded: visited = true
-                                sourceComponent: Component { Pages.PalettePage { } }
-                            }
-                            Loader {
-                                Layout.fillWidth: true
-                                Layout.fillHeight: true
-                                property bool visited: false
-                                active: visited || window.inspectorIndex === 4
-                                onLoaded: visited = true
-                                sourceComponent: Component { Pages.RasterPage { } }
-                            }
-                            Loader {
-                                Layout.fillWidth: true
-                                Layout.fillHeight: true
-                                property bool visited: false
-                                active: visited || window.inspectorIndex === 5
-                                onLoaded: visited = true
-                                sourceComponent: Component { Pages.HardwarePage { } }
-                            }
-                            Loader {
-                                Layout.fillWidth: true
-                                Layout.fillHeight: true
-                                property bool visited: false
-                                active: visited || window.inspectorIndex === 6
-                                onLoaded: visited = true
-                                sourceComponent: Component { Pages.SourcePage { } }
-                            }
-                            Loader {
-                                Layout.fillWidth: true
-                                Layout.fillHeight: true
-                                property bool visited: false
-                                active: visited || window.inspectorIndex === 7
-                                onLoaded: visited = true
-                                sourceComponent: Component { Pages.AnimationPage { } }
-                            }
-                            Loader {
-                                Layout.fillWidth: true
-                                Layout.fillHeight: true
-                                property bool visited: false
-                                active: visited || window.inspectorIndex === 8
-                                onLoaded: visited = true
-                                sourceComponent: Component { Pages.RandomizePage { } }
-                            }
-                            Loader {
-                                Layout.fillWidth: true
-                                Layout.fillHeight: true
-                                property bool visited: false
-                                active: visited || window.inspectorIndex === 9
-                                onLoaded: visited = true
-                                sourceComponent: Component { Pages.MediaPage { } }
-                            }
+                            Pages.PresetsPage { }
+                            Pages.PreviewPage { onFitRequested: canvas.resetView() }
+                            Pages.LayersPage { }
+                            Pages.PalettePage { }
+                            Pages.RasterPage { }
+                            Pages.HardwarePage { }
+                            Pages.SourcePage { }
+                            Pages.AnimationPage { }
+                            Pages.RandomizePage { }
+                            Pages.MediaPage { }
                         }
                     }
                 }

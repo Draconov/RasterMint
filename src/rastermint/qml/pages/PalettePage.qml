@@ -11,7 +11,7 @@ Item {
     property var optimizedPaletteCounts: [2, 3, 6, 8, 12, 16, 32, 256]
     property var gradientStops: ["#163B2A", "#F1E66B"]
     property var gradientStopPositions: [0.0, 1.0]
-    property bool gradientPresetsExpanded: false
+    property bool gradientPresetsExpanded: true
     property var gradientPresets: backend.gradientPresets || []
 
     function evenGradientPositions(count) {
@@ -611,30 +611,40 @@ Item {
                         rowSpacing: 6
 
                         Repeater {
-                            // Keep the preset list fully text-only. Gradient previews were
-                            // introduced just before the Windows startup access violation, so
-                            // no preview render objects are created here at all.
-                            model: root.gradientPresetsExpanded ? root.gradientPresets : []
+                            model: root.gradientPresets
 
                             delegate: Rectangle {
                                 id: presetCard
                                 required property var modelData
                                 Layout.fillWidth: true
-                                Layout.preferredHeight: 34
+                                Layout.preferredHeight: 38
                                 radius: 5
-                                color: presetMouse.containsMouse ? theme.panelHoverColor : theme.panelColor
+                                color: theme.canvasColor
                                 border.color: root.gradientPresetSelected(modelData) ? theme.accentColor : theme.borderColor
                                 border.width: root.gradientPresetSelected(modelData) ? 2 : 1
+                                clip: true
 
-                                Text {
+                                Canvas {
+                                    id: presetCanvas
                                     anchors.fill: parent
-                                    anchors.leftMargin: 9
-                                    anchors.rightMargin: 9
-                                    text: presetCard.modelData.name || "Gradient preset"
-                                    color: theme.textColor
-                                    font.pixelSize: 11
-                                    verticalAlignment: Text.AlignVCenter
-                                    elide: Text.ElideRight
+                                    anchors.margins: 3
+                                    onPaint: {
+                                        var ctx = getContext("2d")
+                                        ctx.clearRect(0, 0, width, height)
+                                        var gradient = ctx.createLinearGradient(0, 0, width, 0)
+                                        var colors = presetCard.modelData.colors
+                                        var positions = presetCard.modelData.positions || []
+                                        for (var i = 0; i < colors.length; ++i) {
+                                            var position = positions.length === colors.length
+                                                ? positions[i] : (colors.length === 1 ? 0 : i / (colors.length - 1))
+                                            gradient.addColorStop(position, colors[i])
+                                        }
+                                        ctx.fillStyle = gradient
+                                        ctx.fillRect(0, 0, width, height)
+                                    }
+                                    Component.onCompleted: requestPaint()
+                                    onWidthChanged: requestPaint()
+                                    onHeightChanged: requestPaint()
                                 }
 
                                 MouseArea {
@@ -646,9 +656,8 @@ Item {
                                 }
 
                                 ToolTip.visible: presetMouse.containsMouse
-                                ToolTip.text: presetCard.modelData.name || "Gradient preset"
+                                ToolTip.text: presetCard.modelData.name
                             }
-                        }
                         }
                     }
                 }
