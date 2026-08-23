@@ -21,7 +21,7 @@ from rastermint.core.animation import EASINGS, normalize_tracks, settings_at_tim
 from rastermint.core.animation_presets import ANIMATION_PRESETS, apply_animation_preset
 from rastermint.core.builtin_presets import BUILTIN_PRESETS, build_builtin_preset
 from rastermint.core.dither import ALGORITHMS
-from rastermint.core.effect_stack import EFFECT_DEFINITIONS, default_effect_stack, new_effect, normalize_effect_stack
+from rastermint.core.effect_stack import EFFECT_DEFINITIONS, default_effect_stack, effect_categories, new_effect, normalize_effect_stack
 from rastermint.core.hardware import apply_profile_to_settings, load_builtin_profiles, load_profile_file, profile_summary
 from rastermint.core.history import UndoHistory
 from rastermint.core.lospec import fetch_lospec_palette
@@ -86,11 +86,17 @@ class RasterMintBackend(QObject):
     errorOccurred = Signal(str, str)
     infoOccurred = Signal(str, str)
     historyChanged = Signal()
+    showHotkeysChanged = Signal()
 
     def __init__(self, image_provider: RasterImageProvider, parent: QObject | None = None) -> None:
         super().__init__(parent)
         self.provider = image_provider
         self.app_settings = QSettings("RasterMint", "RasterMint")
+        raw_show_hotkeys = self.app_settings.value("showHotkeysQml", True)
+        if isinstance(raw_show_hotkeys, str):
+            self._show_hotkeys = raw_show_hotkeys.strip().lower() not in {"0", "false", "no", "off", ""}
+        else:
+            self._show_hotkeys = bool(raw_show_hotkeys)
 
         self.settings = ProcessingSettings()
         self.settings.effect_stack = default_effect_stack(self.settings)
@@ -190,6 +196,19 @@ class RasterMintBackend(QObject):
     def statusText(self) -> str:
         return self._status
 
+    @Property(bool, notify=showHotkeysChanged)
+    def showHotkeys(self) -> bool:
+        return self._show_hotkeys
+
+    @Slot(bool)
+    def setShowHotkeys(self, enabled: bool) -> None:
+        enabled = bool(enabled)
+        if self._show_hotkeys == enabled:
+            return
+        self._show_hotkeys = enabled
+        self.app_settings.setValue("showHotkeysQml", enabled)
+        self.showHotkeysChanged.emit()
+
     @Property(bool, notify=historyChanged)
     def canUndo(self) -> bool:
         return self._history.can_undo
@@ -209,6 +228,10 @@ class RasterMintBackend(QObject):
     @Property("QStringList", constant=True)
     def layerKinds(self) -> list[str]:
         return list(EFFECT_DEFINITIONS.keys())
+
+    @Property("QVariantList", constant=True)
+    def layerCategories(self) -> list[dict[str, Any]]:
+        return effect_categories()
 
     @Property(int, notify=layerSelectionChanged)
     def selectedLayerIndex(self) -> int:
