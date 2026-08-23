@@ -193,7 +193,7 @@ Item {
             spacing: root.layerRowSpacing
             clip: true
             currentIndex: backend.selectedLayerIndex
-            ScrollBar.vertical: ScrollBar { policy: ScrollBar.AlwaysOff }
+            ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
 
             delegate: Rectangle {
                 id: layerDelegate

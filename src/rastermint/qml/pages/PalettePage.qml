@@ -339,10 +339,15 @@ Item {
 
                                             delegate: Rectangle {
                                                 required property var modelData
+                                                property bool isCurrentPalette: String(backend.settingsMap.palette_name || "") === String(modelData.name || "")
                                                 Layout.fillWidth: true
                                                 Layout.preferredHeight: 46
                                                 radius: 6
-                                                color: paletteMouse.containsMouse ? theme.panelHoverColor : "transparent"
+                                                color: isCurrentPalette
+                                                       ? theme.selectionColor
+                                                       : (paletteMouse.containsMouse ? theme.panelHoverColor : "transparent")
+                                                border.color: isCurrentPalette ? theme.accentColor : "transparent"
+                                                border.width: isCurrentPalette ? 1 : 0
 
                                                 RowLayout {
                                                     anchors.fill: parent

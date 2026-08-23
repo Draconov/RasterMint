@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +23,7 @@ from rastermint.core.processor import (
     processed_raster_size,
     target_raster_size,
 )
+from rastermint.core.settings import ProcessingSettings
 from rastermint.core.svg_export import save_svg
 
 from .backend import _local_path
@@ -66,7 +68,96 @@ def _clamp_scale_percent(value: object) -> int:
 
 
 class RasterMintBackend(PreferencesBackend):
-    """Add export workflows to the normal QML backend."""
+    """Add export workflows and keep UI profile identity in sync with settings."""
+
+    # These values describe library/UI metadata rather than the rendered result.
+    # Changing only one of them should not turn a real hardware profile into
+    # Custom. Any actual processing change does.
+    _HARDWARE_IDENTITY_METADATA_KEYS = frozenset({
+        "hardware_profile_id",
+        "hardware_mode",
+        "palette_name",
+        "palette_author",
+        "palette_source",
+        "palette_locks",
+        "random_locks",
+    })
+
+    @classmethod
+    def _hardware_identity_signature(cls, settings: ProcessingSettings) -> dict[str, Any]:
+        data = settings.to_dict()
+        for key in cls._HARDWARE_IDENTITY_METADATA_KEYS:
+            data.pop(key, None)
+        return data
+
+    @contextmanager
+    def _preserve_hardware_identity(self):
+        depth = int(getattr(self, "_hardware_identity_preserve_depth", 0))
+        self._hardware_identity_preserve_depth = depth + 1
+        try:
+            yield
+        finally:
+            self._hardware_identity_preserve_depth = depth
+
+    def _replace_settings(
+        self,
+        settings: ProcessingSettings,
+        *,
+        schedule: bool = True,
+        action: str | None = None,
+        selected_layer: int | None = None,
+        record_history: bool = True,
+    ) -> bool:
+        incoming = ProcessingSettings.from_dict(settings.to_dict())
+        preserving = bool(getattr(self, "_hardware_identity_preserve_depth", 0))
+        current = getattr(self, "settings", None)
+
+        if not preserving and isinstance(current, ProcessingSettings):
+            if self._hardware_identity_signature(incoming) != self._hardware_identity_signature(current):
+                # A manual edit means the current pipeline is no longer an exact
+                # named hardware profile. Keep every actual setting untouched and
+                # change only the identity shown by the Hardware page.
+                data = incoming.to_dict()
+                data["hardware_profile_id"] = "custom"
+                incoming = ProcessingSettings.from_dict(data)
+
+        return super()._replace_settings(
+            incoming,
+            schedule=schedule,
+            action=action,
+            selected_layer=selected_layer,
+            record_history=record_history,
+        )
+
+    @Slot(str, str, "QVariantMap")
+    def applyHardware(self, profile_id: str, mode: str, options: dict[str, Any] | None = None) -> None:
+        # Applying a named profile is intentional, so keep the profile ID written
+        # by apply_profile_to_settings instead of classifying the operation as a
+        # manual/custom edit.
+        with self._preserve_hardware_identity():
+            super().applyHardware(profile_id, mode, options)
+
+    @Slot(str)
+    def applyBuiltinPreset(self, preset_id: str) -> None:
+        with self._preserve_hardware_identity():
+            super().applyBuiltinPreset(preset_id)
+
+    @Slot(str)
+    def applyPreset(self, preset_id: str) -> None:
+        # PreferencesBackend applies both built-ins and user-library presets.
+        # The guard also covers its direct super().applyBuiltinPreset(...) call.
+        with self._preserve_hardware_identity():
+            super().applyPreset(preset_id)
+
+    @Slot(str)
+    def loadPreset(self, value: str) -> None:
+        with self._preserve_hardware_identity():
+            super().loadPreset(value)
+
+    def _restore_history_state(self, state: dict[str, Any]) -> None:
+        # Undo/redo restores the exact profile identity recorded in history.
+        with self._preserve_hardware_identity():
+            super()._restore_history_state(state)
 
     def _transparency_source(self) -> Image.Image | None:
         """Reload the original still image when it contains real alpha.
