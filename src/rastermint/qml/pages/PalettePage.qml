@@ -9,6 +9,63 @@ Item {
     property int colorEditIndex: -1
     property var expandedPaletteCategories: ({})
     property var optimizedPaletteCounts: [2, 3, 6, 8, 12, 16, 32, 256]
+    property var gradientStops: ["#163B2A", "#F1E66B"]
+
+    function updateGradientStop(index, value) {
+        var next = gradientStops.slice(0)
+        next[index] = value
+        gradientStops = next
+    }
+
+    function addGradientStop() {
+        if (gradientStops.length >= 10)
+            return
+        var next = gradientStops.slice(0)
+        next.push(next.length ? next[next.length - 1] : "#FFFFFF")
+        gradientStops = next
+    }
+
+    function removeGradientStop(index) {
+        if (gradientStops.length <= 2)
+            return
+        var next = gradientStops.slice(0)
+        next.splice(index, 1)
+        gradientStops = next
+    }
+
+    function moveGradientStop(index, delta) {
+        var target = index + delta
+        if (target < 0 || target >= gradientStops.length)
+            return
+        var next = gradientStops.slice(0)
+        var value = next[index]
+        next.splice(index, 1)
+        next.splice(target, 0, value)
+        gradientStops = next
+    }
+
+    function paletteLibraryCategoryChoices() {
+        var result = ["Custom"]
+        var seen = {"Custom": true}
+        var library = backend.paletteLibrary || []
+        for (var i = 0; i < library.length; ++i) {
+            var category = paletteDisplayCategory(library[i])
+            if (category.length > 0 && !seen[category]) {
+                seen[category] = true
+                result.push(category)
+            }
+        }
+        result.sort(function(a, b) { return a.localeCompare(b) })
+        result.push("New category…")
+        return result
+    }
+
+    function categoryForSaveDialog() {
+        if (saveCategoryCombo.currentText === "New category…")
+            return saveCustomCategory.text.trim()
+        return saveCategoryCombo.currentText.trim()
+    }
+
 
     function paletteCategoryExpanded(name) {
         // Search results should be immediately visible without forcing the user
@@ -429,9 +486,15 @@ Item {
                 }
             }
 
-            RowLayout {
+            GridLayout {
                 Layout.fillWidth: true
+                columns: width >= 520 ? 4 : 2
+                columnSpacing: 6
+                rowSpacing: 6
+
                 MintButton { Layout.fillWidth: true; text: "Import…"; onClicked: importPaletteDialog.open() }
+                MintButton { Layout.fillWidth: true; text: "Save to Library"; onClicked: savePaletteLibraryDialog.open() }
+                MintButton { Layout.fillWidth: true; text: "Export JSON…"; onClicked: exportPaletteJsonDialog.open() }
                 MintButton { Layout.fillWidth: true; text: "Export HEX…"; onClicked: exportPaletteDialog.open() }
             }
 
@@ -456,19 +519,63 @@ Item {
             }
 
             MintLabel { text: "Gradient"; font.bold: true }
-            RowLayout {
+            MintLabel {
+                text: "Anchor colours"
+                color: theme.mutedTextColor
+                font.pixelSize: 11
+            }
+            ColumnLayout {
                 Layout.fillWidth: true
-                MintColorPicker {
-                    id: startColor
-                    Layout.fillWidth: true
-                    colorValue: "#163B2A"
-                    dialogTitle: "Gradient start colour"
+                spacing: 6
+
+                Repeater {
+                    model: root.gradientStops.length
+
+                    delegate: RowLayout {
+                        required property int index
+                        Layout.fillWidth: true
+                        spacing: 6
+
+                        MintColorPicker {
+                            Layout.fillWidth: true
+                            alphaEnabled: false
+                            colorValue: root.gradientStops[index]
+                            dialogTitle: "Gradient colour " + (index + 1)
+                            onColorPicked: function(value) { root.updateGradientStop(index, value) }
+                        }
+                        MintButton {
+                            text: "↑"
+                            enabled: index > 0
+                            onClicked: root.moveGradientStop(index, -1)
+                        }
+                        MintButton {
+                            text: "↓"
+                            enabled: index < root.gradientStops.length - 1
+                            onClicked: root.moveGradientStop(index, 1)
+                        }
+                        MintButton {
+                            text: "−"
+                            enabled: root.gradientStops.length > 2
+                            onClicked: root.removeGradientStop(index)
+                        }
+                    }
                 }
-                MintColorPicker {
-                    id: endColor
+
+                RowLayout {
                     Layout.fillWidth: true
-                    colorValue: "#F1E66B"
-                    dialogTitle: "Gradient end colour"
+                    MintButton {
+                        text: "+ Add colour"
+                        enabled: root.gradientStops.length < 10
+                        onClicked: root.addGradientStop()
+                    }
+                    Text {
+                        Layout.fillWidth: true
+                        text: root.gradientStops.length + " / 10 anchor colours"
+                        color: theme.mutedTextColor
+                        horizontalAlignment: Text.AlignRight
+                        verticalAlignment: Text.AlignVCenter
+                        font.pixelSize: 11
+                    }
                 }
             }
             RowLayout {
@@ -477,11 +584,71 @@ Item {
                 MintComboBox { id: colorSpace; Layout.fillWidth: true; model: ["OKLab", "RGB", "Linear RGB", "HSV", "HSL"] }
                 MintButton {
                     text: "Generate"
-                    onClicked: backend.generatePalette(startColor.colorValue, endColor.colorValue, gradientCount.value, colorSpace.currentText)
+                    onClicked: backend.generatePaletteFromStops(root.gradientStops, gradientCount.value, colorSpace.currentText)
                 }
             }
 
             Item { Layout.preferredHeight: 4 }
+        }
+    }
+
+    Dialog {
+        id: savePaletteLibraryDialog
+        title: "Save palette to library"
+        modal: true
+        width: Math.min(430, root.width - 24)
+        x: Math.round((root.width - width) / 2)
+        y: Math.max(12, Math.round((root.height - height) / 2))
+        padding: 12
+
+        onOpened: {
+            var currentName = String(backend.settingsMap.palette_name || "Custom Palette")
+            savePaletteName.text = currentName.length > 0 ? currentName : "Custom Palette"
+            saveCustomCategory.text = ""
+            var choices = root.paletteLibraryCategoryChoices()
+            var customIndex = choices.indexOf("Custom")
+            saveCategoryCombo.currentIndex = customIndex >= 0 ? customIndex : 0
+            savePaletteName.forceActiveFocus()
+            savePaletteName.selectAll()
+        }
+
+        contentItem: ColumnLayout {
+            spacing: 8
+
+            MintLabel { text: "Name" }
+            MintTextField {
+                id: savePaletteName
+                Layout.fillWidth: true
+                placeholderText: "Palette name"
+            }
+
+            MintLabel { text: "Category" }
+            MintComboBox {
+                id: saveCategoryCombo
+                Layout.fillWidth: true
+                model: root.paletteLibraryCategoryChoices()
+            }
+
+            MintTextField {
+                id: saveCustomCategory
+                Layout.fillWidth: true
+                visible: saveCategoryCombo.currentText === "New category…"
+                placeholderText: "New category name"
+            }
+        }
+
+        footer: RowLayout {
+            spacing: 6
+            Item { Layout.fillWidth: true }
+            MintButton { text: "Cancel"; onClicked: savePaletteLibraryDialog.close() }
+            MintButton {
+                text: "Save"
+                enabled: savePaletteName.text.trim().length > 0 && root.categoryForSaveDialog().length > 0
+                onClicked: {
+                    backend.savePaletteToLibrary(savePaletteName.text.trim(), root.categoryForSaveDialog())
+                    savePaletteLibraryDialog.close()
+                }
+            }
         }
     }
 
@@ -505,6 +672,15 @@ Item {
         id: importPaletteDialog
         nameFilters: ["Palette files (*.hex *.txt *.gpl *.pal)", "All files (*)"]
         onAccepted: backend.importPalette(selectedFile.toString())
+    }
+
+    FileDialog {
+        id: exportPaletteJsonDialog
+        title: "Export RasterMint palette as JSON"
+        fileMode: FileDialog.SaveFile
+        defaultSuffix: "json"
+        nameFilters: ["JSON palette (*.json)"]
+        onAccepted: backend.exportPaletteJson(selectedFile.toString())
     }
 
     FileDialog {

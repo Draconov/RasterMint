@@ -274,13 +274,9 @@ def _lerp_hue(a: float, b: float, t: float) -> float:
     return (a + delta * t) % 1.0
 
 
-def interpolate_palette(start: str, end: str, count: int = 8, space: str = "OKLab") -> list[str]:
-    """Generate a color ramp including both endpoints."""
-    count = max(2, min(256, int(count)))
+def _interpolate_pair(start: str, end: str, t: float, mode: str) -> str:
     start_rgb = _rgb01(start)
     end_rgb = _rgb01(end)
-    mode = str(space or "OKLab").strip().upper().replace(" ", "")
-    result: list[str] = []
 
     if mode in {"HSV", "HSL"}:
         if mode == "HSV":
@@ -290,29 +286,46 @@ def interpolate_palette(start: str, end: str, count: int = 8, space: str = "OKLa
             # colorsys calls HSL "HLS" and orders the last two components as L,S.
             a = colorsys.rgb_to_hls(*start_rgb); b = colorsys.rgb_to_hls(*end_rgb)
             converter = colorsys.hls_to_rgb
-        for i in range(count):
-            t = i / (count - 1)
-            values = (_lerp_hue(a[0], b[0], t), _lerp(a[1], b[1], t), _lerp(a[2], b[2], t))
-            result.append(_hex01(converter(*values)))
-        return result
+        values = (_lerp_hue(a[0], b[0], t), _lerp(a[1], b[1], t), _lerp(a[2], b[2], t))
+        return _hex01(converter(*values))
 
     if mode in {"LINEARRGB", "LINEAR"}:
         a = tuple(_srgb_to_linear(c) for c in start_rgb)
         b = tuple(_srgb_to_linear(c) for c in end_rgb)
-        for i in range(count):
-            t = i / (count - 1)
-            result.append(_hex01(_linear_to_srgb(_lerp(a[j], b[j], t)) for j in range(3)))
-        return result
+        return _hex01(_linear_to_srgb(_lerp(a[j], b[j], t)) for j in range(3))
 
     if mode == "RGB":
-        for i in range(count):
-            t = i / (count - 1)
-            result.append(_hex01(_lerp(start_rgb[j], end_rgb[j], t) for j in range(3)))
-        return result
+        return _hex01(_lerp(start_rgb[j], end_rgb[j], t) for j in range(3))
 
     a = _rgb_to_oklab(start_rgb)
     b = _rgb_to_oklab(end_rgb)
+    return _hex01(_oklab_to_rgb(tuple(_lerp(a[j], b[j], t) for j in range(3))))
+
+
+def interpolate_palette(start: str, end: str, count: int = 8, space: str = "OKLab") -> list[str]:
+    """Generate a color ramp including both endpoints."""
+    return interpolate_palette_stops([start, end], count, space)
+
+
+def interpolate_palette_stops(stops: Iterable[str], count: int = 8, space: str = "OKLab") -> list[str]:
+    """Generate a color ramp through multiple anchor colors, including endpoints."""
+    normalized = [str(stop).strip().upper() for stop in stops if str(stop).strip()]
+    if len(normalized) < 2:
+        raise ValueError("At least two colors are required to generate a gradient palette")
+
+    count = max(2, min(256, int(count)))
+    mode = str(space or "OKLab").strip().upper().replace(" ", "")
+    if len(normalized) == 2:
+        return [_interpolate_pair(normalized[0], normalized[1], i / (count - 1), mode) for i in range(count)]
+
+    segment_count = len(normalized) - 1
+    result: list[str] = []
     for i in range(count):
-        t = i / (count - 1)
-        result.append(_hex01(_oklab_to_rgb(tuple(_lerp(a[j], b[j], t) for j in range(3)))))
+        if i == count - 1:
+            result.append(normalized[-1])
+            continue
+        position = (i / (count - 1)) * segment_count
+        segment_index = min(segment_count - 1, int(position))
+        local_t = position - segment_index
+        result.append(_interpolate_pair(normalized[segment_index], normalized[segment_index + 1], local_t, mode))
     return result

@@ -4,8 +4,10 @@
 from __future__ import annotations
 
 import colorsys
+import json
 import math
 import random
+import re
 import traceback
 from pathlib import Path
 from typing import Any
@@ -19,13 +21,13 @@ from rastermint.core.animation import EASINGS, normalize_tracks, settings_at_tim
 from rastermint.core.animation_presets import ANIMATION_PRESETS, apply_animation_preset
 from rastermint.core.builtin_presets import BUILTIN_PRESETS, build_builtin_preset
 from rastermint.core.dither import ALGORITHMS
-from rastermint.core.effect_stack import EFFECT_DEFINITIONS, default_effect_stack, effect_categories, new_effect, normalize_effect_stack
+from rastermint.core.effect_stack import EFFECT_DEFINITIONS, default_effect_stack, new_effect, normalize_effect_stack
 from rastermint.core.hardware import apply_profile_to_settings, load_builtin_profiles, load_profile_file, profile_summary
 from rastermint.core.history import UndoHistory
 from rastermint.core.lospec import fetch_lospec_palette
 from rastermint.core.media import SUPPORTED_VIDEO_SUFFIXES, VideoInfo, probe_video, read_video_frame
 from rastermint.core.palette import PALETTE_OPTIMIZERS, extract_palette, read_palette_file, write_hex_palette
-from rastermint.core.palette_library import PALETTE_LIBRARY, find_palette, interpolate_palette
+from rastermint.core.palette_library import PALETTE_LIBRARY, find_palette, interpolate_palette, interpolate_palette_stops
 from rastermint.core.presets import load_preset, save_preset
 from rastermint.core.processor import (
     FAST_PREVIEW_MAX_SIDE,
@@ -79,21 +81,16 @@ class RasterMintBackend(QObject):
     playbackChanged = Signal()
     renderedPreviewChanged = Signal()
     hardwareProfilesChanged = Signal()
+    paletteLibraryChanged = Signal()
     audioExportChanged = Signal()
     errorOccurred = Signal(str, str)
     infoOccurred = Signal(str, str)
     historyChanged = Signal()
-    showHotkeysChanged = Signal()
 
     def __init__(self, image_provider: RasterImageProvider, parent: QObject | None = None) -> None:
         super().__init__(parent)
         self.provider = image_provider
         self.app_settings = QSettings("RasterMint", "RasterMint")
-        raw_show_hotkeys = self.app_settings.value("showHotkeysQml", True)
-        if isinstance(raw_show_hotkeys, str):
-            self._show_hotkeys = raw_show_hotkeys.strip().lower() not in {"0", "false", "no", "off", ""}
-        else:
-            self._show_hotkeys = bool(raw_show_hotkeys)
 
         self.settings = ProcessingSettings()
         self.settings.effect_stack = default_effect_stack(self.settings)
@@ -134,6 +131,7 @@ class RasterMintBackend(QObject):
         self._random_history: list[dict[str, Any]] = []
         self._random_index = -1
         self._hardware_profiles = load_builtin_profiles()
+        self._user_palettes = self._load_user_palettes()
 
         self.thread_pool = QThreadPool(self)
         self.thread_pool.setMaxThreadCount(max(2, min(4, QThreadPool.globalInstance().maxThreadCount())))
@@ -192,19 +190,6 @@ class RasterMintBackend(QObject):
     def statusText(self) -> str:
         return self._status
 
-    @Property(bool, notify=showHotkeysChanged)
-    def showHotkeys(self) -> bool:
-        return self._show_hotkeys
-
-    @Slot(bool)
-    def setShowHotkeys(self, enabled: bool) -> None:
-        enabled = bool(enabled)
-        if self._show_hotkeys == enabled:
-            return
-        self._show_hotkeys = enabled
-        self.app_settings.setValue("showHotkeysQml", enabled)
-        self.showHotkeysChanged.emit()
-
     @Property(bool, notify=historyChanged)
     def canUndo(self) -> bool:
         return self._history.can_undo
@@ -224,10 +209,6 @@ class RasterMintBackend(QObject):
     @Property("QStringList", constant=True)
     def layerKinds(self) -> list[str]:
         return list(EFFECT_DEFINITIONS.keys())
-
-    @Property("QVariantList", constant=True)
-    def layerCategories(self) -> list[dict[str, Any]]:
-        return effect_categories()
 
     @Property(int, notify=layerSelectionChanged)
     def selectedLayerIndex(self) -> int:
@@ -261,12 +242,70 @@ class RasterMintBackend(QObject):
             result.append(row)
         return result
 
-    @Property("QVariantList", constant=True)
+    _USER_PALETTES_SETTINGS_KEY = "userPalettesV1"
+
+    @staticmethod
+    def _palette_slug(value: str) -> str:
+        slug = re.sub(r"[^a-z0-9]+", "-", str(value).strip().lower()).strip("-")
+        return slug or "palette"
+
+    @staticmethod
+    def _normalized_user_palette(item: object) -> dict[str, Any] | None:
+        if not isinstance(item, dict):
+            return None
+        name = str(item.get("name", "")).strip()
+        category = str(item.get("category", "Custom")).strip() or "Custom"
+        colors = [str(color).strip().upper() for color in list(item.get("colors") or []) if str(color).strip()]
+        if not name or not colors:
+            return None
+        palette_id = str(item.get("id", "")).strip() or f"user-palette-{RasterMintBackend._palette_slug(name)}"
+        return {
+            "id": palette_id,
+            "name": name,
+            "category": category,
+            "description": str(item.get("description", "User palette")).strip() or "User palette",
+            "colors": colors[:256],
+            "user": True,
+        }
+
+    def _load_user_palettes(self) -> list[dict[str, Any]]:
+        raw = self.app_settings.value(self._USER_PALETTES_SETTINGS_KEY, "[]")
+        try:
+            payload = json.loads(str(raw or "[]"))
+        except (TypeError, ValueError, json.JSONDecodeError):
+            payload = []
+        result: list[dict[str, Any]] = []
+        for item in payload if isinstance(payload, list) else []:
+            normalized = self._normalized_user_palette(item)
+            if normalized is not None:
+                result.append(normalized)
+        return result
+
+    def _save_user_palettes(self) -> None:
+        self.app_settings.setValue(self._USER_PALETTES_SETTINGS_KEY, json.dumps(self._user_palettes, ensure_ascii=False))
+        self.app_settings.sync()
+
+    @Property("QVariantList", notify=paletteLibraryChanged)
     def paletteLibrary(self) -> list[dict[str, Any]]:
-        return [
-            {"id": p.id, "name": p.name, "category": p.category, "description": p.description, "colors": list(p.colors)}
+        builtins = [
+            {
+                "id": p.id,
+                "name": p.name,
+                "category": p.category,
+                "description": p.description,
+                "colors": list(p.colors),
+                "user": False,
+            }
             for p in PALETTE_LIBRARY
         ]
+        return builtins + [dict(item) for item in self._user_palettes]
+
+    def _find_user_palette(self, name_or_id: str) -> dict[str, Any] | None:
+        needle = str(name_or_id).strip()
+        for palette in self._user_palettes:
+            if needle == str(palette.get("id", "")) or needle == str(palette.get("name", "")):
+                return palette
+        return None
 
     @Property("QStringList", constant=True)
     def paletteOptimizerNames(self) -> list[str]:
@@ -308,18 +347,7 @@ class RasterMintBackend(QObject):
 
     @Property("QVariantList", constant=True)
     def builtinPresets(self) -> list[dict[str, Any]]:
-        profile_names = {p.id: p.name for p in self._hardware_profiles}
-        return [
-            {
-                "id": p.id,
-                "name": p.name,
-                "description": p.description,
-                "hardwareProfileId": p.hardware_profile_id,
-                "hardwareProfileName": profile_names.get(p.hardware_profile_id, ""),
-                "hardwareMode": p.hardware_mode,
-            }
-            for p in BUILTIN_PRESETS
-        ]
+        return [{"id": p.id, "name": p.name, "description": p.description} for p in BUILTIN_PRESETS]
 
     @Property("QStringList", constant=True)
     def animationPresetNames(self) -> list[str]:
@@ -862,17 +890,79 @@ class RasterMintBackend(QObject):
     @Slot(str)
     def applyPalette(self, name_or_id: str) -> None:
         record = find_palette(str(name_or_id))
-        if not record:
-            return
+        if record:
+            colors = list(record.colors)
+            name = record.name
+            source = record.source
+            author = "RasterMint palette library"
+        else:
+            user = self._find_user_palette(str(name_or_id))
+            if user is None:
+                return
+            colors = list(user.get("colors") or [])
+            name = str(user.get("name", "Custom"))
+            source = "user library"
+            author = "RasterMint user library"
         data = self.settings.to_dict()
         data.update(
-            palette=list(record.colors),
-            palette_locks=[False] * len(record.colors),
-            palette_name=record.name,
-            palette_author="RasterMint palette library",
-            palette_source=record.source,
+            palette=colors,
+            palette_locks=[False] * len(colors),
+            palette_name=name,
+            palette_author=author,
+            palette_source=source,
         )
-        self._replace_settings(ProcessingSettings.from_dict(data), action=f"Palette: {record.name}")
+        self._replace_settings(ProcessingSettings.from_dict(data), action=f"Palette: {name}")
+
+    @Slot(str, str)
+    def savePaletteToLibrary(self, name: str, category: str) -> None:
+        palette_name = str(name).strip()
+        palette_category = str(category).strip() or "Custom"
+        colors = [str(color).strip().upper() for color in list(self.settings.palette) if str(color).strip()]
+        if not palette_name:
+            self.errorOccurred.emit("Could not save palette", "Palette name cannot be empty.")
+            return
+        if not colors:
+            self.errorOccurred.emit("Could not save palette", "The current palette has no colours.")
+            return
+
+        existing = next(
+            (item for item in self._user_palettes if str(item.get("name", "")).casefold() == palette_name.casefold()),
+            None,
+        )
+        if existing is not None:
+            existing.update(
+                category=palette_category,
+                colors=colors[:256],
+                description=f"Saved RasterMint palette · {len(colors[:256])} colors",
+            )
+        else:
+            used_ids = {str(item.get("id", "")) for item in self._user_palettes}
+            base_id = f"user-palette-{self._palette_slug(palette_name)}"
+            palette_id = base_id
+            suffix = 2
+            while palette_id in used_ids:
+                palette_id = f"{base_id}-{suffix}"
+                suffix += 1
+            self._user_palettes.append({
+                "id": palette_id,
+                "name": palette_name,
+                "category": palette_category,
+                "description": f"Saved RasterMint palette · {len(colors[:256])} colors",
+                "colors": colors[:256],
+                "user": True,
+            })
+
+        self._save_user_palettes()
+        self.paletteLibraryChanged.emit()
+        self._set_status(f"Saved palette to library: {palette_name}")
+
+    def _current_palette_category(self) -> str:
+        current_name = str(getattr(self.settings, "palette_name", "") or "")
+        record = find_palette(current_name)
+        if record is not None:
+            return str(record.category or "Custom")
+        user = self._find_user_palette(current_name)
+        return str(user.get("category", "Custom")) if user is not None else "Custom"
 
     @Slot(str)
     def importPalette(self, value: str) -> None:
@@ -896,6 +986,27 @@ class RasterMintBackend(QObject):
         except Exception as exc:
             self.errorOccurred.emit("Could not export palette", str(exc))
 
+    @Slot(str)
+    def exportPaletteJson(self, value: str) -> None:
+        try:
+            path = Path(_local_path(value))
+            if not path.suffix:
+                path = path.with_suffix(".json")
+            payload = {
+                "format": "RasterMint Palette",
+                "version": 1,
+                "name": str(getattr(self.settings, "palette_name", "") or "Custom Palette"),
+                "category": self._current_palette_category(),
+                "author": str(getattr(self.settings, "palette_author", "") or ""),
+                "source": str(getattr(self.settings, "palette_source", "") or ""),
+                "colors": list(self.settings.palette),
+                "locks": list(getattr(self.settings, "palette_locks", []) or []),
+            }
+            path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+            self._set_status(f"Saved palette JSON {path.name}")
+        except Exception as exc:
+            self.errorOccurred.emit("Could not export palette JSON", str(exc))
+
     @Slot(int, str)
     def optimizePalette(self, count: int, method: str) -> None:
         source = self._active_source()
@@ -916,6 +1027,23 @@ class RasterMintBackend(QObject):
             data = self.settings.to_dict()
             data.update(palette=colors, palette_locks=[False] * len(colors), palette_name=f"{space} Gradient {count}", palette_author="RasterMint", palette_source="generated")
             self._replace_settings(ProcessingSettings.from_dict(data), action=f"Generated palette: {space} · {len(colors)} colors")
+        except Exception as exc:
+            self.errorOccurred.emit("Could not generate palette", str(exc))
+
+    @Slot("QVariantList", int, str)
+    def generatePaletteFromStops(self, stops: list[Any], count: int, space: str) -> None:
+        try:
+            colors = interpolate_palette_stops([str(stop) for stop in stops], count, space)
+            data = self.settings.to_dict()
+            stop_count = len([str(stop) for stop in stops if str(stop).strip()])
+            data.update(
+                palette=colors,
+                palette_locks=[False] * len(colors),
+                palette_name=f"{space} Gradient {count}",
+                palette_author="RasterMint",
+                palette_source=f"generated from {stop_count} anchor colors",
+            )
+            self._replace_settings(ProcessingSettings.from_dict(data), action=f"Generated palette: {space} · {len(colors)} colors · {stop_count} anchors")
         except Exception as exc:
             self.errorOccurred.emit("Could not generate palette", str(exc))
 
