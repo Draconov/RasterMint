@@ -273,6 +273,9 @@ EFFECT_DEFINITIONS: dict[str, dict[str, Any]] = {
         "strength": {"type": "float", "label": "Strength", "default": 1.0, "min": 0.0, "max": 2.0, "step": 0.05, "decimals": 2, "animatable": True},
         "threshold": {"type": "float", "label": "Threshold", "default": 0.5, "min": 0.0, "max": 1.0, "step": 0.01, "decimals": 2, "animatable": True},
         "serpentine": {"type": "bool", "label": "Serpentine", "default": True},
+        "color_mix_pattern": {"type": "choice", "label": "1:1 pattern", "default": "Checker", "options": ["Checker", "Horizontal", "Vertical", "Bayer 2x2"]},
+        "color_mix_distance": {"type": "choice", "label": "1:1 matching", "default": "OKLab", "options": ["OKLab", "RGB"]},
+        "color_mix_phase": {"type": "int", "label": "1:1 phase", "default": 0, "min": 0, "max": 1, "step": 1, "animatable": True},
     }},
 }
 

@@ -139,6 +139,14 @@ Item {
         }
         if (backend.selectedLayerName === "Text Mask" && param.key === "background")
             return String(selectedParamValue("background_mode", "Solid Colour")) === "Solid Colour"
+        if (backend.selectedLayerName === "Dither") {
+            var algorithm = String(selectedParamValue("algorithm", "Floyd-Steinberg"))
+            var colourMix = algorithm === "1:1 Colour Mix"
+            if (String(param.key).indexOf("color_mix_") === 0)
+                return colourMix
+            if (colourMix && (param.key === "strength" || param.key === "threshold" || param.key === "serpentine"))
+                return false
+        }
         return true
     }
 

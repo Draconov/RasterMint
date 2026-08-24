@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from array import array
+from functools import lru_cache
 import math
 import numpy as np
 
@@ -255,6 +256,153 @@ def _nearest_color_index_rgb(r: float, g: float, b: float, palette_values: tuple
             best_index = index
     return best_index
 
+_COLOUR_MIX_MAX_PAIR_BASE_COLORS = 48
+
+
+def _srgb8_to_oklab(values: np.ndarray) -> np.ndarray:
+    """Vectorised sRGB (0..255) to OKLab conversion."""
+    rgb = np.clip(np.asarray(values, dtype=np.float32), 0.0, 255.0) / 255.0
+    linear = np.where(rgb <= 0.04045, rgb / 12.92, ((rgb + 0.055) / 1.055) ** 2.4)
+    r, g, b = linear[..., 0], linear[..., 1], linear[..., 2]
+    l = 0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b
+    m = 0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b
+    s = 0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b
+    l_, m_, s_ = np.cbrt(l), np.cbrt(m), np.cbrt(s)
+    return np.stack((
+        0.2104542553 * l_ + 0.7936177850 * m_ - 0.0040720468 * s_,
+        1.9779984951 * l_ - 2.4285922050 * m_ + 0.4505937099 * s_,
+        0.0259040371 * l_ + 0.7827717662 * m_ - 0.8086757660 * s_,
+    ), axis=-1).astype(np.float32)
+
+
+def _representative_palette_indices(values: np.ndarray, limit: int) -> np.ndarray:
+    """Deterministic farthest-point sampling for very large palettes.
+
+    Full pair enumeration is exact through 48 colours. Above that, all direct
+    palette colours remain available, while mixed pairs use a representative
+    48-colour subset. This bounds preview/export work for 128/256-colour
+    palettes without ever emitting a colour outside the active palette.
+    """
+    count = len(values)
+    if count <= limit:
+        return np.arange(count, dtype=np.int32)
+
+    # Start near the dark/low-magnitude corner, then repeatedly take the colour
+    # furthest from the selected set. This spreads representatives across gamut.
+    selected = [int(np.argmin(np.sum(values * values, axis=1)))]
+    min_dist = np.full(count, np.inf, dtype=np.float32)
+    while len(selected) < limit:
+        latest = values[selected[-1]]
+        dist = np.sum((values - latest) ** 2, axis=1)
+        min_dist = np.minimum(min_dist, dist)
+        min_dist[selected] = -1.0
+        selected.append(int(np.argmax(min_dist)))
+    return np.asarray(selected, dtype=np.int32)
+
+
+@lru_cache(maxsize=24)
+def _colour_mix_pair_model(
+    palette_key: tuple[tuple[int, int, int], ...],
+    distance_mode: str,
+) -> tuple[np.ndarray, np.ndarray]:
+    palette = np.asarray(palette_key, dtype=np.float32)
+    mode = str(distance_mode or "OKLab").strip().upper().replace(" ", "")
+    match_palette = _srgb8_to_oklab(palette) if mode == "OKLAB" else palette
+
+    representatives = _representative_palette_indices(match_palette, _COLOUR_MIX_MAX_PAIR_BASE_COLORS)
+    pairs: list[tuple[int, int]] = []
+    seen: set[tuple[int, int]] = set()
+
+    # Every same-colour pair is included, so exact active-palette colours can
+    # always survive unchanged even when a large palette is sampled for mixes.
+    for index in range(len(palette)):
+        pair = (index, index)
+        pairs.append(pair)
+        seen.add(pair)
+
+    reps = [int(index) for index in representatives]
+    for offset, first in enumerate(reps):
+        for second in reps[offset:]:
+            pair = (first, second) if first <= second else (second, first)
+            if pair not in seen:
+                pairs.append(pair)
+                seen.add(pair)
+
+    pair_indices = np.asarray(pairs, dtype=np.int32)
+    pair_match_values = (
+        match_palette[pair_indices[:, 0]] + match_palette[pair_indices[:, 1]]
+    ) * 0.5
+    return pair_indices, pair_match_values.astype(np.float32)
+
+
+def _colour_mix_pattern_mask(height: int, width: int, pattern: str, phase: int) -> np.ndarray:
+    yy, xx = np.mgrid[0:height, 0:width]
+    phase = int(phase) & 1
+    pattern = str(pattern or "Checker")
+    if pattern == "Horizontal":
+        mask = ((yy + phase) & 1) == 0
+    elif pattern == "Vertical":
+        mask = ((xx + phase) & 1) == 0
+    elif pattern == "Bayer 2x2":
+        matrix = np.array([[0, 2], [3, 1]], dtype=np.int8)
+        tiled = np.tile(matrix, (math.ceil(height / 2), math.ceil(width / 2)))[:height, :width]
+        mask = tiled < 2
+        if phase:
+            mask = ~mask
+    else:
+        mask = ((xx + yy + phase) & 1) == 0
+    return mask
+
+
+def colour_mix_dither(
+    image: np.ndarray,
+    palette: np.ndarray,
+    pattern: str = "Checker",
+    distance: str = "OKLab",
+    phase: int = 0,
+) -> np.ndarray:
+    """Approximate source colours with a strict 50/50 pair of palette colours.
+
+    Each pixel chooses the palette-colour pair whose midpoint is nearest to the
+    source colour, then a deterministic 1:1 spatial pattern chooses which member
+    of that pair is emitted at that coordinate. The output therefore contains
+    only active-palette colours while creating perceived intermediate colours.
+    """
+    source = np.asarray(image, dtype=np.float32)
+    palette_np = np.asarray(palette, dtype=np.float32)
+    if palette_np.ndim != 2 or palette_np.shape[0] == 0 or palette_np.shape[1] != 3:
+        raise ValueError("Palette must contain at least one RGB color")
+    if source.size == 0:
+        return source.copy()
+
+    palette_key = tuple(tuple(int(round(float(channel))) for channel in color) for color in palette_np)
+    mode = str(distance or "OKLab").strip().upper().replace(" ", "")
+    pair_indices, pair_match_values = _colour_mix_pair_model(palette_key, mode)
+    match_source = _srgb8_to_oklab(source) if mode == "OKLAB" else source
+
+    pixels = match_source.reshape(-1, 3)
+    pair_sq = np.sum(pair_match_values * pair_match_values, axis=1)
+    chosen_pair = np.empty(len(pixels), dtype=np.int32)
+
+    # Keep the temporary distance matrix around ~16 MiB regardless of palette
+    # size. This avoids the huge pixel×pair allocation that a naive version
+    # would create for 64/128/256-colour palettes.
+    pair_count = max(1, len(pair_match_values))
+    chunk_pixels = max(512, min(16384, 4_000_000 // pair_count))
+    for start in range(0, len(pixels), chunk_pixels):
+        end = min(len(pixels), start + chunk_pixels)
+        chunk = pixels[start:end]
+        chunk_sq = np.sum(chunk * chunk, axis=1, keepdims=True)
+        distances = chunk_sq + pair_sq[None, :] - 2.0 * (chunk @ pair_match_values.T)
+        chosen_pair[start:end] = np.argmin(distances, axis=1)
+
+    chosen = pair_indices[chosen_pair]
+    first = palette_np[chosen[:, 0]].reshape(source.shape)
+    second = palette_np[chosen[:, 1]].reshape(source.shape)
+    mask = _colour_mix_pattern_mask(source.shape[0], source.shape[1], pattern, phase)
+    return np.where(mask[:, :, None], first, second).astype(np.float32)
+
+
 
 def dot_diffusion(image: np.ndarray, palette: np.ndarray, strength: float = 1.0) -> np.ndarray:
     """Class-ordered dot diffusion using an 8x8 Bayer class matrix."""
@@ -338,6 +486,9 @@ def apply_dither(
     strength: float = 1.0,
     serpentine: bool = True,
     threshold: float = 0.5,
+    color_mix_pattern: str = "Checker",
+    color_mix_distance: str = "OKLab",
+    color_mix_phase: int = 0,
 ) -> np.ndarray:
     if algorithm == "Nearest Palette":
         return quantize_nearest(image, palette)
@@ -349,6 +500,11 @@ def apply_dither(
         return interleaved_gradient_noise(image, palette, strength)
     if algorithm == "Blue Noise":
         return blue_noise_dither(image, palette, strength)
+    if algorithm == "1:1 Colour Mix":
+        return colour_mix_dither(
+            image, palette, pattern=color_mix_pattern,
+            distance=color_mix_distance, phase=color_mix_phase,
+        )
     if algorithm in BAYER_MATRICES:
         return ordered_dither(image, palette, BAYER_MATRICES[algorithm], strength)
     if algorithm in CLUSTERED_MATRICES:

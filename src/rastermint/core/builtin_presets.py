@@ -76,6 +76,7 @@ BUILTIN_PRESETS: tuple[BuiltinPreset, ...] = (
     BuiltinPreset("pico-8", "PICO-8", "Fantasy-console 16-colour palette with crunchy contrast."),
     BuiltinPreset("tic-80", "TIC-80", "Fantasy-console TIC-80 palette with bright game-like colours."),
     BuiltinPreset("vector", "Vector", "Posterized clean-line render inspired by vectorised retro poster art."),
+    BuiltinPreset("accurate-1to1", "Accurate 1:1 Colour", "50/50 palette-colour mixing for perceived intermediate colours while keeping the active palette."),
 )
 
 
@@ -243,6 +244,17 @@ PRESET_CONFIGS: dict[str, dict[str, Any]] = {
             _effect("Posterize", index=6, levels=5),
         ],
     },
+    "accurate-1to1": {
+        "dither": {
+            "algorithm": "1:1 Colour Mix",
+            "strength": 1.0,
+            "mix": 1.0,
+            "serpentine": False,
+            "color_mix_pattern": "Checker",
+            "color_mix_distance": "OKLab",
+            "color_mix_phase": 0,
+        },
+    },
 }
 
 
@@ -278,6 +290,12 @@ def _set_dither(settings: ProcessingSettings, spec: dict[str, Any]) -> None:
             params["mix"] = float(spec["mix"])
         if spec.get("serpentine") is not None:
             params["serpentine"] = bool(spec["serpentine"])
+        if spec.get("color_mix_pattern") is not None:
+            params["color_mix_pattern"] = str(spec["color_mix_pattern"])
+        if spec.get("color_mix_distance") is not None:
+            params["color_mix_distance"] = str(spec["color_mix_distance"])
+        if spec.get("color_mix_phase") is not None:
+            params["color_mix_phase"] = int(spec["color_mix_phase"])
         return
 
 
@@ -408,5 +426,14 @@ def build_builtin_preset(preset_id: str, base: ProcessingSettings | None = None)
     else:
         config = PRESET_CONFIGS.get(preset_id, PRESET_CONFIGS["clean-quantize"])
         settings = _apply_data_config(settings, config)
+
+    # This preset is an algorithm recipe, not a palette preset. Preserve the
+    # user's currently selected palette and lock state instead of replacing it.
+    if preset_id == "accurate-1to1" and base is not None:
+        settings.palette = list(base.palette)
+        settings.palette_name = str(base.palette_name)
+        settings.palette_author = str(base.palette_author)
+        settings.palette_source = str(base.palette_source)
+        settings.palette_locks = list(base.palette_locks) if base.palette_locks else [False] * len(settings.palette)
 
     return ProcessingSettings.from_dict(settings.to_dict())

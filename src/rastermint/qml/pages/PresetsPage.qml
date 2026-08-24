@@ -69,7 +69,7 @@ Item {
         },
         {
             "name": "Stylized & Print",
-            "ids": ["halftone-print", "vector"]
+            "ids": ["halftone-print", "vector", "accurate-1to1"]
         },
         {
             "name": "Fantasy Consoles",

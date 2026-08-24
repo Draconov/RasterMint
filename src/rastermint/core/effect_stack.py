@@ -1593,6 +1593,9 @@ def apply_effect_stack(
             result = apply_dither(
                 arr, palette_np, str(p["algorithm"]), strength=float(p["strength"]),
                 serpentine=bool(p["serpentine"]), threshold=float(p["threshold"]),
+                color_mix_pattern=str(p.get("color_mix_pattern", "Checker")),
+                color_mix_distance=str(p.get("color_mix_distance", "OKLab")),
+                color_mix_phase=int(p.get("color_mix_phase", 0)),
             )
             dithered = Image.fromarray(np.clip(result, 0, 255).astype(np.uint8), "RGB")
             img = dithered if mix >= 1.0 else Image.blend(before, dithered, mix)
