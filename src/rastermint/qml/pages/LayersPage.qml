@@ -147,6 +147,8 @@ Item {
             if (colourMix && (param.key === "strength" || param.key === "threshold" || param.key === "serpentine"))
                 return false
         }
+        if (backend.selectedLayerName === "Dither Glow" && param.key === "glow_color")
+            return String(selectedParamValue("glow_color_mode", "Source")) === "Custom Tint"
         return true
     }
 
@@ -501,6 +503,16 @@ Item {
                 enabled: !param.animated
                 Component.onCompleted: currentIndex = Math.max(0, param.options.indexOf(String(param.value)))
                 onActivated: backend.setLayerParam(param.key, currentText)
+            }
+            MintLabel {
+                Layout.fillWidth: true
+                visible: backend.selectedLayerName === "ASCII / Glyph"
+                         && param.key === "background_mode"
+                         && String(param.value) === "Transparent"
+                text: "Transparent ASCII background keeps alpha in transparency-capable exports."
+                color: theme.mutedTextColor
+                wrapMode: Text.WordWrap
+                font.pixelSize: 10
             }
         }
     }

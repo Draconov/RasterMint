@@ -125,6 +125,18 @@ def _glow(image: Image.Image, radius: float, intensity: float) -> Image.Image:
     return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), "RGB")
 
 
+def _soft_threshold_weight(luminance: np.ndarray, threshold: float, softness: float) -> np.ndarray:
+    threshold = max(0.0, min(1.0, float(threshold)))
+    softness = max(0.0, min(1.0, float(softness)))
+    if softness <= 1e-6:
+        return (luminance >= threshold).astype(np.float32)
+    knee = max(1e-6, softness * 0.5)
+    lo = threshold - knee
+    hi = threshold + knee
+    t = np.clip((luminance - lo) / max(1e-6, hi - lo), 0.0, 1.0)
+    return t * t * (3.0 - 2.0 * t)
+
+
 def _bloom(
     image: Image.Image,
     threshold: float,
@@ -149,16 +161,7 @@ def _bloom(
 
     base = np.asarray(image.convert("RGB"), dtype=np.float32) / 255.0
     luminance = 0.2126 * base[..., 0] + 0.7152 * base[..., 1] + 0.0722 * base[..., 2]
-
-    # Smoothstep around the threshold. At knee=0 this becomes a hard cutoff.
-    knee = max(1e-6, soft_knee * 0.5)
-    if soft_knee <= 1e-6:
-        weight = (luminance >= threshold).astype(np.float32)
-    else:
-        lo = threshold - knee
-        hi = threshold + knee
-        t = np.clip((luminance - lo) / max(1e-6, hi - lo), 0.0, 1.0)
-        weight = t * t * (3.0 - 2.0 * t)
+    weight = _soft_threshold_weight(luminance, threshold, soft_knee)
 
     highlights = np.clip(base * weight[..., None] * 255.0, 0.0, 255.0).astype(np.uint8)
     highlight_image = Image.fromarray(highlights, "RGB")
@@ -173,6 +176,56 @@ def _bloom(
     else:  # Screen is the safer/default photographic blend.
         out = 1.0 - (1.0 - base) * (1.0 - bloom)
 
+    return Image.fromarray(np.clip(np.rint(out * 255.0), 0, 255).astype(np.uint8), "RGB")
+
+
+def _dither_glow(
+    image: Image.Image,
+    threshold: float,
+    softness: float,
+    radius: float,
+    spread: int,
+    intensity: float,
+    blend: str,
+    glow_color_mode: str,
+    glow_color: str,
+    preserve_core: bool,
+) -> Image.Image:
+    radius = max(0.0, float(radius))
+    intensity = max(0.0, float(intensity))
+    spread = max(0, int(spread))
+    if radius <= 0.0 or intensity <= 0.0:
+        return image
+
+    base = np.asarray(image.convert("RGB"), dtype=np.float32) / 255.0
+    luminance = 0.2126 * base[..., 0] + 0.7152 * base[..., 1] + 0.0722 * base[..., 2]
+    weight = _soft_threshold_weight(luminance, threshold, softness)
+
+    mode = str(glow_color_mode or "Source")
+    if mode == "Custom Tint":
+        tint = np.asarray(hex_to_rgb(glow_color), dtype=np.float32) / 255.0
+        emit = weight[..., None] * tint[None, None, :]
+    else:
+        emit = base * weight[..., None]
+
+    emit_img = Image.fromarray(np.clip(np.rint(emit * 255.0), 0, 255).astype(np.uint8), "RGB")
+    if spread > 0:
+        emit_img = emit_img.filter(ImageFilter.MaxFilter(size=max(3, spread * 2 + 1)))
+    blurred = np.asarray(emit_img.filter(ImageFilter.GaussianBlur(radius=radius)), dtype=np.float32) / 255.0
+    glow = np.clip(blurred * intensity, 0.0, 1.0)
+
+    if preserve_core:
+        work = base
+    else:
+        work = np.clip(base * (1.0 - 0.35 * weight[..., None]), 0.0, 1.0)
+
+    if str(blend) == "Add":
+        out = np.clip(work + glow, 0.0, 1.0)
+    else:
+        out = 1.0 - (1.0 - work) * (1.0 - glow)
+
+    if preserve_core:
+        out = np.maximum(out, base)
     return Image.fromarray(np.clip(np.rint(out * 255.0), 0, 255).astype(np.uint8), "RGB")
 
 
@@ -689,6 +742,65 @@ def _glyph_chars(character_set: str, custom_chars: str) -> str:
     return chars if len(chars) >= 2 else _GLYPH_SETS["Classic ASCII"]
 
 
+@lru_cache(maxsize=128)
+def _glyph_fingerprint(font_name: str, font_size: int, ch: str) -> tuple[int, int, bytes] | None:
+    if ch == " ":
+        return None
+    font = _load_text_font(font_name, max(6, int(font_size)))
+    canvas_size = max(24, int(font_size) * 2)
+    mask = Image.new("L", (canvas_size, canvas_size), 0)
+    draw = ImageDraw.Draw(mask)
+    bbox = draw.textbbox((0, 0), ch, font=font)
+    width = max(0, bbox[2] - bbox[0])
+    height = max(0, bbox[3] - bbox[1])
+    if width <= 0 or height <= 0:
+        return None
+    draw.text(
+        ((canvas_size - width) / 2 - bbox[0], (canvas_size - height) / 2 - bbox[1]),
+        ch,
+        font=font,
+        fill=255,
+    )
+    arr = np.asarray(mask, dtype=np.uint8)
+    ys, xs = np.nonzero(arr)
+    if ys.size == 0 or xs.size == 0:
+        return None
+    cropped = arr[ys.min():ys.max() + 1, xs.min():xs.max() + 1]
+    return (int(cropped.shape[0]), int(cropped.shape[1]), cropped.tobytes())
+
+
+@lru_cache(maxsize=64)
+def ascii_available_chars(character_set: str, custom_chars: str, font_name: str, font_size: int) -> str:
+    raw = _glyph_chars(character_set, custom_chars)
+    sentinels = ("", "", "")
+    placeholder_fingerprints = {
+        fp for fp in (_glyph_fingerprint(font_name, font_size, ch) for ch in sentinels)
+        if fp is not None
+    }
+
+    supported: list[str] = []
+    seen: set[str] = set()
+    for ch in raw:
+        if ch in seen:
+            continue
+        seen.add(ch)
+        if ch == " ":
+            supported.append(ch)
+            continue
+        fp = _glyph_fingerprint(font_name, font_size, ch)
+        if fp is None:
+            continue
+        if placeholder_fingerprints and fp in placeholder_fingerprints:
+            continue
+        supported.append(ch)
+
+    chars = "".join(supported)
+    if len(chars) >= 2:
+        return chars
+    fallback = _GLYPH_SETS["Classic ASCII"]
+    return fallback if len(fallback) >= 2 else " .:-=+*#%@"
+
+
 @lru_cache(maxsize=256)
 def _glyph_density_order(chars: str, font_name: str, font_size: int) -> str:
     font = _load_text_font(font_name, max(6, int(font_size)))
@@ -953,7 +1065,7 @@ def _ascii_mapping_chars(
     font_name: str,
     font_size: int,
 ) -> str:
-    chars = _glyph_chars(character_set, custom_chars)
+    chars = ascii_available_chars(character_set, custom_chars, font_name, max(6, int(font_size)))
     if auto_density:
         chars = _glyph_density_order(chars, font_name, max(6, int(font_size)))
     depth = max(2, min(len(chars), int(depth)))
@@ -1584,6 +1696,19 @@ def apply_effect_stack(
                 int(p["rgb_offset"]), int(p["slice_shift"]), int(p["slice_height"]), int(p.get("vertical_jitter", 0)),
                 float(p.get("dropout", 0.0)), float(p.get("opacity", 1.0)), bool(p.get("temporal", False)), int(p["seed"]), frame_index,
             )
+        elif kind == "Dither Glow":
+            img = _dither_glow(
+                img,
+                float(p.get("threshold", 0.72)),
+                float(p.get("softness", 0.18)),
+                float(p.get("radius", 5.0)),
+                int(p.get("spread", 1)),
+                float(p.get("intensity", 1.25)),
+                str(p.get("blend", "Screen")),
+                str(p.get("glow_color_mode", "Source")),
+                str(p.get("glow_color", "#FFFFFF")),
+                bool(p.get("preserve_core", True)),
+            )
         elif kind == "Dither":
             mix = max(0.0, min(1.0, float(p.get("mix", 1.0))))
             if mix <= 0.0:
@@ -1591,8 +1716,12 @@ def apply_effect_stack(
             before = img.convert("RGB")
             arr = np.asarray(before, dtype=np.float32)
             result = apply_dither(
-                arr, palette_np, str(p["algorithm"]), strength=float(p["strength"]),
-                serpentine=bool(p["serpentine"]), threshold=float(p["threshold"]),
+                arr,
+                palette_np,
+                str(p["algorithm"]),
+                strength=float(p["strength"]),
+                serpentine=bool(p["serpentine"]),
+                threshold=float(p["threshold"]),
                 color_mix_pattern=str(p.get("color_mix_pattern", "Checker")),
                 color_mix_distance=str(p.get("color_mix_distance", "OKLab")),
                 color_mix_phase=int(p.get("color_mix_phase", 0)),

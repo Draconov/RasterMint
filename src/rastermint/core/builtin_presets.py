@@ -77,6 +77,7 @@ BUILTIN_PRESETS: tuple[BuiltinPreset, ...] = (
     BuiltinPreset("tic-80", "TIC-80", "Fantasy-console TIC-80 palette with bright game-like colours."),
     BuiltinPreset("vector", "Vector", "Posterized clean-line render inspired by vectorised retro poster art."),
     BuiltinPreset("accurate-1to1", "Accurate 1:1 Colour", "50/50 palette-colour mixing for perceived intermediate colours while keeping the active palette."),
+    BuiltinPreset("isolated-dither-glow", "Isolated Dither Glow", "Highlight-only glow pass made to sit cleanly on top of dithered pixels."),
 )
 
 
@@ -255,6 +256,29 @@ PRESET_CONFIGS: dict[str, dict[str, Any]] = {
             "color_mix_phase": 0,
         },
     },
+    "isolated-dither-glow": {
+        "dither": {
+            "algorithm": "Floyd-Steinberg",
+            "strength": 1.0,
+            "mix": 1.0,
+            "serpentine": True,
+        },
+        "effects": [
+            _effect(
+                "Dither Glow",
+                index=7,
+                threshold=0.7,
+                softness=0.16,
+                radius=4.0,
+                spread=1,
+                intensity=1.35,
+                blend="Screen",
+                glow_color_mode="Source",
+                glow_color="#9EF7FF",
+                preserve_core=True,
+            ),
+        ],
+    },
 }
 
 
@@ -429,7 +453,7 @@ def build_builtin_preset(preset_id: str, base: ProcessingSettings | None = None)
 
     # This preset is an algorithm recipe, not a palette preset. Preserve the
     # user's currently selected palette and lock state instead of replacing it.
-    if preset_id == "accurate-1to1" and base is not None:
+    if preset_id in {"accurate-1to1", "isolated-dither-glow"} and base is not None:
         settings.palette = list(base.palette)
         settings.palette_name = str(base.palette_name)
         settings.palette_author = str(base.palette_author)

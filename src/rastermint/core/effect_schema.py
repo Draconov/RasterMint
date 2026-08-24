@@ -179,7 +179,7 @@ EFFECT_DEFINITIONS: dict[str, dict[str, Any]] = {
         "invert": {"type": "bool", "label": "Invert mapping", "default": False},
         "color_mode": {"type": "choice", "label": "Colour mode", "default": "Source", "options": ["Source", "Palette", "Single Colour"]},
         "foreground": {"type": "color", "label": "Foreground", "default": "#FFFFFF"},
-        "background_mode": {"type": "choice", "label": "Background", "default": "Solid Colour", "options": ["Transparent", "Solid Colour", "Source Image"]},
+        "background_mode": {"type": "choice", "label": "Background mode", "default": "Solid Colour", "options": ["Solid Colour", "Transparent", "Source Image"]},
         "background": {"type": "color", "label": "Background colour", "default": "#101217"},
         "font": {"type": "choice", "label": "Font", "default": "Mono", "options": ["Pixel", "Mono", "Sans", "Serif"]},
         "font_scale": {"type": "float", "label": "Glyph scale", "default": 0.9, "min": 0.4, "max": 1.5, "step": 0.05, "decimals": 2, "animatable": True},
@@ -267,6 +267,17 @@ EFFECT_DEFINITIONS: dict[str, dict[str, Any]] = {
         "temporal": {"type": "bool", "label": "Animate glitch", "default": False},
         "seed": {"type": "int", "label": "Seed", "default": 1, "min": 0, "max": 999999, "step": 1},
     }},
+    "Dither Glow": {"params": {
+        "threshold": {"type": "float", "label": "Threshold", "default": 0.72, "min": 0.0, "max": 1.0, "step": 0.01, "decimals": 2, "animatable": True},
+        "softness": {"type": "float", "label": "Softness", "default": 0.18, "min": 0.0, "max": 1.0, "step": 0.01, "decimals": 2, "animatable": True},
+        "radius": {"type": "float", "label": "Radius", "default": 5.0, "min": 0.0, "max": 64.0, "step": 0.25, "decimals": 2, "suffix": " px", "animatable": True, "pixel_scaled": True},
+        "spread": {"type": "int", "label": "Spread", "default": 1, "min": 0, "max": 12, "step": 1, "suffix": " px", "animatable": True, "pixel_scaled": True},
+        "intensity": {"type": "float", "label": "Intensity", "default": 1.25, "min": 0.0, "max": 4.0, "step": 0.05, "decimals": 2, "animatable": True},
+        "blend": {"type": "choice", "label": "Blend", "default": "Screen", "options": ["Screen", "Add"]},
+        "glow_color_mode": {"type": "choice", "label": "Glow colour", "default": "Source", "options": ["Source", "Custom Tint"]},
+        "glow_color": {"type": "color", "label": "Tint colour", "default": "#9EF7FF"},
+        "preserve_core": {"type": "bool", "label": "Preserve source highlights", "default": True},
+    }},
     "Dither": {"params": {
         "algorithm": {"type": "choice", "label": "Algorithm", "default": "Floyd-Steinberg", "options": ALGORITHMS},
         "mix": {"type": "float", "label": "Mix", "default": 1.0, "min": 0.0, "max": 1.0, "step": 0.05, "decimals": 2, "animatable": True},
@@ -287,7 +298,7 @@ EFFECT_CATEGORIES: tuple[tuple[str, tuple[str, ...]], ...] = (
         "Gaussian Blur", "Median Denoise", "Sharpen", "Glow", "Bloom",
     )),
     ("Pixel & Dither", (
-        "Pixelate", "Dither", "Pixel Material",
+        "Pixelate", "Dither", "Dither Glow", "Pixel Material",
     )),
     ("Display & Analog", (
         "Pixel Aspect Ratio", "Scanlines", "Interlace", "JPEG Compression",

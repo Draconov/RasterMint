@@ -311,12 +311,31 @@ class RasterMintBackend(QObject):
         definition = EFFECT_DEFINITIONS.get(kind, {})
         values = item.get("params") if isinstance(item.get("params"), dict) else {}
         result = []
+        current_font = str(values.get("font", "Mono"))
+        current_character_set = str(values.get("character_set", "Classic ASCII"))
+        current_custom_chars = str(values.get("custom_chars", " .:-=+*#%@"))
+        current_cell_size = int(values.get("cell_size", 10) or 10)
+        current_font_scale = float(values.get("font_scale", 0.9) or 0.9)
+        current_font_size = max(6, round(current_cell_size * max(0.4, min(1.5, current_font_scale))))
         for key, spec in definition.get("params", {}).items():
             row = dict(spec)
             row["key"] = key
             row["value"] = values.get(key, spec.get("default"))
             row["options"] = list(spec.get("options", []))
             row["suffix"] = str(spec.get("suffix", ""))
+            if kind == "ASCII / Glyph" and key == "depth":
+                from rastermint.core.effect_stack import ascii_available_chars
+                available = ascii_available_chars(
+                    current_character_set,
+                    current_custom_chars,
+                    current_font,
+                    current_font_size,
+                )
+                row["max"] = max(2, len(available))
+                try:
+                    row["value"] = min(int(row["value"]), int(row["max"]))
+                except (TypeError, ValueError):
+                    row["value"] = min(int(spec.get("default", 10)), int(row["max"]))
             target_id = f"effect:{item.get('id', '')}:{key}"
             row["animated"] = any(
                 track.get("enabled", True) and str(track.get("target", "")) == target_id
@@ -1308,7 +1327,23 @@ class RasterMintBackend(QObject):
         try:
             preset = next((p for p in BUILTIN_PRESETS if p.id == preset_id), None)
             label = preset.name if preset else str(preset_id)
-            self._replace_settings(build_builtin_preset(preset_id, self.settings), action=f"Applied preset: {label}")
+            settings = build_builtin_preset(preset_id, self.settings)
+
+            if preset_id == "accurate-1to1":
+                source = self._active_source()
+                if source is not None:
+                    colors = extract_palette(source, 12, "Median Cut")
+                    data = settings.to_dict()
+                    data.update(
+                        palette=colors,
+                        palette_locks=[False] * len(colors),
+                        palette_name=f"Optimized {len(colors)}",
+                        palette_author="RasterMint",
+                        palette_source="source image",
+                    )
+                    settings = ProcessingSettings.from_dict(data)
+
+            self._replace_settings(settings, action=f"Applied preset: {label}")
         except Exception as exc:
             self.errorOccurred.emit("Could not apply preset", str(exc))
 

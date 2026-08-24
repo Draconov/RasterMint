@@ -9,7 +9,7 @@ from rastermint.core.effect_stack import EFFECT_DEFINITIONS, _resolve_text_font_
 NEW_EFFECTS = [
     "Local Contrast", "RGB Split", "Interlace", "Pixel Sort", "Screen Melt",
     "Block Shuffle", "Pixel Scatter", "Data Shift", "Row Shift", "Column Shift",
-    "Cellular Automata", "Databend", "Channel Swap", "Pixel Material", "Text Overlay",
+    "Cellular Automata", "Databend", "Channel Swap", "Pixel Material", "Text Overlay", "Dither Glow",
 ]
 
 
