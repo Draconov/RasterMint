@@ -49,3 +49,25 @@ def test_presets_page_keeps_library_grid_and_custom_preset_controls():
     assert "backend.savePresetToLibrary" in presets
     assert "backend.deletePresetFromLibrary" in presets
     assert "model: backend.builtinPresets" not in presets
+
+
+def test_gradient_presets_do_not_overlay_editor_and_apply_immediately():
+    palette = (QML / "pages" / "PalettePage.qml").read_text(encoding="utf-8")
+
+    # The preset Rectangle must close after its ScrollView. If that brace drifts
+    # to EOF during a merge, the anchor/editor controls become children of the
+    # Rectangle and paint on top of the preset grid instead of participating in
+    # the page's ColumnLayout.
+    preset_scroll_end = palette.index(
+        '                    }\n                }\n            }\n\n            MintLabel {\n                text: "Anchor colours"'
+    )
+    assert preset_scroll_end >= 0
+
+    # A preset selection must do the same useful thing as the custom Generate
+    # button: create a palette in the backend, which schedules a preview render
+    # when an image is loaded.
+    preset_function = palette[
+        palette.index("function applyGradientPreset(preset)") : palette.index("function gradientPresetSelected(preset)")
+    ]
+    assert 'backend.generatePaletteFromPositionedStops(colors, resolvedPositions, gradientCount.value, "RGB")' in preset_function
+    assert 'onClicked: backend.generatePaletteFromPositionedStops(root.gradientStops, root.gradientStopPositions, gradientCount.value, colorSpace.currentText)' in palette

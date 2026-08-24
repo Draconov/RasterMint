@@ -57,13 +57,19 @@ Item {
     }
 
     function applyGradientPreset(preset) {
-        gradientStops = (preset.colors || []).slice(0)
+        var colors = (preset.colors || []).slice(0)
         var positions = preset.positions || []
-        gradientStopPositions = positions.length === gradientStops.length
-            ? positions.slice(0) : evenGradientPositions(gradientStops.length)
-        // The reference previews are CSS-style sRGB gradients, so use RGB
-        // interpolation when one is selected. Users can switch spaces after.
+        var resolvedPositions = positions.length === colors.length
+            ? positions.slice(0) : evenGradientPositions(colors.length)
+
+        gradientStops = colors
+        gradientStopPositions = resolvedPositions
+
+        // The reference presets are CSS-style sRGB gradients. Selecting one
+        // updates the editor and immediately applies the generated palette to
+        // the active image, matching the custom Gradient > Generate workflow.
         colorSpace.currentIndex = 1
+        backend.generatePaletteFromPositionedStops(colors, resolvedPositions, gradientCount.value, "RGB")
     }
 
     function gradientPresetSelected(preset) {
@@ -661,6 +667,7 @@ Item {
                         }
                     }
                 }
+            }
 
             MintLabel {
                 text: "Anchor colours"
@@ -833,5 +840,4 @@ Item {
         nameFilters: ["HEX palette (*.hex)"]
         onAccepted: backend.exportPalette(selectedFile.toString())
     }
-}
 }
