@@ -107,6 +107,14 @@ def test_ffmpeg_packaging_prefers_validated_override_and_manifest_is_lean():
     assert dependency["default-features"] is False
     assert set(dependency["features"]) == {"ffmpeg", "swresample", "swscale", "x264", "zlib"}
 
+    gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
+    assert "!build/hooks/hook-imageio_ffmpeg.py" in gitignore
+    assert "!build/ffmpeg-vcpkg/" in gitignore
+    assert "!build/ffmpeg-vcpkg/vcpkg.json" in gitignore
+
+    workflow = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
+    assert "RASTERMINT_REQUIRE_LEAN_FFMPEG" not in workflow
+
 
 def test_backend_import_stays_light_when_pyside6_is_available():
     pytest.importorskip("PySide6")

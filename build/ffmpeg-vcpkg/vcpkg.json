@@ -1,0 +1,17 @@
+{
+  "name": "rastermint-lean-ffmpeg",
+  "version-string": "1",
+  "dependencies": [
+    {
+      "name": "ffmpeg",
+      "default-features": false,
+      "features": [
+        "ffmpeg",
+        "swresample",
+        "swscale",
+        "x264",
+        "zlib"
+      ]
+    }
+  ]
+}

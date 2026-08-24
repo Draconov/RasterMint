@@ -85,10 +85,9 @@ jobs:
       - name: Build Windows
         if: runner.os == 'Windows'
         shell: pwsh
-        env:
-          # Release builds must not silently fall back to the much larger
-          # imageio wheel FFmpeg; local builds may still use that safe fallback.
-          RASTERMINT_REQUIRE_LEAN_FFMPEG: "1"
+        # The build script tries the smaller validated FFmpeg first. If vcpkg
+        # is unavailable or fails upstream, it safely falls back to the
+        # imageio-ffmpeg binary so a size optimization cannot block releases.
         run: ./scripts/build_windows.ps1
 
       - name: Build Linux

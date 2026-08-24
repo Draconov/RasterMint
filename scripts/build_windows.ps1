@@ -12,7 +12,6 @@ $Root = Split-Path $PSScriptRoot -Parent
 Set-Location $Root
 
 $Python = if (Test-Path ".venv\Scripts\python.exe") { ".venv\Scripts\python.exe" } else { "python" }
-$RequireLeanFfmpeg = $env:RASTERMINT_REQUIRE_LEAN_FFMPEG -eq "1"
 
 & $Python -m pip install -e ".[build]"
 if ($LASTEXITCODE -ne 0) { throw "Dependency installation failed with exit code $LASTEXITCODE" }
@@ -148,10 +147,10 @@ if ($LeanFfmpeg) {
     Write-Host "PyInstaller will bundle lean FFmpeg: $LeanFfmpeg"
 } else {
     Remove-Item Env:RASTERMINT_FFMPEG_EXE -ErrorAction SilentlyContinue
-    if ($RequireLeanFfmpeg) {
-        throw "A validated smaller FFmpeg is required for this release build but could not be prepared."
-    }
-    Write-Warning "Falling back to imageio-ffmpeg's known-good executable for this local build."
+    # Lean FFmpeg is an optimization, never a release prerequisite. vcpkg can
+    # fail transiently or change upstream; RasterMint must still ship with the
+    # known-good imageio-ffmpeg executable rather than fail all platform CI.
+    Write-Warning "Lean FFmpeg is unavailable; falling back to imageio-ffmpeg's known-good executable."
 }
 
 & $Python -m PyInstaller build\rastermint.spec --noconfirm --clean

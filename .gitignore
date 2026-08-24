@@ -13,6 +13,10 @@ build/*
 build/hooks/*
 !build/hooks/hook-PySide6.QtQml.py
 !build/hooks/hook-PIL.Image.py
+!build/hooks/hook-imageio_ffmpeg.py
+!build/ffmpeg-vcpkg/
+build/ffmpeg-vcpkg/*
+!build/ffmpeg-vcpkg/vcpkg.json
 build-temp/
 dist/
 release/
