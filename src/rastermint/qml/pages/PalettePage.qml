@@ -834,3 +834,4 @@ Item {
         onAccepted: backend.exportPalette(selectedFile.toString())
     }
 }
+}
