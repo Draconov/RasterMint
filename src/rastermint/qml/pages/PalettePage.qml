@@ -283,11 +283,13 @@ Item {
                                 id: swatchMouse
                                 anchors.fill: parent
                                 hoverEnabled: true
-                                acceptedButtons: Qt.LeftButton | Qt.RightButton
+                                acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
                                 cursorShape: Qt.PointingHandCursor
                                 onClicked: function(mouse) {
                                     if (mouse.button === Qt.RightButton) {
                                         backend.setPaletteLock(index, !parent.locked)
+                                    } else if (mouse.button === Qt.MiddleButton) {
+                                        backend.removePaletteColor(index)
                                     } else {
                                         root.colorEditIndex = index
                                         paletteColorPicker.dialogTitle = "Edit palette color"
@@ -297,7 +299,10 @@ Item {
                             }
 
                             ToolTip.visible: swatchMouse.containsMouse
-                            ToolTip.text: (index + 1) + ": " + modelData + (locked ? " · locked" : " · right-click to lock")
+                            ToolTip.text: (index + 1) + ": " + modelData
+                                          + (locked
+                                             ? " · locked · right-click to unlock"
+                                             : " · right-click to lock · middle-click to delete")
                         }
                     }
                 }

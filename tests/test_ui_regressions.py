@@ -110,3 +110,15 @@ def test_export_transparency_toggle_is_visibly_disabled_when_unavailable():
     assert "opacity: enabled ? 1.0 : 0.45" in export_dialog
     assert "Source image has no transparency to preserve." in export_dialog
     assert 'root.selectedFormat + " does not support transparency."' in export_dialog
+
+
+def test_palette_swatches_support_middle_click_delete_without_bypassing_locks():
+    palette = (QML / "pages" / "PalettePage.qml").read_text(encoding="utf-8")
+    backend = (ROOT / "src" / "rastermint" / "qmlui" / "backend.py").read_text(encoding="utf-8")
+
+    assert "Qt.MiddleButton" in palette
+    assert "backend.removePaletteColor(index)" in palette
+    assert "middle-click to delete" in palette
+    assert "if candidate >= 0:" in backend
+    assert "or locks[candidate]" in backend
+    assert "last unlocked colour" in backend

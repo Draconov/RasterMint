@@ -1332,10 +1332,20 @@ class RasterMintBackend(QObject):
         colors = list(self.settings.palette)
         locks = list(self.settings.palette_locks)
         candidate = int(index)
-        if not (0 <= candidate < len(colors)) or locks[candidate]:
+
+        if candidate >= 0:
+            # A direct swatch deletion must target exactly the clicked colour.
+            # Locked colours are protected rather than silently deleting some
+            # other unlocked swatch from the end of the palette.
+            if not (0 <= candidate < len(colors)) or locks[candidate]:
+                return
+        else:
+            # The existing minus button keeps its previous behaviour: remove
+            # the last unlocked colour when no explicit index is supplied.
             candidate = next((i for i in range(len(colors) - 1, -1, -1) if not locks[i]), -1)
-        if candidate < 0:
-            return
+            if candidate < 0:
+                return
+
         removed = colors.pop(candidate)
         locks.pop(candidate)
         data = self.settings.to_dict()
