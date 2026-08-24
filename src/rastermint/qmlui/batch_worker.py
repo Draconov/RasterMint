@@ -8,7 +8,6 @@ from pathlib import Path
 
 from PySide6.QtCore import QRunnable, Slot
 
-from rastermint.core.batch import process_batch
 from rastermint.core.settings import ProcessingSettings
 
 from .workers import WorkerSignals
@@ -45,6 +44,8 @@ class BatchWorker(QRunnable):
     @Slot()
     def run(self) -> None:
         try:
+            from rastermint.core.batch import process_batch
+
             written = process_batch(
                 self.paths,
                 self.output_dir,

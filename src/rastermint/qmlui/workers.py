@@ -5,23 +5,11 @@ from __future__ import annotations
 
 import traceback
 from pathlib import Path
+from typing import Any
 
-from PIL import Image
 from PySide6.QtCore import QObject, QRunnable, Signal, Slot
-from rastermint.core.batch import process_batch
-from rastermint.core.gif_export import export_processed_video_gif
-from rastermint.core.media import (
-    export_image_animation,
-    export_image_sequence,
-    export_processed_video,
-    export_processed_video_sequence,
-    read_video_frame,
-    probe_video,
-    render_image_preview_frames,
-    render_video_preview_frames,
-)
+
 from rastermint.core.animation import settings_at_time
-from rastermint.core.processor import process_image
 from rastermint.core.settings import ProcessingSettings
 
 
@@ -36,7 +24,7 @@ class ProcessingWorker(QRunnable):
         self,
         job_id: int,
         purpose: str,
-        image: Image.Image,
+        image: Any,
         settings: ProcessingSettings,
         context: object = None,
         *,
@@ -60,6 +48,11 @@ class ProcessingWorker(QRunnable):
     @Slot()
     def run(self) -> None:
         try:
+            # NumPy/Pillow and the rendering pipeline are intentionally imported
+            # only when a worker actually starts processing an image. Importing
+            # the QML backend during application startup must stay lightweight.
+            from rastermint.core.processor import process_image
+
             result = process_image(
                 self.image,
                 self.settings,
@@ -99,6 +92,9 @@ class VideoCurrentFrameWorker(QRunnable):
     @Slot()
     def run(self) -> None:
         try:
+            from rastermint.core.media import probe_video, read_video_frame
+            from rastermint.core.processor import process_image
+
             source = read_video_frame(self.path, self.time_seconds)
             animated = settings_at_time(self.settings, self.time_seconds)
             info = probe_video(self.path)
@@ -144,6 +140,8 @@ class VideoFrameWorker(QRunnable):
     @Slot()
     def run(self) -> None:
         try:
+            from rastermint.core.media import read_video_frame
+
             frame = read_video_frame(self.path, self.time_seconds)
             self.signals.finished.emit(
                 self.job_id, "video-frame", frame, self.time_seconds
@@ -164,7 +162,7 @@ class MediaExportWorker(QRunnable):
         settings: ProcessingSettings,
         output: str,
         *,
-        image: Image.Image | None = None,
+        image: Any | None = None,
         video_path: str | None = None,
         include_audio: bool = True,
     ) -> None:
@@ -191,6 +189,8 @@ class MediaExportWorker(QRunnable):
         try:
             if self.video_path:
                 if Path(self.output).suffix.lower() == ".gif":
+                    from rastermint.core.gif_export import export_processed_video_gif
+
                     result = export_processed_video_gif(
                         self.video_path,
                         self.settings,
@@ -198,6 +198,8 @@ class MediaExportWorker(QRunnable):
                         progress=self._progress,
                     )
                 else:
+                    from rastermint.core.media import export_processed_video
+
                     result = export_processed_video(
                         self.video_path,
                         self.settings,
@@ -206,6 +208,8 @@ class MediaExportWorker(QRunnable):
                         progress=self._progress,
                     )
             elif self.image is not None:
+                from rastermint.core.media import export_image_animation
+
                 result = export_image_animation(
                     self.image,
                     self.settings,
@@ -234,7 +238,7 @@ class RenderedPreviewWorker(QRunnable):
         job_id: int,
         settings: ProcessingSettings,
         *,
-        image: Image.Image | None = None,
+        image: Any | None = None,
         video_path: str | None = None,
         start_time: float = 0.0,
         duration: float = 5.0,
@@ -265,6 +269,8 @@ class RenderedPreviewWorker(QRunnable):
     def run(self) -> None:
         try:
             if self.video_path:
+                from rastermint.core.media import render_video_preview_frames
+
                 frames, times, fps = render_video_preview_frames(
                     self.video_path,
                     self.settings,
@@ -275,6 +281,8 @@ class RenderedPreviewWorker(QRunnable):
                 )
                 source = "video"
             elif self.image is not None:
+                from rastermint.core.media import render_image_preview_frames
+
                 frames, times, fps = render_image_preview_frames(
                     self.image,
                     self.settings,
@@ -312,7 +320,7 @@ class SequenceExportWorker(QRunnable):
         settings: ProcessingSettings,
         output_dir: str,
         *,
-        image: Image.Image | None = None,
+        image: Any | None = None,
         video_path: str | None = None,
         prefix: str = "frame",
     ) -> None:
@@ -338,6 +346,8 @@ class SequenceExportWorker(QRunnable):
     def run(self) -> None:
         try:
             if self.video_path:
+                from rastermint.core.media import export_processed_video_sequence
+
                 written = export_processed_video_sequence(
                     self.video_path,
                     self.settings,
@@ -346,6 +356,8 @@ class SequenceExportWorker(QRunnable):
                     progress=self._progress,
                 )
             elif self.image is not None:
+                from rastermint.core.media import export_image_sequence
+
                 written = export_image_sequence(
                     self.image,
                     self.settings,
@@ -401,6 +413,8 @@ class BatchWorker(QRunnable):
     @Slot()
     def run(self) -> None:
         try:
+            from rastermint.core.batch import process_batch
+
             written = process_batch(
                 self.paths,
                 self.output_dir,

@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .effect_stack import new_effect, normalize_effect_stack
+from .effect_schema import new_effect, normalize_effect_stack
 from .settings import ProcessingSettings
 
 

@@ -6,7 +6,7 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any
 
-from .effect_stack import EFFECT_DEFINITIONS, normalize_effect_stack
+from .effect_schema import EFFECT_DEFINITIONS, normalize_effect_stack
 from .settings import ProcessingSettings
 
 EASINGS = ("Linear", "Ease In", "Ease Out", "Ease In Out", "Smoothstep")

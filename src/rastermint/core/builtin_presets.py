@@ -6,8 +6,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from .effect_stack import default_effect_stack, new_effect
-from .hardware import apply_profile_to_settings, load_builtin_profiles
+from .effect_schema import default_effect_stack, new_effect
+from .hardware_profiles import apply_profile_to_settings, load_builtin_profiles
 from .palette_library import find_palette
 from .settings import ProcessingSettings
 

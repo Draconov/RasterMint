@@ -11,7 +11,7 @@ Item {
     property var optimizedPaletteCounts: [2, 3, 6, 8, 12, 16, 32, 256]
     property var gradientStops: ["#163B2A", "#F1E66B"]
     property var gradientStopPositions: [0.0, 1.0]
-    property bool gradientPresetsExpanded: true
+    property bool gradientPresetsExpanded: false
     property var gradientPresets: backend.gradientPresets || []
 
     function evenGradientPositions(count) {

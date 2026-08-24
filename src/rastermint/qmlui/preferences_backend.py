@@ -11,7 +11,6 @@ from rastermint.core import builtin_presets, palette_library
 from rastermint.core.history import UndoHistory
 from rastermint.core.palette_json import load_palette_json, slugify_palette_name, write_palette_json
 from rastermint.core.presets import load_preset, load_preset_payload, save_preset, slugify_preset_name
-from rastermint.core.processor import make_preview_settings, make_preview_source, target_raster_size
 from rastermint.core.settings import ProcessingSettings
 from rastermint.qmlui.backend import RasterMintBackend as BaseRasterMintBackend
 from rastermint.qmlui.workers import ProcessingWorker
@@ -20,6 +19,23 @@ from rastermint.qmlui.workers import ProcessingWorker
 DEFAULT_HISTORY_LIMIT = 50
 MIN_HISTORY_LIMIT = 10
 MAX_HISTORY_LIMIT = 200
+
+
+def _processor_call(name: str, *args, **kwargs):
+    from rastermint.core import processor
+    return getattr(processor, name)(*args, **kwargs)
+
+
+def target_raster_size(size, settings):
+    return _processor_call("target_raster_size", size, settings)
+
+
+def make_preview_source(source, *, max_side: int, settings):
+    return _processor_call("make_preview_source", source, max_side=max_side, settings=settings)
+
+
+def make_preview_settings(settings, final_size, preview_size):
+    return _processor_call("make_preview_settings", settings, final_size, preview_size)
 
 
 def _clamp_history_limit(value: object) -> int:

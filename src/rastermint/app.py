@@ -17,10 +17,6 @@ from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
 
 from rastermint import __app_name__, __version__
-from rastermint.qmlui.export_backend import RasterMintBackend
-from rastermint.qmlui.image_provider import RasterImageProvider
-from rastermint.qmlui.theme import ThemeManager
-
 
 _CRASH_LOG_HANDLE = None
 
@@ -87,6 +83,14 @@ def main() -> int:
     icon = _load_app_icon()
     if icon is not None and not icon.isNull():
         app.setWindowIcon(icon)
+    # Import RasterMint's QML/backend layer only after Qt itself is alive.
+    # The backend is intentionally lightweight at import time: NumPy, Pillow,
+    # FFmpeg and the rendering pipeline are loaded only when a source is opened
+    # or a processing/export worker actually runs.
+    from rastermint.qmlui.export_backend import RasterMintBackend
+    from rastermint.qmlui.image_provider import RasterImageProvider
+    from rastermint.qmlui.theme import ThemeManager
+
     engine = QQmlApplicationEngine()
     provider = RasterImageProvider()
     backend = RasterMintBackend(provider)

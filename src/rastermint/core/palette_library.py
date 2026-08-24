@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Iterable
 import warnings
 
-from .palette import hex_to_rgb, rgb_to_hex
+from .color_utils import hex_to_rgb, rgb_to_hex
 
 
 @dataclass(frozen=True)

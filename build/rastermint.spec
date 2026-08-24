@@ -4,6 +4,7 @@
 
 from importlib.metadata import version as distribution_version
 from pathlib import Path
+import os
 import sys
 
 import imageio_ffmpeg
@@ -13,9 +14,10 @@ from PyInstaller.utils.hooks import collect_data_files, collect_submodules, copy
 ROOT = Path(SPECPATH).parent
 APP_VERSION = distribution_version("rastermint")
 
-# imageio-ffmpeg is intentionally kept conservative because video must work fully
-# offline. Pillow is handled by our format-aware hook instead of collecting every
-# optional PIL module (ImageTk, development helpers, unsupported codecs, etc.).
+# Keep the imageio-ffmpeg Python wrapper because RasterMint uses its robust pipe
+# API; the actual FFmpeg executable is selected separately below. Pillow is
+# handled by our format-aware hook instead of collecting every optional PIL
+# module (ImageTk, development helpers, unsupported codecs, etc.).
 hiddenimports = collect_submodules("imageio_ffmpeg")
 metadata = copy_metadata("rastermint") + copy_metadata("imageio-ffmpeg")
 package_data = collect_data_files(
@@ -38,11 +40,12 @@ ICON_DIR = ROOT / "src" / "rastermint" / "data" / "icons"
 HOOK_DIR = ROOT / "build" / "hooks"
 LEAN_QML_HOOK = HOOK_DIR / "hook-PySide6.QtQml.py"
 LEAN_PIL_HOOK = HOOK_DIR / "hook-PIL.Image.py"
+LEAN_FFMPEG_HOOK = HOOK_DIR / "hook-imageio_ffmpeg.py"
 
 # Do not silently fall back to PyInstaller's stock QtQml hook. That hook copies
 # the complete PySide6 QML tree and makes the release roughly as large as the
 # unoptimized build. The custom hook must be tracked in git and present in CI.
-for required_hook in (LEAN_QML_HOOK, LEAN_PIL_HOOK):
+for required_hook in (LEAN_QML_HOOK, LEAN_PIL_HOOK, LEAN_FFMPEG_HOOK):
     if not required_hook.is_file():
         raise RuntimeError(
             f"Required lean packaging hook is missing: {required_hook}. "
@@ -98,12 +101,18 @@ UNUSED_QT_MODULES = [
     "PySide6.QtGrpc",
 ]
 
-# Ship the platform-specific ffmpeg executable as a binary so one-file builds
-# keep its executable permission when PyInstaller extracts it at runtime.
-ffmpeg_exe = Path(imageio_ffmpeg.get_ffmpeg_exe())
+# Prefer RasterMint's validated lean FFmpeg when the platform build script
+# provides one.  The much larger imageio-ffmpeg wheel executable remains a
+# safe fallback for local builds and platforms where no lean build is supplied.
 ffmpeg_binaries = []
-if ffmpeg_exe.is_file() and ffmpeg_exe.parent.name == "binaries":
-    ffmpeg_binaries.append((str(ffmpeg_exe), "imageio_ffmpeg/binaries"))
+lean_ffmpeg_value = os.environ.get("RASTERMINT_FFMPEG_EXE", "").strip()
+lean_ffmpeg_exe = Path(lean_ffmpeg_value) if lean_ffmpeg_value else None
+if lean_ffmpeg_exe is not None and lean_ffmpeg_exe.is_file():
+    ffmpeg_binaries.append((str(lean_ffmpeg_exe), "rastermint_ffmpeg"))
+else:
+    ffmpeg_exe = Path(imageio_ffmpeg.get_ffmpeg_exe())
+    if ffmpeg_exe.is_file() and ffmpeg_exe.parent.name == "binaries":
+        ffmpeg_binaries.append((str(ffmpeg_exe), "imageio_ffmpeg/binaries"))
 
 a = Analysis(
     [str(ROOT / "launcher.py")],
@@ -124,7 +133,7 @@ a = Analysis(
 pyz = PYZ(a.pure)
 
 # One-file build: no COLLECT stage. PyInstaller embeds Qt/Python dependencies
-# and the platform ffmpeg executable inside the application.
+# and the selected platform FFmpeg executable inside the application.
 exe = EXE(
     pyz,
     a.scripts,

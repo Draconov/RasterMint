@@ -1,5 +1,35 @@
 # Changelog
 
+Notable user-facing and engineering changes are recorded here. RasterMint is still in active alpha development, so entries focus on behavior that affects releases, compatibility, or contributor expectations.
+
+## 0.2.1 - 2026-08-24
+
+### Startup and packaging
+
+- Fixed Windows startup regressions in the Qt Quick/QML path and kept expensive inspector/preset content from being created during initial window construction.
+- Deferred heavy processing imports so NumPy, Pillow, media/FFmpeg helpers, and render modules are loaded only when processing or export needs them.
+- Added a validated lean Windows FFmpeg build for the single-file release and prevented PyInstaller from bundling both the lean executable and imageio-ffmpeg's full fallback binary.
+- Added startup/packaging regression coverage for the lazy-import and FFmpeg contracts.
+
+### Palette and gradient workflow
+
+- Added a built-in gradient preset library and custom multi-anchor gradient generation.
+- Gradient presets and custom generation now update the active palette used to process the image.
+- Fixed the gradient preset/editor layout and made the preset browser start collapsed.
+- Cleaned numeric prefixes from base palette filenames while preserving stable palette IDs, names, colors, and curated ordering.
+
+### Export and workflow
+
+- Added/expanded batch export controls for output format, scaling, overwrite behavior, and source-relative sizing.
+- Preserved source filenames more consistently across still, animation, video, and batch export paths.
+- Expanded animated GIF/video export workflows while keeping offline FFmpeg support.
+
+### Reliability and tests
+
+- Fixed QML merge/syntax regressions that prevented `Main.qml` / `PalettePage.qml` from compiling in CI.
+- Removed obsolete source-text regression checks where stronger QML compile/runtime tests already cover the same failure class.
+- Kept the full offscreen QML component compilation and runtime smoke coverage intact.
+
 ## 0.1.0 - 2026-08-14
 
 - Added Sunrise, Halloween, and TrueBlack themes and made the chooser order explicit: RasterMint Dark, RasterMint Light, OLED, TrueBlack, Solarized Dark, Solarized Light, Mint, Sunrise, Halloween.
@@ -29,7 +59,7 @@
 - Normalized QML file/folder-dialog URLs before passing them to Python slots, fixed mirror-axis dragging so it no longer breaks declarative position bindings, and forced custom ComboBox/layer/dialog popups to use the same reliable scene popup mode.
 - Moved the empty “Open or drop…” prompt to the true center of the preview canvas and reserved the bottom status overlay for messages after a source is loaded.
 
-RasterMint remains on version **0.1.0** while the initial feature set is being built out.
+At this stage, RasterMint remained on version **0.1.0** while the initial feature set was being built out.
 
 ### Processing and preview
 

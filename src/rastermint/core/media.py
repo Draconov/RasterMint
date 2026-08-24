@@ -101,6 +101,9 @@ def _iter_gif_frames(path: str | Path) -> tuple[dict, Iterator[bytes]]:
     return meta, _GifByteIterator(path)
 
 def _imageio_ffmpeg():
+    from .ffmpeg_runtime import configure_bundled_ffmpeg
+
+    configure_bundled_ffmpeg()
     try:
         import imageio_ffmpeg  # type: ignore
     except ImportError as exc:  # pragma: no cover - optional runtime dependency

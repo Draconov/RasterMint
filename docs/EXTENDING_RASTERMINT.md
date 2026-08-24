@@ -1,254 +1,241 @@
 # Extending RasterMint
 
-RasterMint is split into a Qt-free core and a PySide6 UI. New rendering behavior should normally be implemented and tested in `src/rastermint/core/` first, then exposed to the UI through the existing schemas/settings.
+This guide describes the preferred path for adding features without splitting RasterMint into multiple processing implementations or making GUI startup heavier.
 
-## Current pipeline
+## Before adding code
 
-```text
-input image / decoded GIF/video frame
-   ↓
-source transform + exact target framebuffer
-   ↓
-ordered effect stack
-   ↓
-optional hardware constraints
-   ↓
-pixel-aspect/display presentation
-   ↓
-preview / still export / SVG / animation / video / batch
-```
+Identify which layer owns the feature:
 
-The stack, not QML or `qmlui/backend.py`, defines rendering order.
+| Feature | Preferred location |
+| --- | --- |
+| Image processing | `src/rastermint/core/` |
+| Dithering metadata | `core/dither_metadata.py` |
+| Dithering implementation | `core/dither.py` |
+| Effect schema | `core/effect_schema.py` |
+| Effect rendering | `core/effect_stack.py` |
+| Palette logic | `core/palette*.py` |
+| Gradient definitions | `core/gradient_presets.py` |
+| Hardware metadata | `core/hardware_profiles.py` |
+| Hardware rendering | `core/hardware.py` |
+| QML-facing state/actions | `src/rastermint/qmlui/` |
+| Interface | `src/rastermint/qml/` |
+| Static built-in data | `src/rastermint/data/` |
 
-## Adding an error-diffusion algorithm
+Avoid putting processing logic directly in QML or duplicating a core algorithm inside an export path.
 
-Edit `src/rastermint/core/dither.py` and add an entry to `ERROR_DIFFUSION_KERNELS`:
+## The shared-pipeline rule
 
-```python
-"My Diffusion": (
-    [
-        (1, 0, 4),
-        (-1, 1, 1),
-        (0, 1, 2),
-        (1, 1, 1),
-    ],
-    8,
-),
-```
+A feature that affects pixels should normally work through the same processing path for:
 
-Each kernel entry is `(dx, dy, weight)` and the second tuple value is the divisor. Error-diffusion names are included in the public algorithm list automatically.
+- live preview;
+- still export;
+- batch processing;
+- animation frames;
+- decoded video/GIF frames.
 
-Then run:
+Preview may reduce source resolution for responsiveness, but it should not use a different visual algorithm.
 
-```bash
-pytest tests/test_dither.py
-```
+## Adding an effect
 
-The regression suite verifies that every public algorithm emits only selected palette colors and that the optimized classic diffusion engine matches its simple reference implementation.
+### 1. Define the effect schema
 
-## Adding an ordered matrix
+Add the effect to `core/effect_schema.py` with:
 
-Add the matrix to `BAYER_MATRICES` or `CLUSTERED_MATRICES`. Public ordered algorithms are derived from these registries, so the Dither effect's algorithm choice updates automatically.
+- a stable type/id;
+- display label/category;
+- default parameters;
+- value ranges/choices;
+- `animatable` metadata for suitable numeric parameters;
+- `pixel_scaled` metadata for parameters measured in image pixels.
 
-```python
-BAYER_MATRICES["My Ordered 4x4"] = np.array(..., dtype=np.float32)
-```
+### 2. Implement rendering
 
-## Adding a standalone dithering family
+Add the implementation to the effect renderer used by `apply_effect_stack()`.
 
-For a method that is not a diffusion kernel or ordered matrix:
+Prefer functions that:
 
-1. write a pure core function taking an RGB NumPy image and palette array;
-2. return an `H×W×3` array;
-3. ensure final values are selected palette colors when the algorithm is advertised as palette dithering;
-4. add the name to the appropriate `ALGORITHM_GROUPS` category;
-5. dispatch it from `apply_dither()`;
-6. run the all-algorithms tests.
+- accept a PIL RGB image and normalized parameters;
+- do not read the source file directly;
+- preserve dimensions unless geometry change is intentional;
+- are deterministic unless randomness/time is explicitly part of the effect.
 
-Do not put Qt code in `dither.py`.
+### 3. Test behavior
 
-## Adding an effect-stack node
+Add a focused core test for the behavior itself. If QML is generated from schema metadata, do not add a source-text UI test merely to prove the label exists.
 
-Effects are described in `EFFECT_DEFINITIONS` inside `core/effect_stack.py`.
+## Adding a dithering algorithm
 
-Example:
+### Error diffusion
 
-```python
-"My Effect": {
-    "params": {
-        "amount": {
-            "type": "float",
-            "label": "Amount",
-            "default": 0.5,
-            "min": 0.0,
-            "max": 1.0,
-            "step": 0.05,
-            "decimals": 2,
-            "animatable": True,
-        }
-    }
-}
-```
+Classic error-diffusion algorithms should use the shared kernel/divisor machinery when possible. Add metadata to the lightweight metadata layer and the kernel/implementation to `core/dither.py`.
 
-Supported schema types are currently:
+Keep the all-algorithm tests passing:
 
-```text
-int
-float
-bool
-choice
-text
-color
-file
-```
+- output uses palette colors only;
+- deterministic algorithms remain deterministic;
+- optimized paths match their reference behavior where tested.
 
-Useful flags:
+### Ordered/pattern dithering
 
-- `animatable: True` — makes the numeric parameter available in the animation target list.
-- `pixel_scaled: True` — scales spatial values for reduced preview proxies so blur/offset/pixel spacing looks proportionally similar to export.
+Reusable threshold matrices should live with the ordered-dither implementation rather than in QML.
 
-Then add the processing branch in `apply_effect_stack()`.
+### New algorithm families
 
-The QML layer parameter editor is generated from this schema; you should **not** create effect-specific forms for normal stack effects. Add metadata to `EFFECT_DEFINITIONS` and processing code to the core.
-
-## Animation compatibility
-
-Animation targets use:
-
-```text
-effect:<effect-id>:<param>
-```
-
-Numeric `int`/`float` effect parameters are animation-capable by default unless they are identity/random seeds. `animatable_targets()` publishes them automatically; explicit `animatable: True` is still useful documentation. The animation panel can create From/To tracks with Start/End times and easing, and multiple sequential tracks may target the same parameter.
-
-When adding an animatable parameter:
-
-- choose meaningful min/max ranges;
-- make sure fractional animation into integer values is safe (`settings_at_time()` rounds integer parameters);
-- do not animate booleans/choice values through numeric tracks;
-- test a mid-animation value.
-
-## Dither transitions
-
-Dither has two separate concepts:
-
-- `strength` changes the algorithm's noise/error/ordered-dither intensity;
-- `mix` blends between the pre-dither image and the completed dither result.
-
-Use `mix` for Dither In/Out animation. Do not overload `strength` for this because strength 0 still has palette-quantization semantics in several algorithms.
-
-## Animation presets
-
-Built-in motion recipes live in `core/animation_presets.py`. A recipe should preserve the current project, ensure any required effect nodes exist, and output normal timeline tracks. Avoid adding a second hidden animation renderer.
-
-## Adding a temporal effect
-
-Temporal effects receive:
-
-```python
-frame_time
-frame_index
-```
-
-through `apply_effect_stack()`. A deterministic temporal effect should derive its changing state from one or both values rather than global random state. This makes a given frame reproducible during preview and export.
+A fundamentally different algorithm can have its own function, but it should still accept the same normalized palette/settings inputs and return the same image contract.
 
 ## Adding a built-in palette
 
-Add a hex RGB list to `BUILTIN_PALETTES` in `core/palette.py`:
+Built-in palette JSON belongs under the appropriate `src/rastermint/data/palettes/` category.
 
-```python
-"My Palette": ["#101820", "#F2AA4C", "#F7F7F7"]
-```
+Use:
 
-The GUI and CLI built-in selectors consume that registry.
+- a stable unique ID;
+- a clean human-readable name;
+- valid HEX colors;
+- useful category/description/source metadata where applicable.
 
-## Palette file support
+Do not add numeric filename prefixes merely to force ordering. If curated ordering is needed, preserve it explicitly in the loader/library.
 
-`read_palette_file()` currently understands:
+## Adding a gradient preset
 
-- `.hex` / generic text containing six-digit hex colors;
+Gradient presets live in `core/gradient_presets.py` and should define useful anchor colors and interpolation behavior.
+
+A gradient preset must ultimately produce the same active palette state as the custom gradient generator. Selecting the preset should apply that generated palette to the current image rather than acting as a disconnected visual preview.
+
+Keep large preset browsers lazy/collapsed so the application does not instantiate hundreds of delegates during startup.
+
+## Palette import/export
+
+File parsing belongs in `core/palette.py`, not in QML file-dialog handlers.
+
+Current palette file support includes:
+
+- HEX/text;
 - GIMP `.gpl`;
 - JASC `.pal`.
 
-Add format parsing in `core/palette.py`, not in the Qt file dialog.
+QML should only normalize the selected URL/path and call the backend.
 
 ## Lospec integration
 
-The core parser/fetcher is in `core/lospec.py`; the QML Palette inspector calls it through `qmlui/backend.py`.
-
-Keep these responsibilities separate:
+Responsibilities are separated as follows:
 
 ```text
-core/lospec.py        URL/slug validation + JSON parsing + fetch
-qmlui/backend.py      QML-facing import action + user feedback
-qml/pages/PalettePage.qml  palette browsing/import controls
+core/lospec.py             slug/URL validation, fetch, JSON parsing
+qmlui/backend.py           QML-facing action and status/error handling
+qml/pages/PalettePage.qml  user controls
 ```
 
-Do not scrape Lospec's Palette List HTML when the official per-palette JSON endpoint can be used.
+Use Lospec's documented per-palette JSON endpoint rather than scraping the Palette List HTML.
+
+## Adding a hardware profile
+
+Prefer a new JSON profile over profile-name branches in Python/QML.
+
+1. Add a JSON file under `src/rastermint/data/hardware_profiles/`.
+2. Give it a stable unique `id`.
+3. Use existing generic constraints where possible.
+4. Only mark `strict.supported` when RasterMint can meaningfully enforce the stated image-space behavior.
+5. Add tests for unusual raster/palette/constraint behavior.
+
+See [`HARDWARE_PROFILES.md`](HARDWARE_PROFILES.md).
+
+## Adding animation support
+
+Most numeric effect parameters become animation-compatible through schema metadata.
+
+Do not create a second animation renderer. Animation should:
+
+1. copy base settings;
+2. evaluate tracks at time `t`;
+3. apply evaluated values;
+4. call the normal processor.
+
+Identity values and random seeds should generally not be animatable unless the effect explicitly defines meaningful interpolation.
+
+## Temporal effects
+
+Time-dependent effects receive a frame/time context from the shared processing path. They should be deterministic for the same source/settings/time unless intentional nondeterminism is part of the feature.
+
+Export and rendered-preview behavior must agree for the same frame context.
+
+## Video-compatible processing
+
+An effect is naturally video-compatible when it processes one RGB frame without depending on the source file container.
+
+Keep:
+
+- decoding/encoding in `core/media.py` / media helpers;
+- frame image processing in the normal core pipeline.
+
+Do not invoke FFmpeg from individual effects.
 
 ## Preview performance
 
-Every effect automatically participates in preview because preview calls the same `process_image()` function with a reduced source.
+Before introducing native acceleration or another dependency:
 
-Spatial parameters should use `pixel_scaled: True`. CPU-heavy algorithms can be added to `adaptive_preview_max_side()` so only their interactive proxy is reduced; explicit Full preview and export must remain unchanged.
+1. benchmark the actual hot path;
+2. reduce allocations/copies;
+3. use vectorization where it preserves behavior;
+4. keep a deterministic reference test where practical;
+5. only then consider a dependency.
 
-Before adding a dependency or compiled acceleration layer:
+Expensive algorithms can receive smaller interactive preview budgets. Never apply those preview limits to final export.
 
-1. benchmark the real hot loop;
-2. optimize allocations/vectorization first;
-3. keep deterministic CPU output as a reference where practical;
-4. add regression tests before changing the implementation.
+## GUI startup performance
 
-## Video-compatible effects
+Do not import heavy render modules at QML/backend module import time.
 
-An effect is video-compatible if it can process an individual PIL RGB frame without reading the source file itself. That is the preferred design: media decoding stays in `core/media.py`, while frame processing stays in the image core.
+Avoid top-level imports of:
 
-## SVG behavior
+- NumPy;
+- Pillow image modules;
+- `core.processor`;
+- `core.effect_stack`;
+- `core.hardware`;
+- `core.media`;
+- GIF/batch/export render helpers.
 
-`core/svg_export.py` vectorizes the already-processed raster result. If you add a different vectorization strategy, keep it separate from dithering so PNG/video output is unaffected.
+Use lightweight metadata modules or local imports inside worker/operation methods. `tests/test_startup_optimization.py` protects this contract.
 
-## Batch behavior
+## QML changes
 
-`core/batch.py` processes inputs sequentially using one settings snapshot. If parallel batch processing is added later, use a bounded worker count; multiple full-resolution diffusion jobs can consume significant CPU and RAM.
+Use the shared themed components under `qml/components/` before introducing a raw Qt Quick Controls variant.
 
-## Hardware profiles
+For new UI behavior:
 
-Hardware profiles live under `src/rastermint/data/hardware_profiles/` and are loaded by `core/hardware.py`. Add new machines as data rather than profile-name branches in Qt code. See [`HARDWARE_PROFILES.md`](HARDWARE_PROFILES.md) for the JSON contract and strict-mode rules.
+- keep custom popups inside the Qt Quick scene when styling depends on QML;
+- avoid binding loops and imperative writes that destroy declarative bindings;
+- normalize `file:` URLs before Python slots;
+- avoid eager creation of large delegate trees;
+- let the offscreen QML compile/runtime suite catch real Qt errors.
 
-A custom profile should be conservative about what it labels Strict. Image-space palette, bit-depth, global-color, and tile/attribute limits are appropriate; CPU/PPU scheduling or analog electrical behavior is not implemented by the profile engine.
+## Presets and serialization
 
-## GIF compatibility
+New user-facing state should round-trip through settings/presets unless it is intentionally session-only UI state.
 
-Animated GIF is treated as timed media. Frame timing/decoding belongs in `core/media.py`; effects continue to process ordinary PIL RGB frames. GIF-to-GIF export preserves per-frame source durations, while still-image animation can also export GIF.
+Stable stored fields should be normalized on load so older presets can continue to open when practical.
 
-## Checklist
+## Batch and SVG behavior
+
+Batch processing uses the same processing settings per source and restores source-specific dimensions when required by the chosen batch mode.
+
+SVG export vectorizes the already-processed raster result. Keep vectorization separate from dithering/effects so raster/video output does not change.
+
+## Testing checklist
 
 For a new rendering feature:
 
-- [ ] implement in `src/rastermint/core/`;
-- [ ] put user state in a serializable effect parameter or `ProcessingSettings` field;
-- [ ] validate/clamp values;
-- [ ] ensure preset round-trip works;
-- [ ] ensure preview and export call the same implementation;
-- [ ] mark spatial values `pixel_scaled` where appropriate;
-- [ ] mark numeric timeline-compatible values `animatable` where appropriate;
-- [ ] add CLI support when useful;
-- [ ] add tests;
-- [ ] run `python -m compileall -q src tests`;
-- [ ] run `pytest`;
-- [ ] test all release platforms through GitHub Actions before treating packaging as final.
+- [ ] implementation lives in the appropriate core module;
+- [ ] preview and export share the implementation;
+- [ ] parameters are validated/clamped;
+- [ ] presets/settings round-trip where applicable;
+- [ ] spatial parameters scale correctly in preview;
+- [ ] animation metadata is correct;
+- [ ] a focused behavioral test exists;
+- [ ] QML compiles if UI changed;
+- [ ] `python -m pytest` passes;
+- [ ] `python -m compileall -q src tests` passes;
+- [ ] packaging changes are verified on all affected release platforms.
 
-## Palette library and visual presets
-
-The built-in searchable palette catalog lives in `core/palette_library.py`. Add a `PaletteRecord` with a unique ID/name, category, colors, and a short description. Hardware that does not have one universal fixed palette should be described as a representative/creative subset rather than presented as a strict master palette.
-
-`interpolate_palette()` is the shared 2–256 color ramp generator. The UI currently exposes OKLab, RGB, Linear RGB, HSV, and HSL interpolation.
-
-Visual quick presets live in `core/builtin_presets.py`. Keep them small in number and visually distinct; their thumbnails are rendered from the current source image in low-priority worker jobs.
-
-Hardware profile details belong in the profile JSON `summary`/palette description fields. The GUI surfaces that information through hover tooltips, so profile descriptions should be concise enough to read without a separate information page.
-
-
-## Bloom vs Glow
-
-RasterMint keeps **Glow** and **Bloom** as separate layers. Glow blurs/lightens the whole source; Bloom extracts only pixels above a luminance threshold, applies a soft-knee transition, blurs those highlights, and blends them back with Screen or Add. Bloom's threshold, soft knee, radius, and intensity are numeric/animatable effect parameters, so the same schema automatically exposes them to UI and animation systems.
+See [`TESTING.md`](TESTING.md) for test placement and regression-test policy.

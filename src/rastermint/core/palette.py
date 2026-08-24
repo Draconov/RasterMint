@@ -10,6 +10,8 @@ from typing import Iterable
 import numpy as np
 from PIL import Image
 
+from .color_utils import hex_to_rgb, rgb_to_hex
+
 BUILTIN_PALETTES: dict[str, list[str]] = {
     "Ink": ["#0B1020", "#F3F7FF"],
     "Graphite 4": ["#101217", "#4A4F59", "#A9AFB9", "#F4F6F8"],
@@ -23,20 +25,6 @@ BUILTIN_PALETTES: dict[str, list[str]] = {
         "#FF004D", "#FFA300", "#FFEC27", "#00E436", "#29ADFF", "#83769C", "#FF77A8", "#FFCCAA",
     ],
 }
-
-
-def hex_to_rgb(value: str) -> tuple[int, int, int]:
-    value = value.strip().lstrip("#")
-    if len(value) == 3:
-        value = "".join(ch * 2 for ch in value)
-    if len(value) != 6 or not re.fullmatch(r"[0-9A-Fa-f]{6}", value):
-        raise ValueError(f"Invalid hex color: {value!r}")
-    return tuple(int(value[i : i + 2], 16) for i in (0, 2, 4))
-
-
-def rgb_to_hex(rgb: Iterable[int]) -> str:
-    r, g, b = (max(0, min(255, int(v))) for v in rgb)
-    return f"#{r:02X}{g:02X}{b:02X}"
 
 
 def palette_array(colors: Iterable[str]) -> np.ndarray:

@@ -12,7 +12,6 @@ import traceback
 from pathlib import Path
 from typing import Any
 
-from PIL import Image
 from PySide6.QtCore import QObject, Property, QSettings, QThreadPool, QTimer, QUrl, Signal, Slot
 from PySide6.QtGui import QColor, QImage
 
@@ -20,27 +19,15 @@ from rastermint import __version__
 from rastermint.core.animation import EASINGS, normalize_tracks, settings_at_time
 from rastermint.core.animation_presets import ANIMATION_PRESETS, apply_animation_preset
 from rastermint.core.builtin_presets import BUILTIN_PRESETS, build_builtin_preset
-from rastermint.core.dither import ALGORITHMS
-from rastermint.core.effect_stack import EFFECT_DEFINITIONS, default_effect_stack, effect_categories, new_effect, normalize_effect_stack
+from rastermint.core.dither_metadata import ALGORITHMS
+from rastermint.core.effect_schema import EFFECT_DEFINITIONS, default_effect_stack, effect_categories, new_effect, normalize_effect_stack
 from rastermint.core.gradient_presets import GRADIENT_PRESETS
-from rastermint.core.hardware import apply_profile_to_settings, load_builtin_profiles, load_profile_file, profile_summary
+from rastermint.core.hardware_profiles import apply_profile_to_settings, load_builtin_profiles, load_profile_file, profile_summary
 from rastermint.core.history import UndoHistory
 from rastermint.core.lospec import fetch_lospec_palette
-from rastermint.core.media import SUPPORTED_VIDEO_SUFFIXES, VideoInfo, probe_video, read_video_frame
-from rastermint.core.palette import PALETTE_OPTIMIZERS, extract_palette, read_palette_file, write_hex_palette
 from rastermint.core.palette_library import PALETTE_LIBRARY, find_palette, interpolate_palette, interpolate_palette_stops
 from rastermint.core.presets import load_preset, save_preset
-from rastermint.core.processor import (
-    FAST_PREVIEW_MAX_SIDE,
-    PREVIEW_MAX_SIDE,
-    adaptive_preview_max_side,
-    make_preview_settings,
-    make_preview_source,
-    processed_raster_size,
-    target_raster_size,
-)
 from rastermint.core.settings import ProcessingSettings
-from rastermint.core.svg_export import save_svg
 
 from .image_provider import RasterImageProvider
 from .models import LayerListModel
@@ -54,7 +41,71 @@ from .workers import (
 )
 
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".bmp", ".webp", ".tif", ".tiff"}
+SUPPORTED_VIDEO_SUFFIXES = {".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v", ".gif"}
+PALETTE_OPTIMIZERS = ["Median Cut", "K-Means", "Octree", "Wu Quantization"]
+PREVIEW_MAX_SIDE = 640
+FAST_PREVIEW_MAX_SIDE = 320
 MAX_FULL_PREVIEW_PIXELS = 12_000_000
+
+
+def adaptive_preview_max_side(settings: ProcessingSettings, requested: int) -> int:
+    from rastermint.core.processor import adaptive_preview_max_side as impl
+    return impl(settings, requested)
+
+
+def make_preview_settings(settings: ProcessingSettings, final_size: tuple[int, int], preview_size: tuple[int, int]) -> ProcessingSettings:
+    from rastermint.core.processor import make_preview_settings as impl
+    return impl(settings, final_size, preview_size)
+
+
+def make_preview_source(source: Any, *, max_side: int, settings: ProcessingSettings):
+    from rastermint.core.processor import make_preview_source as impl
+    return impl(source, max_side=max_side, settings=settings)
+
+
+def processed_raster_size(source_size: tuple[int, int], settings: ProcessingSettings) -> tuple[int, int]:
+    from rastermint.core.processor import processed_raster_size as impl
+    return impl(source_size, settings)
+
+
+def target_raster_size(source_size: tuple[int, int], settings: ProcessingSettings) -> tuple[int, int]:
+    from rastermint.core.processor import target_raster_size as impl
+    return impl(source_size, settings)
+
+
+def probe_video(path: str | Path):
+    from rastermint.core.media import probe_video as impl
+    return impl(path)
+
+
+def read_video_frame(path: str | Path, time_seconds: float = 0.0):
+    from rastermint.core.media import read_video_frame as impl
+    return impl(path, time_seconds)
+
+
+def extract_palette(image: Any, colors: int, method: str):
+    from rastermint.core.palette import extract_palette as impl
+    return impl(image, colors, method)
+
+
+def read_palette_file(path: str | Path):
+    from rastermint.core.palette import read_palette_file as impl
+    return impl(path)
+
+
+def write_hex_palette(path: str | Path, colors: list[str]) -> None:
+    from rastermint.core.palette import write_hex_palette as impl
+    impl(path, colors)
+
+
+def save_svg(image: Any, path: str | Path) -> None:
+    from rastermint.core.svg_export import save_svg as impl
+    impl(image, path)
+
+
+def _is_pil_image(value: object) -> bool:
+    from PIL import Image
+    return isinstance(value, Image.Image)
 
 
 def _local_path(value: str | QUrl) -> str:
@@ -67,7 +118,7 @@ def _local_path(value: str | QUrl) -> str:
     return text
 
 
-def _pil_to_qimage(image: Image.Image) -> QImage:
+def _pil_to_qimage(image: Any) -> QImage:
     rgb = image if image.mode == "RGB" else image.convert("RGB")
     data = rgb.tobytes("raw", "RGB")
     return QImage(data, rgb.width, rgb.height, rgb.width * 3, QImage.Format.Format_RGB888).copy()
@@ -105,17 +156,17 @@ class RasterMintBackend(QObject):
         self.layer_model.replace(self.settings.effect_stack)
         self._selected_layer = min(len(self.settings.effect_stack) - 1, 0)
 
-        self._source_image: Image.Image | None = None
-        self._current_frame: Image.Image | None = None
+        self._source_image: Any | None = None
+        self._current_frame: Any | None = None
         self._current_file: Path | None = None
         self._video_path: Path | None = None
-        self._video_info: VideoInfo | None = None
+        self._video_info: Any | None = None
         self._current_time = 0.0
         self._playback_speed = 1.0
         self._playback_mode = "Quick"
         self._preserve_audio = True
         self._playing = False
-        self._rendered_frames: list[Image.Image] = []
+        self._rendered_frames: list[Any] = []
         self._rendered_times: list[float] = []
         self._rendered_fps = 0.0
 
@@ -480,7 +531,7 @@ class RasterMintBackend(QObject):
         return result
 
     # ---------- basic mutation ----------
-    def _active_source(self) -> Image.Image | None:
+    def _active_source(self) -> Any | None:
         return self._current_frame or self._source_image
 
     def _set_status(self, text: str) -> None:
@@ -659,6 +710,7 @@ class RasterMintBackend(QObject):
                 self._video_info = probe_video(path)
                 self._current_frame = read_video_frame(path, 0.0)
             elif suffix in IMAGE_SUFFIXES:
+                from PIL import Image
                 with Image.open(path) as img:
                     self._source_image = img.convert("RGB").copy()
             else:
@@ -1592,28 +1644,28 @@ class RasterMintBackend(QObject):
         if purpose == "preview":
             self._preview_running = False
             valid = isinstance(context, dict) and context.get("source_revision") == self._source_revision and context.get("settings_revision") == self._settings_revision
-            if valid and isinstance(result, Image.Image):
+            if valid and _is_pil_image(result):
                 self._publish_preview(result)
             pending = self._pending_preview_side
             self._pending_preview_side = 0
             if pending:
                 self._request_preview(pending)
             return
-        if purpose == "video-frame" and isinstance(result, Image.Image):
+        if purpose == "video-frame" and _is_pil_image(result):
             # Ignore stale decode responses that are far away from current time.
             if abs(float(context) - self._current_time) < 0.15:
                 self._current_frame = result
                 self.sourceChanged.emit()
                 self.schedulePreview(force=True)
             return
-        if purpose == "preset-thumbnail" and isinstance(result, Image.Image) and isinstance(context, dict):
+        if purpose == "preset-thumbnail" and _is_pil_image(result) and isinstance(context, dict):
             if context.get("source_revision") == self._source_revision:
                 key = f"preset/{context.get('preset_id')}"
                 self.provider.set_image(key, _pil_to_qimage(result))
                 self._preview_revision += 1
                 self.previewChanged.emit()
             return
-        if purpose == "export-image" and isinstance(result, Image.Image) and isinstance(context, dict):
+        if purpose == "export-image" and _is_pil_image(result) and isinstance(context, dict):
             self._export_jobs.discard(job_id)
             path = Path(str(context.get("path", "output.png")))
             try:
@@ -1630,7 +1682,7 @@ class RasterMintBackend(QObject):
             frames = result.get("frames") or []
             context_map = context if isinstance(context, dict) else {}
             if context_map.get("source_revision") == self._source_revision and context_map.get("settings_revision") == self._settings_revision:
-                self._rendered_frames = [frame for frame in frames if isinstance(frame, Image.Image)]
+                self._rendered_frames = [frame for frame in frames if _is_pil_image(frame)]
                 self._rendered_times = [float(v) for v in (result.get("times") or [])]
                 self._rendered_fps = float(result.get("fps") or 0.0)
                 self.renderedPreviewChanged.emit()
@@ -1657,7 +1709,7 @@ class RasterMintBackend(QObject):
         if total > 0:
             self._set_status(f"{purpose.replace('-', ' ').title()}: {current}/{total} {label}")
 
-    def _publish_preview(self, image: Image.Image) -> None:
+    def _publish_preview(self, image: Any) -> None:
         qimage = _pil_to_qimage(image)
         self.provider.set_image("preview", qimage)
         self._preview_width = max(1, image.width)

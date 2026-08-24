@@ -19,6 +19,9 @@ from .settings import ProcessingSettings
 
 
 def _ffmpeg_executable() -> str:
+    from .ffmpeg_runtime import configure_bundled_ffmpeg
+
+    configure_bundled_ffmpeg()
     try:
         import imageio_ffmpeg  # type: ignore
     except ImportError as exc:  # pragma: no cover

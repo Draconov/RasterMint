@@ -7,24 +7,10 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
-from PIL import Image, ImageChops
 from PySide6.QtCore import QUrl, Slot
 from rastermint.core.animation import settings_at_time
-from rastermint.core.effect_stack import ascii_text_grid_for_stack, normalize_effect_stack
-from rastermint.core.processor import (
-    PREVIEW_MAX_SIDE,
-    adaptive_preview_max_side,
-    display_output_size,
-    image_has_transparency,
-    make_preview_settings,
-    make_preview_source,
-    prepare_raster_source,
-    prepare_transparency_mask,
-    processed_raster_size,
-    target_raster_size,
-)
+from rastermint.core.effect_schema import normalize_effect_stack
 from rastermint.core.settings import ProcessingSettings
-from rastermint.core.svg_export import save_svg
 
 from .backend import _local_path
 from .batch_worker import BatchWorker
@@ -51,12 +37,86 @@ _ALPHA_FORMATS = {"PNG", "WEBP", "TIFF", "SVG"}
 _BATCH_ALPHA_FORMATS = {"PNG", "WEBP", "TIFF"}
 
 _RESAMPLING = {
-    "NEAREST": Image.Resampling.NEAREST,
-    "NEAREST (PIXEL-PERFECT)": Image.Resampling.NEAREST,
-    "BILINEAR": Image.Resampling.BILINEAR,
-    "BICUBIC": Image.Resampling.BICUBIC,
-    "LANCZOS": Image.Resampling.LANCZOS,
+    "NEAREST": "NEAREST",
+    "NEAREST (PIXEL-PERFECT)": "NEAREST",
+    "BILINEAR": "BILINEAR",
+    "BICUBIC": "BICUBIC",
+    "LANCZOS": "LANCZOS",
 }
+
+PREVIEW_MAX_SIDE = 640
+
+
+def _processor_call(name: str, *args, **kwargs):
+    from rastermint.core import processor
+    return getattr(processor, name)(*args, **kwargs)
+
+
+def adaptive_preview_max_side(settings: ProcessingSettings, requested: int) -> int:
+    return _processor_call("adaptive_preview_max_side", settings, requested)
+
+
+def display_output_size(size: tuple[int, int], settings: ProcessingSettings) -> tuple[int, int]:
+    return _processor_call("display_output_size", size, settings)
+
+
+def image_has_transparency(image: Any) -> bool:
+    return _processor_call("image_has_transparency", image)
+
+
+def make_preview_settings(settings: ProcessingSettings, final_size: tuple[int, int], preview_size: tuple[int, int]) -> ProcessingSettings:
+    return _processor_call("make_preview_settings", settings, final_size, preview_size)
+
+
+def make_preview_source(source: Any, *, max_side: int, settings: ProcessingSettings):
+    return _processor_call("make_preview_source", source, max_side=max_side, settings=settings)
+
+
+def prepare_raster_source(source: Any, settings: ProcessingSettings):
+    return _processor_call("prepare_raster_source", source, settings)
+
+
+def prepare_transparency_mask(source: Any, settings: ProcessingSettings):
+    return _processor_call("prepare_transparency_mask", source, settings)
+
+
+def processed_raster_size(size: tuple[int, int], settings: ProcessingSettings) -> tuple[int, int]:
+    return _processor_call("processed_raster_size", size, settings)
+
+
+def target_raster_size(size: tuple[int, int], settings: ProcessingSettings) -> tuple[int, int]:
+    return _processor_call("target_raster_size", size, settings)
+
+
+def ascii_text_grid_for_stack(*args, **kwargs):
+    from rastermint.core.effect_stack import ascii_text_grid_for_stack as impl
+    return impl(*args, **kwargs)
+
+
+def save_svg(image: Any, path: str | Path) -> None:
+    from rastermint.core.svg_export import save_svg as impl
+    impl(image, path)
+
+
+def _pil_image_module():
+    from PIL import Image
+    return Image
+
+
+def _image_chops_module():
+    from PIL import ImageChops
+    return ImageChops
+
+
+def _is_pil_image(value: object) -> bool:
+    Image = _pil_image_module()
+    return isinstance(value, Image.Image)
+
+
+def _resampling(name: str):
+    Image = _pil_image_module()
+    attr = _RESAMPLING.get(str(name).strip().upper(), "NEAREST")
+    return getattr(Image.Resampling, attr)
 
 
 def _clamp_scale_percent(value: object) -> int:
@@ -159,7 +219,7 @@ class RasterMintBackend(PreferencesBackend):
         with self._preserve_hardware_identity():
             super()._restore_history_state(state)
 
-    def _transparency_source(self) -> Image.Image | None:
+    def _transparency_source(self) -> Any | None:
         """Reload the original still image when it contains real alpha.
 
         The normal preview pipeline keeps an RGB working copy for speed. Export
@@ -170,6 +230,7 @@ class RasterMintBackend(PreferencesBackend):
         if path is None or getattr(self, "_video_path", None) is not None:
             return None
         try:
+            Image = _pil_image_module()
             with Image.open(path) as opened:
                 if not image_has_transparency(opened):
                     return None
@@ -502,7 +563,7 @@ class RasterMintBackend(PreferencesBackend):
         self._set_status(f"Batch exporting {len(source_paths)} image(s)…")
 
     @staticmethod
-    def _save_advanced_image(result: Image.Image, context: dict[str, Any]) -> Path:
+    def _save_advanced_image(result: Any, context: dict[str, Any]) -> Path:
         path = Path(str(context.get("path", "output.png")))
         width = max(1, min(32768, int(context.get("width", result.width) or result.width)))
         height = max(1, min(32768, int(context.get("height", result.height) or result.height)))
@@ -511,23 +572,23 @@ class RasterMintBackend(PreferencesBackend):
         resampling_name = str(
             context.get("resampling", "Nearest (pixel-perfect)") or "Nearest (pixel-perfect)"
         ).strip().upper()
-        resampling = _RESAMPLING.get(resampling_name, Image.Resampling.NEAREST)
+        resampling = _resampling(resampling_name)
         output = result
         alpha_mask = context.get("alpha_mask")
         if (
             bool(context.get("preserve_transparency"))
             and format_name in _ALPHA_FORMATS
-            and isinstance(alpha_mask, Image.Image)
+            and _is_pil_image(alpha_mask)
         ):
             mask = alpha_mask.convert("L")
             if mask.size != output.size:
-                mask = mask.resize(output.size, Image.Resampling.NEAREST)
+                mask = mask.resize(output.size, _resampling("NEAREST"))
             existing_alpha = output.getchannel("A") if "A" in output.getbands() else None
             output = output.convert("RGBA")
             if existing_alpha is not None:
                 if existing_alpha.size != mask.size:
-                    existing_alpha = existing_alpha.resize(mask.size, Image.Resampling.NEAREST)
-                mask = ImageChops.multiply(existing_alpha, mask)
+                    existing_alpha = existing_alpha.resize(mask.size, _resampling("NEAREST"))
+                mask = _image_chops_module().multiply(existing_alpha, mask)
             output.putalpha(mask)
         if output.size != (width, height):
             output = output.resize((width, height), resampling)
@@ -560,7 +621,7 @@ class RasterMintBackend(PreferencesBackend):
                 and context_map.get("settings_revision") == self._settings_revision
                 and context_map.get("preview_mode") == self._preview_mode
             )
-            if valid and isinstance(result, Image.Image):
+            if valid and _is_pil_image(result):
                 self._publish_preview(result)
             return
         if purpose == "preview" and int(job_id) in self._preview_superseded_jobs():
@@ -573,7 +634,7 @@ class RasterMintBackend(PreferencesBackend):
             return
         if (
             purpose == "export-image"
-            and isinstance(result, Image.Image)
+            and _is_pil_image(result)
             and isinstance(context, dict)
             and bool(context.get("quick_alpha_export"))
         ):
@@ -582,12 +643,12 @@ class RasterMintBackend(PreferencesBackend):
             try:
                 output = result.convert("RGBA")
                 alpha_mask = context.get("alpha_mask")
-                if isinstance(alpha_mask, Image.Image):
+                if _is_pil_image(alpha_mask):
                     mask = alpha_mask.convert("L")
                     if mask.size != output.size:
-                        mask = mask.resize(output.size, Image.Resampling.NEAREST)
+                        mask = mask.resize(output.size, _resampling("NEAREST"))
                     existing_alpha = output.getchannel("A")
-                    mask = ImageChops.multiply(existing_alpha, mask)
+                    mask = _image_chops_module().multiply(existing_alpha, mask)
                     output.putalpha(mask)
                 if path.suffix.lower() == ".svg":
                     save_svg(output, path)
@@ -599,7 +660,7 @@ class RasterMintBackend(PreferencesBackend):
             return
         if (
             purpose == "export-image"
-            and isinstance(result, Image.Image)
+            and _is_pil_image(result)
             and isinstance(context, dict)
             and bool(context.get("advanced_export"))
         ):

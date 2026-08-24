@@ -1,23 +1,23 @@
 # Hardware Profiles
 
-RasterMint hardware profiles are data-driven bundles for converting a still image or decoded media frame toward the graphics and display characteristics of a retro platform.
+RasterMint hardware profiles are data-driven descriptions for transforming a still image or decoded media frame toward the graphics and display characteristics of a retro platform.
 
-They are **not emulators**. RasterMint does not emulate a CPU, PPU/GPU, video encoder, electrical signal path, sprite scheduler, or game engine. Strict mode applies image-space constraints that are meaningful for an already-rendered frame.
+They are **not emulators**. RasterMint does not reproduce CPU/GPU/PPU timing, sprite scheduling, game logic, electrical video signals, or analog hardware circuitry.
 
 ## Pipeline position
 
 ```text
 source image / decoded frame
     ↓
-crop · flip · rotate
+source transforms
     ↓
 target framebuffer raster
     ↓
 reorderable effect stack
     ↓
-hardware graphics constraints (Strict mode)
+hardware graphics constraints (Strict, when enabled/supported)
     ↓
-raw framebuffer
+logical framebuffer
     ↓
 pixel-aspect correction (optional)
     ↓
@@ -26,66 +26,64 @@ display treatment (optional)
 preview / export
 ```
 
-The framebuffer and display view stay separate. A 320×200 framebuffer can therefore remain 320×200 internally while the viewport shows pixel-aspect-corrected output.
+Framebuffer geometry and display presentation remain separate. A logical 320×200 frame can stay 320×200 while the corrected/display view uses non-square pixels.
 
-## Visual vs Strict
+## Visual and Strict modes
 
 ### Visual
 
-Visual mode applies selected profile metadata such as:
+Visual mode applies selected profile guidance such as:
 
 - target raster;
-- palette when the platform has a useful fixed palette;
+- palette or channel-depth characteristics;
+- recommended dithering;
 - pixel aspect ratio;
-- recommended dither;
-- CRT/LCD-style display treatment.
+- lightweight CRT/LCD-style display treatment.
 
-It intentionally prioritizes a recognizable creative result rather than enforcing every historical graphics rule.
+Its purpose is a recognizable, useful creative result rather than complete hardware enforcement.
 
 ### Strict
 
-Strict mode can additionally enforce the image-space constraints described by the profile, for example:
+Strict mode can additionally enforce supported image-space constraints, for example:
 
-- fixed-palette mapping;
-- RGB channel bit depth;
+- fixed palette mapping;
+- per-channel bit depth;
 - global color count;
-- per-tile/attribute-region color count;
+- per-tile/per-attribute-region color limits;
 - grouped attribute palettes.
 
-A profile declares whether RasterMint currently has a meaningful Strict implementation. Unsupported strict behavior falls back to visual processing rather than pretending to emulate behavior that is not implemented.
+Each profile explicitly declares whether RasterMint has a meaningful Strict implementation. Unsupported behavior must not be presented as exact emulation.
 
 ## Selective application
 
-The Hardware Profile panel has independent switches for:
+A hardware profile is not all-or-nothing. The UI exposes independent profile components:
 
 ```text
 Raster   Palette   PAR   Limits   Display
 ```
 
-That means a profile is not an all-or-nothing preset. For example, you can take only the palette and pixel aspect ratio while keeping your current target resolution and effect stack.
+This allows, for example, using a machine's palette and pixel aspect ratio while keeping the current output raster/effect stack.
 
 ## Built-in profiles
 
-Current data files live in:
+Profile JSON files live in:
 
 ```text
 src/rastermint/data/hardware_profiles/
 ```
 
-The initial set includes profiles for handhelds, consoles, and home/PC graphics modes, including Game Boy-family systems, NES/SNES, Mega Drive/Genesis, ZX Spectrum, CGA/EGA, Commodore 64, Amiga OCS, and Apple II high-resolution graphics.
+The built-in set covers handhelds, consoles, home computers, PC graphics modes, and display treatments. Some machines have a useful fixed palette; others are better represented by master color depth/constraint metadata rather than an invented universal palette.
 
-Some profiles use fixed palettes. Others describe a native/master color depth instead; those are represented with channel-depth constraints rather than inventing one universal game palette.
+## JSON format
 
-## Profile JSON
-
-A profile is normal JSON. A simplified example:
+A profile is normal JSON. Simplified example:
 
 ```json
 {
   "id": "example-system",
   "name": "Example System",
   "category": "Console",
-  "summary": "Example still-image graphics profile.",
+  "summary": "Example image-space hardware profile.",
   "raster": {
     "width": 320,
     "height": 200,
@@ -119,15 +117,53 @@ A profile is normal JSON. A simplified example:
 }
 ```
 
-Custom profile JSON can be loaded from the Hardware Profile panel without recompiling RasterMint.
+Custom profile JSON can be loaded by RasterMint without recompiling the application.
 
-## Constraint keys
+## Main fields
 
-The generic constraint engine currently understands:
+### Identity and presentation
+
+- `id` — stable machine/profile identifier;
+- `name` — human-readable display name;
+- `category` — grouping in the UI;
+- `summary` — concise description suitable for UI help/tooltip text.
+
+### Raster
+
+Typical raster fields include:
+
+- `width` / `height`;
+- `pixel_aspect` as pixel width:height;
+- `tile` dimensions when relevant;
+- `fit_mode`.
+
+### Palette
+
+Profiles may provide a fixed palette or describe a broader color-depth model. Do not force a fixed palette onto hardware that historically allowed many game/application-specific subsets.
+
+### Recommended dither
+
+`recommended_dither` is guidance and does not imply that a historical machine implemented that software algorithm internally.
+
+### Visual display treatment
+
+The lightweight display stage can model creative approximations such as:
+
+- gamma;
+- horizontal color bleed;
+- blur;
+- scanline darkening;
+- LCD grid darkening.
+
+These are presentation effects, not analog signal emulation.
+
+## Strict constraint keys
+
+The generic constraint engine supports image-space rules including:
 
 ```text
 fixed_palette
-global max_colors_global
+max_colors_global
 channel_bits
 tile_width
 tile_height
@@ -135,35 +171,27 @@ tile_max_colors
 tile_palette_groups
 ```
 
-Keep constraints generic. A new profile should not require a profile-name-specific branch in QML or `qmlui/backend.py`.
+Keep constraints generic. A new profile should not require branching on a specific profile name inside QML or the QML backend.
 
 ## Pixel aspect ratio
 
-`pixel_aspect` is stored as pixel **width : height**.
+`pixel_aspect` represents pixel **width : height**.
 
-RasterMint keeps the raw framebuffer unchanged and applies aspect correction only when the selected view is `Corrected pixels` or `Display simulation`.
-
-This is important for export reproducibility: a project can save both the logical framebuffer size and the way those pixels should be presented.
-
-## Display treatment
-
-The current lightweight display stage supports:
-
-- gamma;
-- horizontal color bleed approximation;
-- Gaussian blur;
-- scanline darkening;
-- LCD grid darkening.
-
-These are creative display treatments, not analog signal emulation. More sophisticated display models should stay separate from the hardware graphics constraint engine so users can eventually mix a framebuffer profile with a different display profile.
+RasterMint keeps the logical framebuffer unchanged and applies aspect correction only in corrected/display presentation modes. This preserves reproducible logical raster dimensions for project settings and export.
 
 ## Adding a profile
 
 1. Add a JSON file under `src/rastermint/data/hardware_profiles/`.
-2. Give it a unique stable `id`.
-3. Use only constraints supported by `core/hardware.py`.
-4. Be conservative about `strict.supported`.
-5. Add a test for raster, palette/depth, and any unusual constraint.
-6. Run `pytest` and `python -m compileall -q src tests`.
+2. Use a unique, stable `id`.
+3. Provide a concise `summary`.
+4. Use existing generic constraints whenever possible.
+5. Be conservative with `strict.supported`.
+6. Add tests for unusual raster, palette/depth, or constraint behavior.
+7. Run:
 
-When historical behavior is ambiguous or depends on analog output, document the approximation instead of presenting one conversion as universally exact.
+```bash
+python -m pytest
+python -m compileall -q src tests
+```
+
+When historical behavior is ambiguous, application-specific, or strongly dependent on analog output, document the approximation instead of presenting one conversion as universally exact.

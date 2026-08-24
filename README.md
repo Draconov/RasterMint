@@ -1,343 +1,221 @@
-# RasterMint
-
 <p align="center">
-  <img src="docs/assets/rastermint-icon.png" width="128" alt="RasterMint icon">
+  <img src="docs/assets/rastermint-icon.png" width="120" alt="RasterMint icon">
 </p>
 
-**Author:** [Draconov](https://github.com/Draconov)
+<h1 align="center">RasterMint</h1>
 
-RasterMint is a cross-platform desktop image, palette, dithering, and motion-effects playground. It is built around one rule: the live viewport, still export, animation export, video export, presets, and batch processor all use the same processing pipeline.
+<p align="center">
+  A cross-platform desktop editor for dithering, palettes, retro display looks, image effects, animation, and media processing.
+</p>
 
-## Highlights
+<p align="center">
+  <a href="https://github.com/Draconov/RasterMint/actions/workflows/ci.yml"><img alt="Tests" src="https://github.com/Draconov/RasterMint/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/Draconov/RasterMint/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/Draconov/RasterMint?display_name=tag&sort=semver"></a>
+  <img alt="Python 3.10+" src="https://img.shields.io/badge/Python-3.10%2B-3776AB">
+  <img alt="Qt Quick / QML" src="https://img.shields.io/badge/UI-Qt%20Quick%20%2F%20QML-41CD52">
+</p>
 
-- Custom app icon bundled for Windows (`.ico`), macOS (`.icns`), Linux/runtime PNG, and the README.
+RasterMint is built around a single processing pipeline: the live preview, still-image export, animation, video, presets, hardware profiles, and batch processing all use the same core rendering logic. The desktop interface is written with **PySide6 + Qt Quick/QML**, while the processing core stays independent from the UI where practical.
 
-- **PySide6 + Qt Quick/QML** desktop UI for Windows, Linux, and macOS; the Python processing core remains independent from the interface.
-- One **Open File** action plus drag-and-drop for still images, animated GIFs, and videos.
-- One processed viewport with pan, zoom, and fit-to-view.
-- Three preview behaviors:
-  - **Quick** — quick draft first, then a refined render after controls settle.
-  - **Stable** — skips the draft and refreshes after editing pauses.
-  - **Full** — renders the selected output resolution in the viewport when safe, with a memory-bounded full proxy for extreme rasters.
-- Background rendering with serialized preview jobs and stale-frame rejection.
-- Adaptive preview budgets for especially expensive algorithms and very large palettes.
-- Visual preset carousel with current-image thumbnails for quick look browsing.
-- Searchable/categorized palette browser with color-strip previews and hover descriptions.
-- 67 built-in retro/hardware palette entries, with representative/approximation labeling where a machine did not have one universal fixed game palette.
-- Previous/next palette controls and previous/next controls around choice parameters such as dithering algorithms.
-- Palette interpolation generator supporting OKLab, RGB, Linear RGB, HSV, and HSL ramps from 2 to 256 colors.
-- Hardware profile details are shown as hover tooltips in the profile selector instead of occupying permanent panel space.
-- Reorderable, bypassable, duplicatable **layer stack** for image effects and image-space presentation layers.
-- 26 dithering / quantization algorithms across quantization, ordered, error-diffusion, and advanced families.
-- Up to 256 palette colors.
-- Built-in palettes, editable swatches, per-color locks, shuffle/randomize-unlocked tools, and optimized source-image palette extraction using Median Cut, K-Means, Octree, or Wu-style quantization.
-- Lospec fetch results show the actual palette swatches before import.
-- **Lospec palette integration** using Lospec's official per-palette JSON endpoint: open the Lospec Palette List, paste a palette slug or URL, and import its colors plus attribution.
-- `.hex`, text/HEX, GIMP `.gpl`, and JASC `.pal` palette import; HEX palette export.
-- Preset save/load including processing layers, palette metadata/locks, and animation tracks.
-- Still-image animation with parameter tracks, per-track timing, easing, enable/bypass, and live timeline preview.
-- Animated GIF and video import, scrubbing, quick processed playback, GIF/MP4 export where applicable, and source-audio preservation for normal video when FFmpeg can mux it.
-- MP4 and animated GIF export from a still image.
-- PNG, JPEG, WebP, BMP, TIFF, and SVG export for current processed frames.
-- Batch image processing.
-- Single-version-file release system: edit only `VERSION`.
-- Rolling GitHub releases on every push to `main` for Windows, Linux, and macOS.
+> **Status:** RasterMint is under active development. Project files, presets, and behavior may continue to evolve between releases.
 
-## Interface
+## Download
 
-The official repository link in **View → About RasterMint** is clickable.
+Prebuilt releases are published from the `main` branch:
 
-RasterMint uses a minimal top menu bar and a widened two-column inspector on the right. The left inspector column selects a general area such as **Layers**, **Palette**, **Raster**, or **Hardware**; the right column shows the detailed controls for that area. Flip, mirror and rotation tools live directly in **Edit**, above **Settings**. Mirror tools are checkable: enabling one shows a draggable blue mirror axis over the preview. **Edit → Settings** contains Appearance settings with a live theme chooser. **RasterMint Dark** is the default theme, and **Reset Settings** remains at the bottom.
+**[Download the latest RasterMint release](https://github.com/Draconov/RasterMint/releases/latest)**
 
-Preview quality is intentionally named **Quick**, **Stable**, and **Full** while retaining the existing draft/refine/full rendering behavior.
+| Platform | Release format |
+| --- | --- |
+| Windows | Single portable `RasterMint.exe` |
+| Linux | `RasterMint-linux-x86_64.tar.gz` |
+| macOS | `RasterMint-macOS.zip` |
 
-## QML interface and themes
+The Windows release intentionally remains a **single executable**. The build uses a trimmed PyInstaller payload, a lean FFmpeg build, and lazy loading of the heavy image-processing stack to reduce startup overhead while preserving offline media support.
 
-RasterMint's only desktop UI is now Qt Quick/QML. The old QWidget interface was removed rather than kept as a second hidden frontend. Python exposes the processing state, layer model, media jobs, palettes, hardware profiles, and preview image provider to QML through `src/rastermint/qmlui/`.
+## What RasterMint does
 
-Themes are JSON data under `src/rastermint/data/themes/`. **RasterMint Dark** matches the previous dark interface and is the default. Choose a theme from **Edit → Settings… → Appearance**; changes apply immediately and persist between sessions. Included themes, in chooser order, are RasterMint Dark, RasterMint Light, OLED, TrueBlack, Solarized Dark, Solarized Light, Mint, Sunrise, and Halloween. **View → Show Hotkeys** controls whether shortcut hints are shown in RasterMint's menus; the shortcuts themselves remain active.
+### Dithering and palettes
 
-The QML source lives under `src/rastermint/qml/`, with reusable controls in `qml/components/` and inspector pages in `qml/pages/`. See [`docs/QML_MIGRATION.md`](docs/QML_MIGRATION.md).
+- Quantization, ordered, error-diffusion, and advanced dithering families.
+- Built-in palette library with searchable categories and palette metadata.
+- Editable colors, locks, shuffle/randomize tools, and source-image palette extraction.
+- Palette extraction with Median Cut, K-Means, Octree, and Wu-style quantization.
+- Palette import from HEX/text, GIMP `.gpl`, and JASC `.pal` files.
+- Lospec palette import by slug or URL using the documented palette JSON endpoint.
+- Custom gradient generation using **RGB, Linear RGB, OKLab, HSV, and HSL** interpolation.
+- Built-in gradient presets that can be applied directly as the active image palette.
 
-## Dithering algorithms
+### Layer-based image processing
 
-### Quantization / threshold
+RasterMint uses a reorderable effect stack. Layers can be enabled, bypassed, duplicated, reordered, or removed.
 
-- Nearest Palette
-- Threshold
-- Random
-- Interleaved Gradient Noise
-- Blue Noise
+Available processing includes color adjustments, local contrast, blur, sharpen, glow, bloom, chromatic effects, posterization, scanlines, temporal effects, glitch processing, pixel sorting, pixel materials, text overlays, pixelation, dithering, and more.
 
-### Ordered / pattern
+### Raster and retro-hardware workflows
 
-- Bayer 2×2
-- Bayer 4×4
-- Bayer 8×8
-- Bayer 16×16
-- Bayer 32×32
-- Clustered Dot 4×4
-- Clustered Dot 8×8
-- Halftone
+- Exact target raster controls with Fit, Fill, and Stretch placement.
+- Crop, flip, rotation, mirror axes, and pixel-aspect handling.
+- Data-driven hardware profiles for retro systems and display styles.
+- Separate **Visual** and **Strict** profile behavior where meaningful image-space constraints can be represented safely.
+- Optional raster, palette, pixel-aspect, limit, and display components per profile.
 
-### Error diffusion
+Hardware profiles are creative image-processing models, **not hardware emulators**.
 
-- Floyd–Steinberg
-- False Floyd–Steinberg
-- Jarvis–Judice–Ninke
-- Stucki
-- Atkinson
-- Burkes
-- Sierra
-- Sierra Two-Row
-- Sierra Lite
-- Stevenson–Arce
-- Shiau–Fan
+### Animation and media
 
-### Advanced
+- Parameter animation on the same layer stack used for still images.
+- Timeline tracks with easing, start/end timing, duplication, enable/bypass, and presets.
+- Quick playback and rendered-preview caching for expensive effects.
+- Animated GIF and common video input through FFmpeg.
+- MP4, GIF, and numbered PNG-sequence export where applicable.
+- Optional source-audio preservation for supported video exports.
 
-- Dot Diffusion
-- Riemersma
+### Workflow and interface
 
-## Layer stack
+- Drag-and-drop or normal file opening.
+- Pan, zoom, fit-to-view, and automatic high-zoom pixel grid.
+- Quick, Stable, and Full preview modes.
+- Background rendering with stale-result protection.
+- Undo/redo with grouped slider and drag interactions.
+- Batch export with format, scaling, overwrite, and per-source sizing controls.
+- JSON presets, themes, and data-driven hardware profiles.
+- Multiple built-in application themes.
 
-Layers are processed top-to-bottom. Reordering image-processing layers changes the output.
+## Supported formats
 
-Current nodes:
+RasterMint relies on Pillow for still-image formats and FFmpeg for media formats.
 
-- Adjustments: brightness, contrast, saturation, gamma
-- Local Contrast / unsharp-mask enhancement
-- Hue Rotate
-- Grayscale
-- Invert
-- Gaussian Blur
-- Median Denoise
-- Sharpen
-- Glow
-- Bloom with threshold, soft knee, radius, intensity, and Screen/Add blending
-- JPEG Compression
-- Chromatic Shift / RGB Split
-- Posterize
-- Scanlines / Interlace
-- Noise, including frame-varying noise
-- Temporal Flicker and **Temporal Pattern** (Pulse, axis/diagonal waves, checker phase, scan sweep, noise drift, alternating frames, radial pulse)
-- Pixel Sort, Screen Melt, Block Shuffle, Pixel Scatter, Data Shift, Row/Column Shift, Cellular Automata, Databend-style processing, Channel Swap
-- Pixelate
-- Pixel Material: Flat, dots, CRT phosphor, LED/LCD, fuse bead, cross stitch, brick, mosaic, halftone, ASCII tile, custom sprite
-- Text Overlay
-- Dither
+**Common input:** PNG, JPEG, WebP, BMP, TIFF, GIF, MP4, MOV, MKV, WebM, AVI, and other formats supported by the bundled decoding stack.
 
-Each row can be enabled/disabled, reordered, duplicated, or removed. User-adjustable numeric parameters marked as animatable can be driven by the animation system; while an enabled animation track controls a parameter, its normal effect editor is locked to avoid conflicting input.
+**Still export:** PNG, JPEG, WebP, BMP, TIFF, and SVG.
 
-## Animation
+**Motion export:** MP4, animated GIF, and numbered PNG sequences where supported by the source/workflow.
 
-RasterMint treats motion as parameter animation on the same processing layer stack used by still images. All suitable numeric effect parameters are published to the timeline automatically (identity/random seeds are excluded). A true **Dither Mix** parameter makes 0% the clean pre-dither image and 100% the complete dithered result, so Dither In/Out transitions are real crossfades rather than changes to diffusion error only.
+Exact codec support can vary by platform build. Official Windows releases validate the bundled FFmpeg against RasterMint's required H.264, AAC, RGB-pipe, PNG, and GIF workflows during CI.
 
-The QML Animation inspector includes:
+## Quick start
 
-- start/end and previous/next-frame transport;
-- loop playback;
-- track add/update/duplicate/remove;
-- From/To, Start/End, easing, and per-track enable;
-- **Quick playback** for live low-resolution processing;
-- **Rendered playback** that caches preview-resolution frames before smooth playback;
-- built-in motion presets: Dither In, Dither Out, Dither In/Out, Glow Pulse, Hue Sweep, CRT Flicker, Pixelate In, Chromatic Pulse, and Temporal Wave.
+1. Download the release for your platform.
+2. Open RasterMint.
+3. Drop an image, GIF, or video onto the canvas, or use **File → Open**.
+4. Choose a palette and dithering algorithm.
+5. Add/reorder effects, set a raster or hardware profile, and adjust the preview.
+6. Export from the **File** menu.
 
-Sequential tracks can target the same parameter. Between track segments RasterMint holds the previous segment's final value, making multi-stage animations such as in→hold→out predictable.
+RasterMint does not require an online account. Network access is only needed for features that explicitly fetch remote content, such as Lospec palette import.
 
-Export options include MP4, animated GIF, and a numbered **PNG sequence**. Frame-dependent effects receive time/frame context so temporal noise, flicker, and temporal patterns reproduce consistently between preview and export.
+## Development
 
-## Video
+### Requirements
 
-Video support is provided through `imageio-ffmpeg` / FFmpeg. RasterMint keeps media decoding separate from image processing: each decoded RGB frame travels through the same effect/hardware/palette pipeline as a still image.
+- Python **3.10+**
+- Git
+- Platform build tools when creating packaged releases
 
-The QML Media/Animation inspectors support:
-
-- frame scrubbing;
-- Quick processed playback;
-- a **Rendered 5 s Preview** cache for smooth inspection of expensive stacks;
-- 0.5× / 1× / 1.5× / 2× preview speed;
-- loop on/off;
-- optional source-audio preservation for MP4 export;
-- processed MP4/GIF paths where applicable;
-- full processed PNG-sequence export.
-
-Quick playback intentionally uses a smaller proxy budget. Rendered preview caches a short preview-resolution segment. Final exports and PNG sequences always use the selected output resolution. For broad H.264/yuv420p compatibility, odd output dimensions are padded by one replicated edge pixel to the next even dimension.
-
-## Lospec palettes
-
-Open the **Palette** inspector and enter either:
-
-```text
-greyt-bit
-```
-
-or:
-
-```text
-https://lospec.com/palette-list/greyt-bit
-```
-
-RasterMint requests:
-
-```text
-https://lospec.com/palette-list/<slug>.json
-```
-
-and stores the returned palette name, author, colors, and source URL in the current settings/preset. The integration uses Lospec's documented palette API rather than scraping the website.
-
-Lospec remains a separate service; palette availability and network access are outside RasterMint's control.
-
-## Source transform, target raster, and hardware profiles
-
-RasterMint treats framebuffer geometry as a first-class control. Before the layer stack you can crop, rotate, flip, choose Fit/Fill/Stretch positioning, and select an exact target raster such as 160×144, 240×160, 256×224, 320×200, 320×240, or 640×480.
-
-Pixel aspect ratio is separate from framebuffer resolution. The viewport can show:
-
-```text
-Raw framebuffer
-Corrected pixels
-Display simulation
-```
-
-Built-in data-driven hardware profiles can selectively apply raster, palette/color depth, pixel aspect ratio, image-space hardware limits, and display treatment. Profiles support **Visual** and **Strict** modes; Strict mode is a still-image constraint approximation, not console/computer emulation. See [`docs/HARDWARE_PROFILES.md`](docs/HARDWARE_PROFILES.md).
-
-The legacy `÷1 … ÷16` output divisor remains supported by old presets and the CLI, but the desktop UI now prefers exact target raster controls.
-
-## Pixel inspection, random exploration, and presets
-
-The preview automatically shows a pixel grid once you zoom in far enough to inspect individual pixels; the grid is a viewport aid and is never baked into exports. Windowed builds also write unexpected Python/fatal diagnostic output to the platform app-data `crash.log`, so future intermittent crashes can be investigated instead of disappearing without a console. Creative Randomize has independent locks for palette, dither, effects, raster, and parameters plus Previous/Next history so a good random state is not lost. Presets are ordinary human-editable `.json` files and serialize the complete processing state, including target raster, transforms, hardware snapshot, display settings, effect stack, palette metadata/locks, animation tracks, and random locks.
-
-## Development setup
-
-### Windows PowerShell
-
-```powershell
-py -3 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-pip install -e ".[dev,build]"
-rastermint
-```
-
-### Linux / macOS
-
-On Debian/Ubuntu Linux, Qt Quick may need the system EGL/OpenGL runtime libraries. GitHub Actions installs these automatically. For a minimal local Linux system:
+### Setup
 
 ```bash
-sudo apt-get install libegl1 libgl1 libopengl0 libxkbcommon0 libxkbcommon-x11-0 libxcb-cursor0
+git clone https://github.com/Draconov/RasterMint.git
+cd RasterMint
+python -m venv .venv
 ```
 
-Then create the Python environment:
+Activate the environment, then install development dependencies:
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-pip install -e '.[dev,build]'
-rastermint
+python -m pip install -e ".[dev,build]"
 ```
 
-Or:
+Run the desktop app:
 
 ```bash
-python -m rastermint
+python launcher.py
 ```
 
-## CLI
+Run the test suite:
 
-Basic processing:
+```bash
+python -m pytest
+```
+
+Run a syntax/bytecode sanity check:
+
+```bash
+python -m compileall -q src tests
+```
+
+Convenience setup/run scripts are available under `scripts/` for Windows, Linux, and macOS.
+
+## Command-line interface
+
+Installing the project exposes `rastermint-cli`.
+
+```bash
+rastermint-cli input.png output.png --palette Ink --algorithm Floyd-Steinberg
+```
+
+Example with a target raster and hardware profile:
 
 ```bash
 rastermint-cli input.png output.png \
-  --algorithm "Atkinson" \
-  --palette "Graphite 4" \
-  --pixel-size 2 \
-  --downscale 2
+  --hardware-profile game-boy \
+  --hardware-mode strict \
+  --width 160 --height 144
 ```
 
-Custom colors:
+Run `rastermint-cli --help` for the complete option list.
 
-```bash
-rastermint-cli input.png output.png \
-  --colors "#111827" "#F59E0B" "#F9FAFB"
-```
-
-Palette file:
-
-```bash
-rastermint-cli input.png output.png --palette-file palette.gpl
-```
-
-Lospec palette:
-
-```bash
-rastermint-cli input.png output.png --lospec greyt-bit
-```
-
-Exact raster / hardware profile example:
-
-```bash
-rastermint-cli input.png output.png --width 320 --height 200 --fit fill --pixel-aspect 5:6 --display corrected
-rastermint-cli input.png output.png --hardware-profile game-boy --hardware-mode strict
-```
-
-SVG current-frame export also works from the CLI by using an `.svg` output name.
-
-## Developer documentation
-
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — current processing, preview, animation, and media architecture.
-- [`docs/EXTENDING_RASTERMINT.md`](docs/EXTENDING_RASTERMINT.md) — adding algorithms, effects, palettes, animation parameters, and tests.
-- [`docs/HARDWARE_PROFILES.md`](docs/HARDWARE_PROFILES.md) — profile schema, Visual/Strict modes, pixel aspect, constraints, and display treatment.
-- [`docs/FEATURE_RESEARCH.md`](docs/FEATURE_RESEARCH.md) — Lospec API notes and RasterMint's independent-implementation policy.
-
-## Tests
-
-```bash
-pytest
-```
-
-Core tests do not require opening a Qt window. Media tests automatically skip only when no FFmpeg executable is available.
-
-## Versioning
-
-`VERSION` is the single source of truth:
+## Project structure
 
 ```text
-0.1.0
+src/rastermint/
+├── app.py                 Qt application bootstrap
+├── cli.py                 Command-line entry point
+├── core/                  Processing, media, palettes, animation, hardware
+├── data/                  Themes, palettes, presets, icons, hardware profiles
+├── qml/                   Qt Quick interface
+└── qmlui/                 QML-facing models, backend, workers, image provider
+
+build/                     PyInstaller specification and packaging hooks
+docs/                      Developer and architecture documentation
+scripts/                   Development/build/validation scripts
+tests/                     Core, regression, packaging, and QML smoke tests
 ```
 
-To publish a different version, edit **only** that file. Package metadata, the runtime application version, macOS bundle metadata, and the rolling release workflow derive from it.
+The GUI startup path is intentionally lightweight. NumPy, Pillow, the render pipeline, and media modules are deferred until processing or export actually needs them.
 
-## Builds and rolling GitHub releases
+## Documentation
 
-Local builds:
+| Document | Purpose |
+| --- | --- |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Runtime architecture, processing pipeline, UI boundary, workers, packaging |
+| [`docs/EXTENDING_RASTERMINT.md`](docs/EXTENDING_RASTERMINT.md) | How to add effects, dithering, palettes, profiles, animation, and UI features |
+| [`docs/HARDWARE_PROFILES.md`](docs/HARDWARE_PROFILES.md) | Hardware-profile format and Visual/Strict behavior |
+| [`docs/TESTING.md`](docs/TESTING.md) | Test strategy, QML smoke tests, regression-test policy |
+| [`docs/FEATURE_RESEARCH.md`](docs/FEATURE_RESEARCH.md) | External feature research and implementation policy |
+| [`docs/ICONS.md`](docs/ICONS.md) | Application icon assets and packaging |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Contribution workflow and project expectations |
+| [`CHANGELOG.md`](CHANGELOG.md) | Release history |
 
-```powershell
-.\scripts\build_windows.ps1
-```
+## Builds and releases
 
-```bash
-bash scripts/build_linux.sh
-bash scripts/build_macos.sh
-```
+GitHub Actions builds Windows, Linux, and macOS artifacts from `main`. Tests run on Linux with Qt in offscreen/software-rendering mode before the release job is allowed to complete.
 
-Release assets:
+The version is stored in the root [`VERSION`](VERSION) file and exposed through the Python package/build metadata.
 
-```text
-RasterMint.exe
-RasterMint-linux-x86_64.tar.gz
-RasterMint-macOS.zip
-```
+Windows packaging uses PyInstaller one-file mode. RasterMint's custom packaging hooks intentionally exclude unused Qt feature families and prevent the stock `imageio-ffmpeg` hook from bundling a second FFmpeg executable.
 
-`.github/workflows/release.yml` builds all three platforms on every push to `main`. After all builds succeed, the workflow creates or refreshes `v<VERSION>`, moves that version tag to the successful commit, and replaces the existing application assets. Manual **Run workflow** is kept as a rebuild fallback and follows the same behavior.
+## Contributing
+
+Read [`CONTRIBUTING.md`](CONTRIBUTING.md) before proposing code changes. Processing changes should preserve the shared-pipeline contract and include focused tests. UI changes should pass the real offscreen QML compile/runtime suite rather than relying only on source-text checks.
 
 ## Third-party software
 
-RasterMint's own source license does not replace the licenses of its dependencies. See [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md), especially before commercial binary distribution.
+Third-party components and notices are documented in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
 
 ## License
 
-RasterMint is source-available for noncommercial use under the [PolyForm Noncommercial License 1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0). Commercial use outside the permissions of that license requires a separate commercial license from Draconov.
+RasterMint is available for noncommercial use under the terms in [`LICENSE`](LICENSE). Commercial licensing information is available in [`COMMERCIAL-LICENSE.md`](COMMERCIAL-LICENSE.md).
 
-Copyright © 2026 Draconov. See `LICENSE` and `COMMERCIAL-LICENSE.md`.
+Copyright © 2026 Draconov.

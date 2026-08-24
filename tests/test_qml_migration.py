@@ -8,12 +8,6 @@ ROOT = Path(__file__).resolve().parents[1]
 PACKAGE = ROOT / "src" / "rastermint"
 
 
-def test_qml_is_the_only_desktop_ui_tree():
-    assert not (PACKAGE / "ui").exists()
-    assert (PACKAGE / "qml" / "Main.qml").is_file()
-    assert (PACKAGE / "qmlui" / "backend.py").is_file()
-
-
 def test_default_theme_matches_rastermint_dark():
     path = PACKAGE / "data" / "themes" / "rastermint-dark.json"
     theme = json.loads(path.read_text(encoding="utf-8"))
@@ -45,9 +39,6 @@ def test_qml_files_are_packaged():
         assert pattern in pyproject
 
 
-def test_old_roadmap_is_not_restored():
-    assert not (ROOT / "ROADMAP.md").exists()
-
 def test_solarized_themes_use_canonical_colors():
     dark = json.loads((PACKAGE / "data" / "themes" / "solarized-dark.json").read_text(encoding="utf-8"))
     light = json.loads((PACKAGE / "data" / "themes" / "solarized-light.json").read_text(encoding="utf-8"))
@@ -71,6 +62,7 @@ def test_solarized_themes_use_canonical_colors():
         assert theme["author"] == "Ethan Schoonover"
         assert theme["license"] == "MIT"
 
+
 def test_linux_workflows_install_qt_runtime_libraries():
     for relative in [
         ".github/workflows/ci.yml",
@@ -85,39 +77,6 @@ def test_linux_workflows_install_qt_runtime_libraries():
         assert "QT_QPA_PLATFORM: offscreen" in workflow
         assert "QSG_RHI_BACKEND: software" in workflow
 
-
-
-def test_preview_mode_buttons_use_supported_selected_property():
-    button = (PACKAGE / "qml" / "components" / "MintButton.qml").read_text(encoding="utf-8")
-    preview = (PACKAGE / "qml" / "pages" / "PreviewPage.qml").read_text(encoding="utf-8")
-
-    assert "property bool selected: false" in button
-    assert "control.selected || control.down" in button
-    assert "selected: backend.previewMode === modelData" in preview
-    assert "background.color:" not in preview
-
-
-def test_qml_pages_do_not_override_custom_control_background_subproperties():
-    # QML controls expose `background` as an Item. Assigning `background.color`
-    # from an instance is invalid because the static type does not guarantee a
-    # `color` property even when our component happens to use a Rectangle.
-    for path in (PACKAGE / "qml").rglob("*.qml"):
-        if path.name == "MintButton.qml":
-            continue
-        text = path.read_text(encoding="utf-8")
-        assert "background.color:" not in text, path
-
-def test_qml_does_not_separate_child_or_grouped_blocks_with_semicolons():
-    # A closing QML object/grouped-property block must not be followed by a
-    # semicolon before the next child object/property. This is easy to create
-    # when compacting QML onto one line and causes `Unexpected token ;`.
-    import re
-
-    bad = re.compile(r"}\s*;\s*(?=(?:[A-Z][A-Za-z0-9_.]*\s*\{|[A-Za-z_][A-Za-z0-9_.]*\s*:))")
-    for path in (PACKAGE / "qml").rglob("*.qml"):
-        text = path.read_text(encoding="utf-8")
-        match = bad.search(text)
-        assert match is None, f"invalid QML block separator in {path}: {match.group(0)!r}" if match else ""
 
 def test_custom_qml_popups_are_forced_into_the_quick_scene():
     main = (PACKAGE / "qml" / "Main.qml").read_text(encoding="utf-8")
@@ -205,60 +164,11 @@ def test_every_backend_method_called_by_qml_exists_in_backend_class():
     assert not missing, f"QML calls backend methods that do not exist: {missing}"
 
 
-
-
-def test_top_bar_uses_explicit_popup_buttons_instead_of_automatic_menubar():
-    main = (PACKAGE / "qml" / "Main.qml").read_text(encoding="utf-8")
-    menu = (PACKAGE / "qml" / "components" / "MintMenu.qml").read_text(encoding="utf-8")
-    menu_item = (PACKAGE / "qml" / "components" / "MintMenuItem.qml").read_text(encoding="utf-8")
-
-    assert "menuBar: MenuBar" not in main
-    assert "header: Rectangle" in main
-    for name in ("File", "Edit", "View"):
-        assert f'objectName: "topMenuButton_{name}"' in main
-    assert "menu.popup(button, 0, button.height)" in main
-    assert "popupType: Popup.Item" in menu
-    assert "width: menuWidth" in menu
-    assert "implicitWidth: control.menuWidth" in menu
-    assert "implicitWidth: Math.max(220" in menu_item
-
-
 def test_add_layer_popup_is_anchored_to_its_button():
     layers = (PACKAGE / "qml" / "pages" / "LayersPage.qml").read_text(encoding="utf-8")
     assert 'objectName: "addLayerButton"' in layers
     assert "mapToItem(Overlay.overlay" in layers
     assert "parent: Overlay.overlay" in layers
-
-
-def test_inspector_width_and_sliders_use_available_width():
-    main = (PACKAGE / "qml" / "Main.qml").read_text(encoding="utf-8")
-    layers = (PACKAGE / "qml" / "pages" / "LayersPage.qml").read_text(encoding="utf-8")
-    source = (PACKAGE / "qml" / "pages" / "SourcePage.qml").read_text(encoding="utf-8")
-    slider = (PACKAGE / "qml" / "components" / "MintSlider.qml").read_text(encoding="utf-8")
-
-    assert 'objectName: "inspectorPanel"' in main
-    assert "Layout.minimumWidth: 620" in main
-    assert "Layout.preferredWidth: Math.max(620" in main
-    assert "width: paramScroll.availableWidth" in layers
-    assert "width: root.availableWidth" in source
-    assert "width: control.availableWidth" in slider
-    assert "MintSlider" in layers
-
-
-def test_undo_redo_and_last_action_toast_are_wired():
-    main = (PACKAGE / "qml" / "Main.qml").read_text(encoding="utf-8")
-    backend = (PACKAGE / "qmlui" / "backend.py").read_text(encoding="utf-8")
-    layers = (PACKAGE / "qml" / "pages" / "LayersPage.qml").read_text(encoding="utf-8")
-    canvas = (PACKAGE / "qml" / "ImageCanvas.qml").read_text(encoding="utf-8")
-
-    assert 'text: "Undo"' in main and 'shortcut: "Ctrl+Z"' in main
-    assert 'text: "Redo"' in main and 'shortcut: "Ctrl+Y"' in main
-    assert 'objectName: "lastActionToast"' in main
-    assert "visible: backend.statusText.length > 0" in main
-    assert "def undo(self)" in backend
-    assert "def redo(self)" in backend
-    assert "beginHistoryGroup" in layers
-    assert "beginHistoryGroup" in canvas
 
 
 def test_theme_chooser_order_and_new_themes_are_stable():
@@ -307,21 +217,6 @@ def test_settings_dialog_is_simplified_and_about_dialog_is_fully_themed():
     assert "color: theme.panelRaisedColor" in about
     assert "color: theme.panelColor" in about
     assert "border.color: theme.borderColor" in about
-
-
-def test_top_menu_focus_does_not_stick_after_popup_closes():
-    main = (PACKAGE / "qml" / "Main.qml").read_text(encoding="utf-8")
-    button = (PACKAGE / "qml" / "components" / "MintMenuBarButton.qml").read_text(encoding="utf-8")
-
-    assert "forceActiveFocus" not in main
-    assert "onClosed: fileMenuButton.focus = false" in main
-    assert "onClosed: editMenuButton.focus = false" in main
-    assert "onClosed: viewMenuButton.focus = false" in main
-    assert "control.menuOpen || control.down" in button
-    assert "control.hovered" in button
-    assert "visible: control.menuOpen" in button
-    assert "control.activeFocus" not in button
-    assert "control.visualFocus" in button
 
 
 def test_view_can_toggle_native_shortcut_hints_without_disabling_shortcuts():

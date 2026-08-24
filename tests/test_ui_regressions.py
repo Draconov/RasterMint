@@ -51,6 +51,12 @@ def test_presets_page_keeps_library_grid_and_custom_preset_controls():
     assert "model: backend.builtinPresets" not in presets
 
 
+def test_gradient_presets_start_collapsed():
+    palette = (QML / "pages" / "PalettePage.qml").read_text(encoding="utf-8")
+
+    assert "property bool gradientPresetsExpanded: false" in palette
+
+
 def test_gradient_presets_do_not_overlay_editor_and_apply_immediately():
     palette = (QML / "pages" / "PalettePage.qml").read_text(encoding="utf-8")
 

@@ -73,9 +73,22 @@ jobs:
           python -m pip install -e ".[dev]"
           python -m pytest
 
+      - name: Cache lean FFmpeg packages
+        if: runner.os == 'Windows'
+        uses: actions/cache@v4
+        with:
+          path: ~/AppData/Local/vcpkg/archives
+          key: rastermint-ffmpeg-${{ runner.os }}-${{ hashFiles('build/ffmpeg-vcpkg/vcpkg.json') }}
+          restore-keys: |
+            rastermint-ffmpeg-${{ runner.os }}-
+
       - name: Build Windows
         if: runner.os == 'Windows'
         shell: pwsh
+        env:
+          # Release builds must not silently fall back to the much larger
+          # imageio wheel FFmpeg; local builds may still use that safe fallback.
+          RASTERMINT_REQUIRE_LEAN_FFMPEG: "1"
         run: ./scripts/build_windows.ps1
 
       - name: Build Linux
