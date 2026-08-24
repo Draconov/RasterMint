@@ -58,3 +58,33 @@ def test_text_font_choices_resolve_to_distinct_native_fonts():
 
     assert all(resolved), resolved
     assert len({str(path).casefold() for path in resolved}) == 3
+
+
+def test_all_text_effect_size_controls_allow_very_large_text():
+    text_effects = (
+        "Text Overlay",  # legacy stacks remain supported
+        "Pixel Text",
+        "Text Pattern",
+        "Text Mask",
+        "Wave / Jitter Text",
+        "Typewriter Text",
+        "Text Glitch",
+    )
+
+    for kind in text_effects:
+        assert EFFECT_DEFINITIONS[kind]["params"]["size"]["max"] == 512, kind
+
+
+def test_all_text_effects_default_to_rastermint():
+    text_effects = (
+        "Text Overlay",  # legacy stacks remain supported
+        "Pixel Text",
+        "Text Pattern",
+        "Text Mask",
+        "Wave / Jitter Text",
+        "Typewriter Text",
+        "Text Glitch",
+    )
+
+    for kind in text_effects:
+        assert EFFECT_DEFINITIONS[kind]["params"]["text"]["default"] == "RasterMint", kind

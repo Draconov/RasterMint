@@ -802,6 +802,50 @@ def _draw_spaced_line(
         cursor += float(draw.textlength(ch, font=font)) + letter_spacing
 
 
+def _spaced_line_bbox(
+    draw: ImageDraw.ImageDraw,
+    text: str,
+    *,
+    font: ImageFont.ImageFont,
+    letter_spacing: int = 0,
+    stroke_width: int = 0,
+) -> tuple[int, int, int, int]:
+    """Return the visual bounds of a line drawn at origin.
+
+    Pillow's default text anchor is not the visual top-left: large fonts can
+    have a sizeable positive top offset and descenders can extend below the
+    nominal line height. Measuring those offsets explicitly prevents the
+    temporary text layer from clipping glyphs when the font size changes.
+    """
+    value = str(text)
+    if not value:
+        return draw.textbbox((0, 0), "Mg", font=font, stroke_width=max(0, int(stroke_width)))
+    if int(letter_spacing) == 0:
+        return draw.textbbox((0, 0), value, font=font, stroke_width=max(0, int(stroke_width)))
+
+    cursor = 0.0
+    left = top = None
+    right = bottom = None
+    for ch in value:
+        bbox = draw.textbbox(
+            (round(cursor), 0),
+            ch,
+            font=font,
+            stroke_width=max(0, int(stroke_width)),
+        )
+        left = bbox[0] if left is None else min(left, bbox[0])
+        top = bbox[1] if top is None else min(top, bbox[1])
+        right = bbox[2] if right is None else max(right, bbox[2])
+        bottom = bbox[3] if bottom is None else max(bottom, bbox[3])
+        cursor += float(draw.textlength(ch, font=font)) + int(letter_spacing)
+    return (
+        int(math.floor(left or 0)),
+        int(math.floor(top or 0)),
+        int(math.ceil(right or 0)),
+        int(math.ceil(bottom or 0)),
+    )
+
+
 def _render_text_block(
     text: str,
     *,
@@ -816,32 +860,80 @@ def _render_text_block(
     shadow: int = 0,
 ) -> Image.Image:
     font = _load_text_font(font_name, size)
-    probe = Image.new("RGBA", (max(2, max_width), max(2, size * 2)), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(probe)
-    lines = _wrap_text_lines(draw, str(text), font, max_width, letter_spacing)
-    bbox = draw.textbbox((0, 0), "Mg", font=font, stroke_width=max(0, int(outline)))
-    line_height = max(1, bbox[3] - bbox[1])
-    widths = [_text_line_width(draw, line, font, letter_spacing) for line in lines]
-    block_width = max(1, min(max_width, max(widths, default=1) + max(0, int(outline)) * 2 + max(0, int(shadow))))
-    block_height = max(1, len(lines) * line_height + max(0, len(lines) - 1) * max(0, int(line_spacing)) + max(0, int(outline)) * 2 + max(0, int(shadow)))
+    # textbbox/textlength do not depend on the backing canvas dimensions. A
+    # tiny probe avoids allocating a large throwaway image for big text sizes.
+    probe = Image.new("L", (2, 2), 0)
+    measure = ImageDraw.Draw(probe)
+    lines = _wrap_text_lines(measure, str(text), font, max_width, letter_spacing)
+    outline_px = max(0, int(outline))
+    shadow_px = max(0, int(shadow))
+    gap = max(0, int(line_spacing))
+
+    metrics: list[tuple[tuple[int, int, int, int], int, int]] = []
+    for line in lines:
+        bbox = _spaced_line_bbox(
+            measure,
+            line,
+            font=font,
+            letter_spacing=int(letter_spacing),
+            stroke_width=outline_px,
+        )
+        visual_width = 0 if not line else max(1, bbox[2] - bbox[0])
+        visual_height = max(1, bbox[3] - bbox[1])
+        metrics.append((bbox, visual_width, visual_height))
+
+    content_width = max(1, max((item[1] for item in metrics), default=1))
+    content_height = max(
+        1,
+        sum(item[2] for item in metrics) + max(0, len(metrics) - 1) * gap,
+    )
+    # Wrapping constrains the layout width, but the visual bounds may extend a
+    # few pixels beyond that width because of glyph overhang, outline or a
+    # single glyph larger than max_width. Never crop those pixels.
+    block_width = max(1, content_width + shadow_px)
+    block_height = max(1, content_height + shadow_px)
     layer = Image.new("RGBA", (block_width, block_height), (0, 0, 0, 0))
     draw = ImageDraw.Draw(layer)
     fill = (*hex_to_rgb(color), 255)
     stroke = (0, 0, 0, 255)
-    y = max(0, int(outline))
-    for line, width in zip(lines, widths, strict=False):
-        if alignment == "Left":
-            x = max(0, int(outline))
-        elif alignment == "Right":
-            x = max(0, block_width - width - int(outline) - int(shadow))
-        else:
-            x = max(0, (block_width - width - int(shadow)) // 2)
-        if shadow > 0:
-            _draw_spaced_line(draw, (x + shadow, y + shadow), line, font=font, fill=(0, 0, 0, 200), letter_spacing=letter_spacing, stroke_width=max(0, int(outline)), stroke_fill=stroke)
-        _draw_spaced_line(draw, (x, y), line, font=font, fill=fill, letter_spacing=letter_spacing, stroke_width=max(0, int(outline)), stroke_fill=stroke)
-        y += line_height + max(0, int(line_spacing))
-    return layer
 
+    visual_y = 0
+    for line, (bbox, visual_width, visual_height) in zip(lines, metrics, strict=False):
+        if alignment == "Left":
+            visual_x = 0
+        elif alignment == "Right":
+            visual_x = max(0, content_width - visual_width)
+        else:
+            visual_x = max(0, (content_width - visual_width) // 2)
+
+        # Convert desired visual top-left coordinates back to Pillow's default
+        # text origin by subtracting the measured glyph offsets.
+        x = round(visual_x - bbox[0])
+        y = round(visual_y - bbox[1])
+        if line:
+            if shadow_px > 0:
+                _draw_spaced_line(
+                    draw,
+                    (x + shadow_px, y + shadow_px),
+                    line,
+                    font=font,
+                    fill=(0, 0, 0, 200),
+                    letter_spacing=letter_spacing,
+                    stroke_width=outline_px,
+                    stroke_fill=stroke,
+                )
+            _draw_spaced_line(
+                draw,
+                (x, y),
+                line,
+                font=font,
+                fill=fill,
+                letter_spacing=letter_spacing,
+                stroke_width=outline_px,
+                stroke_fill=stroke,
+            )
+        visual_y += visual_height + gap
+    return layer
 
 def _paste_centered_rgba(base: Image.Image, layer: Image.Image, x_percent: float, y_percent: float) -> Image.Image:
     canvas = base.convert("RGBA")
@@ -1118,23 +1210,60 @@ def _pixel_text(
 
 
 def _text_pattern(image: Image.Image, text: str, size: int, color: str, font_name: str, spacing_x: int, spacing_y: int, offset_x: int, rotation: float, opacity: float) -> Image.Image:
-    overlay = Image.new("RGBA", image.size, (0, 0, 0, 0))
-    draw = ImageDraw.Draw(overlay)
     font = _load_text_font(font_name, size)
     rgb = hex_to_rgb(color)
     alpha = round(255 * max(0.0, min(1.0, float(opacity))))
     sx = max(12, int(spacing_x))
     sy = max(12, int(spacing_y))
-    row = 0
-    for y in range(-sy, image.height + sy, sy):
-        shift = int(offset_x) if row % 2 else 0
-        for x in range(-sx, image.width + sx, sx):
-            draw.text((x + shift, y), str(text), font=font, fill=(*rgb, alpha))
-        row += 1
-    if abs(float(rotation)) > 1e-6:
-        overlay = overlay.rotate(-float(rotation), resample=Image.Resampling.BICUBIC, expand=False)
-    return Image.alpha_composite(image.convert("RGBA"), overlay).convert("RGB")
+    angle = float(rotation)
 
+    # Rotating an image-sized overlay in place produces transparent corner
+    # wedges. Render the pattern on the inverse-rotation bounding rectangle,
+    # rotate that larger surface, then crop the centered source-sized region.
+    # This keeps the repeating pattern continuous all the way to every edge.
+    radians = math.radians(angle)
+    cos_a = abs(math.cos(radians))
+    sin_a = abs(math.sin(radians))
+    cover_width = max(1, math.ceil(image.width * cos_a + image.height * sin_a))
+    cover_height = max(1, math.ceil(image.width * sin_a + image.height * cos_a))
+
+    probe = Image.new("L", (2, 2), 0)
+    probe_draw = ImageDraw.Draw(probe)
+    text_bbox = probe_draw.textbbox((0, 0), str(text) or " ", font=font)
+    text_width = max(1, text_bbox[2] - text_bbox[0])
+    text_height = max(1, text_bbox[3] - text_bbox[1])
+    if abs(angle) > 1e-6:
+        margin_x = max(sx, abs(int(offset_x)), max(12, int(size) * 2))
+        margin_y = max(sy, max(12, int(size) * 2))
+        work_width = cover_width + margin_x * 2
+        work_height = cover_height + margin_y * 2
+    else:
+        work_width = image.width
+        work_height = image.height
+
+    overlay = Image.new("RGBA", (work_width, work_height), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay)
+    row = 0
+    start_y = -sy - text_height
+    end_y = work_height + sy + text_height
+    start_x = -sx - text_width - abs(int(offset_x))
+    end_x = work_width + sx + text_width + abs(int(offset_x))
+    for yy in range(start_y, end_y, sy):
+        shift = int(offset_x) if row % 2 else 0
+        # Make yy represent the visual top of the glyphs rather than Pillow's
+        # baseline-relative origin, keeping row spacing stable across fonts.
+        draw_y = yy - text_bbox[1]
+        for xx in range(start_x, end_x, sx):
+            draw.text((xx + shift - text_bbox[0], draw_y), str(text), font=font, fill=(*rgb, alpha))
+        row += 1
+
+    if abs(angle) > 1e-6:
+        overlay = overlay.rotate(-angle, resample=Image.Resampling.BICUBIC, expand=False)
+
+    left = max(0, (overlay.width - image.width) // 2)
+    top = max(0, (overlay.height - image.height) // 2)
+    overlay = overlay.crop((left, top, left + image.width, top + image.height))
+    return Image.alpha_composite(image.convert("RGBA"), overlay).convert("RGB")
 
 def _text_mask(
     image: Image.Image,

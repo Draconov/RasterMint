@@ -2,9 +2,11 @@
 # SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw
 
-from rastermint.core.effect_stack import EFFECT_DEFINITIONS, apply_effect_stack, effect_categories, new_effect, normalize_effect_stack, scale_stack_for_preview
+from rastermint.core.animation import settings_at_time
+from rastermint.core.effect_stack import EFFECT_DEFINITIONS, _load_text_font, _render_text_block, apply_effect_stack, effect_categories, new_effect, normalize_effect_stack, scale_stack_for_preview
+from rastermint.core.settings import ProcessingSettings
 
 
 def test_effect_stack_executes_in_order():
@@ -69,3 +71,116 @@ def test_every_user_addable_effect_is_present_once_in_categories():
     assert set(flattened) == set(EFFECT_DEFINITIONS) - {"Text Overlay"}
     assert len(flattened) == len(set(flattened))
     assert all(category["effects"] for category in categories)
+
+def test_large_pixel_text_layer_keeps_full_glyph_bounds():
+    text = "PIXEL TEXT"
+    size = 192
+    font = _load_text_font("Pixel", size)
+
+    reference = Image.new("RGBA", (2600, 700), (0, 0, 0, 0))
+    reference_draw = ImageDraw.Draw(reference)
+    bbox = reference_draw.textbbox((0, 0), text, font=font)
+    reference_draw.text(
+        (-bbox[0] + 40, -bbox[1] + 40),
+        text,
+        font=font,
+        fill=(255, 255, 255, 255),
+    )
+    expected_pixels = np.count_nonzero(np.asarray(reference.getchannel("A")))
+
+    layer = _render_text_block(
+        text,
+        size=size,
+        color="#FFFFFF",
+        font_name="Pixel",
+        max_width=2400,
+    )
+    rendered_pixels = np.count_nonzero(np.asarray(layer.getchannel("A")))
+
+    assert rendered_pixels == expected_pixels
+
+
+def test_rotated_text_pattern_covers_all_canvas_corners():
+    source = Image.new("RGB", (256, 192), (0, 0, 0))
+    effect = new_effect("Text Pattern")
+    effect["params"].update(
+        text="MMMMMMMMMMMMMMMM",
+        size=14,
+        color="#FFFFFF",
+        font="Sans",
+        spacing_x=14,
+        spacing_y=14,
+        offset_x=0,
+        rotation=45.0,
+        opacity=1.0,
+    )
+
+    out = np.asarray(apply_effect_stack(source, [effect], ["#000000", "#FFFFFF"]))
+    regions = (
+        out[:40, :40],
+        out[:40, -40:],
+        out[-40:, :40],
+        out[-40:, -40:],
+    )
+
+    assert all(np.any(region != 0) for region in regions)
+
+
+def test_text_glitch_temporal_mode_changes_between_frames_but_static_mode_is_stable():
+    source = Image.new("RGB", (320, 180), (10, 10, 10))
+    effect = new_effect("Text Glitch")
+    effect["params"].update(
+        text="GLITCH TEST",
+        size=48,
+        temporal=True,
+        slice_shift=12,
+        vertical_jitter=4,
+        dropout=0.2,
+        seed=7,
+    )
+
+    frame_0 = np.asarray(apply_effect_stack(source, [effect], ["#000000", "#FFFFFF"], frame_time=0.0, frame_index=0))
+    frame_1 = np.asarray(apply_effect_stack(source, [effect], ["#000000", "#FFFFFF"], frame_time=1 / 30, frame_index=1))
+    assert not np.array_equal(frame_0, frame_1)
+
+    effect["params"]["temporal"] = False
+    static_0 = np.asarray(apply_effect_stack(source, [effect], ["#000000", "#FFFFFF"], frame_time=0.0, frame_index=0))
+    static_1 = np.asarray(apply_effect_stack(source, [effect], ["#000000", "#FFFFFF"], frame_time=1.0, frame_index=30))
+    assert np.array_equal(static_0, static_1)
+
+
+def test_typewriter_reveal_track_and_cursor_blink_are_frame_aware():
+    source = Image.new("RGB", (320, 180), (10, 10, 10))
+    palette = ["#000000", "#FFFFFF"]
+    effect = new_effect("Typewriter Text", effect_id="typewriter")
+    effect["params"].update(text="TYPE SOMETHING...", size=48, cursor=False)
+
+    settings = ProcessingSettings()
+    settings.effect_stack = [effect]
+    settings.animation_tracks = [{
+        "target": "effect:typewriter:progress",
+        "from": 0.0,
+        "to": 100.0,
+        "start": 0.0,
+        "end": 1.0,
+        "easing": "Linear",
+        "enabled": True,
+    }]
+
+    start = settings_at_time(settings, 0.0)
+    middle = settings_at_time(settings, 0.5)
+    end = settings_at_time(settings, 1.0)
+    assert start.effect_stack[0]["params"]["progress"] == 0.0
+    assert middle.effect_stack[0]["params"]["progress"] == 50.0
+    assert end.effect_stack[0]["params"]["progress"] == 100.0
+
+    start_frame = np.asarray(apply_effect_stack(source, start.effect_stack, palette, frame_time=0.0, frame_index=0))
+    end_frame = np.asarray(apply_effect_stack(source, end.effect_stack, palette, frame_time=1.0, frame_index=30))
+    assert not np.array_equal(start_frame, end_frame)
+
+    blink = new_effect("Typewriter Text")
+    blink["params"].update(text="HELLO", size=48, progress=40.0, cursor=True, cursor_blink=True, cursor_blink_speed=2.0)
+    cursor_on = np.asarray(apply_effect_stack(source, [blink], palette, frame_time=0.0, frame_index=0))
+    cursor_off = np.asarray(apply_effect_stack(source, [blink], palette, frame_time=0.3, frame_index=9))
+    assert not np.array_equal(cursor_on, cursor_off)
+

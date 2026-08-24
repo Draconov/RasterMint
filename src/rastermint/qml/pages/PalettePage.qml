@@ -322,11 +322,6 @@ Item {
                 }
                 MintButton {
                     Layout.fillWidth: true
-                    text: "Shuffle unlocked"
-                    onClicked: backend.shufflePaletteUnlocked()
-                }
-                MintButton {
-                    Layout.fillWidth: true
                     text: "Randomize unlocked"
                     onClicked: backend.randomizePaletteUnlocked()
                 }
