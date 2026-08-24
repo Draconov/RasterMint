@@ -174,7 +174,7 @@ EFFECT_DEFINITIONS: dict[str, dict[str, Any]] = {
         "cell_size": {"type": "int", "label": "Cell size", "default": 10, "min": 4, "max": 64, "step": 1, "suffix": " px", "animatable": True, "pixel_scaled": True},
         "spacing_x": {"type": "int", "label": "Horizontal spacing", "default": 0, "min": -8, "max": 32, "step": 1, "suffix": " px", "animatable": True, "pixel_scaled": True},
         "spacing_y": {"type": "int", "label": "Vertical spacing", "default": 0, "min": -8, "max": 32, "step": 1, "suffix": " px", "animatable": True, "pixel_scaled": True},
-        "depth": {"type": "int", "label": "Character depth", "default": 10, "min": 2, "max": 96, "step": 1, "animatable": True},
+        "depth": {"type": "int", "label": "Character depth", "default": 9, "min": 2, "max": 96, "step": 1, "animatable": True},
         "offset": {"type": "int", "label": "Character offset", "default": 0, "min": -64, "max": 64, "step": 1, "animatable": True},
         "invert": {"type": "bool", "label": "Invert mapping", "default": False},
         "color_mode": {"type": "choice", "label": "Colour mode", "default": "Source", "options": ["Source", "Palette", "Single Colour"]},

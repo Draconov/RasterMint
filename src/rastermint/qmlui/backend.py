@@ -324,14 +324,13 @@ class RasterMintBackend(QObject):
             row["options"] = list(spec.get("options", []))
             row["suffix"] = str(spec.get("suffix", ""))
             if kind == "ASCII / Glyph" and key == "depth":
-                from rastermint.core.effect_stack import ascii_available_chars
-                available = ascii_available_chars(
+                from rastermint.core.effect_stack import ascii_depth_max
+                row["max"] = ascii_depth_max(
                     current_character_set,
                     current_custom_chars,
                     current_font,
                     current_font_size,
                 )
-                row["max"] = max(2, len(available))
                 try:
                     row["value"] = min(int(row["value"]), int(row["max"]))
                 except (TypeError, ValueError):
@@ -924,7 +923,21 @@ class RasterMintBackend(QObject):
         step = stack[self._selected_layer]
         kind = str(step.get("kind", "Layer"))
         key = str(key)
-        step.setdefault("params", {})[key] = value
+        params = step.setdefault("params", {})
+        params[key] = value
+        if kind == "ASCII / Glyph" and key in {"character_set", "custom_chars", "font", "cell_size", "font_scale", "depth"}:
+            from rastermint.core.effect_stack import ascii_depth_max
+            character_set = str(params.get("character_set", "Classic ASCII"))
+            custom_chars = str(params.get("custom_chars", " .:-=+*#%@"))
+            font_name = str(params.get("font", "Mono"))
+            cell_size = int(params.get("cell_size", 10) or 10)
+            font_scale = float(params.get("font_scale", 0.9) or 0.9)
+            font_size = max(6, round(cell_size * max(0.4, min(1.5, font_scale))))
+            max_depth = ascii_depth_max(character_set, custom_chars, font_name, font_size)
+            try:
+                params["depth"] = max(2, min(max_depth, int(round(float(params.get("depth", max_depth))))))
+            except (TypeError, ValueError):
+                params["depth"] = max_depth
         spec = EFFECT_DEFINITIONS.get(kind, {}).get("params", {}).get(key, {})
         label = str(spec.get("label", self._pretty_key(key)))
         decimals = spec.get("decimals")

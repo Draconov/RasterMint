@@ -560,6 +560,15 @@ _FONT_FILES: dict[str, tuple[str, ...]] = {
     "Mono": ("DejaVuSansMono.ttf", "consola.ttf", "cour.ttf", "Courier New.ttf", "Menlo.ttc", "LiberationMono-Regular.ttf"),
     "Sans": ("DejaVuSans.ttf", "segoeui.ttf", "arial.ttf", "Arial.ttf", "Helvetica.ttc", "LiberationSans-Regular.ttf"),
     "Serif": ("DejaVuSerif.ttf", "times.ttf", "Times New Roman.ttf", "georgia.ttf", "Times.ttc", "LiberationSerif-Regular.ttf"),
+    # Internal-only fallback family for Unicode symbols used by the ASCII/Glyph
+    # sets. It is not exposed as a normal text-font option; it only fills a
+    # missing glyph when the selected font cannot draw that character.
+    "Symbol": (
+        "seguisym.ttf", "Segoe UI Symbol.ttf", "seguiemj.ttf",
+        "NotoSansSymbols2-Regular.ttf", "NotoSansSymbols-Regular.ttf",
+        "Apple Symbols.ttf", "Arial Unicode.ttf", "Arial Unicode MS.ttf",
+        "DejaVuSans.ttf", "FreeSerif.ttf",
+    ),
 }
 
 
@@ -572,6 +581,9 @@ def _font_search_roots() -> tuple[Path, ...]:
         Path("/usr/share/fonts/truetype/dejavu"),
         Path("/usr/share/fonts/truetype/liberation2"),
         Path("/usr/share/fonts/truetype/liberation"),
+        Path("/usr/share/fonts/truetype/noto"),
+        Path("/usr/share/fonts/truetype/freefont"),
+        Path("/usr/share/fonts/opentype/noto"),
         Path("/System/Library/Fonts"),
         Path("/System/Library/Fonts/Supplemental"),
         Path("/Library/Fonts"),
@@ -742,11 +754,38 @@ def _glyph_chars(character_set: str, custom_chars: str) -> str:
     return chars if len(chars) >= 2 else _GLYPH_SETS["Classic ASCII"]
 
 
-@lru_cache(maxsize=128)
-def _glyph_fingerprint(font_name: str, font_size: int, ch: str) -> tuple[int, int, bytes] | None:
+@lru_cache(maxsize=32)
+def _font_candidate_refs(font_name: str) -> tuple[str, ...]:
+    refs: list[str] = []
+    seen: set[str] = set()
+    for filename in _FONT_FILES.get(str(font_name), _FONT_FILES["Mono"]):
+        found = False
+        for root in _font_search_roots():
+            path = root / filename
+            if path.is_file():
+                ref = str(path)
+                key = ref.casefold()
+                if key not in seen:
+                    refs.append(ref)
+                    seen.add(key)
+                found = True
+        if found:
+            continue
+        try:
+            probe = ImageFont.truetype(filename, size=12)
+            ref = str(getattr(probe, "path", None) or filename)
+            key = ref.casefold()
+            if key not in seen:
+                refs.append(ref)
+                seen.add(key)
+        except (OSError, ValueError):
+            continue
+    return tuple(refs)
+
+
+def _glyph_mask_fingerprint(font: ImageFont.ImageFont, font_size: int, ch: str) -> tuple[int, int, bytes] | None:
     if ch == " ":
         return None
-    font = _load_text_font(font_name, max(6, int(font_size)))
     canvas_size = max(24, int(font_size) * 2)
     mask = Image.new("L", (canvas_size, canvas_size), 0)
     draw = ImageDraw.Draw(mask)
@@ -769,15 +808,70 @@ def _glyph_fingerprint(font_name: str, font_size: int, ch: str) -> tuple[int, in
     return (int(cropped.shape[0]), int(cropped.shape[1]), cropped.tobytes())
 
 
-@lru_cache(maxsize=64)
+@lru_cache(maxsize=1024)
+def _font_ref_supports_char(font_ref: str, font_size: int, ch: str) -> bool:
+    if ch == " ":
+        return True
+    try:
+        font = ImageFont.truetype(font_ref, size=max(6, int(font_size)))
+    except (OSError, ValueError):
+        return False
+    fingerprint = _glyph_mask_fingerprint(font, font_size, ch)
+    if fingerprint is None:
+        return False
+    # Compare against unassigned/non-character code points. Fonts normally
+    # render all unsupported code points using the same .notdef/tofu glyph.
+    sentinels = ("\u0378", "\u0380", "\uFDD0")
+    missing = {
+        value for value in (_glyph_mask_fingerprint(font, font_size, item) for item in sentinels)
+        if value is not None
+    }
+    return fingerprint not in missing
+
+
+@lru_cache(maxsize=1024)
+def _glyph_font_ref(font_name: str, font_size: int, ch: str) -> str | None:
+    groups: list[str] = [str(font_name)] if str(font_name) in _FONT_FILES else ["Mono"]
+    for fallback in ("Symbol", "Sans", "Serif", "Mono"):
+        if fallback not in groups:
+            groups.append(fallback)
+    for group in groups:
+        for ref in _font_candidate_refs(group):
+            if _font_ref_supports_char(ref, font_size, ch):
+                return ref
+    return None
+
+
+def _load_glyph_font(font_name: str, font_size: int, ch: str) -> ImageFont.ImageFont:
+    size = max(6, int(font_size))
+    if str(font_name) == "Pixel":
+        try:
+            primary = ImageFont.load_default(size=size)
+        except TypeError:
+            primary = ImageFont.load_default()
+        if ch == " ":
+            return primary
+        fingerprint = _glyph_mask_fingerprint(primary, size, ch)
+        missing = {
+            value for value in (
+                _glyph_mask_fingerprint(primary, size, item)
+                for item in ("\u0378", "\u0380", "\uFDD0")
+            ) if value is not None
+        }
+        if fingerprint is not None and fingerprint not in missing:
+            return primary
+    ref = _glyph_font_ref(str(font_name), size, ch)
+    if ref:
+        try:
+            return ImageFont.truetype(ref, size=size)
+        except (OSError, ValueError):
+            pass
+    return _load_text_font(font_name, size)
+
+
+@lru_cache(maxsize=128)
 def ascii_available_chars(character_set: str, custom_chars: str, font_name: str, font_size: int) -> str:
     raw = _glyph_chars(character_set, custom_chars)
-    sentinels = ("", "", "")
-    placeholder_fingerprints = {
-        fp for fp in (_glyph_fingerprint(font_name, font_size, ch) for ch in sentinels)
-        if fp is not None
-    }
-
     supported: list[str] = []
     seen: set[str] = set()
     for ch in raw:
@@ -787,29 +881,43 @@ def ascii_available_chars(character_set: str, custom_chars: str, font_name: str,
         if ch == " ":
             supported.append(ch)
             continue
-        fp = _glyph_fingerprint(font_name, font_size, ch)
-        if fp is None:
+        if _glyph_font_ref(str(font_name), max(6, int(font_size)), ch) is not None:
+            supported.append(ch)
             continue
-        if placeholder_fingerprints and fp in placeholder_fingerprints:
-            continue
-        supported.append(ch)
+        if str(font_name) == "Pixel":
+            font = _load_glyph_font("Pixel", max(6, int(font_size)), ch)
+            fp = _glyph_mask_fingerprint(font, font_size, ch)
+            if fp is not None:
+                supported.append(ch)
 
     chars = "".join(supported)
-    if len(chars) >= 2:
+    visible = [ch for ch in chars if not ch.isspace()]
+    if len(visible) >= 2:
         return chars
     fallback = _GLYPH_SETS["Classic ASCII"]
     return fallback if len(fallback) >= 2 else " .:-=+*#%@"
 
 
+def ascii_depth_max(character_set: str, custom_chars: str, font_name: str, font_size: int) -> int:
+    """Maximum Character depth, counting visible glyphs only.
+
+    A leading space is a useful transparent/empty tone but is not a visible
+    symbol, so it must not turn Decimal's ten digits into an apparent depth of
+    eleven or Diamonds' four visible marks into five.
+    """
+    chars = ascii_available_chars(character_set, custom_chars, font_name, font_size)
+    return max(2, len([ch for ch in chars if not ch.isspace()]))
+
+
 @lru_cache(maxsize=256)
 def _glyph_density_order(chars: str, font_name: str, font_size: int) -> str:
-    font = _load_text_font(font_name, max(6, int(font_size)))
     canvas_size = max(24, int(font_size) * 2)
     scored: list[tuple[float, int, str]] = []
     for index, ch in enumerate(chars):
         if ch == " ":
             scored.append((0.0, index, ch))
             continue
+        font = _load_glyph_font(font_name, max(6, int(font_size)), ch)
         mask = Image.new("L", (canvas_size, canvas_size), 0)
         draw = ImageDraw.Draw(mask)
         bbox = draw.textbbox((0, 0), ch, font=font)
@@ -1068,12 +1176,16 @@ def _ascii_mapping_chars(
     chars = ascii_available_chars(character_set, custom_chars, font_name, max(6, int(font_size)))
     if auto_density:
         chars = _glyph_density_order(chars, font_name, max(6, int(font_size)))
-    depth = max(2, min(len(chars), int(depth)))
-    if len(chars) > depth:
-        indices = np.linspace(0, len(chars) - 1, depth).round().astype(int)
-        chars = "".join(chars[i] for i in indices)
-    if not chars:
-        chars = " .:-=+*#%@"
+
+    # Character depth describes visible symbols. Space remains an optional
+    # empty/dark tone but no longer consumes one depth slot in the UI.
+    has_space = any(ch.isspace() for ch in chars)
+    visible = "".join(ch for ch in chars if not ch.isspace())
+    depth = max(2, min(len(visible), int(depth)))
+    if len(visible) > depth:
+        indices = np.linspace(0, len(visible) - 1, depth).round().astype(int)
+        visible = "".join(visible[i] for i in indices)
+    chars = ((" " if has_space else "") + visible) or " .:-=+*#%@"
     shift = int(offset) % len(chars)
     if shift:
         chars = chars[-shift:] + chars[:-shift]
@@ -1260,7 +1372,7 @@ def _ascii_glyph(
     else:
         canvas = Image.new("RGBA", image.size, (*hex_to_rgb(background), 255))
     draw = ImageDraw.Draw(canvas)
-    font = _load_text_font(font_name, max(6, round(cell * max(0.4, min(1.5, float(font_scale))))))
+    font_size = max(6, round(cell * max(0.4, min(1.5, float(font_scale)))))
     single = hex_to_rgb(foreground)
 
     for row, line in enumerate(lines):
@@ -1276,6 +1388,7 @@ def _ascii_glyph(
                 color = tuple(int(v) for v in palette_np[int(np.argmin(np.sum(diff * diff, axis=1)))])
             else:
                 color = tuple(int(round(v)) for v in mean)
+            font = _load_glyph_font(font_name, font_size, char)
             bbox = draw.textbbox((0, 0), char, font=font)
             tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
             draw.text(

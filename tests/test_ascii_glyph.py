@@ -3,7 +3,14 @@ from __future__ import annotations
 import numpy as np
 from PIL import Image
 
-from rastermint.core.effect_stack import apply_effect_stack, new_effect
+from rastermint.core.effect_stack import (
+    _ascii_mapping_chars,
+    _GLYPH_SETS,
+    apply_effect_stack,
+    ascii_available_chars,
+    ascii_depth_max,
+    new_effect,
+)
 
 
 def _ascii_effect(background_mode: str):
@@ -57,3 +64,24 @@ def test_ascii_transparency_survives_a_later_dither_layer(tmp_path):
     with Image.open(path) as reopened:
         assert reopened.mode == "RGBA"
         assert bytes(reopened.getchannel("A").tobytes()) == alpha_before
+
+
+def test_ascii_depth_counts_visible_symbols_not_hidden_space():
+    assert ascii_depth_max("Decimal", "", "Mono", 9) == 10
+    assert ascii_depth_max("Diamonds", "", "Mono", 9) == 4
+
+
+def test_ascii_mapping_keeps_empty_space_without_consuming_depth_slot():
+    chars = _ascii_mapping_chars(
+        "Diamonds", "", 4, 0, True, "Mono", 9,
+    )
+    assert " " in chars
+    assert len([char for char in chars if not char.isspace()]) == 4
+
+
+def test_builtin_glyph_sets_keep_all_visible_symbols_with_font_fallbacks():
+    for name, raw in _GLYPH_SETS.items():
+        available = ascii_available_chars(name, "", "Mono", 9)
+        raw_visible = [char for char in raw if not char.isspace()]
+        available_visible = [char for char in available if not char.isspace()]
+        assert available_visible == raw_visible, name
