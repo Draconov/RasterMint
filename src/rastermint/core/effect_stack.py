@@ -752,11 +752,22 @@ def _decode_custom_glyphs(value: str) -> str:
     return "".join(deduped)
 
 
-def _glyph_chars(character_set: str, custom_chars: str) -> str:
+def _glyph_chars(character_set: str, custom_chars: str, inject_chars: str = "") -> str:
     if str(character_set) == "Custom":
         chars = _decode_custom_glyphs(custom_chars)
     else:
         chars = _GLYPH_SETS.get(str(character_set), _GLYPH_SETS["Classic ASCII"])
+
+    injected = _decode_custom_glyphs(inject_chars)
+    if injected:
+        merged: list[str] = []
+        seen: set[str] = set()
+        for ch in chars + injected:
+            if ch not in seen:
+                merged.append(ch)
+                seen.add(ch)
+        chars = "".join(merged)
+
     return chars if len(chars) >= 2 else _GLYPH_SETS["Classic ASCII"]
 
 
@@ -875,9 +886,15 @@ def _load_glyph_font(font_name: str, font_size: int, ch: str) -> ImageFont.Image
     return _load_text_font(font_name, size)
 
 
-@lru_cache(maxsize=128)
-def ascii_available_chars(character_set: str, custom_chars: str, font_name: str, font_size: int) -> str:
-    raw = _glyph_chars(character_set, custom_chars)
+@lru_cache(maxsize=256)
+def ascii_available_chars(
+    character_set: str,
+    custom_chars: str,
+    font_name: str,
+    font_size: int,
+    inject_chars: str = "",
+) -> str:
+    raw = _glyph_chars(character_set, custom_chars, inject_chars)
     supported: list[str] = []
     seen: set[str] = set()
     for ch in raw:
@@ -904,15 +921,22 @@ def ascii_available_chars(character_set: str, custom_chars: str, font_name: str,
     return fallback if len(fallback) >= 2 else " .:-=+*#%@"
 
 
-def ascii_depth_max(character_set: str, custom_chars: str, font_name: str, font_size: int) -> int:
+def ascii_depth_max(
+    character_set: str,
+    custom_chars: str,
+    font_name: str,
+    font_size: int,
+    inject_chars: str = "",
+) -> int:
     """Maximum Character depth, counting visible glyphs only.
 
     A leading space is a useful transparent/empty tone but is not a visible
     symbol, so it must not turn Decimal's ten digits into an apparent depth of
-    eleven or Diamonds' four visible marks into five.
+    eleven or Diamonds' four visible marks into five. Injected glyphs are
+    included after de-duplication and font fallback checks.
     """
-    chars = ascii_available_chars(character_set, custom_chars, font_name, font_size)
-    return max(2, len([ch for ch in chars if not ch.isspace()]))
+    chars = ascii_available_chars(character_set, custom_chars, font_name, font_size, inject_chars)
+    return max(2, len([ch for ch in chars if ch not in _INTENTIONAL_BLANK_GLYPHS]))
 
 
 @lru_cache(maxsize=256)
@@ -939,6 +963,253 @@ def _glyph_density_order(chars: str, font_name: str, font_size: int) -> str:
         scored.append((float(arr.mean()), index, ch))
     scored.sort(key=lambda item: (item[0], item[1]))
     return "".join(item[2] for item in scored)
+
+
+def _ascii_supersampling_factor(value: str | int | float) -> int:
+    text = str(value or "1").strip().lower().replace("×", "x")
+    if text.startswith("4"):
+        return 4
+    if text.startswith("2"):
+        return 2
+    return 1
+
+
+@lru_cache(maxsize=2048)
+def _glyph_visual_mask(
+    font_name: str,
+    font_size: int,
+    ch: str,
+    supersampling: int = 1,
+) -> np.ndarray:
+    """Render a glyph into a tightly cropped alpha mask.
+
+    High-detail ASCII renders glyphs above final resolution and downsamples the
+    mask, improving tiny serif/Unicode shapes without changing the output
+    raster size. The returned mask may be larger than the nominal cell so glyph
+    scale above 1.0 can still overlap neighbouring cells naturally.
+    """
+    if ch in _INTENTIONAL_BLANK_GLYPHS:
+        return np.zeros((1, 1), dtype=np.uint8)
+
+    ss = max(1, min(4, int(supersampling)))
+    hi_size = max(2, int(font_size) * ss)
+    font = _load_glyph_font(font_name, hi_size, ch)
+    probe_size = max(24, hi_size * 4)
+    probe = Image.new("L", (probe_size, probe_size), 0)
+    draw = ImageDraw.Draw(probe)
+    bbox = draw.textbbox((0, 0), ch, font=font)
+    width = max(1, bbox[2] - bbox[0])
+    height = max(1, bbox[3] - bbox[1])
+    pad = max(2, ss * 2)
+    mask = Image.new("L", (width + pad * 2, height + pad * 2), 0)
+    mask_draw = ImageDraw.Draw(mask)
+    mask_draw.text((pad - bbox[0], pad - bbox[1]), ch, font=font, fill=255)
+
+    arr = np.asarray(mask, dtype=np.uint8)
+    ys, xs = np.nonzero(arr)
+    if ys.size == 0 or xs.size == 0:
+        return np.zeros((1, 1), dtype=np.uint8)
+    cropped = Image.fromarray(
+        arr[ys.min():ys.max() + 1, xs.min():xs.max() + 1],
+        mode="L",
+    )
+    if ss > 1:
+        cropped = cropped.resize(
+            (
+                max(1, round(cropped.width / ss)),
+                max(1, round(cropped.height / ss)),
+            ),
+            Image.Resampling.LANCZOS,
+        )
+    return np.asarray(cropped, dtype=np.uint8).copy()
+
+
+@lru_cache(maxsize=4096)
+def _glyph_cell_mask(
+    font_name: str,
+    font_size: int,
+    ch: str,
+    cell_width: int,
+    cell_height: int,
+    supersampling: int,
+) -> np.ndarray:
+    """Return a glyph mask clipped to one ASCII source cell."""
+    width = max(1, int(cell_width))
+    height = max(1, int(cell_height))
+    canvas = np.zeros((height, width), dtype=np.uint8)
+    if ch in _INTENTIONAL_BLANK_GLYPHS:
+        return canvas
+
+    glyph = _glyph_visual_mask(font_name, font_size, ch, supersampling)
+    gh, gw = glyph.shape
+    left = round((width - gw) / 2)
+    top = round((height - gh) / 2)
+
+    src_x0 = max(0, -left)
+    src_y0 = max(0, -top)
+    dst_x0 = max(0, left)
+    dst_y0 = max(0, top)
+    copy_w = min(gw - src_x0, width - dst_x0)
+    copy_h = min(gh - src_y0, height - dst_y0)
+    if copy_w > 0 and copy_h > 0:
+        canvas[dst_y0:dst_y0 + copy_h, dst_x0:dst_x0 + copy_w] = glyph[
+            src_y0:src_y0 + copy_h,
+            src_x0:src_x0 + copy_w,
+        ]
+    return canvas
+
+
+def _ascii_cell_geometry(
+    chars: str,
+    font_name: str,
+    font_size: int,
+    cell_size: int,
+    spacing_x: int,
+    spacing_y: int,
+    auto_cell_aspect: bool,
+) -> tuple[int, int, int, int]:
+    cell_height = max(4, int(cell_size))
+    cell_width = cell_height
+    if auto_cell_aspect:
+        ratios: list[float] = []
+        for ch in chars:
+            if ch in _INTENTIONAL_BLANK_GLYPHS:
+                continue
+            glyph = _glyph_visual_mask(font_name, font_size, ch, 1)
+            gh, gw = glyph.shape
+            if gh > 0 and gw > 0:
+                ratios.append(float(gw) / float(gh))
+        if ratios:
+            # The median is resistant to unusually wide glyphs while still
+            # reflecting the selected font/set. Most text fonts naturally land
+            # around 0.5-0.7, producing denser columns without stretching the
+            # source image.
+            aspect = float(np.median(np.asarray(ratios, dtype=np.float32)))
+            aspect = max(0.35, min(1.0, aspect))
+            cell_width = max(2, round(cell_height * aspect))
+
+    pitch_x = max(1, cell_width + int(spacing_x))
+    pitch_y = max(1, cell_height + int(spacing_y))
+    return cell_width, cell_height, pitch_x, pitch_y
+
+
+@lru_cache(maxsize=512)
+def _ascii_structure_templates(
+    chars: str,
+    font_name: str,
+    font_size: int,
+    cell_width: int,
+    cell_height: int,
+    supersampling: int,
+    match_size: int = 8,
+) -> tuple[np.ndarray, np.ndarray]:
+    size = max(4, int(match_size))
+    templates: list[np.ndarray] = []
+    densities: list[float] = []
+    for ch in chars:
+        mask = _glyph_cell_mask(
+            font_name,
+            font_size,
+            ch,
+            cell_width,
+            cell_height,
+            supersampling,
+        )
+        if mask.shape != (size, size):
+            sample = Image.fromarray(mask, mode="L").resize(
+                (size, size),
+                Image.Resampling.BILINEAR,
+            )
+            arr = np.asarray(sample, dtype=np.float32) / 255.0
+        else:
+            arr = mask.astype(np.float32) / 255.0
+        templates.append(arr.reshape(-1))
+        densities.append(float(arr.mean()))
+    return np.asarray(templates, dtype=np.float32), np.asarray(densities, dtype=np.float32)
+
+
+def _sample_ascii_structure(
+    luminance: np.ndarray,
+    alpha: np.ndarray,
+    *,
+    size: int = 8,
+    invert: bool = False,
+    local_detail: float = 0.0,
+) -> np.ndarray:
+    """Sample a source cell into a small structure descriptor.
+
+    Area averaging is used instead of point sampling so one-pixel/thin edges
+    cannot disappear just because they fall between the 8x8 sample positions.
+    """
+    h, w = luminance.shape
+    if h <= 0 or w <= 0:
+        return np.zeros(size * size, dtype=np.float32)
+
+    source_luminance = np.clip(luminance.astype(np.float32), 0.0, 1.0)
+    source_alpha = np.clip(alpha.astype(np.float32), 0.0, 1.0)
+    weighted = (1.0 - source_luminance if invert else source_luminance) * source_alpha
+    if h < size or w < size:
+        sampled = np.asarray(
+            Image.fromarray(np.clip(np.rint(weighted * 255.0), 0, 255).astype(np.uint8), mode="L").resize(
+                (size, size),
+                Image.Resampling.BILINEAR,
+            ),
+            dtype=np.float32,
+        ) / 255.0
+    else:
+        y_edges = np.rint(np.linspace(0, h, size + 1)).astype(np.int32)
+        x_edges = np.rint(np.linspace(0, w, size + 1)).astype(np.int32)
+        integral = np.pad(weighted.cumsum(axis=0).cumsum(axis=1), ((1, 0), (1, 0)))
+        y0, y1 = y_edges[:-1], y_edges[1:]
+        x0, x1 = x_edges[:-1], x_edges[1:]
+        sums = (
+            integral[y1[:, None], x1[None, :]]
+            - integral[y0[:, None], x1[None, :]]
+            - integral[y1[:, None], x0[None, :]]
+            + integral[y0[:, None], x0[None, :]]
+        )
+        areas = np.maximum(1, (y1 - y0)[:, None] * (x1 - x0)[None, :])
+        sampled = sums / areas
+
+    detail = max(0.0, min(1.0, float(local_detail) / 100.0))
+    if detail > 0.0:
+        mean = float(sampled.mean())
+        gain = 1.0 + 3.0 * detail
+        enhanced = np.clip(mean + (sampled - mean) * gain, 0.0, 1.0)
+        sampled = sampled * (1.0 - detail) + enhanced * detail
+    return sampled.reshape(-1).astype(np.float32)
+
+
+def _ascii_weighted_colour(
+    rgb: np.ndarray,
+    alpha: np.ndarray,
+    char: str,
+    *,
+    font_name: str,
+    font_size: int,
+    cell_width: int,
+    cell_height: int,
+    supersampling: int,
+    fallback: np.ndarray,
+) -> np.ndarray:
+    if char in _INTENTIONAL_BLANK_GLYPHS:
+        return fallback
+    mask = _glyph_cell_mask(
+        font_name,
+        font_size,
+        char,
+        cell_width,
+        cell_height,
+        supersampling,
+    ).astype(np.float32) / 255.0
+    h, w = rgb.shape[:2]
+    mask = mask[:h, :w]
+    weights = mask * alpha[:mask.shape[0], :mask.shape[1]]
+    denom = float(weights.sum())
+    if denom <= 1e-6:
+        return fallback
+    sampled_rgb = rgb[:mask.shape[0], :mask.shape[1]]
+    return (sampled_rgb * weights[..., None]).sum(axis=(0, 1)) / denom
 
 
 def _load_text_font(font_name: str, size: int) -> ImageFont.ImageFont:
@@ -1178,20 +1449,33 @@ def _ascii_mapping_chars(
     auto_density: bool,
     font_name: str,
     font_size: int,
+    inject_chars: str = "",
 ) -> str:
-    chars = ascii_available_chars(character_set, custom_chars, font_name, max(6, int(font_size)))
+    chars = ascii_available_chars(
+        character_set,
+        custom_chars,
+        font_name,
+        max(6, int(font_size)),
+        inject_chars,
+    )
     if auto_density:
         chars = _glyph_density_order(chars, font_name, max(6, int(font_size)))
 
     # Character depth describes visible symbols. Space remains an optional
     # empty/dark tone but no longer consumes one depth slot in the UI.
-    has_space = any(ch.isspace() for ch in chars)
-    visible = "".join(ch for ch in chars if not ch.isspace())
+    blanks = "".join(ch for ch in chars if ch in _INTENTIONAL_BLANK_GLYPHS)
+    visible = "".join(ch for ch in chars if ch not in _INTENTIONAL_BLANK_GLYPHS)
     depth = max(2, min(len(visible), int(depth)))
     if len(visible) > depth:
         indices = np.linspace(0, len(visible) - 1, depth).round().astype(int)
         visible = "".join(visible[i] for i in indices)
-    chars = ((" " if has_space else "") + visible) or " .:-=+*#%@"
+
+    # Keep only one regular space as the conventional empty tone. Other
+    # intentional zero-ink glyphs (for example Braille blank) remain available
+    # as real user-selected symbols.
+    has_space = " " in blanks
+    nonspace_blanks = "".join(ch for ch in blanks if ch != " ")
+    chars = ((" " if has_space else "") + nonspace_blanks + visible) or " .:-=+*#%@"
     shift = int(offset) % len(chars)
     if shift:
         chars = chars[-shift:] + chars[:-shift]
@@ -1211,11 +1495,18 @@ def _ascii_grid_data(
     auto_density: bool,
     font_name: str,
     font_scale: float,
-) -> tuple[list[str], list[list[np.ndarray]]]:
-    cell = max(4, int(cell_size))
-    pitch_x = max(1, cell + int(spacing_x))
-    pitch_y = max(1, cell + int(spacing_y))
-    font_size = max(2, round(cell * max(0.4, min(1.5, float(font_scale)))))
+    *,
+    inject_chars: str = "",
+    mapping: str = "Density",
+    structure: float = 75.0,
+    density_influence: float = 25.0,
+    local_detail: float = 35.0,
+    auto_cell_aspect: bool = True,
+    supersampling: str = "4×",
+    color_sampling: str = "Glyph Weighted",
+) -> tuple[list[str], list[list[np.ndarray]], dict[str, int | str | bool]]:
+    cell_height = max(4, int(cell_size))
+    font_size = max(2, round(cell_height * max(0.4, min(1.5, float(font_scale)))))
     chars = _ascii_mapping_chars(
         character_set,
         custom_chars,
@@ -1224,41 +1515,150 @@ def _ascii_grid_data(
         auto_density,
         font_name,
         font_size,
+        inject_chars,
     )
+    high_detail = str(mapping) == "Structure Match"
+    ss = _ascii_supersampling_factor(supersampling) if high_detail else 1
+    cell_width, cell_height, pitch_x, pitch_y = _ascii_cell_geometry(
+        chars,
+        font_name,
+        font_size,
+        cell_height,
+        spacing_x,
+        spacing_y,
+        bool(auto_cell_aspect) if high_detail else False,
+    )
+
     rgba = np.asarray(image.convert("RGBA"), dtype=np.uint8)
+    rgb_all = rgba[..., :3].astype(np.float32)
+    alpha_all = rgba[..., 3].astype(np.float32) / 255.0
+    lum_all = (
+        0.2126 * rgb_all[..., 0]
+        + 0.7152 * rgb_all[..., 1]
+        + 0.0722 * rgb_all[..., 2]
+    ) / 255.0
+
+    rows: list[list[dict[str, object]]] = []
+    opaque_records: list[dict[str, object]] = []
+    for y in range(0, image.height, pitch_y):
+        row_records: list[dict[str, object]] = []
+        for x in range(0, image.width, pitch_x):
+            y1 = min(rgba.shape[0], y + cell_height)
+            x1 = min(rgba.shape[1], x + cell_width)
+            region_rgb = rgb_all[y:y1, x:x1]
+            region_alpha = alpha_all[y:y1, x:x1]
+            if not region_rgb.size:
+                continue
+
+            alpha_mean = float(region_alpha.mean())
+            weights = region_alpha[..., None]
+            denom = max(1e-6, float(weights.sum()))
+            mean = (region_rgb * weights).sum(axis=(0, 1)) / denom if alpha_mean > 0.01 else np.zeros(3, dtype=np.float32)
+            record: dict[str, object] = {
+                "x": x,
+                "y": y,
+                "rgb": region_rgb,
+                "alpha": region_alpha,
+                "mean": mean.astype(np.float32),
+                "char": " ",
+            }
+
+            if alpha_mean > 0.01:
+                if high_detail:
+                    target = _sample_ascii_structure(
+                        lum_all[y:y1, x:x1],
+                        region_alpha,
+                        invert=bool(invert),
+                        local_detail=float(local_detail),
+                    )
+                    record["target"] = target
+                    opaque_records.append(record)
+                else:
+                    lum = float(
+                        0.2126 * mean[0] + 0.7152 * mean[1] + 0.0722 * mean[2]
+                    ) / 255.0
+                    if invert:
+                        lum = 1.0 - lum
+                    index = max(0, min(len(chars) - 1, int(round(lum * (len(chars) - 1)))))
+                    record["char"] = chars[index]
+            row_records.append(record)
+        rows.append(row_records)
+
+    if high_detail and opaque_records:
+        templates, template_density = _ascii_structure_templates(
+            chars,
+            font_name,
+            font_size,
+            cell_width,
+            cell_height,
+            ss,
+        )
+        targets = np.asarray([record["target"] for record in opaque_records], dtype=np.float32)
+        structure_weight = max(0.0, min(1.0, float(structure) / 100.0))
+        density_weight = max(0.0, min(1.0, float(density_influence) / 100.0))
+        if structure_weight <= 1e-6 and density_weight <= 1e-6:
+            structure_weight = 1.0
+
+        template_sq = np.sum(templates * templates, axis=1)
+        chosen = np.empty(len(targets), dtype=np.int32)
+        chunk_size = max(256, min(8192, 2_000_000 // max(1, len(chars))))
+        for begin in range(0, len(targets), chunk_size):
+            finish = min(len(targets), begin + chunk_size)
+            chunk = targets[begin:finish]
+            chunk_sq = np.sum(chunk * chunk, axis=1, keepdims=True)
+            # Mean squared structure difference using the expanded
+            # ||a-b||² identity keeps the temporary matrix bounded.
+            structure_error = (
+                chunk_sq + template_sq[None, :] - 2.0 * (chunk @ templates.T)
+            ) / max(1, templates.shape[1])
+            target_density = chunk.mean(axis=1, keepdims=True)
+            density_error = (target_density - template_density[None, :]) ** 2
+            score = structure_weight * structure_error + density_weight * density_error
+            chosen[begin:finish] = np.argmin(score, axis=1)
+
+        for record, index in zip(opaque_records, chosen, strict=True):
+            record["char"] = chars[int(index)]
+
     lines: list[str] = []
     colors: list[list[np.ndarray]] = []
-    for y in range(0, image.height, pitch_y):
+    glyph_weighted = high_detail and str(color_sampling) == "Glyph Weighted"
+    for row_records in rows:
         line_chars: list[str] = []
         line_colors: list[np.ndarray] = []
-        for x in range(0, image.width, pitch_x):
-            region = rgba[y:min(rgba.shape[0], y + cell), x:min(rgba.shape[1], x + cell)]
-            if not region.size:
-                continue
-            alpha = region[..., 3].astype(np.float32) / 255.0
-            alpha_mean = float(alpha.mean())
-            if alpha_mean <= 0.01:
-                mean = np.array([0.0, 0.0, 0.0], dtype=np.float32)
-                char = " "
-            else:
-                rgb = region[..., :3].astype(np.float32)
-                weights = alpha[..., None]
-                denom = max(1e-6, float(weights.sum()))
-                mean = (rgb * weights).sum(axis=(0, 1)) / denom
-                lum = float(0.2126 * mean[0] + 0.7152 * mean[1] + 0.0722 * mean[2]) / 255.0
-                if invert:
-                    lum = 1.0 - lum
-                index = max(0, min(len(chars) - 1, int(round(lum * (len(chars) - 1)))))
-                char = chars[index]
+        for record in row_records:
+            char = str(record["char"])
+            mean = np.asarray(record["mean"], dtype=np.float32)
+            if glyph_weighted and char not in _INTENTIONAL_BLANK_GLYPHS:
+                mean = _ascii_weighted_colour(
+                    np.asarray(record["rgb"], dtype=np.float32),
+                    np.asarray(record["alpha"], dtype=np.float32),
+                    char,
+                    font_name=font_name,
+                    font_size=font_size,
+                    cell_width=cell_width,
+                    cell_height=cell_height,
+                    supersampling=ss,
+                    fallback=mean,
+                ).astype(np.float32)
             line_chars.append(char)
             line_colors.append(mean)
         lines.append("".join(line_chars).rstrip())
         colors.append(line_colors)
+
     while lines and lines[-1] == "":
         lines.pop()
         colors.pop()
-    return lines or [""], colors or [[]]
 
+    layout: dict[str, int | str | bool] = {
+        "cell_width": cell_width,
+        "cell_height": cell_height,
+        "pitch_x": pitch_x,
+        "pitch_y": pitch_y,
+        "font_size": font_size,
+        "supersampling": ss,
+        "high_detail": high_detail,
+    }
+    return lines or [""], colors or [[]], layout
 
 def ascii_text_grid(
     image: Image.Image,
@@ -1274,8 +1674,16 @@ def ascii_text_grid(
     auto_density: bool,
     font_name: str,
     font_scale: float,
+    inject_chars: str = "",
+    mapping: str = "Density",
+    structure: float = 75.0,
+    density_influence: float = 25.0,
+    local_detail: float = 35.0,
+    auto_cell_aspect: bool = True,
+    supersampling: str = "4×",
+    color_sampling: str = "Glyph Weighted",
 ) -> str:
-    lines, _colors = _ascii_grid_data(
+    lines, _colors, _layout = _ascii_grid_data(
         image,
         character_set,
         custom_chars,
@@ -1288,6 +1696,14 @@ def ascii_text_grid(
         auto_density,
         font_name,
         font_scale,
+        inject_chars=inject_chars,
+        mapping=mapping,
+        structure=structure,
+        density_influence=density_influence,
+        local_detail=local_detail,
+        auto_cell_aspect=auto_cell_aspect,
+        supersampling=supersampling,
+        color_sampling=color_sampling,
     )
     return "\n".join(lines) + "\n"
 
@@ -1322,13 +1738,21 @@ def ascii_text_grid_for_stack(
         before,
         character_set=str(p.get("character_set", "Classic ASCII")),
         custom_chars=str(p.get("custom_chars", " .:-=+*#%@")),
+        inject_chars=str(p.get("inject_chars", "")),
+        mapping=str(p.get("mapping", "Density")),
         cell_size=int(p.get("cell_size", 10)),
         spacing_x=int(p.get("spacing_x", 0)),
         spacing_y=int(p.get("spacing_y", 0)),
-        depth=int(p.get("depth", 10)),
+        depth=int(p.get("depth", 9)),
         offset=int(p.get("offset", 0)),
         invert=bool(p.get("invert", False)),
         auto_density=bool(p.get("auto_density", True)),
+        structure=float(p.get("structure", 75.0)),
+        density_influence=float(p.get("density_influence", 25.0)),
+        local_detail=float(p.get("local_detail", 35.0)),
+        auto_cell_aspect=bool(p.get("auto_cell_aspect", True)),
+        supersampling=str(p.get("supersampling", "4×")),
+        color_sampling=str(p.get("color_sampling", "Glyph Weighted")),
         font_name=str(p.get("font", "Mono")),
         font_scale=float(p.get("font_scale", 0.9)),
     )
@@ -1352,15 +1776,21 @@ def _ascii_glyph(
     font_name: str,
     font_scale: float,
     palette_np: np.ndarray,
+    *,
+    inject_chars: str = "",
+    mapping: str = "Density",
+    structure: float = 75.0,
+    density_influence: float = 25.0,
+    local_detail: float = 35.0,
+    auto_cell_aspect: bool = True,
+    supersampling: str = "4×",
+    color_sampling: str = "Glyph Weighted",
 ) -> Image.Image:
-    cell = max(4, int(cell_size))
-    pitch_x = max(1, cell + int(spacing_x))
-    pitch_y = max(1, cell + int(spacing_y))
-    lines, mean_colors = _ascii_grid_data(
+    lines, mean_colors, layout = _ascii_grid_data(
         image,
         character_set,
         custom_chars,
-        cell,
+        cell_size,
         spacing_x,
         spacing_y,
         depth,
@@ -1369,7 +1799,16 @@ def _ascii_glyph(
         auto_density,
         font_name,
         font_scale,
+        inject_chars=inject_chars,
+        mapping=mapping,
+        structure=structure,
+        density_influence=density_influence,
+        local_detail=local_detail,
+        auto_cell_aspect=auto_cell_aspect,
+        supersampling=supersampling,
+        color_sampling=color_sampling,
     )
+
     mode = str(background_mode)
     if mode == "Transparent":
         canvas = Image.new("RGBA", image.size, (0, 0, 0, 0))
@@ -1377,8 +1816,15 @@ def _ascii_glyph(
         canvas = image.convert("RGBA")
     else:
         canvas = Image.new("RGBA", image.size, (*hex_to_rgb(background), 255))
+
     draw = ImageDraw.Draw(canvas)
-    font_size = max(2, round(cell * max(0.4, min(1.5, float(font_scale)))))
+    cell_width = int(layout["cell_width"])
+    cell_height = int(layout["cell_height"])
+    pitch_x = int(layout["pitch_x"])
+    pitch_y = int(layout["pitch_y"])
+    font_size = int(layout["font_size"])
+    ss = int(layout["supersampling"])
+    high_detail = bool(layout["high_detail"])
     single = hex_to_rgb(foreground)
 
     for row, line in enumerate(lines):
@@ -1394,17 +1840,31 @@ def _ascii_glyph(
                 color = tuple(int(v) for v in palette_np[int(np.argmin(np.sum(diff * diff, axis=1)))])
             else:
                 color = tuple(int(round(v)) for v in mean)
+
             if char in _INTENTIONAL_BLANK_GLYPHS:
                 continue
-            font = _load_glyph_font(font_name, font_size, char)
-            bbox = draw.textbbox((0, 0), char, font=font)
-            tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
-            draw.text(
-                (x + (cell - tw) / 2, y + (cell - th) / 2 - bbox[1]),
-                char,
-                font=font,
-                fill=(*color, 255),
-            )
+
+            if high_detail:
+                glyph = _glyph_visual_mask(font_name, font_size, char, ss)
+                glyph_image = Image.fromarray(glyph, mode="L")
+                layer = Image.new("RGBA", glyph_image.size, (*color, 0))
+                layer.putalpha(glyph_image)
+                gx = round(x + (cell_width - glyph_image.width) / 2)
+                gy = round(y + (cell_height - glyph_image.height) / 2)
+                canvas.alpha_composite(layer, dest=(gx, gy))
+            else:
+                font = _load_glyph_font(font_name, font_size, char)
+                bbox = draw.textbbox((0, 0), char, font=font)
+                tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
+                draw.text(
+                    (
+                        x + (cell_width - tw) / 2,
+                        y + (cell_height - th) / 2 - bbox[1],
+                    ),
+                    char,
+                    font=font,
+                    fill=(*color, 255),
+                )
     return canvas
 
 
@@ -1791,10 +2251,31 @@ def apply_effect_stack(
         elif kind == "Text Overlay": img = _text_overlay(img, str(p["text"]), float(p["x"]), float(p["y"]), int(p["size"]), str(p["color"]), int(p["outline"]), int(p["shadow"]))
         elif kind == "ASCII / Glyph":
             img = _ascii_glyph(
-                img, str(p["character_set"]), str(p["custom_chars"]), bool(p.get("auto_density", True)),
-                int(p["cell_size"]), int(p.get("spacing_x", 0)), int(p.get("spacing_y", 0)), int(p["depth"]), int(p["offset"]),
-                bool(p["invert"]), str(p["color_mode"]), str(p["foreground"]), str(p.get("background_mode", "Solid Colour")),
-                str(p["background"]), str(p["font"]), float(p["font_scale"]), palette_np,
+                img,
+                str(p["character_set"]),
+                str(p["custom_chars"]),
+                bool(p.get("auto_density", True)),
+                int(p["cell_size"]),
+                int(p.get("spacing_x", 0)),
+                int(p.get("spacing_y", 0)),
+                int(p["depth"]),
+                int(p["offset"]),
+                bool(p["invert"]),
+                str(p["color_mode"]),
+                str(p["foreground"]),
+                str(p.get("background_mode", "Solid Colour")),
+                str(p["background"]),
+                str(p["font"]),
+                float(p["font_scale"]),
+                palette_np,
+                inject_chars=str(p.get("inject_chars", "")),
+                mapping=str(p.get("mapping", "Density")),
+                structure=float(p.get("structure", 75.0)),
+                density_influence=float(p.get("density_influence", 25.0)),
+                local_detail=float(p.get("local_detail", 35.0)),
+                auto_cell_aspect=bool(p.get("auto_cell_aspect", True)),
+                supersampling=str(p.get("supersampling", "4×")),
+                color_sampling=str(p.get("color_sampling", "Glyph Weighted")),
             )
         elif kind == "Pixel Text": img = _pixel_text(img, str(p["text"]), float(p["x"]), float(p["y"]), int(p["size"]), str(p["color"]), str(p["font"]), str(p["alignment"]), float(p["wrap_width"]), int(p["letter_spacing"]), int(p["line_spacing"]), float(p["rotation"]), int(p["outline"]), int(p["shadow"]))
         elif kind == "Text Pattern": img = _text_pattern(img, str(p["text"]), int(p["size"]), str(p["color"]), str(p["font"]), int(p["spacing_x"]), int(p["spacing_y"]), int(p["offset_x"]), float(p["rotation"]), float(p["opacity"]))

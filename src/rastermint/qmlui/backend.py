@@ -314,6 +314,7 @@ class RasterMintBackend(QObject):
         current_font = str(values.get("font", "Mono"))
         current_character_set = str(values.get("character_set", "Classic ASCII"))
         current_custom_chars = str(values.get("custom_chars", " .:-=+*#%@"))
+        current_inject_chars = str(values.get("inject_chars", ""))
         current_cell_size = int(values.get("cell_size", 10) or 10)
         current_font_scale = float(values.get("font_scale", 0.9) or 0.9)
         current_font_size = max(2, round(current_cell_size * max(0.4, min(1.5, current_font_scale))))
@@ -330,6 +331,7 @@ class RasterMintBackend(QObject):
                     current_custom_chars,
                     current_font,
                     current_font_size,
+                    current_inject_chars,
                 )
                 try:
                     row["value"] = min(int(row["value"]), int(row["max"]))
@@ -989,15 +991,16 @@ class RasterMintBackend(QObject):
         key = str(key)
         params = step.setdefault("params", {})
         params[key] = value
-        if kind == "ASCII / Glyph" and key in {"character_set", "custom_chars", "font", "cell_size", "font_scale", "depth"}:
+        if kind == "ASCII / Glyph" and key in {"character_set", "custom_chars", "inject_chars", "font", "cell_size", "font_scale", "depth"}:
             from rastermint.core.effect_stack import ascii_depth_max
             character_set = str(params.get("character_set", "Classic ASCII"))
             custom_chars = str(params.get("custom_chars", " .:-=+*#%@"))
+            inject_chars = str(params.get("inject_chars", ""))
             font_name = str(params.get("font", "Mono"))
             cell_size = int(params.get("cell_size", 10) or 10)
             font_scale = float(params.get("font_scale", 0.9) or 0.9)
             font_size = max(2, round(cell_size * max(0.4, min(1.5, font_scale))))
-            max_depth = ascii_depth_max(character_set, custom_chars, font_name, font_size)
+            max_depth = ascii_depth_max(character_set, custom_chars, font_name, font_size, inject_chars)
             try:
                 params["depth"] = max(2, min(max_depth, int(round(float(params.get("depth", max_depth))))))
             except (TypeError, ValueError):

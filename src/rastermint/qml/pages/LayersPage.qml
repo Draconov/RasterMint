@@ -130,12 +130,22 @@ Item {
 
     function paramVisible(param) {
         if (backend.selectedLayerName === "ASCII / Glyph") {
+            var asciiMapping = String(selectedParamValue("mapping", "Density"))
+            var structureMatch = asciiMapping === "Structure Match"
             if (param.key === "custom_chars")
                 return String(selectedParamValue("character_set", "Classic ASCII")) === "Custom"
             if (param.key === "foreground")
                 return String(selectedParamValue("color_mode", "Source")) === "Single Colour"
             if (param.key === "background")
                 return String(selectedParamValue("background_mode", "Solid Colour")) === "Solid Colour"
+            if (param.key === "structure"
+                    || param.key === "density_influence"
+                    || param.key === "local_detail"
+                    || param.key === "auto_cell_aspect"
+                    || param.key === "supersampling")
+                return structureMatch
+            if (param.key === "color_sampling")
+                return structureMatch && String(selectedParamValue("color_mode", "Source")) !== "Single Colour"
         }
         if (backend.selectedLayerName === "Text Mask" && param.key === "background")
             return String(selectedParamValue("background_mode", "Solid Colour")) === "Solid Colour"
@@ -153,17 +163,25 @@ Item {
     }
 
     function glyphPreview(name) {
-        if (String(name) === "Custom")
-            return String(selectedParamValue("custom_chars", " .:-=+*#%@"))
-        var categories = root.glyphSetCategories || []
-        for (var i = 0; i < categories.length; ++i) {
-            var sets = categories[i].sets || []
-            for (var j = 0; j < sets.length; ++j) {
-                if (String(sets[j].name) === String(name))
-                    return String(sets[j].preview || "")
+        var injected = String(selectedParamValue("inject_chars", ""))
+        var base = ""
+        if (String(name) === "Custom") {
+            base = String(selectedParamValue("custom_chars", " .:-=+*#%@"))
+        } else {
+            var categories = root.glyphSetCategories || []
+            for (var i = 0; i < categories.length; ++i) {
+                var sets = categories[i].sets || []
+                for (var j = 0; j < sets.length; ++j) {
+                    if (String(sets[j].name) === String(name)) {
+                        base = String(sets[j].preview || "")
+                        break
+                    }
+                }
+                if (base !== "")
+                    break
             }
         }
-        return ""
+        return injected !== "" ? (base + "  +  " + injected) : base
     }
 
     Component.onCompleted: syncEditorLayerParams()
@@ -508,10 +526,41 @@ Item {
                 Layout.fillWidth: true
                 visible: backend.selectedLayerName === "ASCII / Glyph" && param.key === "color_mode"
                 text: String(param.value) === "Palette"
-                      ? "Glyphs use the nearest colour from the active palette."
+                      ? "Glyphs use the nearest colour from the active palette, based on the selected colour-sampling method."
                       : (String(param.value) === "Single Colour"
                          ? "Every glyph uses the selected Foreground colour."
-                         : "Each glyph keeps the average source colour of its image cell.")
+                         : (String(selectedParamValue("mapping", "Density")) === "Structure Match"
+                            && String(selectedParamValue("color_sampling", "Glyph Weighted")) === "Glyph Weighted"
+                            ? "Glyph colour is sampled mainly from source pixels covered by the selected glyph."
+                            : "Each glyph uses the average source colour of its image cell."))
+                color: theme.mutedTextColor
+                wrapMode: Text.WordWrap
+                font.pixelSize: 10
+            }
+            MintLabel {
+                Layout.fillWidth: true
+                visible: backend.selectedLayerName === "ASCII / Glyph" && param.key === "mapping"
+                text: String(param.value) === "Structure Match"
+                      ? "High-detail mode compares each source cell against the actual shape of every available glyph."
+                      : "Classic fast mode chooses glyphs only by cell brightness/density."
+                color: theme.mutedTextColor
+                wrapMode: Text.WordWrap
+                font.pixelSize: 10
+            }
+            MintLabel {
+                Layout.fillWidth: true
+                visible: backend.selectedLayerName === "ASCII / Glyph" && param.key === "color_sampling"
+                text: String(param.value) === "Glyph Weighted"
+                      ? "Samples colour mainly from source pixels covered by the selected glyph."
+                      : "Uses the average colour of the whole source cell."
+                color: theme.mutedTextColor
+                wrapMode: Text.WordWrap
+                font.pixelSize: 10
+            }
+            MintLabel {
+                Layout.fillWidth: true
+                visible: backend.selectedLayerName === "ASCII / Glyph" && param.key === "supersampling"
+                text: "Higher supersampling renders glyphs above final resolution, then downsamples them for cleaner tiny shapes."
                 color: theme.mutedTextColor
                 wrapMode: Text.WordWrap
                 font.pixelSize: 10
@@ -539,6 +588,14 @@ Item {
                 text: String(param.value)
                 enabled: !param.animated
                 onEditingFinished: backend.setLayerParam(param.key, text)
+            }
+            MintLabel {
+                Layout.fillWidth: true
+                visible: backend.selectedLayerName === "ASCII / Glyph" && param.key === "inject_chars"
+                text: "Adds unique characters to the selected built-in set without replacing it."
+                color: theme.mutedTextColor
+                wrapMode: Text.WordWrap
+                font.pixelSize: 10
             }
         }
     }
@@ -759,6 +816,30 @@ Item {
                 Layout.fillWidth: true
                 visible: backend.selectedLayerName === "ASCII / Glyph" && param.key === "font_scale"
                 text: "Glyph size relative to the cell. 1.00× is roughly one cell high; the cell grid and spacing do not change."
+                color: theme.mutedTextColor
+                wrapMode: Text.WordWrap
+                font.pixelSize: 10
+            }
+            MintLabel {
+                Layout.fillWidth: true
+                visible: backend.selectedLayerName === "ASCII / Glyph" && param.key === "structure"
+                text: "How strongly High Detail cares about the spatial shape inside each cell."
+                color: theme.mutedTextColor
+                wrapMode: Text.WordWrap
+                font.pixelSize: 10
+            }
+            MintLabel {
+                Layout.fillWidth: true
+                visible: backend.selectedLayerName === "ASCII / Glyph" && param.key === "density_influence"
+                text: "Keeps the chosen glyph's overall ink/brightness density close to the source cell."
+                color: theme.mutedTextColor
+                wrapMode: Text.WordWrap
+                font.pixelSize: 10
+            }
+            MintLabel {
+                Layout.fillWidth: true
+                visible: backend.selectedLayerName === "ASCII / Glyph" && param.key === "local_detail"
+                text: "Boosts contrast inside each cell before shape matching so edges survive in shadows and highlights."
                 color: theme.mutedTextColor
                 wrapMode: Text.WordWrap
                 font.pixelSize: 10

@@ -4,11 +4,13 @@ import numpy as np
 from PIL import Image
 
 from rastermint.core.effect_stack import (
+    _ascii_grid_data,
     _ascii_mapping_chars,
     _GLYPH_SETS,
     apply_effect_stack,
     ascii_available_chars,
     ascii_depth_max,
+    ascii_text_grid,
     new_effect,
 )
 
@@ -121,3 +123,134 @@ def test_braille_blank_survives_even_when_font_probe_has_no_ink(monkeypatch):
         ]
     finally:
         effect_stack.ascii_available_chars.cache_clear()
+
+
+def test_ascii_injected_characters_extend_builtin_set_and_depth():
+    available = ascii_available_chars("Minimal ASCII", "", "Mono", 9, "XYZX")
+    assert available.count("X") == 1
+    assert "Y" in available and "Z" in available
+    assert ascii_depth_max("Minimal ASCII", "", "Mono", 9, "XYZX") == 9
+
+
+def test_structure_match_distinguishes_vertical_and_horizontal_edges():
+    vertical = np.zeros((16, 16, 3), dtype=np.uint8)
+    vertical[:, 7:9] = 255
+    horizontal = np.zeros((16, 16, 3), dtype=np.uint8)
+    horizontal[7:9, :] = 255
+
+    common = dict(
+        character_set="Custom",
+        custom_chars="|-",
+        inject_chars="",
+        mapping="Structure Match",
+        cell_size=16,
+        spacing_x=0,
+        spacing_y=0,
+        depth=2,
+        offset=0,
+        invert=False,
+        auto_density=False,
+        structure=100.0,
+        density_influence=0.0,
+        local_detail=0.0,
+        auto_cell_aspect=False,
+        supersampling="4×",
+        color_sampling="Glyph Weighted",
+        font_name="Mono",
+        font_scale=0.9,
+    )
+    vertical_grid = ascii_text_grid(Image.fromarray(vertical, "RGB"), **common).strip()
+    horizontal_grid = ascii_text_grid(Image.fromarray(horizontal, "RGB"), **common).strip()
+    assert vertical_grid == "|"
+    assert horizontal_grid == "-"
+
+
+def test_structure_match_auto_cell_aspect_packs_more_columns():
+    source = Image.new("RGB", (80, 20), (255, 255, 255))
+    common = dict(
+        character_set="Custom",
+        custom_chars="I#",
+        cell_size=20,
+        spacing_x=0,
+        spacing_y=0,
+        depth=2,
+        offset=0,
+        invert=False,
+        auto_density=False,
+        font_name="Mono",
+        font_scale=0.9,
+        inject_chars="",
+        mapping="Structure Match",
+        structure=75.0,
+        density_influence=25.0,
+        local_detail=35.0,
+        supersampling="4×",
+        color_sampling="Glyph Weighted",
+    )
+    square_lines, _square_colors, square_layout = _ascii_grid_data(
+        source, auto_cell_aspect=False, **common
+    )
+    auto_lines, _auto_colors, auto_layout = _ascii_grid_data(
+        source, auto_cell_aspect=True, **common
+    )
+    assert int(auto_layout["cell_width"]) < int(square_layout["cell_width"])
+    assert len(auto_lines[0]) > len(square_lines[0])
+
+
+def test_structure_match_glyph_weighted_colour_samples_under_glyph():
+    arr = np.zeros((20, 20, 3), dtype=np.uint8)
+    arr[:, 8:12, 0] = 255
+    source = Image.fromarray(arr, "RGB")
+    common = dict(
+        character_set="Custom",
+        custom_chars="|-",
+        cell_size=20,
+        spacing_x=0,
+        spacing_y=0,
+        depth=2,
+        offset=0,
+        invert=False,
+        auto_density=False,
+        font_name="Mono",
+        font_scale=0.9,
+        inject_chars="",
+        mapping="Structure Match",
+        structure=100.0,
+        density_influence=0.0,
+        local_detail=0.0,
+        auto_cell_aspect=False,
+        supersampling="4×",
+    )
+    average_lines, average_colors, _layout = _ascii_grid_data(
+        source, color_sampling="Cell Average", **common
+    )
+    weighted_lines, weighted_colors, _layout = _ascii_grid_data(
+        source, color_sampling="Glyph Weighted", **common
+    )
+    assert average_lines[0] == weighted_lines[0] == "|"
+    assert float(weighted_colors[0][0][0]) > float(average_colors[0][0][0]) * 2.0
+
+
+def test_density_mapping_remains_classic_square_cell_path():
+    source = Image.new("RGB", (40, 20), (200, 200, 200))
+    _lines, _colors, layout = _ascii_grid_data(
+        source,
+        "Classic ASCII",
+        "",
+        10,
+        0,
+        0,
+        9,
+        0,
+        False,
+        True,
+        "Mono",
+        0.9,
+        mapping="Density",
+        auto_cell_aspect=True,
+        supersampling="4×",
+        color_sampling="Glyph Weighted",
+    )
+    assert int(layout["cell_width"]) == 10
+    assert int(layout["supersampling"]) == 1
+    assert layout["high_detail"] is False

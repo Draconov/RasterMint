@@ -129,3 +129,18 @@ def test_linked_target_uses_cropped_and_rotated_source_aspect():
     # 1200x800 -> crop to 600x800 -> rotate to 800x600 (4:3).
     assert source_raster_size((1200, 800), settings) == (800, 600)
     assert linked_target_size((1200, 800), settings, width=400) == (400, 300)
+
+
+def test_structure_match_ascii_uses_expensive_interactive_preview_budget():
+    from rastermint.core.effect_stack import default_effect_stack, new_effect
+    from rastermint.core.processor import adaptive_preview_max_side
+
+    settings = ProcessingSettings()
+    settings.effect_stack = default_effect_stack(settings)
+    ascii_layer = new_effect("ASCII / Glyph")
+    ascii_layer["params"]["mapping"] = "Structure Match"
+    settings.effect_stack.append(ascii_layer)
+
+    assert adaptive_preview_max_side(settings, FAST_PREVIEW_MAX_SIDE) == 180
+    assert adaptive_preview_max_side(settings, PREVIEW_MAX_SIDE) == 360
+    assert adaptive_preview_max_side(settings, 1200) == 1200
