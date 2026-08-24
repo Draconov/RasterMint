@@ -114,6 +114,27 @@ def profile_summary(profile: HardwareProfile, mode: str = "visual") -> str:
     return "\n".join(lines)
 
 
+def _replace_stage_layer(stack: list[dict[str, Any]], kind: str, replacement: dict[str, Any] | None) -> list[dict[str, Any]]:
+    kept = [step for step in stack if str(step.get("kind")) != kind]
+    if replacement is not None:
+        kept.append(replacement)
+    return kept
+
+
+def _palette_group_indices(groups: object, fixed_palette: list[str]) -> list[list[int]]:
+    if not isinstance(groups, list) or not fixed_palette:
+        return []
+    lookup = {str(color).upper(): index for index, color in enumerate(fixed_palette)}
+    result: list[list[int]] = []
+    for group in groups:
+        if not isinstance(group, list):
+            continue
+        indices = [lookup[str(color).upper()] for color in group if str(color).upper() in lookup]
+        if indices:
+            result.append(indices)
+    return result
+
+
 def apply_profile_to_settings(
     settings: ProcessingSettings,
     profile: HardwareProfile,
@@ -134,7 +155,7 @@ def apply_profile_to_settings(
     result = ProcessingSettings.from_dict(settings.to_dict())
     # Profiles may be applied by the CLI before a GUI/default stack has been
     # created. Normalize here so the profile can always configure Dither.
-    from .effect_schema import normalize_effect_stack
+    from .effect_schema import new_effect, normalize_effect_stack
     result.effect_stack = normalize_effect_stack(result.effect_stack, result)
     mode = "strict" if mode == "strict" else "visual"
     result.hardware_profile_id = profile.id
@@ -183,17 +204,54 @@ def apply_profile_to_settings(
     if apply_constraints:
         strict = profile.strict
         constraints = strict.get("constraints") if isinstance(strict, dict) else {}
-        if mode == "strict" and strict_supported(profile) and isinstance(constraints, dict):
-            result.hardware_constraints_enabled = True
-            result.hardware_constraints = deepcopy(constraints)
-        else:
-            result.hardware_constraints_enabled = False
-            result.hardware_constraints = {}
+        limits_step = None
+        if mode == "strict" and strict_supported(profile) and isinstance(constraints, dict) and constraints:
+            limits_step = new_effect("Hardware Limits", effect_id="hardware-limits")
+            params = limits_step["params"]
+            fixed_palette = [str(color) for color in list(constraints.get("fixed_palette") or [])]
+            channel_bits = list(constraints.get("channel_bits") or [8, 8, 8])
+            while len(channel_bits) < 3:
+                channel_bits.append(channel_bits[-1] if channel_bits else 8)
+            params.update(
+                palette_source=("Active Palette" if fixed_palette and apply_palette else "Profile Palette" if fixed_palette else "None"),
+                channel_r_bits=int(channel_bits[0]),
+                channel_g_bits=int(channel_bits[1]),
+                channel_b_bits=int(channel_bits[2]),
+                max_colors_global=int(constraints.get("max_colors_global") or 0),
+                tile_max_colors=int(constraints.get("tile_max_colors") or 0),
+                tile_width=int(constraints.get("tile_width") or 8),
+                tile_height=int(constraints.get("tile_height") or 8),
+                use_profile_groups=bool(constraints.get("tile_palette_groups")),
+                profile_palette_json=json.dumps(fixed_palette, ensure_ascii=False),
+                profile_group_indices_json=json.dumps(
+                    _palette_group_indices(constraints.get("tile_palette_groups"), fixed_palette),
+                    ensure_ascii=False,
+                ),
+            )
+        result.effect_stack = _replace_stage_layer(result.effect_stack, "Hardware Limits", limits_step)
+        # New profile applications materialize strict limits as an editable
+        # visible layer. Keep these legacy fields empty so the old hidden
+        # post-pass is not applied a second time. Saved older projects still
+        # retain their legacy snapshots and remain compatible.
+        result.hardware_constraints_enabled = False
+        result.hardware_constraints = {}
 
     if apply_display:
         visual = profile.visual
         display = visual.get("display") if isinstance(visual, dict) else {}
-        result.display_profile = deepcopy(display) if isinstance(display, dict) else {}
-        result.display_mode = "display" if result.display_profile else "corrected"
+        display_step = None
+        if isinstance(display, dict) and display:
+            display_step = new_effect("Hardware Display", effect_id="hardware-display")
+            display_step["params"].update(
+                gamma=float(display.get("gamma", 1.0)),
+                color_bleed=float(display.get("color_bleed", 0.0)),
+                blur=float(display.get("blur", 0.0)),
+                scanlines=float(display.get("scanlines", 0.0)),
+                lcd_grid=float(display.get("lcd_grid", 0.0)),
+            )
+        result.effect_stack = _replace_stage_layer(result.effect_stack, "Hardware Display", display_step)
+        result.display_profile = {}
+        result.display_mode = "display" if display_step is not None else "corrected"
 
+    result.effect_stack = normalize_effect_stack(result.effect_stack, result)
     return result

@@ -15,6 +15,7 @@ from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter, ImageFo
 
 from .color_utils import hex_to_rgb
 from .dither import apply_dither
+from .hardware import apply_hardware_limits_layer
 from .effect_schema import (
     EFFECT_DEFINITIONS,
     animatable_targets,
@@ -2311,6 +2312,14 @@ def apply_effect_stack(
                 str(p.get("glow_color", "#FFFFFF")),
                 bool(p.get("preserve_core", True)),
             )
+        elif kind == "Hardware Limits":
+            img = apply_hardware_limits_layer(img, p, list(palette))
+        elif kind == "Hardware Display":
+            # Display-stage processing is intentionally applied after pixel
+            # aspect correction by processor.process_image. Keeping this node
+            # in the layer stack makes the stage visible/editable without
+            # changing raw-frame export semantics.
+            pass
         elif kind == "Dither":
             mix = max(0.0, min(1.0, float(p.get("mix", 1.0))))
             if mix <= 0.0:

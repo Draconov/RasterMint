@@ -129,6 +129,8 @@ Item {
     }
 
     function paramVisible(param) {
+        if (Boolean(param.hidden))
+            return false
         if (backend.selectedLayerName === "ASCII / Glyph") {
             var asciiMapping = String(selectedParamValue("mapping", "Density"))
             var structureMatch = asciiMapping === "Structure Match"
@@ -159,6 +161,8 @@ Item {
         }
         if (backend.selectedLayerName === "Dither Glow" && param.key === "glow_color")
             return String(selectedParamValue("glow_color_mode", "Source")) === "Custom Tint"
+        if (backend.selectedLayerName === "Hardware Limits" && param.key === "use_profile_groups")
+            return String(selectedParamValue("profile_group_indices_json", "[]")) !== "[]"
         return true
     }
 
@@ -229,6 +233,7 @@ Item {
                 height: root.layerRowHeight
                 radius: 7
 
+                property bool fixedStage: kind === "Hardware Limits" || kind === "Hardware Display"
                 property bool isDragging: root.dragSourceIndex === index
                 property real liveReorderOffset: {
                     if (root.dragSourceIndex < 0 || root.dragTargetIndex === root.dragSourceIndex)
@@ -287,8 +292,8 @@ Item {
                         }
                     }
 
-                    MintButton { text: "↑"; enabled: index > 0; onClicked: backend.moveLayer(index, index - 1) }
-                    MintButton { text: "↓"; enabled: index < layerList.count - 1; onClicked: backend.moveLayer(index, index + 1) }
+                    MintButton { text: "↑"; enabled: !layerDelegate.fixedStage && index > 0; onClicked: backend.moveLayer(index, index - 1) }
+                    MintButton { text: "↓"; enabled: !layerDelegate.fixedStage && index < layerList.count - 1; onClicked: backend.moveLayer(index, index + 1) }
                 }
 
                 HoverHandler {
@@ -305,6 +310,7 @@ Item {
                 // the same press into a card reorder gesture.
                 DragHandler {
                     id: cardDrag
+                    enabled: !layerDelegate.fixedStage
                     target: null
                     acceptedButtons: Qt.LeftButton
                     xAxis.enabled: false
@@ -326,18 +332,35 @@ Item {
 
                 ToolTip.visible: layerHover.hovered && !cardDrag.active
                 ToolTip.delay: 500
-                ToolTip.text: "Drag anywhere on the layer card to reorder"
+                ToolTip.text: layerDelegate.fixedStage
+                    ? "Hardware pipeline stage · fixed after normal layers"
+                    : "Drag anywhere on the layer card to reorder"
             }
         }
 
         RowLayout {
             Layout.fillWidth: true
-            MintButton { Layout.fillWidth: true; text: "Duplicate"; onClicked: backend.duplicateLayer(backend.selectedLayerIndex) }
+            MintButton {
+                Layout.fillWidth: true
+                text: "Duplicate"
+                enabled: backend.selectedLayerName !== "Hardware Limits" && backend.selectedLayerName !== "Hardware Display"
+                onClicked: backend.duplicateLayer(backend.selectedLayerIndex)
+            }
             MintButton { Layout.fillWidth: true; text: "Remove"; onClicked: backend.removeLayer(backend.selectedLayerIndex) }
         }
 
         Rectangle { Layout.fillWidth: true; height: 1; color: theme.borderColor }
         MintLabel { text: backend.selectedLayerName; font.bold: true }
+        MintLabel {
+            Layout.fillWidth: true
+            visible: backend.selectedLayerName === "Hardware Limits" || backend.selectedLayerName === "Hardware Display"
+            text: backend.selectedLayerName === "Hardware Limits"
+                  ? "Fixed hardware stage after normal Layers. 'Active Palette' makes palette edits affect the strict hardware remap immediately."
+                  : "Fixed display stage. Runs after pixel-aspect correction in Display view and in exports only when display-view export is enabled."
+            color: theme.mutedTextColor
+            font.pixelSize: 10
+            wrapMode: Text.WordWrap
+        }
 
         ScrollView {
             id: paramScroll

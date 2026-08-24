@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import numpy as np
@@ -123,6 +124,79 @@ def apply_hardware_constraints(image: Image.Image, constraints: dict[str, Any]) 
     return Image.fromarray(arr.astype(np.uint8), "RGB")
 
 
+def apply_hardware_limits_layer(
+    image: Image.Image,
+    params: dict[str, Any],
+    active_palette: list[str],
+) -> Image.Image:
+    """Apply an editable Hardware Limits layer using the live palette.
+
+    Fixed-palette hardware profiles default to Active Palette after the profile
+    applies its palette, so later swatch edits immediately change the strict
+    remap instead of being silently overridden by a hidden profile snapshot.
+    """
+    palette_source = str(params.get("palette_source", "Active Palette"))
+    profile_palette: list[str] = []
+    try:
+        raw_palette = json.loads(str(params.get("profile_palette_json", "[]") or "[]"))
+        if isinstance(raw_palette, list):
+            profile_palette = [str(color) for color in raw_palette if str(color).strip()]
+    except (TypeError, ValueError, json.JSONDecodeError):
+        profile_palette = []
+
+    if palette_source == "Profile Palette":
+        enforced_palette = profile_palette
+    elif palette_source == "Active Palette":
+        enforced_palette = [str(color) for color in active_palette]
+    else:
+        enforced_palette = []
+
+    constraints: dict[str, Any] = {}
+    if enforced_palette:
+        constraints["fixed_palette"] = enforced_palette
+
+    bits = [
+        max(1, min(8, int(params.get("channel_r_bits", 8)))),
+        max(1, min(8, int(params.get("channel_g_bits", 8)))),
+        max(1, min(8, int(params.get("channel_b_bits", 8)))),
+    ]
+    if bits != [8, 8, 8]:
+        constraints["channel_bits"] = bits
+
+    max_global = max(0, min(256, int(params.get("max_colors_global", 0))))
+    if max_global > 0:
+        constraints["max_colors_global"] = max_global
+
+    tile_limit = max(0, min(256, int(params.get("tile_max_colors", 0))))
+    if tile_limit > 0:
+        constraints["tile_max_colors"] = tile_limit
+        constraints["tile_width"] = max(1, int(params.get("tile_width", 8)))
+        constraints["tile_height"] = max(1, int(params.get("tile_height", 8)))
+
+        if bool(params.get("use_profile_groups", False)):
+            try:
+                raw_groups = json.loads(str(params.get("profile_group_indices_json", "[]") or "[]"))
+            except (TypeError, ValueError, json.JSONDecodeError):
+                raw_groups = []
+            source_palette = enforced_palette or profile_palette
+            groups: list[list[str]] = []
+            if isinstance(raw_groups, list) and source_palette:
+                for raw_group in raw_groups:
+                    if not isinstance(raw_group, list):
+                        continue
+                    colors = [
+                        source_palette[index]
+                        for index in raw_group
+                        if isinstance(index, int) and 0 <= index < len(source_palette)
+                    ]
+                    if colors:
+                        groups.append(colors)
+            if groups:
+                constraints["tile_palette_groups"] = groups
+
+    return apply_hardware_constraints(image, constraints)
+
+
 def correct_pixel_aspect(image: Image.Image, x: float, y: float) -> Image.Image:
     x = max(0.05, float(x))
     y = max(0.05, float(y))
@@ -234,6 +308,7 @@ def render_display_view(
     *,
     mode: str | None = None,
     include_grid: bool = False,
+    display_profiles: list[dict[str, Any]] | None = None,
 ) -> Image.Image:
     mode = str(mode or settings.display_mode or "raw").lower()
     img = image.convert("RGB")
@@ -241,7 +316,10 @@ def render_display_view(
     if mode in {"corrected", "display"}:
         img = correct_pixel_aspect(img, settings.pixel_aspect_x, settings.pixel_aspect_y)
     if mode == "display":
-        img = apply_display_simulation(img, settings.display_profile)
+        profiles = [settings.display_profile] if display_profiles is None else list(display_profiles)
+        for profile in profiles:
+            if profile:
+                img = apply_display_simulation(img, profile)
     if include_grid and settings.grid_enabled:
         img = apply_grid_overlay(
             img,

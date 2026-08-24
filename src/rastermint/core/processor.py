@@ -393,6 +393,12 @@ def process_image(
 ) -> Image.Image:
     source = prepare_raster_source(image, settings)
     stack = normalize_effect_stack(settings.effect_stack, settings)
+    display_stage_present = any(step.get("kind") == "Hardware Display" for step in stack)
+    display_profiles = [
+        dict(step.get("params") or {})
+        for step in stack
+        if step.get("kind") == "Hardware Display" and step.get("enabled", True)
+    ]
     result = apply_effect_stack(
         source,
         stack,
@@ -410,7 +416,13 @@ def process_image(
             result.putalpha(alpha)
     if display_mode != "raw" or include_grid:
         alpha = result.getchannel("A") if "A" in result.getbands() else None
-        result = render_display_view(result.convert("RGB"), settings, mode=display_mode, include_grid=include_grid)
+        result = render_display_view(
+            result.convert("RGB"),
+            settings,
+            mode=display_mode,
+            include_grid=include_grid,
+            display_profiles=display_profiles if display_stage_present else None,
+        )
         if alpha is not None:
             if alpha.size != result.size:
                 alpha = alpha.resize(result.size, Image.Resampling.NEAREST)

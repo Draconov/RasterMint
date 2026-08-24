@@ -20,7 +20,7 @@ from rastermint.core.animation import EASINGS, normalize_tracks, settings_at_tim
 from rastermint.core.animation_presets import ANIMATION_PRESETS, apply_animation_preset
 from rastermint.core.builtin_presets import BUILTIN_PRESETS, build_builtin_preset
 from rastermint.core.dither_metadata import ALGORITHMS
-from rastermint.core.effect_schema import EFFECT_DEFINITIONS, default_effect_stack, effect_categories, new_effect, normalize_effect_stack
+from rastermint.core.effect_schema import EFFECT_DEFINITIONS, FIXED_STAGE_KINDS, default_effect_stack, effect_categories, new_effect, normalize_effect_stack
 from rastermint.core.gradient_presets import GRADIENT_PRESETS
 from rastermint.core.hardware_profiles import apply_profile_to_settings, load_builtin_profiles, load_profile_file, profile_summary
 from rastermint.core.history import UndoHistory
@@ -906,13 +906,23 @@ class RasterMintBackend(QObject):
         if kind not in EFFECT_DEFINITIONS:
             return
         stack = normalize_effect_stack(self.settings.effect_stack, self.settings)
+        if kind in FIXED_STAGE_KINDS:
+            existing = next((index for index, step in enumerate(stack) if step.get("kind") == kind), -1)
+            if existing >= 0:
+                self._selected_layer = existing
+                self.layerSelectionChanged.emit()
+                return
         stack.append(new_effect(kind))
+        stack = normalize_effect_stack(stack, self.settings)
+        selected = next((index for index, step in enumerate(stack) if step.get("kind") == kind and index >= len(stack) - 2), len(stack) - 1) if kind in FIXED_STAGE_KINDS else len(stack) - 1
         data = self.settings.to_dict()
         data["effect_stack"] = stack
+        if kind == "Hardware Display":
+            data["display_mode"] = "display"
         self._replace_settings(
             ProcessingSettings.from_dict(data),
             action=f"Added layer: {kind}",
-            selected_layer=len(stack) - 1,
+            selected_layer=selected,
         )
 
     @Slot(int)
@@ -937,6 +947,8 @@ class RasterMintBackend(QObject):
             return
         original = stack[index]
         kind = str(original["kind"])
+        if kind in FIXED_STAGE_KINDS:
+            return
         copy = new_effect(kind, enabled=bool(original.get("enabled", True)))
         copy["params"].update(dict(original.get("params") or {}))
         stack.insert(index + 1, copy)
@@ -953,7 +965,11 @@ class RasterMintBackend(QObject):
         stack = normalize_effect_stack(self.settings.effect_stack, self.settings)
         if not (0 <= source < len(stack)):
             return
-        target = max(0, min(int(target), len(stack) - 1))
+        if str(stack[source].get("kind")) in FIXED_STAGE_KINDS:
+            return
+        first_fixed = next((i for i, step in enumerate(stack) if str(step.get("kind")) in FIXED_STAGE_KINDS), len(stack))
+        max_target = max(0, first_fixed - 1)
+        target = max(0, min(int(target), max_target))
         if target == source:
             return
         item = stack.pop(source)
@@ -1349,7 +1365,29 @@ class RasterMintBackend(QObject):
         removed = colors.pop(candidate)
         locks.pop(candidate)
         data = self.settings.to_dict()
-        data.update(palette=colors, palette_locks=locks, palette_name="Custom")
+        stack = normalize_effect_stack(self.settings.effect_stack, self.settings)
+        for step in stack:
+            if step.get("kind") != "Hardware Limits":
+                continue
+            params = step.setdefault("params", {})
+            try:
+                groups = json.loads(str(params.get("profile_group_indices_json", "[]") or "[]"))
+            except (TypeError, ValueError, json.JSONDecodeError):
+                groups = []
+            if isinstance(groups, list):
+                adjusted: list[list[int]] = []
+                for group in groups:
+                    if not isinstance(group, list):
+                        continue
+                    indexes = []
+                    for raw in group:
+                        if not isinstance(raw, int) or raw == candidate:
+                            continue
+                        indexes.append(raw - 1 if raw > candidate else raw)
+                    if indexes:
+                        adjusted.append(indexes)
+                params["profile_group_indices_json"] = json.dumps(adjusted)
+        data.update(palette=colors, palette_locks=locks, palette_name="Custom", effect_stack=stack)
         self._replace_settings(ProcessingSettings.from_dict(data), action=f"Removed palette color: {removed}")
 
     @Slot()

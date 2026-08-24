@@ -24,8 +24,8 @@ def test_hardware_presets_apply_expected_rasters():
 
     c64 = build_builtin_preset("c64-multicolor")
     assert c64.hardware_profile_id == "c64-multicolor"
-    assert c64.hardware_constraints_enabled
+    assert any(step["kind"] == "Hardware Limits" for step in c64.effect_stack)
 
     playstation = build_builtin_preset("playstation")
     assert playstation.hardware_profile_id == "playstation"
-    assert playstation.hardware_constraints_enabled
+    assert any(step["kind"] == "Hardware Limits" for step in playstation.effect_stack)

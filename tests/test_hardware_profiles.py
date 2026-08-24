@@ -31,7 +31,13 @@ def test_game_boy_profile_applies_raster_palette_and_display():
     assert (result.target_width, result.target_height) == (160, 144)
     assert result.target_enabled
     assert len(result.palette) == 4
-    assert result.hardware_constraints_enabled
+    assert not result.hardware_constraints_enabled
+    assert result.hardware_constraints == {}
+    assert result.display_profile == {}
+    kinds = [step["kind"] for step in result.effect_stack]
+    assert "Hardware Limits" in kinds
+    assert "Hardware Display" in kinds
+    assert kinds[-2:] == ["Hardware Limits", "Hardware Display"]
     assert result.display_mode == "display"
 
 
@@ -100,3 +106,43 @@ def test_new_settings_round_trip_hardware_raster_grid_and_random_locks():
     )
     restored = ProcessingSettings.from_dict(settings.to_dict())
     assert restored.to_dict() == settings.to_dict()
+
+
+def test_strict_fixed_palette_layer_uses_live_active_palette_after_profile_apply():
+    settings = apply_profile_to_settings(ProcessingSettings(), profile_map()["game-boy"], mode="strict")
+    limits = next(step for step in settings.effect_stack if step["kind"] == "Hardware Limits")
+    assert limits["params"]["palette_source"] == "Active Palette"
+
+    settings.palette = ["#100000", "#500000", "#A00000", "#FF0000"]
+    settings.palette_locks = [False] * 4
+    source = Image.new("RGB", (24, 24), (128, 128, 128))
+    result = np.asarray(process_image(source, settings).convert("RGB"))
+    emitted = {tuple(color) for color in result.reshape(-1, 3)}
+    active = {(16, 0, 0), (80, 0, 0), (160, 0, 0), (255, 0, 0)}
+    assert emitted <= active
+
+
+def test_hardware_display_is_visible_layer_but_remains_display_stage():
+    settings = apply_profile_to_settings(ProcessingSettings(), profile_map()["crt-ntsc"], mode="visual")
+    display = next(step for step in settings.effect_stack if step["kind"] == "Hardware Display")
+    assert display["params"]["color_bleed"] > 0
+    source = Image.new("RGB", (48, 32), (180, 80, 40))
+    raw = process_image(source, settings, display_mode="raw")
+    shown = process_image(source, settings, display_mode="display")
+    assert raw.size != shown.size or not np.array_equal(np.asarray(raw), np.asarray(shown))
+
+    display["enabled"] = False
+    disabled = process_image(source, settings, display_mode="display")
+    corrected = process_image(source, settings, display_mode="corrected")
+    assert np.array_equal(np.asarray(disabled), np.asarray(corrected))
+
+
+def test_legacy_hidden_hardware_constraints_still_work_for_old_presets():
+    settings = ProcessingSettings(
+        hardware_constraints_enabled=True,
+        hardware_constraints={"channel_bits": [2, 2, 2]},
+    )
+    source = Image.new("RGB", (2, 1), (91, 147, 213))
+    result = np.asarray(process_image(source, settings))
+    levels = {round(i / 3 * 255) for i in range(4)}
+    assert all(int(value) in levels for value in result.reshape(-1))

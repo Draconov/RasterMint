@@ -286,6 +286,26 @@ EFFECT_DEFINITIONS: dict[str, dict[str, Any]] = {
         "glow_color": {"type": "color", "label": "Tint colour", "default": "#9EF7FF"},
         "preserve_core": {"type": "bool", "label": "Preserve source highlights", "default": True},
     }},
+    "Hardware Limits": {"params": {
+        "palette_source": {"type": "choice", "label": "Palette enforcement", "default": "Active Palette", "options": ["Active Palette", "Profile Palette", "None"]},
+        "channel_r_bits": {"type": "int", "label": "Red channel bits", "default": 8, "min": 1, "max": 8, "step": 1},
+        "channel_g_bits": {"type": "int", "label": "Green channel bits", "default": 8, "min": 1, "max": 8, "step": 1},
+        "channel_b_bits": {"type": "int", "label": "Blue channel bits", "default": 8, "min": 1, "max": 8, "step": 1},
+        "max_colors_global": {"type": "int", "label": "Maximum global colours", "default": 0, "min": 0, "max": 256, "step": 1},
+        "tile_max_colors": {"type": "int", "label": "Maximum colours per tile", "default": 0, "min": 0, "max": 256, "step": 1},
+        "tile_width": {"type": "int", "label": "Tile width", "default": 8, "min": 1, "max": 128, "step": 1, "suffix": " px", "pixel_scaled": True},
+        "tile_height": {"type": "int", "label": "Tile height", "default": 8, "min": 1, "max": 128, "step": 1, "suffix": " px", "pixel_scaled": True},
+        "use_profile_groups": {"type": "bool", "label": "Use profile palette groups", "default": False},
+        "profile_palette_json": {"type": "text", "label": "Profile palette data", "default": "[]", "hidden": True},
+        "profile_group_indices_json": {"type": "text", "label": "Profile palette groups", "default": "[]", "hidden": True},
+    }},
+    "Hardware Display": {"params": {
+        "gamma": {"type": "float", "label": "Display gamma", "default": 1.0, "min": 0.1, "max": 4.0, "step": 0.05, "decimals": 2, "animatable": True},
+        "color_bleed": {"type": "float", "label": "Colour bleed", "default": 0.0, "min": 0.0, "max": 8.0, "step": 0.1, "decimals": 1, "suffix": " px", "animatable": True, "pixel_scaled": True},
+        "blur": {"type": "float", "label": "Display blur", "default": 0.0, "min": 0.0, "max": 8.0, "step": 0.05, "decimals": 2, "suffix": " px", "animatable": True, "pixel_scaled": True},
+        "scanlines": {"type": "float", "label": "Scanlines", "default": 0.0, "min": 0.0, "max": 1.0, "step": 0.01, "decimals": 2, "animatable": True},
+        "lcd_grid": {"type": "float", "label": "LCD grid", "default": 0.0, "min": 0.0, "max": 1.0, "step": 0.01, "decimals": 2, "animatable": True},
+    }},
     "Dither": {"params": {
         "algorithm": {"type": "choice", "label": "Algorithm", "default": "Floyd-Steinberg", "options": ALGORITHMS},
         "mix": {"type": "float", "label": "Mix", "default": 1.0, "min": 0.0, "max": 1.0, "step": 0.05, "decimals": 2, "animatable": True},
@@ -308,6 +328,9 @@ EFFECT_CATEGORIES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("Pixel & Dither", (
         "Pixelate", "Dither", "Dither Glow", "Pixel Material",
     )),
+    ("Hardware Stages", (
+        "Hardware Limits", "Hardware Display",
+    )),
     ("Display & Analog", (
         "Pixel Aspect Ratio", "Scanlines", "Interlace", "JPEG Compression",
     )),
@@ -323,6 +346,10 @@ EFFECT_CATEGORIES: tuple[tuple[str, tuple[str, ...]], ...] = (
         "Wave / Jitter Text", "Typewriter Text", "Text Glitch", "ASCII / Glyph",
     )),
 )
+
+FIXED_STAGE_KINDS = frozenset({"Hardware Limits", "Hardware Display"})
+_FIXED_STAGE_ORDER = {"Hardware Limits": 0, "Hardware Display": 1}
+
 
 # Text Overlay is retained as a legacy effect so old projects/presets render
 # exactly as before. Pixel Text is its feature-complete replacement in the
@@ -440,7 +467,12 @@ def normalize_effect_stack(stack: list[dict[str, Any]] | None, settings: Any | N
                 value = deepcopy(spec.get("default"))
             step["params"][key] = value
         normalized.append(step)
-    return normalized or default_effect_stack(settings)
+    if not normalized:
+        return default_effect_stack(settings)
+    regular = [step for step in normalized if step.get("kind") not in FIXED_STAGE_KINDS]
+    staged = [step for step in normalized if step.get("kind") in FIXED_STAGE_KINDS]
+    staged.sort(key=lambda step: _FIXED_STAGE_ORDER.get(str(step.get("kind")), 99))
+    return regular + staged
 
 
 def scale_stack_for_preview(stack: list[dict[str, Any]], scale: float) -> list[dict[str, Any]]:
