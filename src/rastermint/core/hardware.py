@@ -144,12 +144,14 @@ def apply_hardware_limits_layer(
     except (TypeError, ValueError, json.JSONDecodeError):
         profile_palette = []
 
-    if palette_source == "Profile Palette":
-        enforced_palette = profile_palette
-    elif palette_source == "Active Palette":
-        enforced_palette = [str(color) for color in active_palette]
-    else:
+    if not profile_palette:
+        # Native-depth / channel-limit profiles have no hardware palette to
+        # enforce. Palette selection is therefore not part of this stage.
         enforced_palette = []
+    elif palette_source == "Profile Palette":
+        enforced_palette = profile_palette
+    else:  # Active Palette
+        enforced_palette = [str(color) for color in active_palette]
 
     constraints: dict[str, Any] = {}
     if enforced_palette:

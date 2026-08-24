@@ -213,7 +213,7 @@ def apply_profile_to_settings(
             while len(channel_bits) < 3:
                 channel_bits.append(channel_bits[-1] if channel_bits else 8)
             params.update(
-                palette_source=("Active Palette" if fixed_palette and apply_palette else "Profile Palette" if fixed_palette else "None"),
+                palette_source=("Active Palette" if apply_palette else "Profile Palette"),
                 channel_r_bits=int(channel_bits[0]),
                 channel_g_bits=int(channel_bits[1]),
                 channel_b_bits=int(channel_bits[2]),

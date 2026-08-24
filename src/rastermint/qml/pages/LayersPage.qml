@@ -161,6 +161,8 @@ Item {
         }
         if (backend.selectedLayerName === "Dither Glow" && param.key === "glow_color")
             return String(selectedParamValue("glow_color_mode", "Source")) === "Custom Tint"
+        if (backend.selectedLayerName === "Hardware Limits" && param.key === "palette_source")
+            return String(selectedParamValue("profile_palette_json", "[]")) !== "[]"
         if (backend.selectedLayerName === "Hardware Limits" && param.key === "use_profile_groups")
             return String(selectedParamValue("profile_group_indices_json", "[]")) !== "[]"
         return true

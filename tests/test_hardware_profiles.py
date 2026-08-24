@@ -146,3 +146,43 @@ def test_legacy_hidden_hardware_constraints_still_work_for_old_presets():
     result = np.asarray(process_image(source, settings))
     levels = {round(i / 3 * 255) for i in range(4)}
     assert all(int(value) in levels for value in result.reshape(-1))
+
+
+def test_hardware_palette_enforcement_has_only_active_or_profile_palette():
+    from rastermint.core.effect_schema import EFFECT_DEFINITIONS, normalize_effect_stack
+
+    spec = EFFECT_DEFINITIONS["Hardware Limits"]["params"]["palette_source"]
+    assert spec["options"] == ["Active Palette", "Profile Palette"]
+
+    unsupported_legacy = {
+        "id": "hardware-limits",
+        "kind": "Hardware Limits",
+        "enabled": True,
+        "params": {"palette_source": "None"},
+    }
+    normalized = normalize_effect_stack([unsupported_legacy])
+    assert normalized[0]["params"]["palette_source"] == "Active Palette"
+
+
+def test_hardware_limits_without_profile_palette_do_not_enforce_active_palette():
+    from PIL import Image
+    import numpy as np
+
+    from rastermint.core.hardware import apply_hardware_limits_layer
+
+    source = Image.new("RGB", (1, 1), (91, 147, 213))
+    params = {
+        "palette_source": "Active Palette",
+        "profile_palette_json": "[]",
+        "channel_r_bits": 8,
+        "channel_g_bits": 8,
+        "channel_b_bits": 8,
+        "max_colors_global": 0,
+        "tile_max_colors": 0,
+        "tile_width": 8,
+        "tile_height": 8,
+        "use_profile_groups": False,
+        "profile_group_indices_json": "[]",
+    }
+    result = apply_hardware_limits_layer(source, params, ["#000000", "#FFFFFF"])
+    assert np.array_equal(np.asarray(result), np.asarray(source))

@@ -287,7 +287,7 @@ EFFECT_DEFINITIONS: dict[str, dict[str, Any]] = {
         "preserve_core": {"type": "bool", "label": "Preserve source highlights", "default": True},
     }},
     "Hardware Limits": {"params": {
-        "palette_source": {"type": "choice", "label": "Palette enforcement", "default": "Active Palette", "options": ["Active Palette", "Profile Palette", "None"]},
+        "palette_source": {"type": "choice", "label": "Palette enforcement", "default": "Active Palette", "options": ["Active Palette", "Profile Palette"]},
         "channel_r_bits": {"type": "int", "label": "Red channel bits", "default": 8, "min": 1, "max": 8, "step": 1},
         "channel_g_bits": {"type": "int", "label": "Green channel bits", "default": 8, "min": 1, "max": 8, "step": 1},
         "channel_b_bits": {"type": "int", "label": "Blue channel bits", "default": 8, "min": 1, "max": 8, "step": 1},
