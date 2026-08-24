@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from PIL import Image
 
-from rastermint.core.effect_stack import EFFECT_DEFINITIONS, apply_effect_stack, new_effect
+from rastermint.core.effect_schema import effect_categories
+from rastermint.core.effect_stack import EFFECT_DEFINITIONS, _resolve_text_font_path, apply_effect_stack, new_effect
 
 
 NEW_EFFECTS = [
@@ -39,3 +40,21 @@ def test_all_pixel_material_styles_render():
         result = apply_effect_stack(source, [step], ["#000000", "#FFFFFF"])
         assert result.size == source.size
         assert result.mode == "RGB"
+
+
+def test_text_overlay_is_legacy_only_and_pixel_text_is_the_primary_text_overlay():
+    categories = {entry["name"]: entry["effects"] for entry in effect_categories()}
+    text_effects = categories["Text & Overlay"]
+
+    assert "Pixel Text" in text_effects
+    assert "Text Overlay" not in text_effects
+    # Keep legacy saved stacks valid even though users no longer see the
+    # redundant older effect in the Add Effect menu.
+    assert "Text Overlay" in EFFECT_DEFINITIONS
+
+
+def test_text_font_choices_resolve_to_distinct_native_fonts():
+    resolved = [_resolve_text_font_path(name) for name in ("Mono", "Sans", "Serif")]
+
+    assert all(resolved), resolved
+    assert len({str(path).casefold() for path in resolved}) == 3

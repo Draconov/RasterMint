@@ -13,6 +13,7 @@ Item {
     property var gradientStopPositions: [0.0, 1.0]
     property bool gradientPresetsExpanded: false
     property var gradientPresets: backend.gradientPresets || []
+    property bool gradientDirty: false
 
     function evenGradientPositions(count) {
         var positions = []
@@ -25,6 +26,7 @@ Item {
         var next = gradientStops.slice(0)
         next[index] = value
         gradientStops = next
+        gradientDirty = true
     }
 
     function addGradientStop() {
@@ -34,6 +36,7 @@ Item {
         next.push(next.length ? next[next.length - 1] : "#FFFFFF")
         gradientStops = next
         gradientStopPositions = evenGradientPositions(next.length)
+        gradientDirty = true
     }
 
     function removeGradientStop(index) {
@@ -43,6 +46,7 @@ Item {
         next.splice(index, 1)
         gradientStops = next
         gradientStopPositions = evenGradientPositions(next.length)
+        gradientDirty = true
     }
 
     function moveGradientStop(index, delta) {
@@ -54,6 +58,7 @@ Item {
         next.splice(index, 1)
         next.splice(target, 0, value)
         gradientStops = next
+        gradientDirty = true
     }
 
     function applyGradientPreset(preset) {
@@ -70,6 +75,7 @@ Item {
         // the active image, matching the custom Gradient > Generate workflow.
         colorSpace.currentIndex = 1
         backend.generatePaletteFromPositionedStops(colors, resolvedPositions, gradientCount.value, "RGB")
+        gradientDirty = false
     }
 
     function gradientPresetSelected(preset) {
@@ -730,11 +736,27 @@ Item {
             }
             RowLayout {
                 Layout.fillWidth: true
-                MintSpinBox { id: gradientCount; from: 2; to: 256; value: 8; Layout.preferredWidth: 90 }
-                MintComboBox { id: colorSpace; Layout.fillWidth: true; model: ["OKLab", "RGB", "Linear RGB", "HSV", "HSL"] }
+                MintSpinBox {
+                    id: gradientCount
+                    from: 2
+                    to: 256
+                    value: 8
+                    Layout.preferredWidth: 90
+                    onValueModified: root.gradientDirty = true
+                }
+                MintComboBox {
+                    id: colorSpace
+                    Layout.fillWidth: true
+                    model: ["OKLab", "RGB", "Linear RGB", "HSV", "HSL"]
+                    onActivated: root.gradientDirty = true
+                }
                 MintButton {
                     text: "Generate"
-                    onClicked: backend.generatePaletteFromPositionedStops(root.gradientStops, root.gradientStopPositions, gradientCount.value, colorSpace.currentText)
+                    selected: root.gradientDirty
+                    onClicked: {
+                        backend.generatePaletteFromPositionedStops(root.gradientStops, root.gradientStopPositions, gradientCount.value, colorSpace.currentText)
+                        root.gradientDirty = false
+                    }
                 }
             }
 

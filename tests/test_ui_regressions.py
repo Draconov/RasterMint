@@ -76,4 +76,37 @@ def test_gradient_presets_do_not_overlay_editor_and_apply_immediately():
         palette.index("function applyGradientPreset(preset)") : palette.index("function gradientPresetSelected(preset)")
     ]
     assert 'backend.generatePaletteFromPositionedStops(colors, resolvedPositions, gradientCount.value, "RGB")' in preset_function
-    assert 'onClicked: backend.generatePaletteFromPositionedStops(root.gradientStops, root.gradientStopPositions, gradientCount.value, colorSpace.currentText)' in palette
+    assert 'backend.generatePaletteFromPositionedStops(root.gradientStops, root.gradientStopPositions, gradientCount.value, colorSpace.currentText)' in palette
+
+
+def test_gradient_editor_marks_generate_button_as_pending_after_manual_changes():
+    palette = (QML / "pages" / "PalettePage.qml").read_text(encoding="utf-8")
+
+    assert "property bool gradientDirty: false" in palette
+    assert "selected: root.gradientDirty" in palette
+    assert "onValueModified: root.gradientDirty = true" in palette
+    assert "onActivated: root.gradientDirty = true" in palette
+
+    for function_name in (
+        "updateGradientStop",
+        "addGradientStop",
+        "removeGradientStop",
+        "moveGradientStop",
+    ):
+        start = palette.index("function " + function_name)
+        next_function = palette.find("function ", start + 9)
+        block = palette[start: next_function if next_function >= 0 else len(palette)]
+        assert "gradientDirty = true" in block, function_name
+
+    generate_start = palette.index('text: "Generate"')
+    generate_block = palette[generate_start: palette.index("            Item { Layout.preferredHeight: 4 }", generate_start)]
+    assert "root.gradientDirty = false" in generate_block
+
+
+def test_export_transparency_toggle_is_visibly_disabled_when_unavailable():
+    export_dialog = (QML / "ExportImageDialog.qml").read_text(encoding="utf-8")
+
+    assert "enabled: root.sourceHasTransparency && root.transparencySupported" in export_dialog
+    assert "opacity: enabled ? 1.0 : 0.45" in export_dialog
+    assert "Source image has no transparency to preserve." in export_dialog
+    assert 'root.selectedFormat + " does not support transparency."' in export_dialog

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 import math
+import os
 from io import BytesIO
 from pathlib import Path
 from typing import Any
@@ -498,11 +499,52 @@ def _pixel_material(image: Image.Image, style: str, cell_size: int, gap: int, ba
 
 
 
-_FONT_FILES = {
-    "Mono": "DejaVuSansMono.ttf",
-    "Sans": "DejaVuSans.ttf",
-    "Serif": "DejaVuSerif.ttf",
+_FONT_FILES: dict[str, tuple[str, ...]] = {
+    # DejaVu is common on Linux; the following candidates are standard fonts
+    # on Windows/macOS. The old implementation tried only DejaVu names, which
+    # made every option silently fall back to Pillow's default font on a
+    # typical Windows RasterMint build.
+    "Mono": ("DejaVuSansMono.ttf", "consola.ttf", "cour.ttf", "Courier New.ttf", "Menlo.ttc", "LiberationMono-Regular.ttf"),
+    "Sans": ("DejaVuSans.ttf", "segoeui.ttf", "arial.ttf", "Arial.ttf", "Helvetica.ttc", "LiberationSans-Regular.ttf"),
+    "Serif": ("DejaVuSerif.ttf", "times.ttf", "Times New Roman.ttf", "georgia.ttf", "Times.ttc", "LiberationSerif-Regular.ttf"),
 }
+
+
+def _font_search_roots() -> tuple[Path, ...]:
+    roots: list[Path] = []
+    windows_root = os.environ.get("WINDIR") or os.environ.get("SystemRoot")
+    if windows_root:
+        roots.append(Path(windows_root) / "Fonts")
+    roots.extend((
+        Path("/usr/share/fonts/truetype/dejavu"),
+        Path("/usr/share/fonts/truetype/liberation2"),
+        Path("/usr/share/fonts/truetype/liberation"),
+        Path("/System/Library/Fonts"),
+        Path("/System/Library/Fonts/Supplemental"),
+        Path("/Library/Fonts"),
+    ))
+    return tuple(roots)
+
+
+@lru_cache(maxsize=8)
+def _resolve_text_font_path(font_name: str) -> str | None:
+    candidates = _FONT_FILES.get(str(font_name), _FONT_FILES["Mono"])
+    for filename in candidates:
+        for root in _font_search_roots():
+            path = root / filename
+            if path.is_file():
+                return str(path)
+        # Pillow also knows the native font lookup rules on some platforms.
+        # Keep that path as a final resolver before falling back.
+        try:
+            probe = ImageFont.truetype(filename, size=12)
+            resolved = getattr(probe, "path", None)
+            if resolved:
+                return str(resolved)
+            return filename
+        except (OSError, ValueError):
+            continue
+    return None
 
 _GLYPH_SET_CATEGORIES: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
     ("ASCII & Punctuation", (
@@ -680,14 +722,24 @@ def _load_text_font(font_name: str, size: int) -> ImageFont.ImageFont:
             return ImageFont.load_default(size=size)
         except TypeError:
             return ImageFont.load_default()
-    filename = _FONT_FILES.get(str(font_name), _FONT_FILES["Mono"])
-    try:
-        return ImageFont.truetype(filename, size=size)
-    except Exception:
+
+    resolved = _resolve_text_font_path(str(font_name))
+    if resolved:
         try:
-            return ImageFont.load_default(size=size)
-        except TypeError:
-            return ImageFont.load_default()
+            return ImageFont.truetype(resolved, size=size)
+        except (OSError, ValueError):
+            # A system font can disappear between resolution and rendering;
+            # retry the remaining semantic candidates before giving up.
+            pass
+    for filename in _FONT_FILES.get(str(font_name), _FONT_FILES["Mono"]):
+        try:
+            return ImageFont.truetype(filename, size=size)
+        except (OSError, ValueError):
+            continue
+    try:
+        return ImageFont.load_default(size=size)
+    except TypeError:
+        return ImageFont.load_default()
 
 
 def _text_line_width(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.ImageFont, letter_spacing: int = 0) -> int:

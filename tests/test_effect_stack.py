@@ -61,9 +61,11 @@ def test_pixel_aspect_ratio_layer_changes_image_width_in_stack():
     assert out.size == (16, 6)
 
 
-def test_every_effect_is_present_once_in_add_layer_categories():
+def test_every_user_addable_effect_is_present_once_in_categories():
     categories = effect_categories()
     flattened = [kind for category in categories for kind in category["effects"]]
-    assert set(flattened) == set(EFFECT_DEFINITIONS)
+    # Text Overlay is intentionally legacy-only: Pixel Text supersedes it in
+    # the UI, while the definition remains available to old saved stacks.
+    assert set(flattened) == set(EFFECT_DEFINITIONS) - {"Text Overlay"}
     assert len(flattened) == len(set(flattened))
     assert all(category["effects"] for category in categories)

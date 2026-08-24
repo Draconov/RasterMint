@@ -363,6 +363,17 @@ Dialog {
                 checked: false
                 visible: !root.textFormat
                 enabled: root.sourceHasTransparency && root.transparencySupported
+                opacity: enabled ? 1.0 : 0.45
+            }
+            MintLabel {
+                Layout.fillWidth: true
+                visible: !root.textFormat && !preserveTransparencyCheck.enabled
+                text: !root.sourceHasTransparency
+                      ? "Source image has no transparency to preserve."
+                      : (root.selectedFormat + " does not support transparency.")
+                color: theme.mutedTextColor
+                font.pixelSize: 10
+                wrapMode: Text.WordWrap
             }
 
             ColumnLayout {

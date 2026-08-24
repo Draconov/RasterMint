@@ -297,10 +297,15 @@ EFFECT_CATEGORIES: tuple[tuple[str, tuple[str, ...]], ...] = (
         "Noise", "Temporal Flicker", "Temporal Pattern", "Cellular Automata",
     )),
     ("Text & Overlay", (
-        "Text Overlay", "Pixel Text", "Text Pattern", "Text Mask",
+        "Pixel Text", "Text Pattern", "Text Mask",
         "Wave / Jitter Text", "Typewriter Text", "Text Glitch", "ASCII / Glyph",
     )),
 )
+
+# Text Overlay is retained as a legacy effect so old projects/presets render
+# exactly as before. Pixel Text is its feature-complete replacement in the
+# add-effect UI (font, alignment, wrapping, spacing, rotation, outline/shadow).
+_HIDDEN_EFFECT_KINDS = frozenset({"Text Overlay"})
 
 
 def effect_categories() -> list[dict[str, object]]:
@@ -310,9 +315,9 @@ def effect_categories() -> list[dict[str, object]]:
     automatic Other category instead of silently disappearing from the UI.
     """
     grouped: list[dict[str, object]] = []
-    seen: set[str] = set()
+    seen: set[str] = set(_HIDDEN_EFFECT_KINDS)
     for name, kinds in EFFECT_CATEGORIES:
-        available = [kind for kind in kinds if kind in EFFECT_DEFINITIONS]
+        available = [kind for kind in kinds if kind in EFFECT_DEFINITIONS and kind not in _HIDDEN_EFFECT_KINDS]
         if available:
             grouped.append({"name": name, "effects": available})
             seen.update(available)
