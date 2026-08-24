@@ -692,6 +692,12 @@ _GLYPH_SETS = {
     if name != "Custom"
 }
 
+# Some character sets intentionally contain a zero-ink glyph as an additional
+# darkest tone. U+2800 BRAILLE PATTERN BLANK is a real assigned character, but
+# fonts correctly render it with no pixels. Treating "no ink" as "unsupported"
+# drops it on Linux font stacks and makes the built-in set platform-dependent.
+_INTENTIONAL_BLANK_GLYPHS = frozenset({" ", "⠀"})
+
 
 def glyph_set_categories() -> list[dict[str, object]]:
     return [
@@ -784,7 +790,7 @@ def _font_candidate_refs(font_name: str) -> tuple[str, ...]:
 
 
 def _glyph_mask_fingerprint(font: ImageFont.ImageFont, font_size: int, ch: str) -> tuple[int, int, bytes] | None:
-    if ch == " ":
+    if ch in _INTENTIONAL_BLANK_GLYPHS:
         return None
     canvas_size = max(24, int(font_size) * 2)
     mask = Image.new("L", (canvas_size, canvas_size), 0)
@@ -810,7 +816,7 @@ def _glyph_mask_fingerprint(font: ImageFont.ImageFont, font_size: int, ch: str) 
 
 @lru_cache(maxsize=1024)
 def _font_ref_supports_char(font_ref: str, font_size: int, ch: str) -> bool:
-    if ch == " ":
+    if ch in _INTENTIONAL_BLANK_GLYPHS:
         return True
     try:
         font = ImageFont.truetype(font_ref, size=max(6, int(font_size)))
@@ -849,7 +855,7 @@ def _load_glyph_font(font_name: str, font_size: int, ch: str) -> ImageFont.Image
             primary = ImageFont.load_default(size=size)
         except TypeError:
             primary = ImageFont.load_default()
-        if ch == " ":
+        if ch in _INTENTIONAL_BLANK_GLYPHS:
             return primary
         fingerprint = _glyph_mask_fingerprint(primary, size, ch)
         missing = {
@@ -878,7 +884,7 @@ def ascii_available_chars(character_set: str, custom_chars: str, font_name: str,
         if ch in seen:
             continue
         seen.add(ch)
-        if ch == " ":
+        if ch in _INTENTIONAL_BLANK_GLYPHS:
             supported.append(ch)
             continue
         if _glyph_font_ref(str(font_name), max(6, int(font_size)), ch) is not None:
@@ -914,7 +920,7 @@ def _glyph_density_order(chars: str, font_name: str, font_size: int) -> str:
     canvas_size = max(24, int(font_size) * 2)
     scored: list[tuple[float, int, str]] = []
     for index, ch in enumerate(chars):
-        if ch == " ":
+        if ch in _INTENTIONAL_BLANK_GLYPHS:
             scored.append((0.0, index, ch))
             continue
         font = _load_glyph_font(font_name, max(6, int(font_size)), ch)
@@ -1388,6 +1394,8 @@ def _ascii_glyph(
                 color = tuple(int(v) for v in palette_np[int(np.argmin(np.sum(diff * diff, axis=1)))])
             else:
                 color = tuple(int(round(v)) for v in mean)
+            if char in _INTENTIONAL_BLANK_GLYPHS:
+                continue
             font = _load_glyph_font(font_name, font_size, char)
             bbox = draw.textbbox((0, 0), char, font=font)
             tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]

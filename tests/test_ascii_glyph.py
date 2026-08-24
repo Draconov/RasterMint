@@ -99,3 +99,25 @@ def test_ascii_glyph_scale_changes_rendered_glyph_size():
     small_lit = int(np.count_nonzero(np.any(small_img > 0, axis=2)))
     large_lit = int(np.count_nonzero(np.any(large_img > 0, axis=2)))
     assert large_lit > small_lit
+
+
+def test_braille_blank_survives_even_when_font_probe_has_no_ink(monkeypatch):
+    import rastermint.core.effect_stack as effect_stack
+
+    original = effect_stack._glyph_font_ref
+
+    def simulated_linux_probe(font_name, font_size, char):
+        if char == "\u2800":
+            return None
+        return original(font_name, font_size, char)
+
+    monkeypatch.setattr(effect_stack, "_glyph_font_ref", simulated_linux_probe)
+    effect_stack.ascii_available_chars.cache_clear()
+    try:
+        available = effect_stack.ascii_available_chars("Braille Cells", "", "Mono", 9)
+        assert "\u2800" in available
+        assert [char for char in available if not char.isspace()] == [
+            char for char in effect_stack._GLYPH_SETS["Braille Cells"] if not char.isspace()
+        ]
+    finally:
+        effect_stack.ascii_available_chars.cache_clear()
