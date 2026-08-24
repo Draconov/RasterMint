@@ -62,6 +62,49 @@ def _cropped_rotated_size(size: tuple[int, int], settings: ProcessingSettings) -
     return width, height
 
 
+def source_raster_size(source_size: tuple[int, int], settings: ProcessingSettings) -> tuple[int, int]:
+    """Source raster dimensions after crop/rotation but before target fitting."""
+    return _cropped_rotated_size(source_size, settings)
+
+
+def linked_target_size(
+    source_size: tuple[int, int],
+    settings: ProcessingSettings,
+    *,
+    width: int | None = None,
+    height: int | None = None,
+    maximum: int = 16384,
+) -> tuple[int, int]:
+    """Return a target size linked to the transformed source aspect ratio.
+
+    Exactly one of ``width``/``height`` should be supplied. The supplied axis
+    is treated as authoritative unless the derived opposite axis would exceed
+    the supported target-raster maximum, in which case both are scaled down
+    together while preserving the ratio.
+    """
+    sw, sh = source_raster_size(source_size, settings)
+    ratio = max(1e-9, float(sw) / max(1.0, float(sh)))
+    limit = max(1, int(maximum))
+
+    if width is not None:
+        w = max(1, min(limit, int(round(width))))
+        h = max(1, int(round(w / ratio)))
+        if h > limit:
+            h = limit
+            w = max(1, min(limit, int(round(h * ratio))))
+        return w, h
+
+    if height is not None:
+        h = max(1, min(limit, int(round(height))))
+        w = max(1, int(round(h * ratio)))
+        if w > limit:
+            w = limit
+            h = max(1, min(limit, int(round(w / ratio))))
+        return w, h
+
+    return source_raster_size(source_size, settings)
+
+
 def target_raster_size(source_size: tuple[int, int], settings: ProcessingSettings) -> tuple[int, int]:
     transformed = _cropped_rotated_size(source_size, settings)
     if settings.target_enabled:

@@ -16,6 +16,15 @@ ScrollView {
         spacing: 9
         MintLabel { text: "Target Raster"; font.bold: true; font.pixelSize: 15 }
         MintCheckBox { text: "Use exact target size"; checked: backend.settingsMap.target_enabled; onToggled: backend.setSetting("target_enabled", checked) }
+        MintLabel {
+            Layout.fillWidth: true
+            text: backend.settingsMap.target_enabled
+                  ? "Processing uses exactly Width × Height pixels before dithering and effects."
+                  : "Off: RasterMint keeps the transformed source raster size. Width and Height are ignored."
+            color: theme.mutedTextColor
+            wrapMode: Text.WordWrap
+            font.pixelSize: 10
+        }
 
         MintLabel { text: "Preset"; color: theme.mutedTextColor }
         MintComboBox {
@@ -23,6 +32,7 @@ ScrollView {
             Layout.fillWidth: true
             model: ["Custom", "Game Boy · 160 × 144", "GBA · 240 × 160", "SNES · 256 × 224", "NES · 256 × 240", "ZX Spectrum · 256 × 192", "320 × 200", "320 × 240", "640 × 480"]
             onActivated: if (currentIndex > 0) backend.setRasterSize(root.rasterSizes[currentIndex][0], root.rasterSizes[currentIndex][1])
+            enabled: true
         }
 
         RowLayout {
@@ -30,15 +40,23 @@ ScrollView {
             ColumnLayout {
                 Layout.fillWidth: true
                 MintLabel { text: "Width"; color: theme.mutedTextColor }
-                MintSpinBox { Layout.fillWidth: true; from: 1; to: 16384; value: Math.max(1, backend.settingsMap.target_width || 1); editable: true; onValueModified: backend.setSetting("target_width", value) }
+                MintSpinBox { Layout.fillWidth: true; from: 1; to: 16384; value: Math.max(1, backend.settingsMap.target_width || 1); editable: true; enabled: backend.settingsMap.target_enabled; onValueModified: backend.setTargetRasterWidth(value) }
             }
             ColumnLayout {
                 Layout.fillWidth: true
                 MintLabel { text: "Height"; color: theme.mutedTextColor }
-                MintSpinBox { Layout.fillWidth: true; from: 1; to: 16384; value: Math.max(1, backend.settingsMap.target_height || 1); editable: true; onValueModified: backend.setSetting("target_height", value) }
+                MintSpinBox { Layout.fillWidth: true; from: 1; to: 16384; value: Math.max(1, backend.settingsMap.target_height || 1); editable: true; enabled: backend.settingsMap.target_enabled; onValueModified: backend.setTargetRasterHeight(value) }
             }
         }
-        MintCheckBox { text: "Keep aspect ratio"; checked: backend.settingsMap.keep_aspect; onToggled: backend.setSetting("keep_aspect", checked) }
+        MintCheckBox { text: "Keep aspect ratio"; checked: backend.settingsMap.keep_aspect; enabled: backend.settingsMap.target_enabled; onToggled: backend.setSetting("keep_aspect", checked) }
+        MintLabel {
+            Layout.fillWidth: true
+            visible: backend.settingsMap.target_enabled && backend.settingsMap.keep_aspect
+            text: "Width and Height are linked to the cropped/rotated source aspect ratio. Editing either dimension updates the other."
+            color: theme.mutedTextColor
+            wrapMode: Text.WordWrap
+            font.pixelSize: 10
+        }
 
         MintLabel { text: "Source fit"; color: theme.mutedTextColor }
         MintComboBox {

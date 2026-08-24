@@ -843,7 +843,7 @@ def _glyph_font_ref(font_name: str, font_size: int, ch: str) -> str | None:
 
 
 def _load_glyph_font(font_name: str, font_size: int, ch: str) -> ImageFont.ImageFont:
-    size = max(6, int(font_size))
+    size = max(2, int(font_size))
     if str(font_name) == "Pixel":
         try:
             primary = ImageFont.load_default(size=size)
@@ -1209,7 +1209,7 @@ def _ascii_grid_data(
     cell = max(4, int(cell_size))
     pitch_x = max(1, cell + int(spacing_x))
     pitch_y = max(1, cell + int(spacing_y))
-    font_size = max(6, round(cell * max(0.4, min(1.5, float(font_scale)))))
+    font_size = max(2, round(cell * max(0.4, min(1.5, float(font_scale)))))
     chars = _ascii_mapping_chars(
         character_set,
         custom_chars,
@@ -1372,7 +1372,7 @@ def _ascii_glyph(
     else:
         canvas = Image.new("RGBA", image.size, (*hex_to_rgb(background), 255))
     draw = ImageDraw.Draw(canvas)
-    font_size = max(6, round(cell * max(0.4, min(1.5, float(font_scale)))))
+    font_size = max(2, round(cell * max(0.4, min(1.5, float(font_scale)))))
     single = hex_to_rgb(foreground)
 
     for row, line in enumerate(lines):

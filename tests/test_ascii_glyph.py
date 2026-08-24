@@ -85,3 +85,17 @@ def test_builtin_glyph_sets_keep_all_visible_symbols_with_font_fallbacks():
         raw_visible = [char for char in raw if not char.isspace()]
         available_visible = [char for char in available if not char.isspace()]
         assert available_visible == raw_visible, name
+
+
+def test_ascii_glyph_scale_changes_rendered_glyph_size():
+    source = Image.new("RGB", (80, 48), (255, 255, 255))
+    small = _ascii_effect("Solid Colour")
+    small["params"].update(cell_size=16, character_set="Minimal ASCII", depth=6, font_scale=0.4, background="#000000")
+    large = _ascii_effect("Solid Colour")
+    large["params"].update(cell_size=16, character_set="Minimal ASCII", depth=6, font_scale=1.5, background="#000000")
+
+    small_img = np.asarray(apply_effect_stack(source, [small], ["#000000", "#FFFFFF"]).convert("RGB"))
+    large_img = np.asarray(apply_effect_stack(source, [large], ["#000000", "#FFFFFF"]).convert("RGB"))
+    small_lit = int(np.count_nonzero(np.any(small_img > 0, axis=2)))
+    large_lit = int(np.count_nonzero(np.any(large_img > 0, axis=2)))
+    assert large_lit > small_lit

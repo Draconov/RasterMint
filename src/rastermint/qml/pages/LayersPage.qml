@@ -506,6 +506,18 @@ Item {
             }
             MintLabel {
                 Layout.fillWidth: true
+                visible: backend.selectedLayerName === "ASCII / Glyph" && param.key === "color_mode"
+                text: String(param.value) === "Palette"
+                      ? "Glyphs use the nearest colour from the active palette."
+                      : (String(param.value) === "Single Colour"
+                         ? "Every glyph uses the selected Foreground colour."
+                         : "Each glyph keeps the average source colour of its image cell.")
+                color: theme.mutedTextColor
+                wrapMode: Text.WordWrap
+                font.pixelSize: 10
+            }
+            MintLabel {
+                Layout.fillWidth: true
                 visible: backend.selectedLayerName === "ASCII / Glyph"
                          && param.key === "background_mode"
                          && String(param.value) === "Transparent"
@@ -741,6 +753,15 @@ Item {
                 onUserMoved: function(newValue) {
                     backend.setLayerParam(param.key, newValue)
                 }
+            }
+
+            MintLabel {
+                Layout.fillWidth: true
+                visible: backend.selectedLayerName === "ASCII / Glyph" && param.key === "font_scale"
+                text: "Glyph size relative to the cell. 1.00× is roughly one cell high; the cell grid and spacing do not change."
+                color: theme.mutedTextColor
+                wrapMode: Text.WordWrap
+                font.pixelSize: 10
             }
         }
     }

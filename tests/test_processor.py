@@ -8,9 +8,11 @@ from rastermint.core.processor import (
     FAST_PREVIEW_MAX_SIDE,
     PREVIEW_MAX_SIDE,
     make_preview_settings,
+    linked_target_size,
     make_preview_source,
     process_image,
     scaled_output_size,
+    source_raster_size,
 )
 from rastermint.core.settings import ProcessingSettings
 
@@ -110,3 +112,20 @@ def test_adaptive_preview_budget_reduces_only_expensive_interactive_algorithms()
     assert adaptive_preview_max_side(settings, PREVIEW_MAX_SIDE) == 360
     # Full-resolution preview mode is an explicit user request and is not capped.
     assert adaptive_preview_max_side(settings, 1200) == 1200
+
+
+def test_linked_target_width_updates_height_from_source_aspect():
+    settings = ProcessingSettings()
+    assert linked_target_size((1920, 1080), settings, width=800) == (800, 450)
+
+
+def test_linked_target_height_updates_width_from_source_aspect():
+    settings = ProcessingSettings()
+    assert linked_target_size((1920, 1080), settings, height=720) == (1280, 720)
+
+
+def test_linked_target_uses_cropped_and_rotated_source_aspect():
+    settings = ProcessingSettings(crop_left=0.25, crop_right=0.25, rotation=90)
+    # 1200x800 -> crop to 600x800 -> rotate to 800x600 (4:3).
+    assert source_raster_size((1200, 800), settings) == (800, 600)
+    assert linked_target_size((1200, 800), settings, width=400) == (400, 300)

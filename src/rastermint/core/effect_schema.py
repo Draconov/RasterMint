@@ -182,7 +182,7 @@ EFFECT_DEFINITIONS: dict[str, dict[str, Any]] = {
         "background_mode": {"type": "choice", "label": "Background mode", "default": "Solid Colour", "options": ["Solid Colour", "Transparent", "Source Image"]},
         "background": {"type": "color", "label": "Background colour", "default": "#101217"},
         "font": {"type": "choice", "label": "Font", "default": "Mono", "options": ["Pixel", "Mono", "Sans", "Serif"]},
-        "font_scale": {"type": "float", "label": "Glyph scale", "default": 0.9, "min": 0.4, "max": 1.5, "step": 0.05, "decimals": 2, "animatable": True},
+        "font_scale": {"type": "float", "label": "Glyph scale", "default": 0.9, "min": 0.4, "max": 1.5, "step": 0.05, "decimals": 2, "suffix": "×", "animatable": True},
     }},
     "Pixel Text": {"params": {
         "text": {"type": "text", "label": "Text", "default": "RasterMint"},

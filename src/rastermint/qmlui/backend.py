@@ -316,7 +316,7 @@ class RasterMintBackend(QObject):
         current_custom_chars = str(values.get("custom_chars", " .:-=+*#%@"))
         current_cell_size = int(values.get("cell_size", 10) or 10)
         current_font_scale = float(values.get("font_scale", 0.9) or 0.9)
-        current_font_size = max(6, round(current_cell_size * max(0.4, min(1.5, current_font_scale))))
+        current_font_size = max(2, round(current_cell_size * max(0.4, min(1.5, current_font_scale))))
         for key, spec in definition.get("params", {}).items():
             row = dict(spec)
             row["key"] = key
@@ -676,13 +676,51 @@ class RasterMintBackend(QObject):
         self._restore_history_state(state)
         self._set_status(f"Redo: {action}")
 
+    def _target_source_size(self) -> tuple[int, int]:
+        source = self._active_source()
+        if source is not None:
+            return max(1, int(source.width)), max(1, int(source.height))
+        width = max(1, int(self.settings.target_width or 1))
+        height = max(1, int(self.settings.target_height or 1))
+        return width, height
+
+    def _linked_target_size(self, *, width: int | None = None, height: int | None = None) -> tuple[int, int]:
+        from rastermint.core.processor import linked_target_size
+        return linked_target_size(
+            self._target_source_size(),
+            self.settings,
+            width=width,
+            height=height,
+        )
+
     @Slot(str, "QVariant")
     def setSetting(self, key: str, value: Any) -> None:
-        if not hasattr(self.settings, str(key)):
+        key = str(key)
+        if not hasattr(self.settings, key):
             return
+        if key == "target_width":
+            self.setTargetRasterWidth(int(value))
+            return
+        if key == "target_height":
+            self.setTargetRasterHeight(int(value))
+            return
+
         data = self.settings.to_dict()
-        data[str(key)] = value
-        action = f"{self._pretty_key(str(key))}: {self._format_action_value(value)}"
+        data[key] = value
+
+        if key == "target_enabled" and bool(value):
+            if int(data.get("target_width", 0)) <= 0 or int(data.get("target_height", 0)) <= 0:
+                from rastermint.core.processor import source_raster_size
+                width, height = source_raster_size(self._target_source_size(), self.settings)
+                data["target_width"] = width
+                data["target_height"] = height
+        elif key == "keep_aspect" and bool(value) and bool(data.get("target_enabled", False)):
+            current_width = max(1, int(data.get("target_width", 1) or 1))
+            width, height = self._linked_target_size(width=current_width)
+            data["target_width"] = width
+            data["target_height"] = height
+
+        action = f"{self._pretty_key(key)}: {self._format_action_value(value)}"
         self._replace_settings(ProcessingSettings.from_dict(data), action=action)
 
     @Slot(str)
@@ -695,6 +733,32 @@ class RasterMintBackend(QObject):
         self.settingsChanged.emit()
         self.schedulePreview(force=True)
         self._set_status(f"Preview render: {label}")
+
+    @Slot(int)
+    def setTargetRasterWidth(self, width: int) -> None:
+        width = max(1, min(16384, int(width)))
+        data = self.settings.to_dict()
+        if bool(self.settings.keep_aspect):
+            width, height = self._linked_target_size(width=width)
+            data.update(target_width=width, target_height=height)
+            action = f"Target raster: {width} × {height} · aspect linked"
+        else:
+            data["target_width"] = width
+            action = f"Raster width: {width}"
+        self._replace_settings(ProcessingSettings.from_dict(data), action=action)
+
+    @Slot(int)
+    def setTargetRasterHeight(self, height: int) -> None:
+        height = max(1, min(16384, int(height)))
+        data = self.settings.to_dict()
+        if bool(self.settings.keep_aspect):
+            width, height = self._linked_target_size(height=height)
+            data.update(target_width=width, target_height=height)
+            action = f"Target raster: {width} × {height} · aspect linked"
+        else:
+            data["target_height"] = height
+            action = f"Raster height: {height}"
+        self._replace_settings(ProcessingSettings.from_dict(data), action=action)
 
     @Slot(int, int)
     def setRasterSize(self, width: int, height: int) -> None:
@@ -932,7 +996,7 @@ class RasterMintBackend(QObject):
             font_name = str(params.get("font", "Mono"))
             cell_size = int(params.get("cell_size", 10) or 10)
             font_scale = float(params.get("font_scale", 0.9) or 0.9)
-            font_size = max(6, round(cell_size * max(0.4, min(1.5, font_scale))))
+            font_size = max(2, round(cell_size * max(0.4, min(1.5, font_scale))))
             max_depth = ascii_depth_max(character_set, custom_chars, font_name, font_size)
             try:
                 params["depth"] = max(2, min(max_depth, int(round(float(params.get("depth", max_depth))))))
