@@ -130,6 +130,7 @@ ApplicationWindow {
 
             Action { text: "Open File…"; shortcut: StandardKey.Open; onTriggered: openDialog.open() }
             MintMenuSeparator { }
+            Action { text: "Export to Clipboard…"; enabled: backend.hasSource; onTriggered: backend.exportToClipboard() }
             Action { text: "Quick Export Image…"; enabled: backend.hasSource; shortcut: "Ctrl+E"; onTriggered: window.openQuickExportImageDialog() }
             Action { text: "Export Image…"; enabled: backend.hasSource; shortcut: "Ctrl+Shift+E"; onTriggered: advancedExportDialog.open() }
             Action { text: "Export Animation / Video…"; enabled: backend.hasSource; shortcut: "Ctrl+Alt+S"; onTriggered: window.openMediaExport() }

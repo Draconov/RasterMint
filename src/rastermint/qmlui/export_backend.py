@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from PySide6.QtCore import QUrl, Slot
+from PySide6.QtGui import QGuiApplication, QImage
 from rastermint.core.animation import settings_at_time
 from rastermint.core.effect_schema import normalize_effect_stack
 from rastermint.core.settings import ProcessingSettings
@@ -111,6 +112,28 @@ def _image_chops_module():
 def _is_pil_image(value: object) -> bool:
     Image = _pil_image_module()
     return isinstance(value, Image.Image)
+
+
+def _pil_to_clipboard_qimage(image: Any) -> QImage:
+    if "A" in image.getbands():
+        rgba = image.convert("RGBA")
+        data = rgba.tobytes("raw", "RGBA")
+        return QImage(
+            data,
+            rgba.width,
+            rgba.height,
+            rgba.width * 4,
+            QImage.Format.Format_RGBA8888,
+        ).copy()
+    rgb = image.convert("RGB")
+    data = rgb.tobytes("raw", "RGB")
+    return QImage(
+        data,
+        rgb.width,
+        rgb.height,
+        rgb.width * 3,
+        QImage.Format.Format_RGB888,
+    ).copy()
 
 
 def _resampling(name: str):
@@ -381,6 +404,41 @@ class RasterMintBackend(PreferencesBackend):
             path = path.with_suffix(suffix)
         return path
 
+    @Slot()
+    def exportToClipboard(self) -> None:
+        """Render the current frame at full raster size and copy it as an image."""
+        source = self._active_source()
+        if source is None:
+            return
+
+        animated = settings_at_time(self.settings, self._current_time)
+        alpha_source = self._transparency_source()
+        render_source = alpha_source if alpha_source is not None else source
+        alpha_mask = prepare_transparency_mask(alpha_source, animated) if alpha_source is not None else None
+        context = {"alpha_mask": alpha_mask}
+        job = self._next_job()
+        self._export_jobs.add(job)
+        worker = ProcessingWorker(
+            job,
+            "clipboard-image",
+            render_source.copy(),
+            animated,
+            context,
+            frame_time=self._current_time,
+            frame_index=max(
+                0,
+                round(
+                    self._current_time
+                    * (self._video_info.fps if self._video_info else animated.animation_fps)
+                ),
+            ),
+            display_mode="raw",
+            include_grid=False,
+        )
+        self._connect_worker(worker)
+        self.thread_pool.start(worker)
+        self._set_status("Rendering raster image for clipboard…")
+
     @Slot(str)
     def exportImage(self, value: str) -> None:
         """Quick export; alpha-capable formats preserve source transparency automatically."""
@@ -614,6 +672,27 @@ class RasterMintBackend(PreferencesBackend):
 
     @Slot(int, str, object, object)
     def _worker_finished(self, job_id: int, purpose: str, result: object, context: object) -> None:
+        if purpose == "clipboard-image" and _is_pil_image(result):
+            self._export_jobs.discard(job_id)
+            try:
+                output = result
+                context_map = context if isinstance(context, dict) else {}
+                alpha_mask = context_map.get("alpha_mask")
+                if _is_pil_image(alpha_mask):
+                    output = output.convert("RGBA")
+                    mask = alpha_mask.convert("L")
+                    if mask.size != output.size:
+                        mask = mask.resize(output.size, _resampling("NEAREST"))
+                    existing_alpha = output.getchannel("A")
+                    output.putalpha(_image_chops_module().multiply(existing_alpha, mask))
+                clipboard = QGuiApplication.clipboard()
+                if clipboard is None:
+                    raise RuntimeError("System clipboard is unavailable")
+                clipboard.setImage(_pil_to_clipboard_qimage(output))
+                self._set_status(f"Copied {output.width} × {output.height} raster image to clipboard")
+            except Exception as exc:
+                self.errorOccurred.emit("Could not copy image to clipboard", str(exc))
+            return
         if purpose == "preview-mode-switch":
             context_map = context if isinstance(context, dict) else {}
             valid = (
