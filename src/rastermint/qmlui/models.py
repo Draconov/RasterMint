@@ -55,9 +55,17 @@ class LayerListModel(QAbstractListModel):
             return bool(item.get("enabled", True))
         if role == self.SummaryRole:
             params = item.get("params") if isinstance(item.get("params"), dict) else {}
+            kind = str(item.get("kind", ""))
             pieces = []
-            for key, value in list(params.items())[:2]:
+            for key, value in params.items():
+                if key in {"profile_palette_json", "profile_group_indices_json"}:
+                    continue
+                if kind == "Hardware Limits" and key == "palette_source":
+                    if str(params.get("profile_palette_json", "[]") or "[]") == "[]":
+                        continue
                 pieces.append(f"{key}: {_format_summary_value(value)}")
+                if len(pieces) >= 2:
+                    break
             return " · ".join(pieces)
         return None
 

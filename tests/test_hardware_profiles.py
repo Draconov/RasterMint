@@ -186,3 +186,46 @@ def test_hardware_limits_without_profile_palette_do_not_enforce_active_palette()
     }
     result = apply_hardware_limits_layer(source, params, ["#000000", "#FFFFFF"])
     assert np.array_equal(np.asarray(result), np.asarray(source))
+
+
+
+def test_hardware_limits_summary_hides_inapplicable_palette_source():
+    pytest = __import__("pytest")
+    pytest.importorskip("PySide6")
+    from rastermint.qmlui.models import LayerListModel
+
+    model = LayerListModel()
+    model.replace([{
+        "id": "hardware-limits",
+        "kind": "Hardware Limits",
+        "enabled": True,
+        "params": {
+            "palette_source": "Active Palette",
+            "channel_r_bits": 8,
+            "channel_g_bits": 8,
+            "profile_palette_json": "[]",
+        },
+    }])
+    summary = model.data(model.index(0, 0), model.SummaryRole)
+    assert "palette_source" not in summary
+    assert "channel_r_bits: 8" in summary
+
+
+def test_hardware_limits_summary_keeps_palette_source_when_profile_palette_exists():
+    pytest = __import__("pytest")
+    pytest.importorskip("PySide6")
+    from rastermint.qmlui.models import LayerListModel
+
+    model = LayerListModel()
+    model.replace([{
+        "id": "hardware-limits",
+        "kind": "Hardware Limits",
+        "enabled": True,
+        "params": {
+            "palette_source": "Active Palette",
+            "channel_r_bits": 8,
+            "profile_palette_json": '["#000000", "#FFFFFF"]',
+        },
+    }])
+    summary = model.data(model.index(0, 0), model.SummaryRole)
+    assert "palette_source: Active Palette" in summary

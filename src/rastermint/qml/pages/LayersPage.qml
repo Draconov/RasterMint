@@ -357,7 +357,9 @@ Item {
             Layout.fillWidth: true
             visible: backend.selectedLayerName === "Hardware Limits" || backend.selectedLayerName === "Hardware Display"
             text: backend.selectedLayerName === "Hardware Limits"
-                  ? "Fixed hardware stage after normal Layers. 'Active Palette' makes palette edits affect the strict hardware remap immediately."
+                  ? (String(selectedParamValue("profile_palette_json", "[]")) !== "[]"
+                     ? "Fixed hardware stage after normal Layers. Choose Active Palette to make palette edits affect the strict hardware remap, or Profile Palette to restore the hardware profile's original colours."
+                     : "Fixed hardware stage after normal Layers. This profile has no fixed hardware palette; its channel/tile/colour-depth limits still apply. Use the Dither layer if you want to map the image to the active palette.")
                   : "Fixed display stage. Runs after pixel-aspect correction in Display view and in exports only when display-view export is enabled."
             color: theme.mutedTextColor
             font.pixelSize: 10
