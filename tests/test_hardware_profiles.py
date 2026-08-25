@@ -229,3 +229,19 @@ def test_hardware_limits_summary_keeps_palette_source_when_profile_palette_exist
     }])
     summary = model.data(model.index(0, 0), model.SummaryRole)
     assert "palette_source: Active Palette" in summary
+
+
+def test_visual_mode_exposes_supported_hardware_limits_disabled_for_editing():
+    profiles = profile_map()
+    visual = apply_profile_to_settings(ProcessingSettings(), profiles["game-boy"], mode="visual")
+    limits = next(step for step in visual.effect_stack if step["kind"] == "Hardware Limits")
+    assert limits["enabled"] is False
+
+    strict = apply_profile_to_settings(ProcessingSettings(), profiles["game-boy"], mode="strict")
+    strict_limits = next(step for step in strict.effect_stack if step["kind"] == "Hardware Limits")
+    assert strict_limits["enabled"] is True
+
+
+def test_profiles_without_strict_constraints_do_not_get_empty_limits_layer():
+    visual = apply_profile_to_settings(ProcessingSettings(), profile_map()["crt-ntsc"], mode="visual")
+    assert all(step["kind"] != "Hardware Limits" for step in visual.effect_stack)

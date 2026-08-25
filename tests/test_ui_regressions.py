@@ -122,3 +122,13 @@ def test_palette_swatches_support_middle_click_delete_without_bypassing_locks():
     assert "if candidate >= 0:" in backend
     assert "or locks[candidate]" in backend
     assert "last unlocked colour" in backend
+
+
+def test_palette_page_expands_category_for_applied_palette_changes():
+    palette = (QML / "pages" / "PalettePage.qml").read_text(encoding="utf-8")
+
+    assert "function appliedPaletteCategory()" in palette
+    assert "function expandAppliedPaletteCategory()" in palette
+    assert "function samePaletteColors(left, right)" in palette
+    assert "function onSettingsChanged()" in palette
+    assert "next[category] = true" in palette

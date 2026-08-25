@@ -8,6 +8,7 @@ Item {
     id: root
     property int colorEditIndex: -1
     property var expandedPaletteCategories: ({})
+    property string lastAppliedPaletteSignature: ""
     property var optimizedPaletteCounts: [2, 3, 6, 8, 12, 16, 32, 256]
     property var gradientStops: ["#163B2A", "#F1E66B"]
     property var gradientStopPositions: [0.0, 1.0]
@@ -132,6 +133,62 @@ Item {
         return haystack.toLowerCase().indexOf(query) >= 0
     }
 
+    function paletteSignature() {
+        var settings = backend.settingsMap || {}
+        return String(settings.palette_name || "") + "|" + JSON.stringify(settings.palette || [])
+    }
+
+    function samePaletteColors(left, right) {
+        var a = left || []
+        var b = right || []
+        if (a.length !== b.length)
+            return false
+        for (var i = 0; i < a.length; ++i) {
+            if (String(a[i]).toUpperCase() !== String(b[i]).toUpperCase())
+                return false
+        }
+        return a.length > 0
+    }
+
+    function appliedPaletteCategory() {
+        var settings = backend.settingsMap || {}
+        var currentName = String(settings.palette_name || "")
+        var currentColors = settings.palette || []
+        var palettes = allPaletteItems()
+
+        // Prefer the explicit palette name. This covers normal palette-library
+        // selections and dynamic Optimized N palettes used by presets.
+        for (var i = 0; i < palettes.length; ++i) {
+            if (String(palettes[i].name || "") === currentName)
+                return paletteDisplayCategory(palettes[i])
+        }
+
+        // Hardware profiles sometimes use a descriptive hardware palette name
+        // that differs from the equivalent library entry (for example C64 16
+        // versus Commodore 64). Match exact colour lists as a useful fallback.
+        for (var j = 0; j < palettes.length; ++j) {
+            if (!Boolean(palettes[j].optimized) && samePaletteColors(palettes[j].colors, currentColors))
+                return paletteDisplayCategory(palettes[j])
+        }
+        return ""
+    }
+
+    function expandAppliedPaletteCategory() {
+        var signature = paletteSignature()
+        if (signature === lastAppliedPaletteSignature)
+            return
+        lastAppliedPaletteSignature = signature
+
+        var category = appliedPaletteCategory()
+        if (category.length === 0)
+            return
+        var next = {}
+        for (var key in expandedPaletteCategories)
+            next[key] = expandedPaletteCategories[key]
+        next[category] = true
+        expandedPaletteCategories = next
+    }
+
     function paletteDisplayCategory(palette) {
         var category = String(palette.category || "Other")
         switch (category) {
@@ -225,6 +282,21 @@ Item {
             }
         }
         return result
+    }
+
+    Component.onCompleted: Qt.callLater(root.expandAppliedPaletteCategory)
+
+    Connections {
+        target: backend
+        function onSettingsChanged() {
+            Qt.callLater(root.expandAppliedPaletteCategory)
+        }
+        function onPaletteLibraryChanged() {
+            // A newly loaded/user palette may make the currently applied
+            // palette resolvable to a category for the first time.
+            root.lastAppliedPaletteSignature = ""
+            Qt.callLater(root.expandAppliedPaletteCategory)
+        }
     }
 
     ScrollView {

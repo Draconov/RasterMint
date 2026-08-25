@@ -205,8 +205,16 @@ def apply_profile_to_settings(
         strict = profile.strict
         constraints = strict.get("constraints") if isinstance(strict, dict) else {}
         limits_step = None
-        if mode == "strict" and strict_supported(profile) and isinstance(constraints, dict) and constraints:
-            limits_step = new_effect("Hardware Limits", effect_id="hardware-limits")
+        if strict_supported(profile) and isinstance(constraints, dict) and constraints:
+            # Always materialize real hardware limits so users can inspect and
+            # edit them in Layers. Visual mode leaves the stage disabled;
+            # Strict mode enables it. This keeps Visual output unchanged while
+            # making the previously hidden strict capabilities discoverable.
+            limits_step = new_effect(
+                "Hardware Limits",
+                enabled=(mode == "strict"),
+                effect_id="hardware-limits",
+            )
             params = limits_step["params"]
             fixed_palette = [str(color) for color in list(constraints.get("fixed_palette") or [])]
             channel_bits = list(constraints.get("channel_bits") or [8, 8, 8])
