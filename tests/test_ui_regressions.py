@@ -123,3 +123,94 @@ def test_palette_page_expands_category_for_applied_palette_changes():
     assert "function samePaletteColors(left, right)" in palette
     assert "function onSettingsChanged()" in palette
     assert "next[category] = true" in palette
+
+
+def test_inspector_navigation_order_groups_and_default_page():
+    main = (QML / "Main.qml").read_text(encoding="utf-8")
+
+    # Keep Layers as the startup page even though the navigation was regrouped.
+    assert "property int inspectorIndex: 7" in main
+
+    nav_start = main.index("                    ColumnLayout {", main.index("id: inspectorPanel"))
+    nav_end = main.index("                Rectangle {\n                    Layout.fillWidth: true", nav_start + 1)
+    nav = main[nav_start:nav_end]
+
+    labels = [
+        'text: "Randomize"',
+        'text: "Source"',
+        'text: "Preview"',
+        'text: "Raster"',
+        'text: "Presets"',
+        'text: "Hardware"',
+        'text: "Palette"',
+        'text: "Layers"',
+        'text: "Animation"',
+        'text: "Media Playback"',
+    ]
+    positions = [nav.index(label) for label in labels]
+    assert positions == sorted(positions)
+    assert nav.count("Layout.preferredHeight: 11") == 3
+
+    stack_start = main.index("                        StackLayout {")
+    stack_end = main.index("                        }", stack_start)
+    stack = main[stack_start:stack_end]
+    pages = [
+        "Pages.RandomizePage { }",
+        "Pages.SourcePage { }",
+        "Pages.PreviewPage { onFitRequested: canvas.resetView() }",
+        "Pages.RasterPage { }",
+        "Pages.PresetsPage { }",
+        "Pages.HardwarePage { }",
+        "Pages.PalettePage { }",
+        "Pages.LayersPage { }",
+        "Pages.AnimationPage { }",
+        "Pages.MediaPage { }",
+    ]
+    page_positions = [stack.index(page) for page in pages]
+    assert page_positions == sorted(page_positions)
+
+
+def test_inspector_navigation_uses_sidebar_icons_and_hover_tooltips():
+    main = (QML / "Main.qml").read_text(encoding="utf-8")
+    button = (QML / "components" / "InspectorNavButton.qml").read_text(encoding="utf-8")
+
+    assert "Layout.preferredWidth: 56" in main
+
+    icon_files = [
+        "sidebar-random.png",
+        "sidebar-source.png",
+        "sidebar-preview.png",
+        "sidebar-raster.png",
+        "sidebar-presets.png",
+        "sidebar-hardware.png",
+        "sidebar-layers.png",
+        "sidebar-animation.png",
+        "sidebar-media-playback.png",
+    ]
+    for filename in icon_files:
+        assert f'Qt.resolvedUrl("../data/icons/{filename}")' in main
+        assert (ROOT / "src" / "rastermint" / "data" / "icons" / filename).is_file()
+
+    # Palette is intentionally theme-driven rather than a static image.
+    assert 'text: "Palette"\n                            paletteSwatches: true' in main
+    assert "theme.panelRaisedColor" in button
+    assert "theme.selectionColor" in button
+    assert "theme.accentColor" in button
+    assert "theme.textColor" in button
+
+    # Static sidebar PNGs are used as shape masks and tinted from the active theme.
+    assert "import Qt5Compat.GraphicalEffects" in button
+    assert "property color iconColor: theme.textColor" in button
+    assert "id: iconMask" in button
+    assert "opacity: 0.0" in button
+    assert "ColorOverlay {" in button
+    assert "source: iconMask" in button
+    assert "color: control.iconColor" in button
+
+    # Labels remain on the buttons for accessibility and are shown only as hover tooltips.
+    assert "ToolTip.visible: control.hovered" in button
+    assert "ToolTip.text: control.text" in button
+    assert "contentItem: Item" in button
+    assert "width: 32" in button
+    assert "height: 32" in button
+    assert "smooth: false" in button

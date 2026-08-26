@@ -15,7 +15,7 @@ ApplicationWindow {
     title: "RasterMint " + backend.version
     color: theme.windowColor
 
-    property int inspectorIndex: 2
+    property int inspectorIndex: 7
 
     function urlString(value) {
         return value ? value.toString() : ""
@@ -248,21 +248,134 @@ ApplicationWindow {
                 spacing: 0
 
                 Rectangle {
-                    Layout.preferredWidth: 132
+                    Layout.preferredWidth: 56
                     Layout.fillHeight: true
                     color: theme.panelColor
                     border.color: theme.borderColor
                     ColumnLayout {
                         anchors { fill: parent; margins: 6 }
                         spacing: 3
-                        Repeater {
-                            model: ["Presets", "Preview", "Layers", "Palette", "Raster", "Hardware", "Source", "Animation", "Randomize", "Media"]
-                            InspectorNavButton {
-                                Layout.fillWidth: true
-                                text: modelData
-                                selected: window.inspectorIndex === index
-                                onClicked: window.inspectorIndex = index
+
+                        InspectorNavButton {
+                            Layout.fillWidth: true
+                            text: "Randomize"
+                            iconSource: Qt.resolvedUrl("../data/icons/sidebar-random.png")
+                            selected: window.inspectorIndex === 0
+                            onClicked: window.inspectorIndex = 0
+                        }
+
+                        Item {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 11
+                            Rectangle {
+                                anchors {
+                                    left: parent.left
+                                    right: parent.right
+                                    verticalCenter: parent.verticalCenter
+                                    leftMargin: 8
+                                    rightMargin: 8
+                                }
+                                height: 1
+                                color: theme.borderColor
                             }
+                        }
+
+                        InspectorNavButton {
+                            Layout.fillWidth: true
+                            text: "Source"
+                            iconSource: Qt.resolvedUrl("../data/icons/sidebar-source.png")
+                            selected: window.inspectorIndex === 1
+                            onClicked: window.inspectorIndex = 1
+                        }
+                        InspectorNavButton {
+                            Layout.fillWidth: true
+                            text: "Preview"
+                            iconSource: Qt.resolvedUrl("../data/icons/sidebar-preview.png")
+                            selected: window.inspectorIndex === 2
+                            onClicked: window.inspectorIndex = 2
+                        }
+                        InspectorNavButton {
+                            Layout.fillWidth: true
+                            text: "Raster"
+                            iconSource: Qt.resolvedUrl("../data/icons/sidebar-raster.png")
+                            selected: window.inspectorIndex === 3
+                            onClicked: window.inspectorIndex = 3
+                        }
+
+                        Item {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 11
+                            Rectangle {
+                                anchors {
+                                    left: parent.left
+                                    right: parent.right
+                                    verticalCenter: parent.verticalCenter
+                                    leftMargin: 8
+                                    rightMargin: 8
+                                }
+                                height: 1
+                                color: theme.borderColor
+                            }
+                        }
+
+                        InspectorNavButton {
+                            Layout.fillWidth: true
+                            text: "Presets"
+                            iconSource: Qt.resolvedUrl("../data/icons/sidebar-presets.png")
+                            selected: window.inspectorIndex === 4
+                            onClicked: window.inspectorIndex = 4
+                        }
+                        InspectorNavButton {
+                            Layout.fillWidth: true
+                            text: "Hardware"
+                            iconSource: Qt.resolvedUrl("../data/icons/sidebar-hardware.png")
+                            selected: window.inspectorIndex === 5
+                            onClicked: window.inspectorIndex = 5
+                        }
+                        InspectorNavButton {
+                            Layout.fillWidth: true
+                            text: "Palette"
+                            paletteSwatches: true
+                            selected: window.inspectorIndex === 6
+                            onClicked: window.inspectorIndex = 6
+                        }
+                        InspectorNavButton {
+                            Layout.fillWidth: true
+                            text: "Layers"
+                            iconSource: Qt.resolvedUrl("../data/icons/sidebar-layers.png")
+                            selected: window.inspectorIndex === 7
+                            onClicked: window.inspectorIndex = 7
+                        }
+
+                        Item {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 11
+                            Rectangle {
+                                anchors {
+                                    left: parent.left
+                                    right: parent.right
+                                    verticalCenter: parent.verticalCenter
+                                    leftMargin: 8
+                                    rightMargin: 8
+                                }
+                                height: 1
+                                color: theme.borderColor
+                            }
+                        }
+
+                        InspectorNavButton {
+                            Layout.fillWidth: true
+                            text: "Animation"
+                            iconSource: Qt.resolvedUrl("../data/icons/sidebar-animation.png")
+                            selected: window.inspectorIndex === 8
+                            onClicked: window.inspectorIndex = 8
+                        }
+                        InspectorNavButton {
+                            Layout.fillWidth: true
+                            text: "Media Playback"
+                            iconSource: Qt.resolvedUrl("../data/icons/sidebar-media-playback.png")
+                            selected: window.inspectorIndex === 9
+                            onClicked: window.inspectorIndex = 9
                         }
                         Item { Layout.fillHeight: true }
                     }
@@ -278,15 +391,15 @@ ApplicationWindow {
                         StackLayout {
                             anchors.fill: parent
                             currentIndex: window.inspectorIndex
-                            Pages.PresetsPage { }
-                            Pages.PreviewPage { onFitRequested: canvas.resetView() }
-                            Pages.LayersPage { }
-                            Pages.PalettePage { }
-                            Pages.RasterPage { }
-                            Pages.HardwarePage { }
-                            Pages.SourcePage { }
-                            Pages.AnimationPage { }
                             Pages.RandomizePage { }
+                            Pages.SourcePage { }
+                            Pages.PreviewPage { onFitRequested: canvas.resetView() }
+                            Pages.RasterPage { }
+                            Pages.PresetsPage { }
+                            Pages.HardwarePage { }
+                            Pages.PalettePage { }
+                            Pages.LayersPage { }
+                            Pages.AnimationPage { }
                             Pages.MediaPage { }
                         }
                     }
