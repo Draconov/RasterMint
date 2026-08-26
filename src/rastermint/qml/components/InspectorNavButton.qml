@@ -7,7 +7,7 @@ Button {
     property bool selected: false
     property url iconSource: ""
     property bool paletteSwatches: false
-    property color iconColor: theme.textColor
+    property color iconColor: control.selected ? theme.accentColor : theme.textColor
 
     implicitWidth: 44
     implicitHeight: 36
@@ -88,13 +88,6 @@ Button {
         radius: 6
         color: control.selected ? theme.selectionColor : (control.hovered ? theme.panelHoverColor : "transparent")
 
-        Rectangle {
-            visible: control.selected
-            width: 3
-            radius: 2
-            color: theme.accentColor
-            anchors { left: parent.left; top: parent.top; bottom: parent.bottom; margins: 5 }
-        }
 
         Behavior on color { ColorAnimation { duration: 90 } }
     }

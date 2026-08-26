@@ -203,17 +203,19 @@ def test_inspector_navigation_uses_sidebar_icons_and_hover_tooltips():
     # the Linux CI/runtime environment.
     assert "Qt5Compat.GraphicalEffects" not in button
     assert "ColorOverlay" not in button
-    assert "property color iconColor: theme.textColor" in button
+    assert "property color iconColor: control.selected ? theme.accentColor : theme.textColor" in button
     assert "Canvas {" in button
     assert "property url imageSource: control.iconSource" in button
     assert "loadImage(imageSource)" in button
     assert 'ctx.globalCompositeOperation = "source-in"' in button
     assert "ctx.fillStyle = tintColor" in button
     assert "onTintColorChanged: requestPaint()" in button
+    assert "control.selected ? theme.accentColor : theme.textColor" in button
 
     # Labels remain on the buttons for accessibility and are shown only as hover tooltips.
     assert "ToolTip.visible: control.hovered" in button
     assert "ToolTip.text: control.text" in button
+    assert "visible: control.selected" not in button
     assert "contentItem: Item" in button
     assert "width: 32" in button
     assert "height: 32" in button
