@@ -7,8 +7,9 @@ import math
 import numpy as np
 from PIL import Image, ImageOps
 
-from .effect_stack import apply_effect_stack, effect_stack_output_size, normalize_effect_stack, scale_stack_for_preview
-from .hardware import apply_hardware_constraints, render_display_view
+from .effect_stack import apply_normalized_effect_stack, effect_stack_output_size, normalize_effect_stack
+from .effect_schema import scale_normalized_stack_for_preview
+from .hardware import render_display_view
 from .palette import hex_to_rgb
 from .settings import ProcessingSettings
 
@@ -399,21 +400,13 @@ def process_image(
         for step in stack
         if step.get("kind") == "Hardware Display" and step.get("enabled", True)
     ]
-    result = apply_effect_stack(
+    result = apply_normalized_effect_stack(
         source,
         stack,
         settings.palette,
         frame_time=frame_time,
         frame_index=frame_index,
     )
-    if settings.hardware_constraints_enabled and settings.hardware_constraints:
-        alpha = result.getchannel("A") if "A" in result.getbands() else None
-        result = apply_hardware_constraints(result.convert("RGB"), settings.hardware_constraints)
-        if alpha is not None:
-            if alpha.size != result.size:
-                alpha = alpha.resize(result.size, Image.Resampling.NEAREST)
-            result = result.convert("RGBA")
-            result.putalpha(alpha)
     if display_mode != "raw" or include_grid:
         alpha = result.getchannel("A") if "A" in result.getbands() else None
         result = render_display_view(
@@ -442,7 +435,7 @@ def make_preview_settings(
     so source-transform and target-raster fields are disabled on the clone to
     avoid applying them twice.
     """
-    preview = ProcessingSettings.from_dict(settings.to_dict())
+    preview = settings.clone()
     preview.output_divisor = 1
     preview.target_enabled = False
     preview.target_width = 0
@@ -465,7 +458,7 @@ def make_preview_settings(
         return preview
 
     scale = min(preview_w / final_w, preview_h / final_h, 1.0)
-    preview.effect_stack = scale_stack_for_preview(preview.effect_stack, scale)
+    preview.effect_stack = scale_normalized_stack_for_preview(preview.effect_stack, scale)
 
     # Keep old presets visually consistent if they are rendered without a new
     # effect stack for any reason.

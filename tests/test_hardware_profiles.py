@@ -31,8 +31,6 @@ def test_game_boy_profile_applies_raster_palette_and_display():
     assert (result.target_width, result.target_height) == (160, 144)
     assert result.target_enabled
     assert len(result.palette) == 4
-    assert not result.hardware_constraints_enabled
-    assert result.hardware_constraints == {}
     assert result.display_profile == {}
     kinds = [step["kind"] for step in result.effect_stack]
     assert "Hardware Limits" in kinds
@@ -100,8 +98,6 @@ def test_new_settings_round_trip_hardware_raster_grid_and_random_locks():
         grid_major_spacing=8,
         hardware_profile_id="cga-320",
         hardware_mode="strict",
-        hardware_constraints_enabled=True,
-        hardware_constraints={"max_colors_global": 4},
         random_locks={"palette": True, "resolution": False},
     )
     restored = ProcessingSettings.from_dict(settings.to_dict())
@@ -135,17 +131,6 @@ def test_hardware_display_is_visible_layer_but_remains_display_stage():
     disabled = process_image(source, settings, display_mode="display")
     corrected = process_image(source, settings, display_mode="corrected")
     assert np.array_equal(np.asarray(disabled), np.asarray(corrected))
-
-
-def test_legacy_hidden_hardware_constraints_still_work_for_old_presets():
-    settings = ProcessingSettings(
-        hardware_constraints_enabled=True,
-        hardware_constraints={"channel_bits": [2, 2, 2]},
-    )
-    source = Image.new("RGB", (2, 1), (91, 147, 213))
-    result = np.asarray(process_image(source, settings))
-    levels = {round(i / 3 * 255) for i in range(4)}
-    assert all(int(value) in levels for value in result.reshape(-1))
 
 
 def test_hardware_palette_enforcement_has_only_active_or_profile_palette():

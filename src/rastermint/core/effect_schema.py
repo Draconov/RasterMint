@@ -475,8 +475,9 @@ def normalize_effect_stack(stack: list[dict[str, Any]] | None, settings: Any | N
     return regular + staged
 
 
-def scale_stack_for_preview(stack: list[dict[str, Any]], scale: float) -> list[dict[str, Any]]:
-    result = normalize_effect_stack(deepcopy(stack))
+def scale_normalized_stack_for_preview(stack: list[dict[str, Any]], scale: float) -> list[dict[str, Any]]:
+    """Scale an already-normalized stack without validating it a second time."""
+    result = deepcopy(stack)
     if scale >= 1.0:
         return result
     for step in result:
@@ -491,6 +492,10 @@ def scale_stack_for_preview(stack: list[dict[str, Any]], scale: float) -> list[d
             else:
                 params[key] = max(float(spec.get("min", 0.0)), float(value) * scale)
     return result
+
+
+def scale_stack_for_preview(stack: list[dict[str, Any]], scale: float) -> list[dict[str, Any]]:
+    return scale_normalized_stack_for_preview(normalize_effect_stack(stack), scale)
 
 
 def animatable_targets(stack: list[dict[str, Any]]) -> list[tuple[str, str, float]]:

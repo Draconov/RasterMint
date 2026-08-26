@@ -36,13 +36,23 @@ def _limit_global_colors(image: Image.Image, count: int) -> Image.Image:
     return image.convert("RGB").quantize(colors=count, method=Image.Quantize.FASTOCTREE).convert("RGB")
 
 
+def _nearest_palette_indices(values: np.ndarray, palette: np.ndarray) -> np.ndarray:
+    if palette.size == 0:
+        return np.zeros(len(values), dtype=np.int32)
+    source = np.asarray(values, dtype=np.float32)
+    pal = np.asarray(palette, dtype=np.float32)
+    distances = np.sum((source[:, None, :] - pal[None, :, :]) ** 2, axis=2)
+    return np.argmin(distances, axis=1)
+
+
 def _remap_region_to_palette(region: np.ndarray, palette: np.ndarray) -> np.ndarray:
     if palette.size == 0:
         return region
-    flat = region.reshape(-1, 3).astype(np.float32)
-    diff = flat[:, None, :] - palette[None, :, :]
-    idx = np.argmin(np.sum(diff * diff, axis=2), axis=1)
-    return palette[idx].reshape(region.shape).astype(np.uint8)
+    pixels = region.reshape(-1, 3).astype(np.uint8, copy=False)
+    colors, inverse = np.unique(pixels, axis=0, return_inverse=True)
+    idx = _nearest_palette_indices(colors.astype(np.float32), palette)
+    mapped = np.asarray(palette, dtype=np.float32)[idx].astype(np.uint8)
+    return mapped[inverse].reshape(region.shape)
 
 
 def _choose_region_colors(region: np.ndarray, limit: int) -> np.ndarray:
@@ -52,6 +62,63 @@ def _choose_region_colors(region: np.ndarray, limit: int) -> np.ndarray:
         return colors.astype(np.float32)
     order = np.argsort(counts)[::-1][:limit]
     return colors[order].astype(np.float32)
+
+
+def _encode_rgb_codes(values: np.ndarray) -> np.ndarray:
+    rgb = np.asarray(values, dtype=np.uint32)
+    return (rgb[..., 0] << 16) | (rgb[..., 1] << 8) | rgb[..., 2]
+
+
+def _decode_rgb_codes(codes: np.ndarray) -> np.ndarray:
+    values = np.asarray(codes, dtype=np.uint32)
+    return np.stack(
+        ((values >> 16) & 0xFF, (values >> 8) & 0xFF, values & 0xFF),
+        axis=-1,
+    ).astype(np.float32)
+
+
+def _limit_region_colors(
+    region: np.ndarray,
+    region_codes: np.ndarray,
+    limit: int,
+    palette_groups: list[np.ndarray],
+) -> np.ndarray:
+    """Limit one hardware tile while doing palette work per unique RGB code."""
+    flat_codes = region_codes.reshape(-1)
+    unique_codes, counts = np.unique(flat_codes, return_counts=True)
+    colors = _decode_rgb_codes(unique_codes)
+
+    if palette_groups:
+        best_mapped: np.ndarray | None = None
+        best_error = float("inf")
+        for group in palette_groups:
+            indices = _nearest_palette_indices(colors, group)
+            mapped = np.asarray(group, dtype=np.float32)[indices].astype(np.uint8)
+            delta = colors - mapped.astype(np.float32)
+            # Equivalent to the previous full-pixel MSE up to one common
+            # positive divisor, while evaluating each unique tile colour once.
+            error = float(np.sum(np.sum(delta * delta, axis=1) * counts))
+            if error < best_error:
+                best_error = error
+                best_mapped = mapped
+        assert best_mapped is not None
+
+        mapped_codes = _encode_rgb_codes(best_mapped)
+        candidate_codes, inverse = np.unique(mapped_codes, return_inverse=True)
+        candidate_counts = np.bincount(inverse, weights=counts, minlength=len(candidate_codes))
+        if len(candidate_codes) > limit:
+            order = np.argsort(candidate_counts)[::-1][:limit]
+            candidate_codes = candidate_codes[order]
+    else:
+        candidate_codes = unique_codes
+        if len(candidate_codes) > limit:
+            order = np.argsort(counts)[::-1][:limit]
+            candidate_codes = candidate_codes[order]
+
+    chosen = _decode_rgb_codes(candidate_codes)
+    flat = region.reshape(-1, 3).astype(np.float32)
+    indices = _nearest_palette_indices(flat, chosen)
+    return chosen[indices].reshape(region.shape).astype(np.uint8)
 
 
 def _tile_color_limit(
@@ -66,30 +133,15 @@ def _tile_color_limit(
     th = max(1, int(tile_height))
     limit = max(1, int(max_colors))
     out = arr.copy()
+    codes = _encode_rgb_codes(out)
     groups_np = [palette_array(group) for group in (palette_groups or []) if group]
 
     for y in range(0, h, th):
+        y1 = min(h, y + th)
         for x in range(0, w, tw):
-            region = out[y : min(h, y + th), x : min(w, x + tw)]
-            if groups_np:
-                # ZX-style shared brightness groups: choose the palette group
-                # with the smallest reconstruction error, then keep only the
-                # requested number of colors inside that group.
-                best_group: np.ndarray | None = None
-                best_error = float("inf")
-                for group in groups_np:
-                    remapped = _remap_region_to_palette(region, group)
-                    error = float(np.mean((region.astype(np.float32) - remapped.astype(np.float32)) ** 2))
-                    if error < best_error:
-                        best_error = error
-                        best_group = group
-                assert best_group is not None
-                remapped = _remap_region_to_palette(region, best_group)
-                chosen = _choose_region_colors(remapped, limit)
-                region[:] = _remap_region_to_palette(region, chosen)
-            else:
-                chosen = _choose_region_colors(region, limit)
-                region[:] = _remap_region_to_palette(region, chosen)
+            x1 = min(w, x + tw)
+            region = out[y:y1, x:x1]
+            region[:] = _limit_region_colors(region, codes[y:y1, x:x1], limit, groups_np)
     return out
 
 

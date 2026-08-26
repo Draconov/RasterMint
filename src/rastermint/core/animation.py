@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-from copy import deepcopy
 from typing import Any
 
 from .effect_schema import EFFECT_DEFINITIONS, normalize_effect_stack
@@ -91,8 +90,8 @@ def _value_for_target(tracks: list[dict[str, Any]], time_seconds: float) -> floa
 
 
 def settings_at_time(settings: ProcessingSettings, time_seconds: float) -> ProcessingSettings:
-    clone = ProcessingSettings.from_dict(settings.to_dict())
-    clone.effect_stack = normalize_effect_stack(deepcopy(clone.effect_stack), clone)
+    clone = settings.clone()
+    clone.effect_stack = normalize_effect_stack(clone.effect_stack, clone)
     tracks = normalize_tracks(clone.animation_tracks)
     time_seconds = max(0.0, float(time_seconds))
 

@@ -237,13 +237,6 @@ def apply_profile_to_settings(
                 ),
             )
         result.effect_stack = _replace_stage_layer(result.effect_stack, "Hardware Limits", limits_step)
-        # New profile applications materialize strict limits as an editable
-        # visible layer. Keep these legacy fields empty so the old hidden
-        # post-pass is not applied a second time. Saved older projects still
-        # retain their legacy snapshots and remain compatible.
-        result.hardware_constraints_enabled = False
-        result.hardware_constraints = {}
-
     if apply_display:
         visual = profile.visual
         display = visual.get("display") if isinstance(visual, dict) else {}

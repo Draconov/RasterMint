@@ -2,6 +2,25 @@
 
 Notable user-facing and engineering changes are recorded here. RasterMint is still in active alpha development, so entries focus on behavior that affects releases, compatibility, or contributor expectations.
 
+## 0.2.3 - 2026-08-26
+
+### Performance and memory
+
+- Removed duplicate effect-stack normalization from the main processor and preview scaling paths while keeping the public effect-stack API safe for arbitrary stacks.
+- Reworked K-Means palette extraction to use bounded-memory center assignment and incremental farthest-point initialization, avoiding large pixel×center and colour×center temporary arrays.
+- Reduced strict hardware tile-limit work by mapping each unique tile colour once and weighting reconstruction error by occurrence count instead of repeatedly remapping every pixel.
+- Added a lightweight settings clone path for previews and animation-frame evaluation instead of serializing settings through `to_dict()` / `from_dict()` on every refresh/frame.
+
+### Hardware pipeline cleanup
+
+- Removed the obsolete hidden `hardware_constraints_enabled` / `hardware_constraints` settings and post-processing fallback. Hardware restrictions now live exclusively in the visible Hardware Limits layer.
+- Removed the corresponding dead fields from bundled JSON presets.
+
+### Tests
+
+- Replaced brittle QML source-format assertions for clipboard/menu wording and dialog theming with API-boundary/runtime coverage where stronger QML compilation tests already exist.
+- Added regression checks for single-pass stack normalization, settings-clone independence, deterministic chunked K-Means, and pixel-identical optimized hardware tile limiting.
+
 ## 0.2.1 - 2026-08-24
 
 ### Startup and packaging

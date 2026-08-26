@@ -7,8 +7,6 @@
   "settings": {
     "hardware_profile_id": "custom",
     "hardware_mode": "visual",
-    "hardware_constraints_enabled": false,
-    "hardware_constraints": {},
     "display_profile": {},
     "display_mode": "corrected",
     "palette": [

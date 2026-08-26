@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from copy import copy, deepcopy
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
@@ -77,12 +78,10 @@ class ProcessingSettings:
     grid_major_spacing: int = 8
     grid_opacity: float = 0.35
 
-    # Hardware profile state. constraints is a self-contained snapshot so a
-    # saved preset remains reproducible even if built-in profile data evolves.
+    # Hardware profile identity. Editable strict/display processing now lives
+    # entirely in the visible Hardware Limits / Hardware Display layers.
     hardware_profile_id: str = "custom"
     hardware_mode: str = "visual"  # visual / strict
-    hardware_constraints_enabled: bool = False
-    hardware_constraints: dict[str, Any] = field(default_factory=dict)
 
     palette: list[str] = field(default_factory=lambda: DEFAULT_PALETTE.copy())
     palette_locks: list[bool] = field(default_factory=list)
@@ -116,10 +115,25 @@ class ProcessingSettings:
             merged = _default_random_locks()
             merged.update({str(k): bool(v) for k, v in self.random_locks.items()})
             self.random_locks = merged
-        if not isinstance(self.hardware_constraints, dict):
-            self.hardware_constraints = {}
         if not isinstance(self.display_profile, dict):
             self.display_profile = {}
+
+    def clone(self) -> "ProcessingSettings":
+        """Fast independent copy for preview/frame evaluation.
+
+        Avoids the expensive ``asdict -> from_dict`` serialization round-trip
+        when the source object is already canonical. Mutable containers are
+        copied so callers can safely edit the clone without touching the live
+        settings object.
+        """
+        cloned = copy(self)
+        cloned.display_profile = deepcopy(self.display_profile)
+        cloned.palette = list(self.palette)
+        cloned.palette_locks = list(self.palette_locks)
+        cloned.effect_stack = deepcopy(self.effect_stack)
+        cloned.animation_tracks = deepcopy(self.animation_tracks)
+        cloned.random_locks = dict(self.random_locks)
+        return cloned
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -138,8 +152,7 @@ class ProcessingSettings:
             "display_mode", "display_export", "display_profile",
             "grid_enabled", "grid_preview", "grid_export", "grid_spacing",
             "grid_major_spacing", "grid_opacity", "hardware_profile_id",
-            "hardware_mode", "hardware_constraints_enabled",
-            "hardware_constraints", "palette", "palette_locks", "palette_name",
+            "hardware_mode", "palette", "palette_locks", "palette_name",
             "palette_author", "palette_source", "effect_stack",
             "animation_duration", "animation_fps", "animation_loop", "animation_tracks",
             "random_locks",
@@ -208,10 +221,6 @@ class ProcessingSettings:
         obj.hardware_mode = str(obj.hardware_mode or "visual").lower()
         if obj.hardware_mode not in {"visual", "strict"}:
             obj.hardware_mode = "visual"
-        obj.hardware_constraints_enabled = bool(obj.hardware_constraints_enabled)
-        if not isinstance(obj.hardware_constraints, dict):
-            obj.hardware_constraints = {}
-
         if not isinstance(obj.palette, list) or not obj.palette:
             obj.palette = DEFAULT_PALETTE.copy()
         obj.palette = [str(c) for c in obj.palette[:256]]

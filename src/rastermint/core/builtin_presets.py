@@ -428,8 +428,6 @@ def _new_preset_settings(base: ProcessingSettings | None) -> ProcessingSettings:
     settings.effect_stack = default_effect_stack(settings)
     settings.hardware_profile_id = "custom"
     settings.hardware_mode = "visual"
-    settings.hardware_constraints_enabled = False
-    settings.hardware_constraints = {}
     settings.display_profile = {}
     settings.display_mode = "corrected"
     settings.display_export = False

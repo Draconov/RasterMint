@@ -85,6 +85,41 @@ def _palette_from_quantized(q: Image.Image, colors: int) -> list[str]:
     return result[:colors]
 
 
+def _nearest_center_labels(pixels: np.ndarray, centers: np.ndarray, chunk_pixels: int = 4096) -> np.ndarray:
+    """Return nearest-center labels quickly with bounded memory.
+
+    Matrix distance algebra is much faster than constructing a
+    ``pixel × center × RGB`` temporary. Float32 cancellation can only change
+    legacy tie decisions when two centers are almost equally distant, so those
+    rare ambiguous rows are recomputed with the original subtract/square/sum
+    arithmetic to preserve pre-0.2.3 output exactly.
+    """
+    values = np.asarray(pixels, dtype=np.float32)
+    center_values = np.asarray(centers, dtype=np.float32)
+    labels = np.empty(len(values), dtype=np.int32)
+    center_sq = np.sum(center_values * center_values, axis=1)
+    chunk_size = max(512, int(chunk_pixels))
+    for start in range(0, len(values), chunk_size):
+        end = min(len(values), start + chunk_size)
+        chunk = values[start:end]
+        chunk_sq = np.sum(chunk * chunk, axis=1, keepdims=True)
+        distances = chunk_sq + center_sq[None, :] - 2.0 * (chunk @ center_values.T)
+        chunk_labels = np.argmin(distances, axis=1)
+
+        if len(center_values) > 1:
+            closest_two = np.partition(distances, 1, axis=1)[:, :2]
+            ambiguous = (closest_two[:, 1] - closest_two[:, 0]) <= 1.0
+            if np.any(ambiguous):
+                exact = np.sum(
+                    (chunk[ambiguous, None, :] - center_values[None, :, :]) ** 2,
+                    axis=2,
+                )
+                chunk_labels[ambiguous] = np.argmin(exact, axis=1)
+
+        labels[start:end] = chunk_labels
+    return labels
+
+
 def _kmeans_palette(image: Image.Image, colors: int) -> list[str]:
     arr = np.asarray(_thumbnail_rgb(image), dtype=np.float32).reshape(-1, 3)
     if len(arr) > 100_000:
@@ -94,19 +129,27 @@ def _kmeans_palette(image: Image.Image, colors: int) -> list[str]:
     if len(unique) <= colors:
         return [rgb_to_hex(c) for c in unique]
 
-    # Deterministic farthest-point initialization gives much more stable
-    # creative results than picking random centers.
+    # Deterministic farthest-point initialization. Maintain each colour's
+    # nearest selected-center distance incrementally instead of repeatedly
+    # allocating [unique_colors, selected_centers, 3] temporaries.
     lum = unique @ np.array([0.2126, 0.7152, 0.0722], dtype=np.float32)
-    centers = [unique[int(np.argmin(lum))], unique[int(np.argmax(lum))]]
-    while len(centers) < colors:
-        c = np.asarray(centers, dtype=np.float32)
-        d = np.min(np.sum((unique[:, None, :] - c[None, :, :]) ** 2, axis=2), axis=1)
-        centers.append(unique[int(np.argmax(d))])
-    centers_np = np.asarray(centers[:colors], dtype=np.float32)
+    first = int(np.argmin(lum))
+    second = int(np.argmax(lum))
+    selected = [first, second]
+    d_first = np.sum((unique - unique[first]) ** 2, axis=1)
+    d_second = np.sum((unique - unique[second]) ** 2, axis=1)
+    min_distance = np.minimum(d_first, d_second)
+    while len(selected) < colors:
+        next_index = int(np.argmax(min_distance))
+        selected.append(next_index)
+        distance = np.sum((unique - unique[next_index]) ** 2, axis=1)
+        min_distance = np.minimum(min_distance, distance)
+    centers_np = unique[np.asarray(selected[:colors], dtype=np.int32)].astype(np.float32, copy=True)
 
+    # Keep only the compact label vector for all sampled pixels. The large
+    # pixel×center distance matrix is created one chunk at a time.
     for _ in range(16):
-        distances = np.sum((arr[:, None, :] - centers_np[None, :, :]) ** 2, axis=2)
-        labels = np.argmin(distances, axis=1)
+        labels = _nearest_center_labels(arr, centers_np)
         updated = centers_np.copy()
         for i in range(colors):
             members = arr[labels == i]

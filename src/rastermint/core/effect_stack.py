@@ -2187,7 +2187,7 @@ def effect_stack_output_size(size: tuple[int, int], stack: list[dict[str, Any]])
     return width, height
 
 
-def apply_effect_stack(
+def apply_normalized_effect_stack(
     image: Image.Image,
     stack: list[dict[str, Any]],
     palette: list[str],
@@ -2195,10 +2195,16 @@ def apply_effect_stack(
     frame_time: float = 0.0,
     frame_index: int = 0,
 ) -> Image.Image:
+    """Apply a stack that has already been normalized by effect_schema.
+
+    Internal processor paths use this to avoid normalizing the same stack a
+    second time on every preview/video frame. Public ``apply_effect_stack``
+    remains the safe entry point for arbitrary caller-provided stacks.
+    """
     img = image if image.mode == "RGB" else image.convert("RGB")
     palette_np = palette_array(palette)
 
-    for step in normalize_effect_stack(stack):
+    for step in stack:
         if not step.get("enabled", True):
             continue
         kind = step["kind"]
@@ -2351,3 +2357,20 @@ def apply_effect_stack(
             rgba.putalpha(alpha)
             img = rgba
     return img
+
+def apply_effect_stack(
+    image: Image.Image,
+    stack: list[dict[str, Any]],
+    palette: list[str],
+    *,
+    frame_time: float = 0.0,
+    frame_index: int = 0,
+) -> Image.Image:
+    return apply_normalized_effect_stack(
+        image,
+        normalize_effect_stack(stack),
+        palette,
+        frame_time=frame_time,
+        frame_index=frame_index,
+    )
+
