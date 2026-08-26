@@ -2,6 +2,41 @@
 
 Notable user-facing and engineering changes are recorded here. RasterMint is still in active alpha development, so entries focus on behavior that affects releases, compatibility, or contributor expectations.
 
+## 0.2.4 - 2026-08-26
+
+### Inspector and navigation
+
+- Replaced the text-only inspector category rail with a compact 32×32 icon-based sidebar while preserving translated category names as hover tooltips.
+- Regrouped the sidebar into the final navigation order: Randomize; Presets/Hardware/Palette/Layers; Source/Preview/Raster; Animation/Media Playback, separated by visual dividers.
+- Kept the uploaded monochrome PNG artwork as alpha/shape masks and tinted the nine static sidebar icons from the active theme. Inactive icons use `theme.textColor`; the active icon uses `theme.accentColor`.
+- Removed the redundant active-page indicator stripe after active-icon accent tinting made the selected state clear.
+- Kept Palette as a special live four-swatch icon driven directly by current theme colors rather than a fixed PNG.
+
+### Themes
+
+- Added five built-in themes: **Studio Gray**, **Midnight**, **Violet**, **Amber**, and **Hacker**, bringing the built-in theme set to 14.
+- Kept theme ordering explicit in `qmlui/theme.py` so the Settings chooser is stable instead of depending on filename sorting.
+- Made the icon-only sidebar react to theme changes automatically, including active/inactive icon colors and Palette swatches.
+
+### Localization
+
+- Added runtime **English and Ukrainian** localization using `LocalizationManager`, `QTranslator`, JSON translation dictionaries, and `QQmlEngine.retranslate()`; no `.qm` build step is required.
+- Marked user-facing QML strings for translation and added the packaged Ukrainian dictionary under `data/translations/uk.json`.
+- Added live language switching in Settings with the selected language persisted through `QSettings`.
+- Made **English** the explicit default/fallback language, removed the old “System default” choice, and migrated the legacy `system` preference to English.
+- Reworked the language chooser so the active language appears first, followed by a separator and the remaining available languages.
+- Kept the **RasterMint** product name literal/non-translatable in window and About branding.
+
+### Cross-platform reliability
+
+- Replaced the initial `Qt5Compat.GraphicalEffects` / `ColorOverlay` icon-tint implementation after Linux CI showed that compatibility module was unavailable.
+- Reimplemented sidebar mask tinting with pure QtQuick `Canvas` composition (`source-in`), keeping theme-aware icons without adding a new Qt runtime dependency.
+- Kept offscreen QML compilation/runtime coverage for the sidebar and localization integration while removing theme-order-only test clutter.
+
+### Documentation
+
+- Synchronized the README, icon documentation, architecture guide, extension guide, and contributor guidance with the 0.2.4 sidebar, themes, localization, and clipboard workflow.
+
 ## 0.2.3 - 2026-08-26
 
 ### Performance and memory

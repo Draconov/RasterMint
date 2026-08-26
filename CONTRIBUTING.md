@@ -58,7 +58,15 @@ For classic error-diffusion algorithms, add the kernel/divisor to the existing a
 
 ### Data files
 
-Themes, palettes, presets, and hardware profiles should use stable IDs and normal human-readable JSON. Do not encode UI behavior in filenames when an explicit data field can represent it.
+Themes, translations, palettes, presets, and hardware profiles should use stable IDs/keys and normal human-readable JSON. Do not encode UI behavior in filenames when an explicit data field can represent it. Sidebar/application artwork belongs under `src/rastermint/data/icons/`.
+
+### Localization and stable identifiers
+
+New user-facing QML text should normally use `qsTr(...)`, and supported translation dictionaries should be updated when that text is meant to be localized. Keep the product name **RasterMint** literal where it is branding.
+
+Do not localize values that form application contracts: effect IDs/types, settings or preset keys, serialized enum values, hardware/profile IDs, palette IDs, or other backend identifiers. Translate the presentation label instead so changing language cannot change processing state or file compatibility.
+
+Runtime language switching is handled by `qmlui/localization.py`; avoid introducing a parallel localization system in individual pages.
 
 ### External research
 

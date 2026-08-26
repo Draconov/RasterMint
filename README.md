@@ -79,8 +79,11 @@ Hardware profiles are creative image-processing models, **not hardware emulators
 - Background rendering with stale-result protection.
 - Undo/redo with grouped slider and drag interactions.
 - Batch export with format, scaling, overwrite, and per-source sizing controls.
-- JSON presets, themes, and data-driven hardware profiles.
-- Multiple built-in application themes.
+- Direct **Export to Clipboard** for pasting the processed image into another application without a temporary file.
+- Compact icon-based inspector navigation with grouped sections and translated hover labels.
+- JSON presets, themes, translations, and data-driven hardware profiles.
+- **14 built-in application themes**, including Studio Gray, Midnight, Violet, Amber, and Hacker.
+- Runtime **English and Ukrainian localization** with live language switching in Settings; English is the default/fallback language.
 
 ## Supported formats
 
@@ -173,9 +176,9 @@ src/rastermint/
 ├── app.py                 Qt application bootstrap
 ├── cli.py                 Command-line entry point
 ├── core/                  Processing, media, palettes, animation, hardware
-├── data/                  Themes, palettes, presets, icons, hardware profiles
+├── data/                  Themes, translations, palettes, presets, icons, hardware profiles
 ├── qml/                   Qt Quick interface
-└── qmlui/                 QML-facing models, backend, workers, image provider
+└── qmlui/                 QML-facing models, backend, theme/localization, workers, image provider
 
 build/                     PyInstaller specification and packaging hooks
 docs/                      Developer and architecture documentation
@@ -194,7 +197,7 @@ The GUI startup path is intentionally lightweight. NumPy, Pillow, the render pip
 | [`docs/HARDWARE_PROFILES.md`](docs/HARDWARE_PROFILES.md) | Hardware-profile format and Visual/Strict behavior |
 | [`docs/TESTING.md`](docs/TESTING.md) | Test strategy, QML smoke tests, regression-test policy |
 | [`docs/FEATURE_RESEARCH.md`](docs/FEATURE_RESEARCH.md) | External feature research and implementation policy |
-| [`docs/ICONS.md`](docs/ICONS.md) | Application icon assets and packaging |
+| [`docs/ICONS.md`](docs/ICONS.md) | Application and sidebar icon assets, tinting, and packaging |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Contribution workflow and project expectations |
 | [`CHANGELOG.md`](CHANGELOG.md) | Release history |
 

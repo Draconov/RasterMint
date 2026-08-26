@@ -19,7 +19,10 @@ Identify which layer owns the feature:
 | Hardware rendering | `core/hardware.py` |
 | QML-facing state/actions | `src/rastermint/qmlui/` |
 | Interface | `src/rastermint/qml/` |
-| Static built-in data | `src/rastermint/data/` |
+| Theme definitions | `src/rastermint/data/themes/` |
+| Translation dictionaries | `src/rastermint/data/translations/` |
+| Sidebar/application artwork | `src/rastermint/data/icons/` |
+| Other static built-in data | `src/rastermint/data/` |
 
 Avoid putting processing logic directly in QML or duplicating a core algorithm inside an export path.
 
@@ -197,6 +200,47 @@ Avoid top-level imports of:
 - GIF/batch/export render helpers.
 
 Use lightweight metadata modules or local imports inside worker/operation methods. `tests/test_startup_optimization.py` protects this contract.
+
+## Adding a theme
+
+Built-in themes are JSON files under `src/rastermint/data/themes/`. Use a stable `id`, a human-readable `name`, and the full set of existing theme color keys (`window`, `canvas`, `panel`, `panelRaised`, `panelHover`, `border`, `text`, `textMuted`, `accent`, `accentHover`, `accentText`, `danger`, `selection`, and `mirrorAxis`).
+
+To add a built-in theme:
+
+1. add the JSON file;
+2. add its ID to `THEME_ORDER` in `qmlui/theme.py` at the intended chooser position;
+3. verify normal text, muted text, selection, danger states, mirror axes, and the icon-only sidebar in both active/inactive states;
+4. avoid theme-specific QML branches — controls should consume `ThemeManager` properties.
+
+Unknown third-party theme IDs are still loaded and appended alphabetically after the curated built-in order.
+
+## Adding a language
+
+English is RasterMint's source/default language. User-visible QML strings should normally be wrapped with `qsTr("...")`. Do not translate stable processing identifiers, effect type IDs, preset/settings keys, serialized enum values, or other backend contracts.
+
+To add a language:
+
+1. add a JSON dictionary under `src/rastermint/data/translations/<language-id>.json` using the same source-string keys used by `qsTr`;
+2. register the language ID in `LANGUAGE_ORDER` and its native display name in `LANGUAGE_NAMES` in `qmlui/localization.py`;
+3. ensure packaging still includes `data/translations/`;
+4. switch languages at runtime and verify menus, dialogs, inspector pages, dynamic labels, and tooltips retranslate without restart;
+5. keep the product name **RasterMint** literal/non-translatable where it is branding.
+
+`LocalizationManager` uses a JSON-backed `QTranslator` and `QQmlEngine.retranslate()`. Do not introduce `.qm`/`lrelease` tooling unless the localization architecture is intentionally being replaced. English remains the fallback/default when a stored language is missing or invalid.
+
+## Adding or replacing a sidebar icon
+
+Static inspector icons live under `src/rastermint/data/icons/` and are intended as 32×32 monochrome PNG shape masks. The RGB color in the file is not the final display color: `InspectorNavButton.qml` recolors the mask using the active theme (`textColor` when inactive, `accentColor` when selected).
+
+When adding/replacing one:
+
+1. preserve a transparent background and clean alpha edges;
+2. keep the artwork monochrome and readable at 32×32;
+3. reference it from the appropriate `InspectorNavButton` in `Main.qml`;
+4. keep the button `text` property because it drives translated hover tooltips/accessibility;
+5. do not add `Qt5Compat.GraphicalEffects` solely for tinting — the current pure QtQuick Canvas path exists to remain portable in Linux CI.
+
+Palette is intentionally different: its sidebar icon is rendered from four current-theme swatches instead of a static PNG.
 
 ## QML changes
 

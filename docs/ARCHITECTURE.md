@@ -7,7 +7,7 @@ RasterMint separates the desktop interface from the processing engine while keep
 1. **One processing truth** — preview and export should differ only in resolution/performance policy, not image-processing logic.
 2. **Responsive UI** — expensive image/media work runs away from the QML event loop.
 3. **Fast startup** — Qt can create the first window without eagerly importing NumPy, Pillow, FFmpeg/media helpers, or the complete render pipeline.
-4. **Data-driven features** — palettes, themes, presets, hardware profiles, effect schemas, and algorithm metadata should not require UI-specific branching.
+4. **Data-driven features** — palettes, themes, translations, presets, hardware profiles, effect schemas, and algorithm metadata should not require UI-specific branching.
 5. **Deterministic exports** — final output should not inherit preview-only shortcuts.
 
 ## Runtime overview
@@ -41,7 +41,7 @@ minimal PySide6 modules
   ↓
 QGuiApplication
   ↓
-lightweight QML backend + theme + image provider
+lightweight QML backend + theme + localization + image provider
   ↓
 Main.qml becomes visible
   ↓
@@ -170,10 +170,33 @@ Python-facing Qt code lives under `src/rastermint/qmlui/`:
 | `workers.py` | Preview/render worker jobs |
 | `batch_worker.py` | Batch worker |
 | `models.py` | Qt models exposed to QML |
-| `theme.py` | Theme loading and color properties |
+| `theme.py` | Theme loading, chooser ordering, persistence, and color properties |
+| `localization.py` | Runtime language selection, JSON-backed `QTranslator`, persistence, and QML retranslation |
 | `image_provider.py` | Processed preview image provider |
 
 QML should call the backend through explicit slots/properties and avoid importing processing implementation details directly.
+
+### Sidebar icon rendering
+
+The narrow inspector rail is icon-based. Nine static 32×32 PNGs under `data/icons/` are loaded by `InspectorNavButton.qml` as alpha/shape masks and recolored with a QtQuick `Canvas`:
+
+- inactive icon: `theme.textColor`;
+- active icon: `theme.accentColor`;
+- selected button background: `theme.selectionColor`.
+
+The Palette button is generated from four live theme swatches instead of a static PNG. Navigation labels remain attached to the buttons and are shown as translated hover tooltips.
+
+The Canvas implementation deliberately uses `source-in` composition instead of `Qt5Compat.GraphicalEffects` so the sidebar does not require an optional Qt compatibility module on Linux.
+
+### Runtime localization
+
+`rastermint.app` creates `LocalizationManager(engine)` and exposes it to QML as the `localization` context property alongside `backend` and `theme`.
+
+English is the source/default language. User-facing QML strings use `qsTr(...)`; non-English dictionaries live under `data/translations/` (currently `uk.json` for Ukrainian). `LocalizationManager` loads the selected JSON dictionary into a small `QTranslator` implementation, installs it on the application, and calls `QQmlEngine.retranslate()` when the language changes. The preference is persisted through `QSettings`.
+
+The language chooser shows the active language first, then a separator and the remaining languages. English is the fallback for missing/invalid or legacy `system` preferences. Product branding such as the literal name **RasterMint** is intentionally not translated.
+
+Backend IDs, effect types, preset/settings keys, and other serialized identifiers must remain language-independent; localization belongs at the presentation boundary.
 
 ## Inspector loading
 
@@ -229,7 +252,8 @@ data/
 ├── icons/
 ├── palettes/
 ├── presets/
-└── themes/
+├── themes/
+└── translations/
 ```
 
 Stable IDs belong inside data. Filenames should remain readable and should not be used as hidden ordering/state unless there is no better explicit field.
@@ -258,7 +282,8 @@ Changes should preserve these guarantees:
 - preview results must not overwrite newer revisions;
 - final export must not inherit preview-only resolution limits;
 - presets/settings must remain serializable;
-- built-in JSON assets must remain parseable and uniquely identified;
+- built-in JSON assets, including translations, must remain parseable and packaged;
+- sidebar icon masks must remain available to QML and tint without optional Qt compatibility modules;
 - release builds must contain the resources/codecs required by supported workflows.
 
 See [`TESTING.md`](TESTING.md) for how these contracts are verified.
