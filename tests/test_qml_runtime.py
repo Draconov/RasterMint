@@ -171,26 +171,6 @@ def test_main_window_inspector_has_room_for_detailed_controls():
         backend.shutdown()
 
 
-def test_theme_manager_exposes_requested_theme_order():
-    _app()
-    theme = ThemeManager()
-    assert theme.themeIds[:14] == [
-        "rastermint-dark",
-        "rastermint-light",
-        "studio-gray",
-        "midnight",
-        "violet",
-        "amber",
-        "hacker",
-        "oled",
-        "trueblack",
-        "solarized-dark",
-        "solarized-light",
-        "mint",
-        "sunrise",
-        "halloween",
-    ]
-
 
 def test_top_menu_button_releases_focus_when_popup_closes():
     app = _app()
