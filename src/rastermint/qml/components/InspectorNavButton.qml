@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Controls
-import Qt5Compat.GraphicalEffects
 
 Button {
     id: control
@@ -20,27 +19,45 @@ Button {
     ToolTip.timeout: 3000
 
     contentItem: Item {
-        Image {
-            id: iconMask
+        Canvas {
+            id: iconCanvas
             anchors.centerIn: parent
             width: 32
             height: 32
-            source: control.iconSource
             visible: !control.paletteSwatches
-            opacity: 0.0
-            fillMode: Image.PreserveAspectFit
-            smooth: false
-            mipmap: false
-            sourceSize.width: width
-            sourceSize.height: height
-        }
 
-        ColorOverlay {
-            anchors.fill: iconMask
-            source: iconMask
-            color: control.iconColor
-            visible: !control.paletteSwatches
-            cached: true
+            property url imageSource: control.iconSource
+            property color tintColor: control.iconColor
+
+            function loadCurrentImage() {
+                if (imageSource && imageSource.toString().length > 0 && !isImageLoaded(imageSource) && !isImageLoading(imageSource))
+                    loadImage(imageSource)
+            }
+
+            Component.onCompleted: loadCurrentImage()
+            onImageSourceChanged: {
+                loadCurrentImage()
+                requestPaint()
+            }
+            onTintColorChanged: requestPaint()
+            onImageLoaded: requestPaint()
+
+            onPaint: {
+                var ctx = getContext("2d")
+                ctx.clearRect(0, 0, width, height)
+
+                if (!imageSource || imageSource.toString().length === 0 || !isImageLoaded(imageSource))
+                    return
+
+                // Keep the uploaded PNG as the alpha/shape mask, then replace
+                // its RGB with the current theme's icon/text colour.
+                ctx.globalCompositeOperation = "source-over"
+                ctx.drawImage(imageSource, 0, 0, width, height)
+                ctx.globalCompositeOperation = "source-in"
+                ctx.fillStyle = tintColor
+                ctx.fillRect(0, 0, width, height)
+                ctx.globalCompositeOperation = "source-over"
+            }
         }
 
         Grid {

@@ -198,14 +198,18 @@ def test_inspector_navigation_uses_sidebar_icons_and_hover_tooltips():
     assert "theme.accentColor" in button
     assert "theme.textColor" in button
 
-    # Static sidebar PNGs are used as shape masks and tinted from the active theme.
-    assert "import Qt5Compat.GraphicalEffects" in button
+    # Static sidebar PNGs are used as alpha masks and tinted by pure QtQuick Canvas.
+    # Do not depend on Qt5Compat.GraphicalEffects: that module is not present in
+    # the Linux CI/runtime environment.
+    assert "Qt5Compat.GraphicalEffects" not in button
+    assert "ColorOverlay" not in button
     assert "property color iconColor: theme.textColor" in button
-    assert "id: iconMask" in button
-    assert "opacity: 0.0" in button
-    assert "ColorOverlay {" in button
-    assert "source: iconMask" in button
-    assert "color: control.iconColor" in button
+    assert "Canvas {" in button
+    assert "property url imageSource: control.iconSource" in button
+    assert "loadImage(imageSource)" in button
+    assert 'ctx.globalCompositeOperation = "source-in"' in button
+    assert "ctx.fillStyle = tintColor" in button
+    assert "onTintColorChanged: requestPaint()" in button
 
     # Labels remain on the buttons for accessibility and are shown only as hover tooltips.
     assert "ToolTip.visible: control.hovered" in button
@@ -213,4 +217,3 @@ def test_inspector_navigation_uses_sidebar_icons_and_hover_tooltips():
     assert "contentItem: Item" in button
     assert "width: 32" in button
     assert "height: 32" in button
-    assert "smooth: false" in button
