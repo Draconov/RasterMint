@@ -1,0 +1,18 @@
+{
+  "id": "amber",
+  "name": "Amber",
+  "window": "#17120A",
+  "canvas": "#0F0B06",
+  "panel": "#21180C",
+  "panelRaised": "#2B2010",
+  "panelHover": "#382A13",
+  "border": "#59411B",
+  "text": "#FFEFD1",
+  "textMuted": "#BFA06B",
+  "accent": "#FFB000",
+  "accentHover": "#FFC247",
+  "accentText": "#1B1200",
+  "danger": "#E06A5F",
+  "selection": "#58411A",
+  "mirrorAxis": "#FFD166"
+}

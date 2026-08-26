@@ -282,44 +282,6 @@ ApplicationWindow {
 
                         InspectorNavButton {
                             Layout.fillWidth: true
-                            text: "Source"
-                            iconSource: Qt.resolvedUrl("../data/icons/sidebar-source.png")
-                            selected: window.inspectorIndex === 1
-                            onClicked: window.inspectorIndex = 1
-                        }
-                        InspectorNavButton {
-                            Layout.fillWidth: true
-                            text: "Preview"
-                            iconSource: Qt.resolvedUrl("../data/icons/sidebar-preview.png")
-                            selected: window.inspectorIndex === 2
-                            onClicked: window.inspectorIndex = 2
-                        }
-                        InspectorNavButton {
-                            Layout.fillWidth: true
-                            text: "Raster"
-                            iconSource: Qt.resolvedUrl("../data/icons/sidebar-raster.png")
-                            selected: window.inspectorIndex === 3
-                            onClicked: window.inspectorIndex = 3
-                        }
-
-                        Item {
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: 11
-                            Rectangle {
-                                anchors {
-                                    left: parent.left
-                                    right: parent.right
-                                    verticalCenter: parent.verticalCenter
-                                    leftMargin: 8
-                                    rightMargin: 8
-                                }
-                                height: 1
-                                color: theme.borderColor
-                            }
-                        }
-
-                        InspectorNavButton {
-                            Layout.fillWidth: true
                             text: "Presets"
                             iconSource: Qt.resolvedUrl("../data/icons/sidebar-presets.png")
                             selected: window.inspectorIndex === 4
@@ -345,6 +307,44 @@ ApplicationWindow {
                             iconSource: Qt.resolvedUrl("../data/icons/sidebar-layers.png")
                             selected: window.inspectorIndex === 7
                             onClicked: window.inspectorIndex = 7
+                        }
+
+                        Item {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 11
+                            Rectangle {
+                                anchors {
+                                    left: parent.left
+                                    right: parent.right
+                                    verticalCenter: parent.verticalCenter
+                                    leftMargin: 8
+                                    rightMargin: 8
+                                }
+                                height: 1
+                                color: theme.borderColor
+                            }
+                        }
+
+                        InspectorNavButton {
+                            Layout.fillWidth: true
+                            text: "Source"
+                            iconSource: Qt.resolvedUrl("../data/icons/sidebar-source.png")
+                            selected: window.inspectorIndex === 1
+                            onClicked: window.inspectorIndex = 1
+                        }
+                        InspectorNavButton {
+                            Layout.fillWidth: true
+                            text: "Preview"
+                            iconSource: Qt.resolvedUrl("../data/icons/sidebar-preview.png")
+                            selected: window.inspectorIndex === 2
+                            onClicked: window.inspectorIndex = 2
+                        }
+                        InspectorNavButton {
+                            Layout.fillWidth: true
+                            text: "Raster"
+                            iconSource: Qt.resolvedUrl("../data/icons/sidebar-raster.png")
+                            selected: window.inspectorIndex === 3
+                            onClicked: window.inspectorIndex = 3
                         }
 
                         Item {

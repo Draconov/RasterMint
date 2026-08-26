@@ -1,0 +1,18 @@
+{
+  "id": "midnight",
+  "name": "Midnight",
+  "window": "#0E1420",
+  "canvas": "#080D15",
+  "panel": "#151D2B",
+  "panelRaised": "#1D2838",
+  "panelHover": "#26354A",
+  "border": "#34445A",
+  "text": "#EAF2FF",
+  "textMuted": "#91A6C0",
+  "accent": "#51B8FF",
+  "accentHover": "#7CC9FF",
+  "accentText": "#06101A",
+  "danger": "#FF6B7A",
+  "selection": "#24496A",
+  "mirrorAxis": "#77D7FF"
+}

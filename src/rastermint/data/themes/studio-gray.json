@@ -1,0 +1,18 @@
+{
+  "id": "studio-gray",
+  "name": "Studio Gray",
+  "window": "#2B2B2B",
+  "canvas": "#1E1E1E",
+  "panel": "#323232",
+  "panelRaised": "#3A3A3A",
+  "panelHover": "#444444",
+  "border": "#505050",
+  "text": "#E8E8E8",
+  "textMuted": "#AAAAAA",
+  "accent": "#2D8CFF",
+  "accentHover": "#5AA5FF",
+  "accentText": "#111111",
+  "danger": "#E85D5D",
+  "selection": "#303B49",
+  "mirrorAxis": "#55A9FF"
+}

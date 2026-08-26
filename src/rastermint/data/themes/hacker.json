@@ -1,0 +1,18 @@
+{
+  "id": "hacker",
+  "name": "Hacker",
+  "window": "#050805",
+  "canvas": "#000000",
+  "panel": "#081008",
+  "panelRaised": "#0D170D",
+  "panelHover": "#132313",
+  "border": "#1B3A1B",
+  "text": "#B8FFB8",
+  "textMuted": "#62B062",
+  "accent": "#39FF14",
+  "accentHover": "#7CFF65",
+  "accentText": "#001500",
+  "danger": "#FF4D6D",
+  "selection": "#123512",
+  "mirrorAxis": "#00FF9C"
+}

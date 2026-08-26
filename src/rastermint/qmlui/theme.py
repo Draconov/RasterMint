@@ -23,6 +23,11 @@ THEME_ORDER = (
     "mint",
     "sunrise",
     "halloween",
+    "studio-gray",
+    "midnight",
+    "violet",
+    "amber",
+    "hacker",
 )
 
 

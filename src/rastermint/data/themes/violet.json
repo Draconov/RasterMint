@@ -1,0 +1,18 @@
+{
+  "id": "violet",
+  "name": "Violet",
+  "window": "#17121F",
+  "canvas": "#0E0A14",
+  "panel": "#21182C",
+  "panelRaised": "#2B2038",
+  "panelHover": "#372846",
+  "border": "#503A62",
+  "text": "#F6EEFF",
+  "textMuted": "#B39BC8",
+  "accent": "#B36CFF",
+  "accentHover": "#C995FF",
+  "accentText": "#14091F",
+  "danger": "#F06A88",
+  "selection": "#49345C",
+  "mirrorAxis": "#D18CFF"
+}

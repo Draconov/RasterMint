@@ -137,13 +137,13 @@ def test_inspector_navigation_order_groups_and_default_page():
 
     labels = [
         'text: "Randomize"',
-        'text: "Source"',
-        'text: "Preview"',
-        'text: "Raster"',
         'text: "Presets"',
         'text: "Hardware"',
         'text: "Palette"',
         'text: "Layers"',
+        'text: "Source"',
+        'text: "Preview"',
+        'text: "Raster"',
         'text: "Animation"',
         'text: "Media Playback"',
     ]
