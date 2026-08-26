@@ -205,7 +205,7 @@ Item {
 
         RowLayout {
             Layout.fillWidth: true
-            MintLabel { text: "Layers"; font.bold: true; font.pixelSize: 15; Layout.fillWidth: true }
+            MintLabel { text: qsTr("Layers"); font.bold: true; font.pixelSize: 15; Layout.fillWidth: true }
             MintButton {
                 id: addLayerButton
                 objectName: "addLayerButton"
@@ -280,14 +280,14 @@ Item {
                         spacing: 1
                         Text {
                             Layout.fillWidth: true
-                            text: kind
+                            text: qsTr(kind)
                             color: theme.textColor
                             font.bold: true
                             elide: Text.ElideRight
                         }
                         Text {
                             Layout.fillWidth: true
-                            text: summary
+                            text: qsTr(summary)
                             color: theme.mutedTextColor
                             font.pixelSize: 10
                             elide: Text.ElideRight
@@ -335,8 +335,8 @@ Item {
                 ToolTip.visible: layerHover.hovered && !cardDrag.active
                 ToolTip.delay: 500
                 ToolTip.text: layerDelegate.fixedStage
-                    ? "Hardware pipeline stage · fixed after normal layers"
-                    : "Drag anywhere on the layer card to reorder"
+                    ? qsTr("Hardware pipeline stage · fixed after normal layers")
+                    : qsTr("Drag anywhere on the layer card to reorder")
             }
         }
 
@@ -344,23 +344,23 @@ Item {
             Layout.fillWidth: true
             MintButton {
                 Layout.fillWidth: true
-                text: "Duplicate"
+                text: qsTr("Duplicate")
                 enabled: backend.selectedLayerName !== "Hardware Limits" && backend.selectedLayerName !== "Hardware Display"
                 onClicked: backend.duplicateLayer(backend.selectedLayerIndex)
             }
-            MintButton { Layout.fillWidth: true; text: "Remove"; onClicked: backend.removeLayer(backend.selectedLayerIndex) }
+            MintButton { Layout.fillWidth: true; text: qsTr("Remove"); onClicked: backend.removeLayer(backend.selectedLayerIndex) }
         }
 
         Rectangle { Layout.fillWidth: true; height: 1; color: theme.borderColor }
-        MintLabel { text: backend.selectedLayerName; font.bold: true }
+        MintLabel { text: qsTr(backend.selectedLayerName); font.bold: true }
         MintLabel {
             Layout.fillWidth: true
             visible: backend.selectedLayerName === "Hardware Limits" || backend.selectedLayerName === "Hardware Display"
             text: backend.selectedLayerName === "Hardware Limits"
                   ? (String(selectedParamValue("profile_palette_json", "[]")) !== "[]"
-                     ? "Fixed hardware stage after normal Layers. Choose Active Palette to make palette edits affect the strict hardware remap, or Profile Palette to restore the hardware profile's original colours."
-                     : "Fixed hardware stage after normal Layers. This profile has no fixed hardware palette; its channel/tile/colour-depth limits still apply. Use the Dither layer if you want to map the image to the active palette.")
-                  : "Fixed display stage. Runs after pixel-aspect correction in Display view and in exports only when display-view export is enabled."
+                     ? qsTr("Fixed hardware stage after normal Layers. Choose Active Palette to make palette edits affect the strict hardware remap, or Profile Palette to restore the hardware profile's original colours.")
+                     : qsTr("Fixed hardware stage after normal Layers. This profile has no fixed hardware palette; its channel/tile/colour-depth limits still apply. Use the Dither layer if you want to map the image to the active palette."))
+                  : qsTr("Fixed display stage. Runs after pixel-aspect correction in Display view and in exports only when display-view export is enabled.")
             color: theme.mutedTextColor
             font.pixelSize: 10
             wrapMode: Text.WordWrap
@@ -474,7 +474,7 @@ Item {
                                 }
                                 Text {
                                     Layout.fillWidth: true
-                                    text: categoryDelegate.modelData.name
+                                    text: qsTr(categoryDelegate.modelData.name)
                                     color: theme.textColor
                                     font.bold: true
                                     verticalAlignment: Text.AlignVCenter
@@ -505,7 +505,7 @@ Item {
                                     implicitHeight: 32
                                     leftPadding: 28
                                     contentItem: Text {
-                                        text: parent.modelData
+                                        text: qsTr(parent.modelData)
                                         color: theme.textColor
                                         verticalAlignment: Text.AlignVCenter
                                         elide: Text.ElideRight
@@ -530,7 +530,7 @@ Item {
     Component {
         id: boolEditor
         MintCheckBox {
-            text: param.label + (param.animated ? "  · animated" : "")
+            text: qsTr(param.label) + (param.animated ? "  · " + qsTr("animated") : "")
             checked: Boolean(param.value)
             enabled: !param.animated
             onToggled: backend.setLayerParam(param.key, checked)
@@ -541,10 +541,11 @@ Item {
         id: choiceEditor
         ColumnLayout {
             spacing: 4
-            MintLabel { text: param.label; color: theme.mutedTextColor }
+            MintLabel { text: qsTr(param.label); color: theme.mutedTextColor }
             MintComboBox {
                 Layout.fillWidth: true
                 model: param.options
+                translateModel: true
                 enabled: !param.animated
                 Component.onCompleted: currentIndex = Math.max(0, param.options.indexOf(String(param.value)))
                 onActivated: backend.setLayerParam(param.key, currentText)
@@ -553,13 +554,13 @@ Item {
                 Layout.fillWidth: true
                 visible: backend.selectedLayerName === "ASCII / Glyph" && param.key === "color_mode"
                 text: String(param.value) === "Palette"
-                      ? "Glyphs use the nearest colour from the active palette, based on the selected colour-sampling method."
+                      ? qsTr("Glyphs use the nearest colour from the active palette, based on the selected colour-sampling method.")
                       : (String(param.value) === "Single Colour"
-                         ? "Every glyph uses the selected Foreground colour."
+                         ? qsTr("Every glyph uses the selected Foreground colour.")
                          : (String(selectedParamValue("mapping", "Density")) === "Structure Match"
                             && String(selectedParamValue("color_sampling", "Glyph Weighted")) === "Glyph Weighted"
-                            ? "Glyph colour is sampled mainly from source pixels covered by the selected glyph."
-                            : "Each glyph uses the average source colour of its image cell."))
+                            ? qsTr("Glyph colour is sampled mainly from source pixels covered by the selected glyph.")
+                            : qsTr("Each glyph uses the average source colour of its image cell.")))
                 color: theme.mutedTextColor
                 wrapMode: Text.WordWrap
                 font.pixelSize: 10
@@ -568,8 +569,8 @@ Item {
                 Layout.fillWidth: true
                 visible: backend.selectedLayerName === "ASCII / Glyph" && param.key === "mapping"
                 text: String(param.value) === "Structure Match"
-                      ? "High-detail mode compares each source cell against the actual shape of every available glyph."
-                      : "Classic fast mode chooses glyphs only by cell brightness/density."
+                      ? qsTr("High-detail mode compares each source cell against the actual shape of every available glyph.")
+                      : qsTr("Classic fast mode chooses glyphs only by cell brightness/density.")
                 color: theme.mutedTextColor
                 wrapMode: Text.WordWrap
                 font.pixelSize: 10
@@ -578,8 +579,8 @@ Item {
                 Layout.fillWidth: true
                 visible: backend.selectedLayerName === "ASCII / Glyph" && param.key === "color_sampling"
                 text: String(param.value) === "Glyph Weighted"
-                      ? "Samples colour mainly from source pixels covered by the selected glyph."
-                      : "Uses the average colour of the whole source cell."
+                      ? qsTr("Samples colour mainly from source pixels covered by the selected glyph.")
+                      : qsTr("Uses the average colour of the whole source cell.")
                 color: theme.mutedTextColor
                 wrapMode: Text.WordWrap
                 font.pixelSize: 10
@@ -587,7 +588,7 @@ Item {
             MintLabel {
                 Layout.fillWidth: true
                 visible: backend.selectedLayerName === "ASCII / Glyph" && param.key === "supersampling"
-                text: "Higher supersampling renders glyphs above final resolution, then downsamples them for cleaner tiny shapes."
+                text: qsTr("Higher supersampling renders glyphs above final resolution, then downsamples them for cleaner tiny shapes.")
                 color: theme.mutedTextColor
                 wrapMode: Text.WordWrap
                 font.pixelSize: 10
@@ -597,7 +598,7 @@ Item {
                 visible: backend.selectedLayerName === "ASCII / Glyph"
                          && param.key === "background_mode"
                          && String(param.value) === "Transparent"
-                text: "Transparent ASCII background keeps alpha in transparency-capable exports."
+                text: qsTr("Transparent ASCII background keeps alpha in transparency-capable exports.")
                 color: theme.mutedTextColor
                 wrapMode: Text.WordWrap
                 font.pixelSize: 10
@@ -609,7 +610,7 @@ Item {
         id: textEditor
         ColumnLayout {
             spacing: 4
-            MintLabel { text: param.label; color: theme.mutedTextColor }
+            MintLabel { text: qsTr(param.label); color: theme.mutedTextColor }
             MintTextField {
                 Layout.fillWidth: true
                 text: String(param.value)
@@ -619,7 +620,7 @@ Item {
             MintLabel {
                 Layout.fillWidth: true
                 visible: backend.selectedLayerName === "ASCII / Glyph" && param.key === "inject_chars"
-                text: "Adds unique characters to the selected built-in set without replacing it."
+                text: qsTr("Adds unique characters to the selected built-in set without replacing it.")
                 color: theme.mutedTextColor
                 wrapMode: Text.WordWrap
                 font.pixelSize: 10
@@ -631,7 +632,7 @@ Item {
         id: colorEditor
         ColumnLayout {
             spacing: 4
-            MintLabel { text: param.label; color: theme.mutedTextColor }
+            MintLabel { text: qsTr(param.label); color: theme.mutedTextColor }
             MintColorPicker {
                 Layout.fillWidth: true
                 colorValue: String(param.value)
@@ -649,7 +650,7 @@ Item {
         ColumnLayout {
             id: glyphEditor
             spacing: 4
-            MintLabel { text: param.label; color: theme.mutedTextColor }
+            MintLabel { text: qsTr(param.label); color: theme.mutedTextColor }
 
             MintButton {
                 id: glyphButton
@@ -727,7 +728,7 @@ Item {
                                         }
                                         Text {
                                             Layout.fillWidth: true
-                                            text: glyphCategoryDelegate.modelData.name
+                                            text: qsTr(glyphCategoryDelegate.modelData.name)
                                             color: theme.textColor
                                             font.bold: true
                                             elide: Text.ElideRight
@@ -763,7 +764,7 @@ Item {
                                                 spacing: 8
                                                 Text {
                                                     Layout.preferredWidth: 112
-                                                    text: glyphSetItem.modelData.name
+                                                    text: qsTr(glyphSetItem.modelData.name)
                                                     color: theme.textColor
                                                     elide: Text.ElideRight
                                                 }
@@ -804,7 +805,7 @@ Item {
             RowLayout {
                 Layout.fillWidth: true
                 MintLabel {
-                    text: param.label + (param.animated ? "  · animated" : "")
+                    text: qsTr(param.label) + (param.animated ? "  · " + qsTr("animated") : "")
                     color: theme.mutedTextColor
                     Layout.fillWidth: true
                 }
@@ -842,7 +843,7 @@ Item {
             MintLabel {
                 Layout.fillWidth: true
                 visible: backend.selectedLayerName === "ASCII / Glyph" && param.key === "font_scale"
-                text: "Glyph size relative to the cell. 1.00× is roughly one cell high; the cell grid and spacing do not change."
+                text: qsTr("Glyph size relative to the cell. 1.00× is roughly one cell high; the cell grid and spacing do not change.")
                 color: theme.mutedTextColor
                 wrapMode: Text.WordWrap
                 font.pixelSize: 10
@@ -850,7 +851,7 @@ Item {
             MintLabel {
                 Layout.fillWidth: true
                 visible: backend.selectedLayerName === "ASCII / Glyph" && param.key === "structure"
-                text: "How strongly High Detail cares about the spatial shape inside each cell."
+                text: qsTr("How strongly High Detail cares about the spatial shape inside each cell.")
                 color: theme.mutedTextColor
                 wrapMode: Text.WordWrap
                 font.pixelSize: 10
@@ -858,7 +859,7 @@ Item {
             MintLabel {
                 Layout.fillWidth: true
                 visible: backend.selectedLayerName === "ASCII / Glyph" && param.key === "density_influence"
-                text: "Keeps the chosen glyph's overall ink/brightness density close to the source cell."
+                text: qsTr("Keeps the chosen glyph's overall ink/brightness density close to the source cell.")
                 color: theme.mutedTextColor
                 wrapMode: Text.WordWrap
                 font.pixelSize: 10
@@ -866,7 +867,7 @@ Item {
             MintLabel {
                 Layout.fillWidth: true
                 visible: backend.selectedLayerName === "ASCII / Glyph" && param.key === "local_detail"
-                text: "Boosts contrast inside each cell before shape matching so edges survive in shadows and highlights."
+                text: qsTr("Boosts contrast inside each cell before shape matching so edges survive in shadows and highlights.")
                 color: theme.mutedTextColor
                 wrapMode: Text.WordWrap
                 font.pixelSize: 10

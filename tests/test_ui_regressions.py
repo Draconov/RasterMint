@@ -45,7 +45,7 @@ def test_presets_page_keeps_library_grid_and_custom_preset_controls():
     assert "togglePresetCategory" in presets
     assert "property int presetColumns: width >= 500 ? 2 : 1" in presets
     assert "backend.applyPreset(modelData.id)" in presets
-    assert 'text: "Save to Library"' in presets
+    assert 'text: qsTr("Save to Library")' in presets
     assert "backend.savePresetToLibrary" in presets
     assert "backend.deletePresetFromLibrary" in presets
     assert "model: backend.builtinPresets" not in presets
@@ -89,7 +89,7 @@ def test_gradient_editor_marks_generate_button_as_pending_after_manual_changes()
         block = palette[start: next_function if next_function >= 0 else len(palette)]
         assert "gradientDirty = true" in block, function_name
 
-    generate_start = palette.index('text: "Generate"')
+    generate_start = palette.index('text: qsTr("Generate")')
     generate_block = palette[generate_start: palette.index("            Item { Layout.preferredHeight: 4 }", generate_start)]
     assert "root.gradientDirty = false" in generate_block
 
@@ -100,7 +100,7 @@ def test_export_transparency_toggle_is_visibly_disabled_when_unavailable():
     assert "enabled: root.sourceHasTransparency && root.transparencySupported" in export_dialog
     assert "opacity: enabled ? 1.0 : 0.45" in export_dialog
     assert "Source image has no transparency to preserve." in export_dialog
-    assert 'root.selectedFormat + " does not support transparency."' in export_dialog
+    assert 'qsTr("%1 does not support transparency.").arg(root.selectedFormat)' in export_dialog
 
 
 def test_palette_swatches_support_middle_click_delete_without_bypassing_locks():
@@ -136,16 +136,16 @@ def test_inspector_navigation_order_groups_and_default_page():
     nav = main[nav_start:nav_end]
 
     labels = [
-        'text: "Randomize"',
-        'text: "Presets"',
-        'text: "Hardware"',
-        'text: "Palette"',
-        'text: "Layers"',
-        'text: "Source"',
-        'text: "Preview"',
-        'text: "Raster"',
-        'text: "Animation"',
-        'text: "Media Playback"',
+        'text: qsTr("Randomize")',
+        'text: qsTr("Presets")',
+        'text: qsTr("Hardware")',
+        'text: qsTr("Palette")',
+        'text: qsTr("Layers")',
+        'text: qsTr("Source")',
+        'text: qsTr("Preview")',
+        'text: qsTr("Raster")',
+        'text: qsTr("Animation")',
+        'text: qsTr("Media Playback")',
     ]
     positions = [nav.index(label) for label in labels]
     assert positions == sorted(positions)
@@ -192,7 +192,7 @@ def test_inspector_navigation_uses_sidebar_icons_and_hover_tooltips():
         assert (ROOT / "src" / "rastermint" / "data" / "icons" / filename).is_file()
 
     # Palette is intentionally theme-driven rather than a static image.
-    assert 'text: "Palette"\n                            paletteSwatches: true' in main
+    assert 'text: qsTr("Palette")\n                            paletteSwatches: true' in main
     assert "theme.panelRaisedColor" in button
     assert "theme.selectionColor" in button
     assert "theme.accentColor" in button
@@ -219,3 +219,23 @@ def test_inspector_navigation_uses_sidebar_icons_and_hover_tooltips():
     assert "contentItem: Item" in button
     assert "width: 32" in button
     assert "height: 32" in button
+
+
+def test_runtime_localization_is_packaged_and_exposed_to_qml():
+    app = (ROOT / "src" / "rastermint" / "app.py").read_text(encoding="utf-8")
+    settings = (QML / "SettingsDialog.qml").read_text(encoding="utf-8")
+    pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    spec = (ROOT / "build" / "rastermint.spec").read_text(encoding="utf-8")
+    localization = (ROOT / "src" / "rastermint" / "qmlui" / "localization.py").read_text(encoding="utf-8")
+    ukrainian = ROOT / "src" / "rastermint" / "data" / "translations" / "uk.json"
+
+    assert "LocalizationManager(engine)" in app
+    assert 'setContextProperty("localization", localization)' in app
+    assert 'id: languageChooser' in settings
+    assert 'localization.setLanguage(localization.languageIds[currentIndex])' in settings
+    assert 'qsTr("System default")' in settings
+    assert 'data/translations/*.json' in pyproject
+    assert '"data/translations/*.json"' in spec
+    assert ukrainian.is_file()
+    assert "QCoreApplication.installTranslator" in localization
+    assert "self._engine.retranslate()" in localization

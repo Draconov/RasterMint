@@ -6,6 +6,7 @@ import "../components"
 
 ScrollView {
     id: root
+    property var modeValues: ["Visual", "Strict"]
     contentWidth: availableWidth
     clip: true
     ScrollBar.vertical.policy: ScrollBar.AlwaysOff
@@ -14,11 +15,11 @@ ScrollView {
     function customProfileRecord() {
         return {
             "id": "custom",
-            "name": "Custom",
-            "category": "Custom",
-            "summary": "Current hand-edited RasterMint processing state.",
-            "visualTooltip": "Custom · current hand-edited RasterMint processing state.",
-            "strictTooltip": "Custom · current hand-edited RasterMint processing state."
+            "name": qsTr("Custom"),
+            "category": qsTr("Custom"),
+            "summary": qsTr("Current hand-edited RasterMint processing state."),
+            "visualTooltip": qsTr("Custom · current hand-edited RasterMint processing state."),
+            "strictTooltip": qsTr("Custom · current hand-edited RasterMint processing state.")
         }
     }
 
@@ -60,11 +61,16 @@ ScrollView {
         }
     }
 
+    Connections {
+        target: localization
+        function onLanguageChanged() { root.refreshProfiles() }
+    }
+
     ColumnLayout {
         width: root.availableWidth
         spacing: 10
 
-        MintLabel { text: "Hardware Profile"; font.bold: true; font.pixelSize: 15 }
+        MintLabel { text: qsTr("Hardware Profile"); font.bold: true; font.pixelSize: 15 }
 
         MintComboBox {
             id: hwCombo
@@ -97,34 +103,34 @@ ScrollView {
                 ToolTip.timeout: 10000
                 ToolTip.text: String(modelData.id) === "custom"
                     ? modelData.visualTooltip
-                    : (modeCombo.currentText === "Strict" ? modelData.strictTooltip : modelData.visualTooltip)
+                    : (modeCombo.currentIndex === 1 ? modelData.strictTooltip : modelData.visualTooltip)
             }
         }
 
         MintLabel {
             Layout.fillWidth: true
             visible: hwCombo.currentIndex === 0
-            text: "Custom means the current processing state no longer exactly matches a named hardware profile."
+            text: qsTr("Custom means the current processing state no longer exactly matches a named hardware profile.")
             color: theme.mutedTextColor
             font.pixelSize: 10
             wrapMode: Text.WordWrap
         }
 
-        MintLabel { text: "Mode"; color: theme.mutedTextColor }
+        MintLabel { text: qsTr("Mode"); color: theme.mutedTextColor }
         MintComboBox {
             id: modeCombo
             Layout.fillWidth: true
-            model: ["Visual", "Strict"]
+            model: [qsTr("Visual"), qsTr("Strict")]
         }
 
         Flow {
             Layout.fillWidth: true
             spacing: 6
-            MintCheckBox { id: applyRaster; text: "Raster"; checked: true }
-            MintCheckBox { id: applyPalette; text: "Palette"; checked: true }
+            MintCheckBox { id: applyRaster; text: qsTr("Raster"); checked: true }
+            MintCheckBox { id: applyPalette; text: qsTr("Palette"); checked: true }
             MintCheckBox { id: applyPar; text: "PAR"; checked: true }
-            MintCheckBox { id: applyLimits; text: "Limits"; checked: true }
-            MintCheckBox { id: applyDisplay; text: "Display"; checked: true }
+            MintCheckBox { id: applyLimits; text: qsTr("Limits"); checked: true }
+            MintCheckBox { id: applyDisplay; text: qsTr("Display"); checked: true }
         }
 
         RowLayout {
@@ -132,7 +138,7 @@ ScrollView {
 
             MintButton {
                 Layout.fillWidth: true
-                text: "Apply profile"
+                text: qsTr("Apply profile")
                 enabled: hwCombo.currentIndex > 0 && hwCombo.currentIndex < root.profileModel.length
                 onClicked: {
                     var profile = root.profileModel[hwCombo.currentIndex]
@@ -140,7 +146,7 @@ ScrollView {
                         return
                     backend.applyHardware(
                         String(profile.id),
-                        modeCombo.currentText,
+                        root.modeValues[modeCombo.currentIndex],
                         {
                             "raster": applyRaster.checked,
                             "palette": applyPalette.checked,
@@ -152,13 +158,13 @@ ScrollView {
                 }
             }
 
-            MintButton { text: "Load JSON…"; onClicked: hardwareFileDialog.open() }
+            MintButton { text: qsTr("Load JSON…"); onClicked: hardwareFileDialog.open() }
         }
     }
 
     FileDialog {
         id: hardwareFileDialog
-        title: "Load hardware profile"
+        title: qsTr("Load hardware profile")
         nameFilters: ["RasterMint hardware profile (*.json)", "JSON (*.json)"]
         onAccepted: backend.loadHardwareProfile(selectedFile.toString())
     }

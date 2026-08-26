@@ -26,6 +26,7 @@ package_data = collect_data_files(
         "data/hardware_profiles/*.json",
         "data/icons/*",
         "data/themes/*.json",
+        "data/translations/*.json",
         "data/palettes/*.json",
         "data/palettes/base/*.json",
         "data/palettes/extended/*.json",

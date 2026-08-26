@@ -12,7 +12,7 @@ ApplicationWindow {
     minimumWidth: 1000
     minimumHeight: 650
     visible: true
-    title: "RasterMint " + backend.version
+    title: qsTr("RasterMint ") + backend.version
     color: theme.windowColor
 
     property int inspectorIndex: 7
@@ -96,7 +96,7 @@ ApplicationWindow {
             MintMenuBarButton {
                 id: fileMenuButton
                 objectName: "topMenuButton_File"
-                text: "File"
+                text: qsTr("File")
                 menuOpen: fileMenu.opened
                 onClicked: window.toggleTopMenu(fileMenu, fileMenuButton)
                 onHoveredChanged: if (hovered) window.switchTopMenuOnHover(fileMenu, fileMenuButton)
@@ -105,7 +105,7 @@ ApplicationWindow {
             MintMenuBarButton {
                 id: editMenuButton
                 objectName: "topMenuButton_Edit"
-                text: "Edit"
+                text: qsTr("Edit")
                 menuOpen: editMenu.opened
                 onClicked: window.toggleTopMenu(editMenu, editMenuButton)
                 onHoveredChanged: if (hovered) window.switchTopMenuOnHover(editMenu, editMenuButton)
@@ -114,7 +114,7 @@ ApplicationWindow {
             MintMenuBarButton {
                 id: viewMenuButton
                 objectName: "topMenuButton_View"
-                text: "View"
+                text: qsTr("View")
                 menuOpen: viewMenu.opened
                 onClicked: window.toggleTopMenu(viewMenu, viewMenuButton)
                 onHoveredChanged: if (hovered) window.switchTopMenuOnHover(viewMenu, viewMenuButton)
@@ -124,40 +124,40 @@ ApplicationWindow {
         MintMenu {
             id: fileMenu
             objectName: "fileMenu"
-            title: "File"
+            title: qsTr("File")
             menuWidth: 300
             onClosed: fileMenuButton.focus = false
 
-            Action { text: "Open File…"; shortcut: StandardKey.Open; onTriggered: openDialog.open() }
+            Action { text: qsTr("Open File…"); shortcut: StandardKey.Open; onTriggered: openDialog.open() }
             MintMenuSeparator { }
-            Action { text: "Export to Clipboard…"; enabled: backend.hasSource; onTriggered: backend.exportToClipboard() }
-            Action { text: "Quick Export Image…"; enabled: backend.hasSource; shortcut: "Ctrl+E"; onTriggered: window.openQuickExportImageDialog() }
-            Action { text: "Export Image…"; enabled: backend.hasSource; shortcut: "Ctrl+Shift+E"; onTriggered: advancedExportDialog.open() }
-            Action { text: "Export Animation / Video…"; enabled: backend.hasSource; shortcut: "Ctrl+Alt+S"; onTriggered: window.openMediaExport() }
-            Action { text: "Export PNG Sequence…"; enabled: backend.hasSource; shortcut: "Ctrl+Alt+P"; onTriggered: sequenceFolderDialog.open() }
-            Action { text: "Batch Export Images…"; shortcut: "Ctrl+Shift+B"; onTriggered: batchExportDialog.open() }
+            Action { text: qsTr("Export to Clipboard…"); enabled: backend.hasSource; onTriggered: backend.exportToClipboard() }
+            Action { text: qsTr("Quick Export Image…"); enabled: backend.hasSource; shortcut: "Ctrl+E"; onTriggered: window.openQuickExportImageDialog() }
+            Action { text: qsTr("Export Image…"); enabled: backend.hasSource; shortcut: "Ctrl+Shift+E"; onTriggered: advancedExportDialog.open() }
+            Action { text: qsTr("Export Animation / Video…"); enabled: backend.hasSource; shortcut: "Ctrl+Alt+S"; onTriggered: window.openMediaExport() }
+            Action { text: qsTr("Export PNG Sequence…"); enabled: backend.hasSource; shortcut: "Ctrl+Alt+P"; onTriggered: sequenceFolderDialog.open() }
+            Action { text: qsTr("Batch Export Images…"); shortcut: "Ctrl+Shift+B"; onTriggered: batchExportDialog.open() }
             MintMenuSeparator { }
-            Action { text: "Load Preset…"; shortcut: "Ctrl+L"; onTriggered: loadPresetDialog.open() }
-            Action { text: "Save Preset…"; shortcut: "Ctrl+Shift+S"; onTriggered: savePresetDialog.open() }
+            Action { text: qsTr("Load Preset…"); shortcut: "Ctrl+L"; onTriggered: loadPresetDialog.open() }
+            Action { text: qsTr("Save Preset…"); shortcut: "Ctrl+Shift+S"; onTriggered: savePresetDialog.open() }
             MintMenuSeparator { }
-            Action { text: "Quit"; shortcut: StandardKey.Quit; onTriggered: Qt.quit() }
+            Action { text: qsTr("Quit"); shortcut: StandardKey.Quit; onTriggered: Qt.quit() }
         }
 
         MintMenu {
             id: editMenu
             objectName: "editMenu"
-            title: "Edit"
+            title: qsTr("Edit")
             menuWidth: 330
             onClosed: editMenuButton.focus = false
 
-            Action { text: "Undo"; enabled: backend.canUndo; shortcut: "Ctrl+Z"; onTriggered: backend.undo() }
-            Action { text: "Redo"; enabled: backend.canRedo; shortcut: "Ctrl+Y"; onTriggered: backend.redo() }
+            Action { text: qsTr("Undo"); enabled: backend.canUndo; shortcut: "Ctrl+Z"; onTriggered: backend.undo() }
+            Action { text: qsTr("Redo"); enabled: backend.canRedo; shortcut: "Ctrl+Y"; onTriggered: backend.redo() }
             MintMenuSeparator { }
-            Action { text: "Flip Image Horizontally"; enabled: backend.hasSource; shortcut: "Ctrl+Shift+H"; onTriggered: backend.flipHorizontal() }
-            Action { text: "Flip Image Vertically"; enabled: backend.hasSource; shortcut: "Ctrl+Shift+V"; onTriggered: backend.flipVertical() }
+            Action { text: qsTr("Flip Image Horizontally"); enabled: backend.hasSource; shortcut: "Ctrl+Shift+H"; onTriggered: backend.flipHorizontal() }
+            Action { text: qsTr("Flip Image Vertically"); enabled: backend.hasSource; shortcut: "Ctrl+Shift+V"; onTriggered: backend.flipVertical() }
             MintMenuSeparator { }
             Action {
-                text: "Mirror Image Horizontally"
+                text: qsTr("Mirror Image Horizontally")
                 enabled: backend.hasSource
                 shortcut: "Ctrl+Alt+H"
                 checkable: true
@@ -165,7 +165,7 @@ ApplicationWindow {
                 onTriggered: backend.toggleMirrorHorizontal()
             }
             Action {
-                text: "Mirror Image Vertically"
+                text: qsTr("Mirror Image Vertically")
                 enabled: backend.hasSource
                 shortcut: "Ctrl+Alt+V"
                 checkable: true
@@ -173,31 +173,31 @@ ApplicationWindow {
                 onTriggered: backend.toggleMirrorVertical()
             }
             MintMenuSeparator { }
-            Action { text: "Rotate 90° Clockwise"; enabled: backend.hasSource; shortcut: "Ctrl+R"; onTriggered: backend.rotateImage(90) }
-            Action { text: "Rotate 90° Counter-clockwise"; enabled: backend.hasSource; shortcut: "Ctrl+Shift+R"; onTriggered: backend.rotateImage(-90) }
-            Action { text: "Rotate 180°"; enabled: backend.hasSource; shortcut: "Ctrl+Alt+R"; onTriggered: backend.rotateImage(180) }
-            Action { text: "Reset Image Transform"; enabled: backend.hasSource; shortcut: "Ctrl+Shift+0"; onTriggered: backend.resetImageTransform() }
+            Action { text: qsTr("Rotate 90° Clockwise"); enabled: backend.hasSource; shortcut: "Ctrl+R"; onTriggered: backend.rotateImage(90) }
+            Action { text: qsTr("Rotate 90° Counter-clockwise"); enabled: backend.hasSource; shortcut: "Ctrl+Shift+R"; onTriggered: backend.rotateImage(-90) }
+            Action { text: qsTr("Rotate 180°"); enabled: backend.hasSource; shortcut: "Ctrl+Alt+R"; onTriggered: backend.rotateImage(180) }
+            Action { text: qsTr("Reset Image Transform"); enabled: backend.hasSource; shortcut: "Ctrl+Shift+0"; onTriggered: backend.resetImageTransform() }
             MintMenuSeparator { }
-            Action { text: "Settings…"; shortcut: "Ctrl+,"; onTriggered: settingsDialog.open() }
+            Action { text: qsTr("Settings…"); shortcut: "Ctrl+,"; onTriggered: settingsDialog.open() }
         }
 
         MintMenu {
             id: viewMenu
             objectName: "viewMenu"
-            title: "View"
+            title: qsTr("View")
             menuWidth: 280
             onClosed: viewMenuButton.focus = false
 
-            Action { text: "Fit Preview"; enabled: backend.hasSource; shortcut: "F"; onTriggered: { canvas.resetView(); backend.reportAction("Fit preview") } }
+            Action { text: qsTr("Fit Preview"); enabled: backend.hasSource; shortcut: "F"; onTriggered: { canvas.resetView(); backend.reportAction("Fit preview") } }
             Action {
-                text: "Show Hotkeys"
+                text: qsTr("Show Hotkeys")
                 shortcut: "Ctrl+Alt+K"
                 checkable: true
                 checked: backend.showHotkeys
                 onTriggered: backend.setShowHotkeys(checked)
             }
             MintMenuSeparator { }
-            Action { text: "About RasterMint"; shortcut: "F1"; onTriggered: aboutDialog.open() }
+            Action { text: qsTr("About RasterMint"); shortcut: "F1"; onTriggered: aboutDialog.open() }
         }
     }
 
@@ -258,7 +258,7 @@ ApplicationWindow {
 
                         InspectorNavButton {
                             Layout.fillWidth: true
-                            text: "Randomize"
+                            text: qsTr("Randomize")
                             iconSource: Qt.resolvedUrl("../data/icons/sidebar-random.png")
                             selected: window.inspectorIndex === 0
                             onClicked: window.inspectorIndex = 0
@@ -282,28 +282,28 @@ ApplicationWindow {
 
                         InspectorNavButton {
                             Layout.fillWidth: true
-                            text: "Presets"
+                            text: qsTr("Presets")
                             iconSource: Qt.resolvedUrl("../data/icons/sidebar-presets.png")
                             selected: window.inspectorIndex === 4
                             onClicked: window.inspectorIndex = 4
                         }
                         InspectorNavButton {
                             Layout.fillWidth: true
-                            text: "Hardware"
+                            text: qsTr("Hardware")
                             iconSource: Qt.resolvedUrl("../data/icons/sidebar-hardware.png")
                             selected: window.inspectorIndex === 5
                             onClicked: window.inspectorIndex = 5
                         }
                         InspectorNavButton {
                             Layout.fillWidth: true
-                            text: "Palette"
+                            text: qsTr("Palette")
                             paletteSwatches: true
                             selected: window.inspectorIndex === 6
                             onClicked: window.inspectorIndex = 6
                         }
                         InspectorNavButton {
                             Layout.fillWidth: true
-                            text: "Layers"
+                            text: qsTr("Layers")
                             iconSource: Qt.resolvedUrl("../data/icons/sidebar-layers.png")
                             selected: window.inspectorIndex === 7
                             onClicked: window.inspectorIndex = 7
@@ -327,21 +327,21 @@ ApplicationWindow {
 
                         InspectorNavButton {
                             Layout.fillWidth: true
-                            text: "Source"
+                            text: qsTr("Source")
                             iconSource: Qt.resolvedUrl("../data/icons/sidebar-source.png")
                             selected: window.inspectorIndex === 1
                             onClicked: window.inspectorIndex = 1
                         }
                         InspectorNavButton {
                             Layout.fillWidth: true
-                            text: "Preview"
+                            text: qsTr("Preview")
                             iconSource: Qt.resolvedUrl("../data/icons/sidebar-preview.png")
                             selected: window.inspectorIndex === 2
                             onClicked: window.inspectorIndex = 2
                         }
                         InspectorNavButton {
                             Layout.fillWidth: true
-                            text: "Raster"
+                            text: qsTr("Raster")
                             iconSource: Qt.resolvedUrl("../data/icons/sidebar-raster.png")
                             selected: window.inspectorIndex === 3
                             onClicked: window.inspectorIndex = 3
@@ -365,14 +365,14 @@ ApplicationWindow {
 
                         InspectorNavButton {
                             Layout.fillWidth: true
-                            text: "Animation"
+                            text: qsTr("Animation")
                             iconSource: Qt.resolvedUrl("../data/icons/sidebar-animation.png")
                             selected: window.inspectorIndex === 8
                             onClicked: window.inspectorIndex = 8
                         }
                         InspectorNavButton {
                             Layout.fillWidth: true
-                            text: "Media Playback"
+                            text: qsTr("Media Playback")
                             iconSource: Qt.resolvedUrl("../data/icons/sidebar-media-playback.png")
                             selected: window.inspectorIndex === 9
                             onClicked: window.inspectorIndex = 9
@@ -422,13 +422,13 @@ ApplicationWindow {
 
     FileDialog {
         id: openDialog
-        title: "Open media"
+        title: qsTr("Open media")
         nameFilters: ["Supported media (*.png *.jpg *.jpeg *.bmp *.webp *.tif *.tiff *.gif *.mp4 *.mov *.mkv *.webm *.avi *.m4v)", "All files (*)"]
         onAccepted: backend.openFile(window.urlString(selectedFile))
     }
     FileDialog {
         id: quickExportImageDialog
-        title: "Quick Export Image — 1× current output"
+        title: qsTr("Quick Export Image — 1× current output")
         fileMode: FileDialog.SaveFile
         defaultSuffix: "png"
         nameFilters: ["PNG (*.png)", "JPEG (*.jpg *.jpeg)", "WebP (*.webp)", "TIFF (*.tif *.tiff)", "SVG (*.svg)"]
@@ -436,15 +436,15 @@ ApplicationWindow {
     }
     FileDialog {
         id: exportMediaDialog
-        title: "Export animation / video"
+        title: qsTr("Export animation / video")
         fileMode: FileDialog.SaveFile
         defaultSuffix: selectedNameFilter.index === 1 ? "gif" : "mp4"
         nameFilters: ["MP4 video (*.mp4)", "Animated GIF (*.gif)"]
         onAccepted: backend.exportMedia(window.urlString(selectedFile))
     }
-    FolderDialog { id: sequenceFolderDialog; title: "Choose PNG sequence folder"; onAccepted: backend.exportSequence(window.urlString(selectedFolder)) }
-    FileDialog { id: loadPresetDialog; title: "Load preset"; nameFilters: ["JSON preset (*.json)"]; onAccepted: backend.loadPreset(window.urlString(selectedFile)) }
-    FileDialog { id: savePresetDialog; title: "Save preset"; fileMode: FileDialog.SaveFile; defaultSuffix: "json"; nameFilters: ["JSON preset (*.json)"]; onAccepted: backend.savePreset(window.urlString(selectedFile)) }
+    FolderDialog { id: sequenceFolderDialog; title: qsTr("Choose PNG sequence folder"); onAccepted: backend.exportSequence(window.urlString(selectedFolder)) }
+    FileDialog { id: loadPresetDialog; title: qsTr("Load preset"); nameFilters: ["JSON preset (*.json)"]; onAccepted: backend.loadPreset(window.urlString(selectedFile)) }
+    FileDialog { id: savePresetDialog; title: qsTr("Save preset"); fileMode: FileDialog.SaveFile; defaultSuffix: "json"; nameFilters: ["JSON preset (*.json)"]; onAccepted: backend.savePreset(window.urlString(selectedFile)) }
 
     MessageDialog { id: errorDialog; title: "RasterMint"; buttons: MessageDialog.Ok }
     MessageDialog { id: infoDialog; title: "RasterMint"; buttons: MessageDialog.Ok }

@@ -12,17 +12,21 @@ ScrollView {
     ColumnLayout {
         width: root.availableWidth
         spacing: 12
-        MintLabel { text: "Preview Render"; font.bold: true; font.pixelSize: 15 }
+        MintLabel { text: qsTr("Preview Render"); font.bold: true; font.pixelSize: 15 }
         RowLayout {
             Layout.fillWidth: true
             spacing: 6
             Repeater {
-                model: ["Quick", "Stable", "Full"]
+                model: [
+                    { "value": "Quick", "label": qsTr("Quick") },
+                    { "value": "Stable", "label": qsTr("Stable") },
+                    { "value": "Full", "label": qsTr("Full") }
+                ]
                 MintButton {
                     Layout.fillWidth: true
-                    text: modelData
-                    selected: backend.previewMode === modelData
-                    onClicked: backend.setPreviewMode(modelData)
+                    text: modelData.label
+                    selected: backend.previewMode === modelData.value
+                    onClicked: backend.setPreviewMode(modelData.value)
                 }
             }
         }
@@ -30,9 +34,9 @@ ScrollView {
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
             color: theme.mutedTextColor
-            text: backend.previewMode === "Quick" ? "Fast draft first, then a stable refinement." : backend.previewMode === "Stable" ? "Waits briefly, then renders the refined preview." : "Uses the selected raster when safe; very large rasters use a memory-safe full proxy."
+            text: backend.previewMode === "Quick" ? qsTr("Fast draft first, then a stable refinement.") : backend.previewMode === "Stable" ? qsTr("Waits briefly, then renders the refined preview.") : qsTr("Uses the selected raster when safe; very large rasters use a memory-safe full proxy.")
         }
         Rectangle { Layout.fillWidth: true; height: 1; color: theme.borderColor }
-        MintButton { text: "Fit preview"; onClicked: { root.fitRequested(); backend.reportAction("Fit preview") } }
+        MintButton { text: qsTr("Fit preview"); onClicked: { root.fitRequested(); backend.reportAction(qsTr("Fit preview")) } }
     }
 }

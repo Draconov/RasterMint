@@ -5,7 +5,7 @@ import "components"
 
 Dialog {
     id: root
-    title: "About RasterMint"
+    title: qsTr("About RasterMint")
     modal: true
     popupType: Popup.Item
 
@@ -77,14 +77,14 @@ Dialog {
 
             MintLabel {
                 Layout.alignment: Qt.AlignHCenter
-                text: "RasterMint " + backend.version
+                text: qsTr("RasterMint ") + backend.version
                 font.bold: true
                 font.pixelSize: 20
             }
 
             MintLabel {
                 Layout.alignment: Qt.AlignHCenter
-                text: "Developed by Draconov · 2026"
+                text: qsTr("Developed by Draconov · 2026")
                 color: theme.mutedTextColor
             }
 
@@ -102,7 +102,7 @@ Dialog {
 
             MintButton {
                 Layout.alignment: Qt.AlignHCenter
-                text: "Close"
+                text: qsTr("Close")
                 onClicked: root.close()
             }
         }

@@ -480,7 +480,7 @@ Item {
                     }
                     Text {
                         Layout.fillWidth: true
-                        text: "H " + Math.round(root.pickerHue * 359)
+                        text: qsTr("H ") + Math.round(root.pickerHue * 359)
                               + "°   S " + Math.round(root.pickerSaturation * 100)
                               + "%   V " + Math.round(root.pickerBrightness * 100) + "%"
                         color: theme.mutedTextColor
@@ -489,7 +489,7 @@ Item {
                 }
 
                 Button {
-                    text: "Eyedropper"
+                    text: qsTr("Eyedropper")
                     onClicked: root.openEyedropper()
                 }
             }
@@ -500,7 +500,7 @@ Item {
                 spacing: 8
 
                 Text {
-                    text: "Alpha"
+                    text: qsTr("Alpha")
                     color: theme.mutedTextColor
                     font.pixelSize: 11
                 }
@@ -563,14 +563,14 @@ Item {
                 RowLayout {
                     Layout.fillWidth: true
                     Text {
-                        text: "Recent colours"
+                        text: qsTr("Recent colours")
                         color: theme.mutedTextColor
                         font.pixelSize: 11
                         Layout.fillWidth: true
                     }
                     Button {
                         visible: root.recentColors.length > 0
-                        text: "Clear"
+                        text: qsTr("Clear")
                         onClicked: {
                             root.recentColors = []
                             root.saveRecentColors()
@@ -620,11 +620,11 @@ Item {
                     Layout.fillWidth: true
                     Item { Layout.fillWidth: true }
                     Button {
-                        text: "Cancel"
+                        text: qsTr("Cancel")
                         onClicked: popup.close()
                     }
                     Button {
-                        text: "Apply"
+                        text: qsTr("Apply")
                         onClicked: root.commitColor()
                     }
                 }
@@ -638,7 +638,7 @@ Item {
         id: eyedropperComponent
 
         ColorDialog {
-            title: "Sample colour"
+            title: qsTr("Sample colour")
             options: root.alphaEnabled ? ColorDialog.ShowAlphaChannel : 0
             onAccepted: root.syncUiFromColor(selectedColor)
         }

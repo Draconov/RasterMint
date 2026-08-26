@@ -114,7 +114,7 @@ def test_empty_drop_prompt_is_centered_and_not_duplicated_by_status_overlay():
 
     assert 'objectName: "emptyDropPrompt"' in canvas
     assert "anchors.centerIn: parent" in canvas
-    assert 'text: "Open or drop an image, GIF, or video to begin"' in canvas
+    assert 'text: qsTr("Open or drop an image, GIF, or video to begin")' in canvas
     assert "visible: backend.statusText.length > 0" in main
 
 

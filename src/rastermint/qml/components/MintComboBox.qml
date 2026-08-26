@@ -3,13 +3,14 @@ import QtQuick.Controls
 
 ComboBox {
     id: control
+    property bool translateModel: false
     implicitHeight: 34
     leftPadding: 10
     rightPadding: 28
     font.pixelSize: 13
     contentItem: Text {
         leftPadding: 2
-        text: control.displayText
+        text: control.translateModel ? qsTr(control.displayText) : control.displayText
         color: theme.textColor
         verticalAlignment: Text.AlignVCenter
         elide: Text.ElideRight
@@ -51,7 +52,7 @@ ComboBox {
         height: 32
         highlighted: control.highlightedIndex === index
         contentItem: Text {
-            text: modelData
+            text: control.translateModel ? qsTr(modelData) : modelData
             color: theme.textColor
             elide: Text.ElideRight
             verticalAlignment: Text.AlignVCenter

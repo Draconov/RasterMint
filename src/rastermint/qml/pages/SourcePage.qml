@@ -11,8 +11,8 @@ ScrollView {
     ColumnLayout {
         width: root.availableWidth
         spacing: 9
-        MintLabel { text: "Source Framing"; font.bold: true; font.pixelSize: 15 }
-        MintLabel { text: "Crop (%)"; color: theme.mutedTextColor }
+        MintLabel { text: qsTr("Source Framing"); font.bold: true; font.pixelSize: 15 }
+        MintLabel { text: qsTr("Crop (%)"); color: theme.mutedTextColor }
         GridLayout {
             Layout.fillWidth: true; columns: 2; columnSpacing: 8; rowSpacing: 8
             Repeater {
@@ -22,11 +22,11 @@ ScrollView {
                 ]
                 ColumnLayout {
                     Layout.fillWidth: true
-                    MintLabel { text: modelData.label; color: theme.mutedTextColor }
+                    MintLabel { text: qsTr(modelData.label); color: theme.mutedTextColor }
                     MintSlider {
                         Layout.fillWidth: true; from: 0; to: 0.49; stepSize: 0.01; value: backend.settingsMap[modelData.key]
                         onInteractionActiveChanged: {
-                            if (interactionActive) backend.beginHistoryGroup("Crop " + modelData.label.toLowerCase())
+                            if (interactionActive) backend.beginHistoryGroup(qsTr("Crop %1").arg(qsTr(modelData.label).toLowerCase()))
                             else backend.endHistoryGroup()
                         }
                         onUserMoved: function(newValue) { backend.setSetting(modelData.key, newValue) }
@@ -34,22 +34,22 @@ ScrollView {
                 }
             }
         }
-        MintLabel { text: "Fill position"; color: theme.mutedTextColor }
+        MintLabel { text: qsTr("Fill position"); color: theme.mutedTextColor }
         ColumnLayout {
             Layout.fillWidth: true
-            MintLabel { text: "Horizontal"; color: theme.mutedTextColor }
+            MintLabel { text: qsTr("Horizontal"); color: theme.mutedTextColor }
             MintSlider {
                 Layout.fillWidth: true; from: -1; to: 1; stepSize: 0.01; value: backend.settingsMap.position_x
-                onInteractionActiveChanged: { if (interactionActive) backend.beginHistoryGroup("Fill position X"); else backend.endHistoryGroup() }
+                onInteractionActiveChanged: { if (interactionActive) backend.beginHistoryGroup(qsTr("Fill position X")); else backend.endHistoryGroup() }
                 onUserMoved: function(newValue) { backend.setSetting("position_x", newValue) }
             }
-            MintLabel { text: "Vertical"; color: theme.mutedTextColor }
+            MintLabel { text: qsTr("Vertical"); color: theme.mutedTextColor }
             MintSlider {
                 Layout.fillWidth: true; from: -1; to: 1; stepSize: 0.01; value: backend.settingsMap.position_y
-                onInteractionActiveChanged: { if (interactionActive) backend.beginHistoryGroup("Fill position Y"); else backend.endHistoryGroup() }
+                onInteractionActiveChanged: { if (interactionActive) backend.beginHistoryGroup(qsTr("Fill position Y")); else backend.endHistoryGroup() }
                 onUserMoved: function(newValue) { backend.setSetting("position_y", newValue) }
             }
         }
-        MintLabel { Layout.fillWidth: true; color: theme.mutedTextColor; wrapMode: Text.WordWrap; text: "Flip, mirror and rotation tools are in Edit. Mirror tools expose movable blue axes directly on the preview." }
+        MintLabel { Layout.fillWidth: true; color: theme.mutedTextColor; wrapMode: Text.WordWrap; text: qsTr("Flip, mirror and rotation tools are in Edit. Mirror tools expose movable blue axes directly on the preview.") }
     }
 }

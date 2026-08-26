@@ -7,7 +7,7 @@ import "components"
 Dialog {
     id: root
 
-    title: "Export Image"
+    title: qsTr("Export Image")
     modal: true
     popupType: Popup.Item
     readonly property real overlayWidth: Overlay.overlay ? Overlay.overlay.width : 900
@@ -36,6 +36,7 @@ Dialog {
 
     readonly property real baseAspect: baseHeight > 0 ? baseWidth / baseHeight : 1.0
     readonly property string selectedFormat: formatCombo.currentText
+    readonly property var resamplingValues: ["Nearest (pixel-perfect)", "Bilinear", "Bicubic", "Lanczos"]
     readonly property bool lossyFormat: selectedFormat === "JPEG" || selectedFormat === "WebP"
     readonly property bool textFormat: selectedFormat === "TXT"
     readonly property bool transparencySupported: selectedFormat === "PNG"
@@ -112,7 +113,7 @@ Dialog {
             "height": exportHeight,
             "format": selectedFormat,
             "quality": exportQuality,
-            "resampling": resampleCombo.currentText,
+            "resampling": root.resamplingValues[resampleCombo.currentIndex],
             "preserveTransparency": preserveTransparencyCheck.checked
                                      && sourceHasTransparency
                                      && transparencySupported
@@ -148,7 +149,7 @@ Dialog {
             anchors.left: parent.left
             anchors.verticalCenter: parent.verticalCenter
             anchors.leftMargin: 16
-            text: "Export Image"
+            text: qsTr("Export Image")
             color: theme.textColor
             font.bold: true
             font.pixelSize: 15
@@ -219,7 +220,7 @@ Dialog {
             spacing: 10
 
             MintLabel {
-                text: "Image Size"
+                text: qsTr("Image Size")
                 font.bold: true
                 font.pixelSize: 14
                 visible: !root.textFormat
@@ -233,7 +234,7 @@ Dialog {
                 rowSpacing: 7
 
                 MintLabel {
-                    text: "Source"
+                    text: qsTr("Source")
                     color: theme.mutedTextColor
                 }
                 MintLabel {
@@ -243,7 +244,7 @@ Dialog {
                 }
 
                 MintLabel {
-                    text: "Current output (1×)"
+                    text: qsTr("Current output (1×)")
                     color: theme.mutedTextColor
                 }
                 MintLabel {
@@ -252,11 +253,11 @@ Dialog {
                     horizontalAlignment: Text.AlignRight
                 }
 
-                MintLabel { text: "Scale" }
+                MintLabel { text: qsTr("Scale") }
                 MintComboBox {
                     id: scaleCombo
                     Layout.fillWidth: true
-                    model: ["25%", "50%", "100%", "200%", "300%", "400%", "Custom"]
+                    model: ["25%", "50%", "100%", "200%", "300%", "400%", qsTr("Custom")]
                     currentIndex: 2
                     onActivated: {
                         var scales = [0.25, 0.5, 1.0, 2.0, 3.0, 4.0]
@@ -265,7 +266,7 @@ Dialog {
                     }
                 }
 
-                MintLabel { text: "Width" }
+                MintLabel { text: qsTr("Width") }
                 RowLayout {
                     Layout.fillWidth: true
                     MintTextField {
@@ -283,7 +284,7 @@ Dialog {
                     }
                 }
 
-                MintLabel { text: "Height" }
+                MintLabel { text: qsTr("Height") }
                 RowLayout {
                     Layout.fillWidth: true
                     MintTextField {
@@ -304,7 +305,7 @@ Dialog {
 
             MintCheckBox {
                 id: aspectLock
-                text: "Lock aspect ratio"
+                text: qsTr("Lock aspect ratio")
                 checked: true
                 visible: !root.textFormat
             }
@@ -317,7 +318,7 @@ Dialog {
             }
 
             MintLabel {
-                text: "Export Settings"
+                text: qsTr("Export Settings")
                 font.bold: true
                 font.pixelSize: 14
             }
@@ -325,7 +326,7 @@ Dialog {
             RowLayout {
                 Layout.fillWidth: true
                 MintLabel {
-                    text: "Format"
+                    text: qsTr("Format")
                     Layout.preferredWidth: 90
                 }
                 MintComboBox {
@@ -346,20 +347,20 @@ Dialog {
                 Layout.fillWidth: true
                 visible: !root.textFormat
                 MintLabel {
-                    text: "Resampling"
+                    text: qsTr("Resampling")
                     Layout.preferredWidth: 90
                 }
                 MintComboBox {
                     id: resampleCombo
                     Layout.fillWidth: true
-                    model: ["Nearest (pixel-perfect)", "Bilinear", "Bicubic", "Lanczos"]
+                    model: [qsTr("Nearest (pixel-perfect)"), qsTr("Bilinear"), qsTr("Bicubic"), qsTr("Lanczos")]
                     currentIndex: 0
                 }
             }
 
             MintCheckBox {
                 id: preserveTransparencyCheck
-                text: "Preserve source transparency"
+                text: qsTr("Preserve source transparency")
                 checked: false
                 visible: !root.textFormat
                 enabled: root.sourceHasTransparency && root.transparencySupported
@@ -369,8 +370,8 @@ Dialog {
                 Layout.fillWidth: true
                 visible: !root.textFormat && !preserveTransparencyCheck.enabled
                 text: !root.sourceHasTransparency
-                      ? "Source image has no transparency to preserve."
-                      : (root.selectedFormat + " does not support transparency.")
+                      ? qsTr("Source image has no transparency to preserve.")
+                      : qsTr("%1 does not support transparency.").arg(root.selectedFormat)
                 color: theme.mutedTextColor
                 font.pixelSize: 10
                 wrapMode: Text.WordWrap
@@ -384,7 +385,7 @@ Dialog {
                 RowLayout {
                     Layout.fillWidth: true
                     MintLabel {
-                        text: "Quality"
+                        text: qsTr("Quality")
                         Layout.fillWidth: true
                     }
                     MintLabel {
@@ -408,10 +409,10 @@ Dialog {
             MintLabel {
                 Layout.fillWidth: true
                 text: root.textFormat
-                      ? "TXT exports the actual character grid from the last enabled ASCII / Glyph layer as UTF-8 text."
+                      ? qsTr("TXT exports the actual character grid from the last enabled ASCII / Glyph layer as UTF-8 text.")
                       : (resampleCombo.currentIndex === 0
-                         ? "Nearest keeps hard pixel edges when scaling. Use Lanczos for photographic output."
-                         : "Scaling happens after RasterMint finishes processing, so your effect settings stay unchanged.")
+                         ? qsTr("Nearest keeps hard pixel edges when scaling. Use Lanczos for photographic output.")
+                         : qsTr("Scaling happens after RasterMint finishes processing, so your effect settings stay unchanged."))
                 color: theme.mutedTextColor
                 font.pixelSize: 11
                 wrapMode: Text.WordWrap
@@ -422,12 +423,12 @@ Dialog {
             RowLayout {
                 Layout.fillWidth: true
                 MintButton {
-                    text: "Cancel"
+                    text: qsTr("Cancel")
                     onClicked: root.close()
                 }
                 Item { Layout.fillWidth: true }
                 MintButton {
-                    text: "Reset to 100%"
+                    text: qsTr("Reset to 100%")
                     visible: !root.textFormat
                     onClicked: {
                         scaleCombo.currentIndex = 2
@@ -435,7 +436,7 @@ Dialog {
                     }
                 }
                 MintButton {
-                    text: "Export…"
+                    text: qsTr("Export…")
                     selected: true
                     onClicked: root.openExportFileDialog()
                 }
@@ -446,7 +447,7 @@ Dialog {
 
     FileDialog {
         id: exportFileDialog
-        title: "Export image"
+        title: qsTr("Export image")
         fileMode: FileDialog.SaveFile
         defaultSuffix: root.selectedFormat === "JPEG" ? "jpg"
                        : root.selectedFormat === "TIFF" ? "tif"
@@ -457,7 +458,7 @@ Dialog {
                    : root.selectedFormat === "WebP" ? ["WebP (*.webp)"]
                    : root.selectedFormat === "TIFF" ? ["TIFF (*.tif *.tiff)"]
                    : root.selectedFormat === "SVG" ? ["SVG (*.svg)"]
-                   : ["Text (*.txt)"]
+                   : [qsTr("Text") + " (*.txt)"]
 
         onAccepted: {
             backend.exportImageWithOptions(root.urlNormalizer(selectedFile), root.exportOptions())

@@ -89,15 +89,18 @@ def main() -> int:
     # or a processing/export worker actually runs.
     from rastermint.qmlui.export_backend import RasterMintBackend
     from rastermint.qmlui.image_provider import RasterImageProvider
+    from rastermint.qmlui.localization import LocalizationManager
     from rastermint.qmlui.theme import ThemeManager
 
     engine = QQmlApplicationEngine()
     provider = RasterImageProvider()
     backend = RasterMintBackend(provider)
     theme = ThemeManager()
+    localization = LocalizationManager(engine)
     engine.addImageProvider("rastermint", provider)
     engine.rootContext().setContextProperty("backend", backend)
     engine.rootContext().setContextProperty("theme", theme)
+    engine.rootContext().setContextProperty("localization", localization)
     qml_path = resources.files("rastermint").joinpath("qml/Main.qml")
     engine.load(QUrl.fromLocalFile(str(qml_path)))
     if not engine.rootObjects():

@@ -6,7 +6,7 @@ import "components"
 
 Dialog {
     id: root
-    title: "Batch Export Images"
+    title: qsTr("Batch Export Images")
     modal: true
     popupType: Popup.Item
     standardButtons: Dialog.NoButton
@@ -25,6 +25,7 @@ Dialog {
     readonly property real overlayHeight: Overlay.overlay ? Overlay.overlay.height : 820
     readonly property real desiredDialogHeight: 46 + (padding * 2) + batchBody.implicitHeight
     readonly property bool canStart: selectedFiles.length > 0 && outputFolder.length > 0
+    readonly property var resamplingValues: ["Nearest (pixel-perfect)", "Bilinear", "Bicubic", "Lanczos"]
     readonly property bool transparencySupported: formatCombo.currentText === "PNG"
                                                || formatCombo.currentText === "WEBP"
                                                || formatCombo.currentText === "TIFF"
@@ -80,7 +81,7 @@ Dialog {
                 format: formatCombo.currentText,
                 scalePercent: scaleSpin.value,
                 overwrite: overwriteMode,
-                resampling: resampleCombo.currentText,
+                resampling: root.resamplingValues[resampleCombo.currentIndex],
                 preserveTransparency: preserveTransparencyCheck.checked
                                       && root.transparencySupported
             }
@@ -120,21 +121,23 @@ Dialog {
                     spacing: 8
 
                     MintLabel {
-                        text: "Sources and destination"
+                        text: qsTr("Sources and destination")
                         font.bold: true
                     }
 
                     RowLayout {
                         Layout.fillWidth: true
                         MintButton {
-                            text: "Choose Images"
+                            text: qsTr("Choose Images")
                             onClicked: filesDialog.open()
                         }
                         MintLabel {
                             Layout.fillWidth: true
-                            text: selectedFiles.length > 0
-                                  ? (selectedFiles.length + " image" + (selectedFiles.length === 1 ? "" : "s") + " selected")
-                                  : "No images selected"
+                            text: selectedFiles.length === 1
+                                  ? qsTr("1 image selected")
+                                  : (selectedFiles.length > 1
+                                     ? qsTr("%1 images selected").arg(selectedFiles.length)
+                                     : qsTr("No images selected"))
                             wrapMode: Text.Wrap
                         }
                     }
@@ -142,14 +145,14 @@ Dialog {
                     RowLayout {
                         Layout.fillWidth: true
                         MintButton {
-                            text: "Choose Output Folder"
+                            text: qsTr("Choose Output Folder")
                             onClicked: folderDialog.open()
                         }
                         MintLabel {
                             Layout.fillWidth: true
                             text: outputFolder.length > 0
                                   ? outputFolder
-                                  : "No output folder selected"
+                                  : qsTr("No output folder selected")
                             wrapMode: Text.WrapAnywhere
                             color: outputFolder.length > 0 ? theme.textColor : theme.mutedTextColor
                         }
@@ -171,13 +174,13 @@ Dialog {
                     spacing: 10
 
                     MintLabel {
-                        text: "Batch export options"
+                        text: qsTr("Batch export options")
                         font.bold: true
                     }
 
                     RowLayout {
                         Layout.fillWidth: true
-                        MintLabel { text: "Format"; Layout.preferredWidth: 140 }
+                        MintLabel { text: qsTr("Format"); Layout.preferredWidth: 140 }
                         MintComboBox {
                             id: formatCombo
                             Layout.fillWidth: true
@@ -191,7 +194,7 @@ Dialog {
 
                     RowLayout {
                         Layout.fillWidth: true
-                        MintLabel { text: "Scale (%)"; Layout.preferredWidth: 140 }
+                        MintLabel { text: qsTr("Scale (%)"); Layout.preferredWidth: 140 }
                         MintSpinBox {
                             id: scaleSpin
                             from: 10
@@ -205,21 +208,21 @@ Dialog {
 
                     RowLayout {
                         Layout.fillWidth: true
-                        MintLabel { text: "Resampling"; Layout.preferredWidth: 140 }
+                        MintLabel { text: qsTr("Resampling"); Layout.preferredWidth: 140 }
                         MintComboBox {
                             id: resampleCombo
                             Layout.fillWidth: true
-                            model: ["Nearest (pixel-perfect)", "Bilinear", "Bicubic", "Lanczos"]
+                            model: [qsTr("Nearest (pixel-perfect)"), qsTr("Bilinear"), qsTr("Bicubic"), qsTr("Lanczos")]
                             currentIndex: 0
                         }
                     }
 
                     RowLayout {
                         Layout.fillWidth: true
-                        MintLabel { text: "Transparency"; Layout.preferredWidth: 140 }
+                        MintLabel { text: qsTr("Transparency"); Layout.preferredWidth: 140 }
                         MintCheckBox {
                             id: preserveTransparencyCheck
-                            text: "Preserve source transparency"
+                            text: qsTr("Preserve source transparency")
                             checked: true
                             enabled: root.transparencySupported
                             Layout.fillWidth: true
@@ -228,11 +231,11 @@ Dialog {
 
                     RowLayout {
                         Layout.fillWidth: true
-                        MintLabel { text: "Overwrite"; Layout.preferredWidth: 140 }
+                        MintLabel { text: qsTr("Overwrite"); Layout.preferredWidth: 140 }
                         MintComboBox {
                             id: overwriteCombo
                             Layout.fillWidth: true
-                            model: ["Auto rename", "Replace existing", "Skip existing"]
+                            model: [qsTr("Auto rename"), qsTr("Replace existing"), qsTr("Skip existing")]
                             currentIndex: 0
                         }
                     }
@@ -243,11 +246,11 @@ Dialog {
                 Layout.fillWidth: true
                 Item { Layout.fillWidth: true }
                 MintButton {
-                    text: "Cancel"
+                    text: qsTr("Cancel")
                     onClicked: root.close()
                 }
                 MintButton {
-                    text: "Start Batch Export"
+                    text: qsTr("Start Batch Export")
                     enabled: root.canStart
                     onClicked: root.startExport()
                 }
@@ -257,15 +260,15 @@ Dialog {
 
     FileDialog {
         id: filesDialog
-        title: "Select images for batch processing"
+        title: qsTr("Select images for batch processing")
         fileMode: FileDialog.OpenFiles
-        nameFilters: ["Images (*.png *.jpg *.jpeg *.bmp *.webp *.tif *.tiff)"]
+        nameFilters: [qsTr("Images") + " (*.png *.jpg *.jpeg *.bmp *.webp *.tif *.tiff)"]
         onAccepted: root.selectedFiles = root.urlsNormalizer(selectedFiles)
     }
 
     FolderDialog {
         id: folderDialog
-        title: "Choose batch output folder"
+        title: qsTr("Choose batch output folder")
         onAccepted: root.outputFolder = root.urlNormalizer(selectedFolder)
     }
 }

@@ -243,9 +243,9 @@ Item {
             var count = optimizedPaletteCounts[i]
             result.push({
                 "id": "optimized-" + count,
-                "name": "Optimized " + count,
+                "name": qsTr("Optimized %1").arg(count),
                 "category": "Optimized",
-                "description": "Extract " + count + " colours from the current source image.",
+                "description": qsTr("Extract %1 colours from the current source image.").arg(count),
                 "colors": [],
                 "optimized": true,
                 "count": count
@@ -311,10 +311,10 @@ Item {
             width: pageScroll.availableWidth
             spacing: 9
 
-            MintLabel { text: "Palette"; font.bold: true; font.pixelSize: 15 }
+            MintLabel { text: qsTr("Palette"); font.bold: true; font.pixelSize: 15 }
             MintLabel {
                 Layout.fillWidth: true
-                text: (backend.settingsMap.palette_name || "Custom") + " · " + (backend.settingsMap.palette || []).length + " colors"
+                text: (backend.settingsMap.palette_name || qsTr("Custom")) + " · " + qsTr("%1 colours").arg((backend.settingsMap.palette || []).length)
                 color: theme.mutedTextColor
                 elide: Text.ElideRight
             }
@@ -399,13 +399,13 @@ Item {
                 }
                 MintButton {
                     Layout.fillWidth: true
-                    text: "Randomize unlocked"
+                    text: qsTr("Randomize unlocked")
                     onClicked: backend.randomizePaletteUnlocked()
                 }
             }
 
             Rectangle { Layout.fillWidth: true; height: 1; color: theme.borderColor }
-            MintLabel { text: "Palette Library"; font.bold: true }
+            MintLabel { text: qsTr("Palette Library"); font.bold: true }
 
             Rectangle {
                 id: paletteLibraryPanel
@@ -426,7 +426,7 @@ Item {
                     MintTextField {
                         id: searchField
                         Layout.fillWidth: true
-                        placeholderText: "Search palettes…"
+                        placeholderText: qsTr("Search palettes…")
                     }
 
                     ScrollView {
@@ -540,8 +540,8 @@ Item {
                                                         Text {
                                                             Layout.fillWidth: true
                                                             text: modelData.optimized
-                                                                  ? ("Pull " + modelData.count + " colors from source")
-                                                                  : (modelData.colors.length + " colors")
+                                                                  ? qsTr("Pull %1 colours from source").arg(modelData.count)
+                                                                  : qsTr("%1 colours").arg(modelData.colors.length)
                                                             color: theme.mutedTextColor
                                                             font.pixelSize: 10
                                                             elide: Text.ElideRight
@@ -582,7 +582,7 @@ Item {
 
                                                 ToolTip.visible: paletteMouse.containsMouse
                                                 ToolTip.text: modelData.optimized && !backend.hasSource
-                                                              ? "Load an image to extract this optimized palette."
+                                                              ? qsTr("Load an image to extract this optimized palette.")
                                                               : modelData.description
                                             }
                                         }
@@ -605,33 +605,33 @@ Item {
                 columnSpacing: 6
                 rowSpacing: 6
 
-                MintButton { Layout.fillWidth: true; text: "Import…"; onClicked: importPaletteDialog.open() }
-                MintButton { Layout.fillWidth: true; text: "Save to Library"; onClicked: savePaletteLibraryDialog.open() }
-                MintButton { Layout.fillWidth: true; text: "Export JSON…"; onClicked: exportPaletteJsonDialog.open() }
-                MintButton { Layout.fillWidth: true; text: "Export HEX…"; onClicked: exportPaletteDialog.open() }
+                MintButton { Layout.fillWidth: true; text: qsTr("Import…"); onClicked: importPaletteDialog.open() }
+                MintButton { Layout.fillWidth: true; text: qsTr("Save to Library"); onClicked: savePaletteLibraryDialog.open() }
+                MintButton { Layout.fillWidth: true; text: qsTr("Export JSON…"); onClicked: exportPaletteJsonDialog.open() }
+                MintButton { Layout.fillWidth: true; text: qsTr("Export HEX…"); onClicked: exportPaletteDialog.open() }
             }
 
             Rectangle { Layout.fillWidth: true; height: 1; color: theme.borderColor }
-            MintLabel { text: "Optimize from image"; font.bold: true }
+            MintLabel { text: qsTr("Optimize from image"); font.bold: true }
             RowLayout {
                 Layout.fillWidth: true
                 MintSpinBox { id: colorCount; from: 2; to: 256; value: 8; editable: true; Layout.preferredWidth: 90 }
                 MintComboBox { id: optimizer; Layout.fillWidth: true; model: backend.paletteOptimizerNames }
                 MintButton {
-                    text: "Optimize"
+                    text: qsTr("Optimize")
                     enabled: backend.hasSource
                     onClicked: backend.optimizePalette(colorCount.value, optimizer.currentText)
                 }
             }
 
-            MintLabel { text: "Lospec"; font.bold: true }
+            MintLabel { text: qsTr("Lospec"); font.bold: true }
             RowLayout {
                 Layout.fillWidth: true
-                MintTextField { id: lospecField; Layout.fillWidth: true; placeholderText: "slug or Lospec URL" }
-                MintButton { text: "Fetch"; enabled: lospecField.text.length > 0; onClicked: backend.fetchLospec(lospecField.text) }
+                MintTextField { id: lospecField; Layout.fillWidth: true; placeholderText: qsTr("slug or Lospec URL") }
+                MintButton { text: qsTr("Fetch"); enabled: lospecField.text.length > 0; onClicked: backend.fetchLospec(lospecField.text) }
             }
 
-            MintLabel { text: "Gradient"; font.bold: true }
+            MintLabel { text: qsTr("Gradient"); font.bold: true }
             Rectangle {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 38
@@ -651,7 +651,7 @@ Item {
                     }
                     Text {
                         Layout.fillWidth: true
-                        text: "Gradient Presets"
+                        text: qsTr("Gradient Presets")
                         color: theme.textColor
                         font.bold: true
                         font.pixelSize: 12
@@ -748,7 +748,7 @@ Item {
             }
 
             MintLabel {
-                text: "Anchor colours"
+                text: qsTr("Anchor colours")
                 color: theme.mutedTextColor
                 font.pixelSize: 11
             }
@@ -768,7 +768,7 @@ Item {
                             Layout.fillWidth: true
                             alphaEnabled: false
                             colorValue: root.gradientStops[index]
-                            dialogTitle: "Gradient colour " + (index + 1)
+                            dialogTitle: qsTr("Gradient colour %1").arg(index + 1)
                             onColorPicked: function(value) { root.updateGradientStop(index, value) }
                         }
                         MintButton {
@@ -792,13 +792,13 @@ Item {
                 RowLayout {
                     Layout.fillWidth: true
                     MintButton {
-                        text: "+ Add colour"
+                        text: qsTr("+ Add colour")
                         enabled: root.gradientStops.length < 10
                         onClicked: root.addGradientStop()
                     }
                     Text {
                         Layout.fillWidth: true
-                        text: root.gradientStops.length + " / 10 anchor colours"
+                        text: qsTr("%1 / 10 anchor colours").arg(root.gradientStops.length)
                         color: theme.mutedTextColor
                         horizontalAlignment: Text.AlignRight
                         verticalAlignment: Text.AlignVCenter
@@ -823,7 +823,7 @@ Item {
                     onActivated: root.gradientDirty = true
                 }
                 MintButton {
-                    text: "Generate"
+                    text: qsTr("Generate")
                     selected: root.gradientDirty
                     onClicked: {
                         backend.generatePaletteFromPositionedStops(root.gradientStops, root.gradientStopPositions, gradientCount.value, colorSpace.currentText)
@@ -838,7 +838,7 @@ Item {
 
     Dialog {
         id: savePaletteLibraryDialog
-        title: "Save palette to library"
+        title: qsTr("Save palette to library")
         modal: true
         width: Math.min(430, root.width - 24)
         x: Math.round((root.width - width) / 2)
@@ -859,14 +859,14 @@ Item {
         contentItem: ColumnLayout {
             spacing: 8
 
-            MintLabel { text: "Name" }
+            MintLabel { text: qsTr("Name") }
             MintTextField {
                 id: savePaletteName
                 Layout.fillWidth: true
-                placeholderText: "Palette name"
+                placeholderText: qsTr("Palette name")
             }
 
-            MintLabel { text: "Category" }
+            MintLabel { text: qsTr("Category") }
             MintComboBox {
                 id: saveCategoryCombo
                 Layout.fillWidth: true
@@ -877,16 +877,16 @@ Item {
                 id: saveCustomCategory
                 Layout.fillWidth: true
                 visible: saveCategoryCombo.currentText === "New category…"
-                placeholderText: "New category name"
+                placeholderText: qsTr("New category name")
             }
         }
 
         footer: RowLayout {
             spacing: 6
             Item { Layout.fillWidth: true }
-            MintButton { text: "Cancel"; onClicked: savePaletteLibraryDialog.close() }
+            MintButton { text: qsTr("Cancel"); onClicked: savePaletteLibraryDialog.close() }
             MintButton {
-                text: "Save"
+                text: qsTr("Save")
                 enabled: savePaletteName.text.trim().length > 0 && root.categoryForSaveDialog().length > 0
                 onClicked: {
                     backend.savePaletteToLibrary(savePaletteName.text.trim(), root.categoryForSaveDialog())
@@ -920,7 +920,7 @@ Item {
 
     FileDialog {
         id: exportPaletteJsonDialog
-        title: "Export RasterMint palette as JSON"
+        title: qsTr("Export RasterMint palette as JSON")
         fileMode: FileDialog.SaveFile
         defaultSuffix: "json"
         nameFilters: ["JSON palette (*.json)"]

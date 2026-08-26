@@ -11,8 +11,8 @@ ScrollView {
     ColumnLayout {
         width: root.availableWidth
         spacing: 10
-        MintLabel { text: "Creative Randomize"; font.bold: true; font.pixelSize: 15 }
-        MintLabel { text: "Locked categories stay unchanged."; color: theme.mutedTextColor }
+        MintLabel { text: qsTr("Creative Randomize"); font.bold: true; font.pixelSize: 15 }
+        MintLabel { text: qsTr("Locked categories stay unchanged."); color: theme.mutedTextColor }
         Repeater {
             model: [
                 {key:"palette", label:"Palette"}, {key:"dither", label:"Dither"},
@@ -20,7 +20,7 @@ ScrollView {
                 {key:"parameters", label:"Parameters"}
             ]
             MintCheckBox {
-                text: "Lock " + modelData.label
+                text: qsTr("Lock ") + qsTr(modelData.label)
                 checked: Boolean((backend.settingsMap.random_locks || {})[modelData.key])
                 onToggled: {
                     var locks = backend.settingsMap.random_locks
@@ -32,7 +32,7 @@ ScrollView {
         RowLayout {
             Layout.fillWidth: true
             MintButton { text: "←"; onClicked: backend.randomHistory(-1) }
-            MintButton { Layout.fillWidth: true; text: "Randomize"; onClicked: backend.randomizeUnlocked() }
+            MintButton { Layout.fillWidth: true; text: qsTr("Randomize"); onClicked: backend.randomizeUnlocked() }
             MintButton { text: "→"; onClicked: backend.randomHistory(1) }
         }
     }

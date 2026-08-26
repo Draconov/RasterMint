@@ -24,6 +24,7 @@ from PySide6.QtQuickControls2 import QQuickStyle  # noqa: E402
 
 from rastermint.qmlui.backend import RasterMintBackend  # noqa: E402
 from rastermint.qmlui.image_provider import RasterImageProvider  # noqa: E402
+from rastermint.qmlui.localization import LocalizationManager  # noqa: E402
 from rastermint.qmlui.theme import ThemeManager  # noqa: E402
 
 
@@ -55,9 +56,11 @@ def _engine_with_context():
     provider = RasterImageProvider()
     backend = RasterMintBackend(provider)
     theme = ThemeManager()
+    localization = LocalizationManager(engine, engine)
     engine.addImageProvider("rastermint", provider)
     engine.rootContext().setContextProperty("backend", backend)
     engine.rootContext().setContextProperty("theme", theme)
+    engine.rootContext().setContextProperty("localization", localization)
     return engine, backend, provider, theme
 
 

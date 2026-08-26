@@ -5,19 +5,21 @@ import "components"
 
 Dialog {
     id: root
-    title: "Settings"
+    title: qsTr("Settings")
     modal: true
     popupType: Popup.Item
     width: 420
-    height: 390
+    height: 470
     anchors.centerIn: Overlay.overlay
     standardButtons: Dialog.NoButton
     padding: 16
 
     function resetWindowSettings() {
         theme.resetTheme()
+        localization.resetLanguage()
         backend.historyLimit = 50
         themeChooser.syncThemeIndex()
+        languageChooser.syncLanguageIndex()
     }
 
     background: Rectangle {
@@ -56,7 +58,7 @@ Dialog {
         spacing: 12
 
         MintLabel {
-            text: "Appearance"
+            text: qsTr("Appearance")
             font.bold: true
         }
         MintComboBox {
@@ -70,7 +72,7 @@ Dialog {
             }
             onActivated: {
                 theme.setTheme(theme.themeIds[currentIndex])
-                backend.reportAction("Theme: " + currentText)
+                backend.reportAction(qsTr("Theme: %1").arg(currentText))
             }
             Connections {
                 target: theme
@@ -79,7 +81,30 @@ Dialog {
         }
 
         MintLabel {
-            text: "History"
+            text: qsTr("Language")
+            font.bold: true
+        }
+        MintComboBox {
+            id: languageChooser
+            Layout.fillWidth: true
+            model: [qsTr("System default"), "English", "Українська"]
+            Component.onCompleted: syncLanguageIndex()
+
+            function syncLanguageIndex() {
+                currentIndex = Math.max(0, localization.languageIds.indexOf(localization.languageId))
+            }
+            onActivated: {
+                localization.setLanguage(localization.languageIds[currentIndex])
+                backend.reportAction(qsTr("Language: %1").arg(currentText))
+            }
+            Connections {
+                target: localization
+                function onLanguageChanged() { languageChooser.syncLanguageIndex() }
+            }
+        }
+
+        MintLabel {
+            text: qsTr("History")
             font.bold: true
         }
 
@@ -87,7 +112,7 @@ Dialog {
             Layout.fillWidth: true
             spacing: 8
             MintLabel {
-                text: "Undo history"
+                text: qsTr("Undo history")
                 Layout.fillWidth: true
             }
             MintTextField {
@@ -108,7 +133,7 @@ Dialog {
                 onEditingFinished: commitValue()
             }
             MintLabel {
-                text: "actions"
+                text: qsTr("actions")
                 color: theme.mutedTextColor
             }
         }
@@ -138,7 +163,7 @@ Dialog {
         }
         MintLabel {
             Layout.fillWidth: true
-            text: "Keep 10–200 undo steps. Higher values retain more editing history and use more memory."
+            text: qsTr("Keep 10–200 undo steps. Higher values retain more editing history and use more memory.")
             color: theme.mutedTextColor
             font.pixelSize: 11
             wrapMode: Text.WordWrap
@@ -164,18 +189,18 @@ Dialog {
             anchors.bottomMargin: 10
             spacing: 6
 
-            MintButton { text: "Close"; onClicked: root.close() }
+            MintButton { text: qsTr("Close"); onClicked: root.close() }
             Item { Layout.fillWidth: true }
             MintButton {
-                text: "Reset Settings"
+                text: qsTr("Reset Settings")
                 ToolTip.visible: hovered
-                ToolTip.text: "Reset only the options shown in this Settings window"
+                ToolTip.text: qsTr("Reset only the options shown in this Settings window")
                 onClicked: root.resetWindowSettings()
             }
             MintButton {
-                text: "Full Reset"
+                text: qsTr("Full Reset")
                 ToolTip.visible: hovered
-                ToolTip.text: "Reset RasterMint processing and app settings to defaults"
+                ToolTip.text: qsTr("Reset RasterMint processing and app settings to defaults")
                 onClicked: {
                     root.resetWindowSettings()
                     backend.resetSettings()

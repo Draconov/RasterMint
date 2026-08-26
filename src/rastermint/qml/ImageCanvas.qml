@@ -92,7 +92,7 @@ Item {
                         var point = mapToItem(imageFrame, mouse.x, mouse.y)
                         backend.setMirrorAxis("horizontal", Math.max(0, Math.min(1, point.x / Math.max(1, imageFrame.width))))
                     }
-                    onPressed: function(mouse) { backend.beginHistoryGroup("Mirror horizontal axis"); updateAxis(mouse) }
+                    onPressed: function(mouse) { backend.beginHistoryGroup(qsTr("Mirror horizontal axis")); updateAxis(mouse) }
                     onReleased: backend.endHistoryGroup()
                     onCanceled: backend.endHistoryGroup()
                     onPositionChanged: function(mouse) { if (pressed) updateAxis(mouse) }
@@ -117,7 +117,7 @@ Item {
                         var point = mapToItem(imageFrame, mouse.x, mouse.y)
                         backend.setMirrorAxis("vertical", Math.max(0, Math.min(1, point.y / Math.max(1, imageFrame.height))))
                     }
-                    onPressed: function(mouse) { backend.beginHistoryGroup("Mirror vertical axis"); updateAxis(mouse) }
+                    onPressed: function(mouse) { backend.beginHistoryGroup(qsTr("Mirror vertical axis")); updateAxis(mouse) }
                     onReleased: backend.endHistoryGroup()
                     onCanceled: backend.endHistoryGroup()
                     onPositionChanged: function(mouse) { if (pressed) updateAxis(mouse) }
@@ -139,7 +139,7 @@ Item {
         Text {
             id: emptyPromptText
             anchors.centerIn: parent
-            text: "Open or drop an image, GIF, or video to begin"
+            text: qsTr("Open or drop an image, GIF, or video to begin")
             color: theme.textColor
             font.pixelSize: 12
         }
@@ -155,7 +155,7 @@ Item {
             root.zoomFactor = Math.max(0.15, Math.min(64, root.zoomFactor * (wheel.angleDelta.y > 0 ? 1.15 : 1 / 1.15)))
             if (Math.abs(old - root.zoomFactor) > 0.0001) {
                 grid.requestPaint()
-                backend.reportAction("Zoom: " + Math.round(root.zoomFactor * 100) + "%")
+                backend.reportAction(qsTr("Zoom: %1%").arg(Math.round(root.zoomFactor * 100)))
             }
             wheel.accepted = true
         }

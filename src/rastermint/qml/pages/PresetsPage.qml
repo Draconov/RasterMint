@@ -136,7 +136,7 @@ Item {
             property string descriptionText: modelData.description ? String(modelData.description) : ""
             property string hardwareName: modelData.hardwareProfileName ? String(modelData.hardwareProfileName) : ""
             property string hardwareMode: modelData.hardwareMode ? String(modelData.hardwareMode) : ""
-            property string hardwareText: hardwareName !== "" ? ("Hardware: " + hardwareName) : ""
+            property string hardwareText: hardwareName !== "" ? qsTr("Hardware: %1").arg(hardwareName) : ""
 
             ColumnLayout {
                 anchors.fill: parent
@@ -162,7 +162,7 @@ Item {
 
                 Text {
                     Layout.fillWidth: true
-                    text: modelData.name + (presetCard.isUserPreset ? " · custom" : "")
+                    text: modelData.name + (presetCard.isUserPreset ? " · " + qsTr("custom") : "")
                     color: theme.textColor
                     font.bold: true
                     wrapMode: Text.WordWrap
@@ -213,7 +213,7 @@ Item {
                 onClicked: backend.deletePresetFromLibrary(modelData.id)
 
                 ToolTip.visible: hovered
-                ToolTip.text: "Remove custom preset from library"
+                ToolTip.text: qsTr("Remove custom preset from library")
             }
 
             ToolTip.visible: presetMouse.containsMouse
@@ -246,7 +246,7 @@ Item {
             spacing: 6
 
             MintLabel {
-                text: "Presets"
+                text: qsTr("Presets")
                 font.bold: true
                 font.pixelSize: 15
                 Layout.fillWidth: true
@@ -254,19 +254,19 @@ Item {
             }
 
             MintButton {
-                text: "Load JSON"
+                text: qsTr("Load JSON")
                 Layout.minimumWidth: implicitWidth
                 onClicked: loadPresetDialog.open()
             }
 
             MintButton {
-                text: "Save JSON"
+                text: qsTr("Save JSON")
                 Layout.minimumWidth: implicitWidth
                 onClicked: savePresetDialog.open()
             }
 
             MintButton {
-                text: "Save to Library"
+                text: qsTr("Save to Library")
                 Layout.minimumWidth: implicitWidth
                 onClicked: saveLibraryDialog.open()
             }
@@ -279,7 +279,7 @@ Item {
                 onClicked: backend.refreshPresetThumbnails()
 
                 ToolTip.visible: hovered
-                ToolTip.text: "Refresh preset thumbnails"
+                ToolTip.text: qsTr("Refresh preset thumbnails")
             }
         }
 
@@ -337,7 +337,7 @@ Item {
 
                                 Text {
                                     Layout.fillWidth: true
-                                    text: categorySection.categoryData.name
+                                    text: qsTr(categorySection.categoryData.name)
                                     color: theme.textColor
                                     font.bold: true
                                     font.pixelSize: 12
@@ -378,7 +378,7 @@ Item {
 
     Dialog {
         id: saveLibraryDialog
-        title: "Save preset to library"
+        title: qsTr("Save preset to library")
         modal: true
         width: Math.min(380, root.width - 24)
         x: Math.round((root.width - width) / 2)
@@ -395,31 +395,31 @@ Item {
 
         contentItem: ColumnLayout {
             spacing: 8
-            MintLabel { text: "Name" }
+            MintLabel { text: qsTr("Name") }
             MintTextField {
                 id: presetNameField
                 Layout.fillWidth: true
-                placeholderText: "Preset name"
+                placeholderText: qsTr("Preset name")
             }
-            MintLabel { text: "Description" }
+            MintLabel { text: qsTr("Description") }
             MintTextField {
                 id: presetDescriptionField
                 Layout.fillWidth: true
-                placeholderText: "Optional description"
+                placeholderText: qsTr("Optional description")
             }
         }
     }
 
     FileDialog {
         id: loadPresetDialog
-        title: "Load RasterMint preset"
+        title: qsTr("Load RasterMint preset")
         nameFilters: ["JSON preset (*.json)", "All files (*)"]
         onAccepted: backend.loadPreset(selectedFile.toString())
     }
 
     FileDialog {
         id: savePresetDialog
-        title: "Save RasterMint preset"
+        title: qsTr("Save RasterMint preset")
         fileMode: FileDialog.SaveFile
         defaultSuffix: "json"
         nameFilters: ["JSON preset (*.json)"]
