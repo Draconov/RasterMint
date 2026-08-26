@@ -432,7 +432,7 @@ class RasterMintBackend(PreferencesBackend):
                     * (self._video_info.fps if self._video_info else animated.animation_fps)
                 ),
             ),
-            display_mode="raw",
+            display_mode=animated.display_mode if animated.display_export else "raw",
             include_grid=False,
         )
         self._connect_worker(worker)

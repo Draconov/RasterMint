@@ -133,7 +133,7 @@ def test_qml_dialog_urls_are_normalized_before_python_slots():
     export_backend = (PACKAGE / "qmlui" / "export_backend.py").read_text(encoding="utf-8")
     assert "def exportToClipboard(self)" in export_backend
     assert '"clipboard-image"' in export_backend
-    assert 'display_mode="raw"' in export_backend
+    assert 'display_mode=animated.display_mode if animated.display_export else "raw"' in export_backend
     assert "QGuiApplication.clipboard()" in export_backend
     assert "clipboard.setImage" in export_backend
     assert "backend.exportMedia(window.urlString(selectedFile))" in main
