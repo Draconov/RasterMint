@@ -12,7 +12,7 @@ ApplicationWindow {
     minimumWidth: 1000
     minimumHeight: 650
     visible: true
-    title: qsTr("RasterMint ") + backend.version
+    title: "RasterMint " + backend.version
     color: theme.windowColor
 
     property int inspectorIndex: 7

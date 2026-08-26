@@ -77,7 +77,7 @@ Dialog {
 
             MintLabel {
                 Layout.alignment: Qt.AlignHCenter
-                text: qsTr("RasterMint ") + backend.version
+                text: "RasterMint " + backend.version
                 font.bold: true
                 font.pixelSize: 20
             }

@@ -232,8 +232,11 @@ def test_runtime_localization_is_packaged_and_exposed_to_qml():
     assert "LocalizationManager(engine)" in app
     assert 'setContextProperty("localization", localization)' in app
     assert 'id: languageChooser' in settings
-    assert 'localization.setLanguage(localization.languageIds[currentIndex])' in settings
-    assert 'qsTr("System default")' in settings
+    assert 'localization.setLanguage(selectedId)' in settings
+    assert 'separatorToken: "__language_separator__"' in settings
+    assert 'qsTr("System default")' not in settings
+    assert 'DEFAULT_LANGUAGE_ID = "en"' in localization
+    assert 'LANGUAGE_ORDER = ("en", "uk")' in localization
     assert 'data/translations/*.json' in pyproject
     assert '"data/translations/*.json"' in spec
     assert ukrainian.is_file()

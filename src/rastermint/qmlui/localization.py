@@ -7,18 +7,17 @@ import json
 from importlib import resources
 from typing import Any
 
-from PySide6.QtCore import Property, QCoreApplication, QLocale, QObject, QSettings, QTranslator, Signal, Slot
+from PySide6.QtCore import Property, QCoreApplication, QObject, QSettings, QTranslator, Signal, Slot
 from PySide6.QtQml import QQmlEngine
 
 
-SYSTEM_LANGUAGE_ID = "system"
-DEFAULT_LANGUAGE_ID = SYSTEM_LANGUAGE_ID
-LANGUAGE_ORDER = (SYSTEM_LANGUAGE_ID, "en", "uk")
+DEFAULT_LANGUAGE_ID = "en"
+LANGUAGE_ORDER = ("en", "uk")
 LANGUAGE_NAMES = {
-    SYSTEM_LANGUAGE_ID: "System default",
     "en": "English",
     "uk": "Українська",
 }
+_LEGACY_SYSTEM_LANGUAGE_ID = "system"
 
 
 class _JsonTranslator(QTranslator):
@@ -61,19 +60,13 @@ class LocalizationManager(QObject):
             self._settings.value("appearance/language", DEFAULT_LANGUAGE_ID)
             or DEFAULT_LANGUAGE_ID
         )
+        # Migrate the old "System default" choice to the new explicit default.
+        if requested == _LEGACY_SYSTEM_LANGUAGE_ID:
+            requested = DEFAULT_LANGUAGE_ID
+            self._settings.setValue("appearance/language", requested)
         self._language_id = requested if requested in LANGUAGE_ORDER else DEFAULT_LANGUAGE_ID
-        self._effective_language_id = "en"
+        self._effective_language_id = self._language_id
         self._apply_language(retranslate=False)
-
-    @staticmethod
-    def _system_language() -> str:
-        language = QLocale.system().name().split("_", 1)[0].split("-", 1)[0].lower()
-        return language if language in LANGUAGE_ORDER and language != SYSTEM_LANGUAGE_ID else "en"
-
-    def _resolve_language(self) -> str:
-        if self._language_id == SYSTEM_LANGUAGE_ID:
-            return self._system_language()
-        return self._language_id
 
     @staticmethod
     def _load_messages(language_id: str) -> dict[str, str]:
@@ -96,14 +89,13 @@ class LocalizationManager(QObject):
             return {}
 
     def _apply_language(self, *, retranslate: bool = True) -> None:
-        effective = self._resolve_language()
-        self._effective_language_id = effective
+        self._effective_language_id = self._language_id
 
         if self._translator_installed:
             QCoreApplication.removeTranslator(self._translator)
             self._translator_installed = False
 
-        messages = self._load_messages(effective)
+        messages = self._load_messages(self._language_id)
         self._translator.set_messages(messages)
         if messages:
             self._translator_installed = QCoreApplication.installTranslator(self._translator)

@@ -4,6 +4,7 @@ import QtQuick.Controls
 ComboBox {
     id: control
     property bool translateModel: false
+    property string separatorToken: "__mint_unused_separator__"
     implicitHeight: 34
     leftPadding: 10
     rightPadding: 28
@@ -48,18 +49,37 @@ ComboBox {
         }
     }
     delegate: ItemDelegate {
+        id: delegateItem
+        readonly property bool isSeparator: modelData === control.separatorToken
         width: control.width - 8
-        height: 32
-        highlighted: control.highlightedIndex === index
+        height: isSeparator ? 9 : 32
+        enabled: !isSeparator
+        hoverEnabled: !isSeparator
+        highlighted: !isSeparator && control.highlightedIndex === index
         contentItem: Text {
+            visible: !delegateItem.isSeparator
             text: control.translateModel ? qsTr(modelData) : modelData
             color: theme.textColor
             elide: Text.ElideRight
             verticalAlignment: Text.AlignVCenter
         }
-        background: Rectangle {
-            radius: 5
-            color: parent.highlighted || parent.hovered ? theme.selectionColor : "transparent"
+        background: Item {
+            Rectangle {
+                visible: !delegateItem.isSeparator
+                anchors.fill: parent
+                radius: 5
+                color: delegateItem.highlighted || delegateItem.hovered ? theme.selectionColor : "transparent"
+            }
+            Rectangle {
+                visible: delegateItem.isSeparator
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.leftMargin: 6
+                anchors.rightMargin: 6
+                height: 1
+                color: theme.borderColor
+            }
         }
     }
 }

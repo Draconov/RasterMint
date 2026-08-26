@@ -87,19 +87,43 @@ Dialog {
         MintComboBox {
             id: languageChooser
             Layout.fillWidth: true
-            model: [qsTr("System default"), "English", "Українська"]
-            Component.onCompleted: syncLanguageIndex()
+            separatorToken: "__language_separator__"
+            property var menuLanguageIds: []
+            Component.onCompleted: rebuildLanguageMenu()
 
-            function syncLanguageIndex() {
-                currentIndex = Math.max(0, localization.languageIds.indexOf(localization.languageId))
+            function rebuildLanguageMenu() {
+                var ids = localization.languageIds
+                var names = localization.languageNames
+                var activeIndex = ids.indexOf(localization.languageId)
+                if (activeIndex < 0)
+                    activeIndex = 0
+
+                var nextIds = [ids[activeIndex], ""]
+                var nextNames = [names[activeIndex], separatorToken]
+                for (var i = 0; i < ids.length; ++i) {
+                    if (i === activeIndex)
+                        continue
+                    nextIds.push(ids[i])
+                    nextNames.push(names[i])
+                }
+
+                menuLanguageIds = nextIds
+                model = nextNames
+                currentIndex = 0
             }
             onActivated: {
-                localization.setLanguage(localization.languageIds[currentIndex])
-                backend.reportAction(qsTr("Language: %1").arg(currentText))
+                var selectedId = menuLanguageIds[currentIndex]
+                if (!selectedId) {
+                    currentIndex = 0
+                    return
+                }
+                var selectedName = currentText
+                localization.setLanguage(selectedId)
+                backend.reportAction(qsTr("Language: %1").arg(selectedName))
             }
             Connections {
                 target: localization
-                function onLanguageChanged() { languageChooser.syncLanguageIndex() }
+                function onLanguageChanged() { languageChooser.rebuildLanguageMenu() }
             }
         }
 
