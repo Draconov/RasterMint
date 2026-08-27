@@ -225,9 +225,19 @@ ScrollView {
             columns: 2
             columnSpacing: 6; rowSpacing: 5
             MintLabel { text: qsTr("Key time"); color: theme.mutedTextColor }
-            MintTextField { id: keyTimeField; Layout.fillWidth: true; validator: DoubleValidator { bottom: 0 }; text: "0" }
+            MintTextField {
+                id: keyTimeField
+                Layout.fillWidth: true
+                validator: DoubleValidator { bottom: 0 }
+                text: "0"
+            }
             MintLabel { text: qsTr("Key value"); color: theme.mutedTextColor }
-            MintTextField { id: keyValueField; Layout.fillWidth: true; validator: DoubleValidator {}; text: "0" }
+            MintTextField {
+                id: keyValueField
+                Layout.fillWidth: true
+                validator: DoubleValidator {}
+                text: "0"
+            }
             MintLabel { text: qsTr("Key easing"); color: theme.mutedTextColor }
             MintComboBox { id: keyEasingCombo; Layout.fillWidth: true; model: backend.easingNames }
             MintLabel { text: qsTr("Bezier x1 / y1"); visible: keyEasingCombo.currentText === "Bezier"; color: theme.mutedTextColor }

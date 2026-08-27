@@ -32,7 +32,6 @@ from rastermint.core.hardware_profiles import apply_profile_to_settings, load_bu
 from rastermint.core.history import UndoHistory
 from rastermint.core.lospec import fetch_lospec_palette
 from rastermint.core.palette_library import PALETTE_LIBRARY, find_palette, interpolate_palette, interpolate_palette_stops
-from rastermint.core.palette_lab import palette_analysis, palette_mapping, sort_palette
 from rastermint.core.presets import load_preset, save_preset
 from rastermint.core.settings import ProcessingSettings
 
@@ -80,6 +79,21 @@ def processed_raster_size(source_size: tuple[int, int], settings: ProcessingSett
 def target_raster_size(source_size: tuple[int, int], settings: ProcessingSettings) -> tuple[int, int]:
     from rastermint.core.processor import target_raster_size as impl
     return impl(source_size, settings)
+
+
+def _palette_analysis(*args, **kwargs):
+    from rastermint.core.palette_lab import palette_analysis as impl
+    return impl(*args, **kwargs)
+
+
+def _palette_mapping(*args, **kwargs):
+    from rastermint.core.palette_lab import palette_mapping as impl
+    return impl(*args, **kwargs)
+
+
+def _sort_palette(*args, **kwargs):
+    from rastermint.core.palette_lab import sort_palette as impl
+    return impl(*args, **kwargs)
 
 
 def probe_video(path: str | Path):
@@ -826,7 +840,7 @@ class RasterMintBackend(QObject):
     @Slot()
     def refreshPaletteLab(self) -> None:
         try:
-            self._palette_lab_data = palette_analysis(
+            self._palette_lab_data = _palette_analysis(
                 list(self.settings.palette),
                 self._active_source(),
                 max_pixels=60_000,
@@ -839,7 +853,7 @@ class RasterMintBackend(QObject):
     def sortPalette(self, mode: str) -> None:
         old_colors = list(self.settings.palette)
         old_locks = list(self.settings.palette_locks)
-        sorted_colors = sort_palette(old_colors, mode)
+        sorted_colors = _sort_palette(old_colors, mode)
         if sorted_colors == old_colors:
             return
         # Preserve lock association even when a palette contains duplicate hexes.
@@ -913,7 +927,7 @@ class RasterMintBackend(QObject):
         if not target_colors:
             self._palette_mapping_data = []
         else:
-            self._palette_mapping_data = palette_mapping(list(self.settings.palette), target_colors)
+            self._palette_mapping_data = _palette_mapping(list(self.settings.palette), target_colors)
         self.paletteLabChanged.emit()
 
     _DITHER_MATRIX_SETTINGS_KEY = "customDitherMatricesV1"

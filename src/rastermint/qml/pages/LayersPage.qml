@@ -232,7 +232,6 @@ Item {
             delegate: Rectangle {
                 id: layerDelegate
                 width: layerList.width
-                height: root.layerRowHeight
                 radius: 7
 
                 property bool fixedStage: kind === "Hardware Limits" || kind === "Hardware Display"
