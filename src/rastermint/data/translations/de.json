@@ -584,6 +584,12 @@
     "Temporal Jitter": "Zeitliches Zittern",
     "Horizontal jitter": "Horizontales Zittern",
     "Head Switching Noise": "Kopfumschalt-Rauschen",
-    "VHS & Analog": "VHS & Analog"
+    "VHS & Analog": "VHS & Analog",
+    "Paste Image from Clipboard": "Bild aus Zwischenablage einfügen",
+    "Clipboard": "Zwischenablage",
+    "Clipboard Image": "Bild aus der Zwischenablage",
+    "The clipboard does not contain an image.": "Die Zwischenablage enthält kein Bild.",
+    "Could not paste image": "Bild konnte nicht eingefügt werden",
+    "Pasted image from clipboard": "Bild aus der Zwischenablage eingefügt"
   }
 }

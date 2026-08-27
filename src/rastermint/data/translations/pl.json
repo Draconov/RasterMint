@@ -584,6 +584,12 @@
     "Temporal Jitter": "Drganie czasowe",
     "Horizontal jitter": "Drganie poziome",
     "Head Switching Noise": "Szum przełączania głowic",
-    "VHS & Analog": "VHS i analogowe"
+    "VHS & Analog": "VHS i analogowe",
+    "Paste Image from Clipboard": "Wklej obraz ze schowka",
+    "Clipboard": "Schowek",
+    "Clipboard Image": "Obraz ze schowka",
+    "The clipboard does not contain an image.": "Schowek nie zawiera obrazu.",
+    "Could not paste image": "Nie udało się wkleić obrazu",
+    "Pasted image from clipboard": "Wklejono obraz ze schowka"
   }
 }

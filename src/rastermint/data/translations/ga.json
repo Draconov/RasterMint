@@ -584,6 +584,12 @@
     "Temporal Jitter": "Creathadh ama",
     "Horizontal jitter": "Creathadh cothrománach",
     "Head Switching Noise": "Torann athraithe ceann",
-    "VHS & Analog": "VHS agus analógach"
+    "VHS & Analog": "VHS agus analógach",
+    "Paste Image from Clipboard": "Greamaigh íomhá ón ngearrthaisce",
+    "Clipboard": "Gearrthaisce",
+    "Clipboard Image": "Íomhá ón ngearrthaisce",
+    "The clipboard does not contain an image.": "Níl íomhá sa ghearrthaisce.",
+    "Could not paste image": "Níorbh fhéidir an íomhá a ghreamú",
+    "Pasted image from clipboard": "Greamaíodh an íomhá ón ngearrthaisce"
   }
 }

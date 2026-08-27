@@ -584,6 +584,12 @@
     "Temporal Jitter": "اهتزاز زمني",
     "Horizontal jitter": "اهتزاز أفقي",
     "Head Switching Noise": "ضوضاء تبديل الرؤوس",
-    "VHS & Analog": "VHS وتناظري"
+    "VHS & Analog": "VHS وتناظري",
+    "Paste Image from Clipboard": "لصق صورة من الحافظة",
+    "Clipboard": "الحافظة",
+    "Clipboard Image": "صورة من الحافظة",
+    "The clipboard does not contain an image.": "لا تحتوي الحافظة على صورة.",
+    "Could not paste image": "تعذر لصق الصورة",
+    "Pasted image from clipboard": "تم لصق الصورة من الحافظة"
   }
 }

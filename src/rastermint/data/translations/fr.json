@@ -584,6 +584,12 @@
     "Temporal Jitter": "Tremblement temporel",
     "Horizontal jitter": "Tremblement horizontal",
     "Head Switching Noise": "Bruit de commutation des têtes",
-    "VHS & Analog": "VHS et analogique"
+    "VHS & Analog": "VHS et analogique",
+    "Paste Image from Clipboard": "Coller une image depuis le presse-papiers",
+    "Clipboard": "Presse-papiers",
+    "Clipboard Image": "Image du presse-papiers",
+    "The clipboard does not contain an image.": "Le presse-papiers ne contient aucune image.",
+    "Could not paste image": "Impossible de coller l’image",
+    "Pasted image from clipboard": "Image collée depuis le presse-papiers"
   }
 }

@@ -28,6 +28,14 @@ ApplicationWindow {
         return result
     }
 
+    function pasteImageShortcutAllowed() {
+        var item = window.activeFocusItem
+        if (!item)
+            return true
+        var typeName = String(item)
+        return typeName.indexOf("TextInput") < 0 && typeName.indexOf("TextEdit") < 0
+    }
+
     function openQuickExportImageDialog() {
         quickExportImageDialog.selectedFile = backend.suggestedExportFile("PNG")
         quickExportImageDialog.open()
@@ -129,6 +137,12 @@ ApplicationWindow {
             onClosed: fileMenuButton.focus = false
 
             Action { text: qsTr("Open File…"); shortcut: StandardKey.Open; onTriggered: openDialog.open() }
+            Action {
+                text: qsTr("Paste Image from Clipboard")
+                shortcut: StandardKey.Paste
+                enabled: window.pasteImageShortcutAllowed()
+                onTriggered: backend.pasteImageFromClipboard()
+            }
             MintMenuSeparator { }
             Action { text: qsTr("Export to Clipboard…"); enabled: backend.hasSource; onTriggered: backend.exportToClipboard() }
             Action { text: qsTr("Quick Export Image…"); enabled: backend.hasSource; shortcut: "Ctrl+E"; onTriggered: window.openQuickExportImageDialog() }

@@ -243,12 +243,21 @@ class RasterMintBackend(PreferencesBackend):
             super()._restore_history_state(state)
 
     def _transparency_source(self) -> Any | None:
-        """Reload the original still image when it contains real alpha.
+        """Return the original still-image pixels when they contain real alpha.
 
-        The normal preview pipeline keeps an RGB working copy for speed. Export
-        reopens the source so alpha is not lost just because preview rendering is
-        RGB-only.
+        File sources are reopened to avoid carrying a second full-size RGBA copy
+        during normal editing. Clipboard sources have no backing file, so their
+        original RGBA pixels are retained separately only when transparency is
+        actually present.
         """
+        clipboard_source = getattr(self, "_clipboard_source_image", None)
+        if clipboard_source is not None:
+            try:
+                if image_has_transparency(clipboard_source):
+                    return clipboard_source.copy()
+            except Exception:
+                pass
+
         path = getattr(self, "_current_file", None)
         if path is None or getattr(self, "_video_path", None) is not None:
             return None

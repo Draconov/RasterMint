@@ -584,6 +584,12 @@
     "Temporal Jitter": "Laika trīce",
     "Horizontal jitter": "Horizontālā trīce",
     "Head Switching Noise": "Galviņu pārslēgšanas troksnis",
-    "VHS & Analog": "VHS un analogie"
+    "VHS & Analog": "VHS un analogie",
+    "Paste Image from Clipboard": "Ielīmēt attēlu no starpliktuves",
+    "Clipboard": "Starpliktuve",
+    "Clipboard Image": "Attēls no starpliktuves",
+    "The clipboard does not contain an image.": "Starpliktuvē nav attēla.",
+    "Could not paste image": "Neizdevās ielīmēt attēlu",
+    "Pasted image from clipboard": "Attēls ielīmēts no starpliktuves"
   }
 }

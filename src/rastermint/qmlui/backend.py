@@ -12,7 +12,7 @@ import traceback
 from pathlib import Path
 from typing import Any
 
-from PySide6.QtCore import QObject, Property, QRect, QSettings, QThreadPool, QTimer, QUrl, Qt, Signal, Slot
+from PySide6.QtCore import QCoreApplication, QObject, Property, QRect, QSettings, QThreadPool, QTimer, QUrl, Qt, Signal, Slot
 from PySide6.QtGui import QColor, QCursor, QGuiApplication, QImage, QPainter, QPen, QRasterWindow
 from PySide6.QtQuick import QQuickWindow
 
@@ -117,6 +117,29 @@ def _local_path(value: str | QUrl) -> str:
     if url.isValid() and url.isLocalFile():
         return url.toLocalFile()
     return text
+
+
+def _tr(source_text: str) -> str:
+    return QCoreApplication.translate("RasterMintBackend", source_text)
+
+
+def _qimage_to_pil(image: QImage):
+    """Convert a clipboard QImage to a detached Pillow RGBA image."""
+    from PIL import Image
+
+    rgba = image.convertToFormat(QImage.Format.Format_RGBA8888)
+    if rgba.isNull() or rgba.width() <= 0 or rgba.height() <= 0:
+        raise ValueError("Clipboard image is empty.")
+    raw = bytes(rgba.constBits())
+    return Image.frombuffer(
+        "RGBA",
+        (rgba.width(), rgba.height()),
+        raw,
+        "raw",
+        "RGBA",
+        rgba.bytesPerLine(),
+        1,
+    ).copy()
 
 
 class _ScreenEyedropperLoupe(QRasterWindow):
@@ -271,6 +294,7 @@ class RasterMintBackend(QObject):
         self._selected_layer = min(len(self.settings.effect_stack) - 1, 0)
 
         self._source_image: Any | None = None
+        self._clipboard_source_image: Any | None = None
         self._current_frame: Any | None = None
         self._current_file: Path | None = None
         self._video_path: Path | None = None
@@ -525,7 +549,11 @@ class RasterMintBackend(QObject):
 
     @Property(str, notify=sourceChanged)
     def currentFileName(self) -> str:
-        return self._current_file.name if self._current_file else ""
+        if self._current_file:
+            return self._current_file.name
+        if self._source_image is not None:
+            return _tr("Clipboard Image")
+        return ""
 
     @Property(str, notify=sourceChanged)
     def sourceInfo(self) -> str:
@@ -1091,6 +1119,7 @@ class RasterMintBackend(QObject):
             self._video_path = None
             self._video_info = None
             self._source_image = None
+            self._clipboard_source_image = None
             self._current_frame = None
             if suffix in SUPPORTED_VIDEO_SUFFIXES:
                 self._video_path = path
@@ -1114,6 +1143,52 @@ class RasterMintBackend(QObject):
             self.refreshPresetThumbnails()
         except Exception as exc:
             self.errorOccurred.emit("Could not open file", str(exc))
+
+    @Slot()
+    def pasteImageFromClipboard(self) -> None:
+        """Load image pixels (or a copied image file) from the system clipboard."""
+        clipboard = QGuiApplication.clipboard()
+        if clipboard is None:
+            self.errorOccurred.emit(_tr("Clipboard"), _tr("The clipboard does not contain an image."))
+            return
+
+        try:
+            qimage = clipboard.image()
+            if qimage is None or qimage.isNull():
+                mime = clipboard.mimeData()
+                if mime is not None:
+                    for url in mime.urls():
+                        path = Path(_local_path(url))
+                        if path.is_file() and path.suffix.lower() in IMAGE_SUFFIXES:
+                            self.openFile(str(path))
+                            return
+                self.errorOccurred.emit(_tr("Clipboard"), _tr("The clipboard does not contain an image."))
+                return
+
+            pasted = _qimage_to_pil(qimage)
+            alpha = pasted.getchannel("A")
+            alpha_min, _alpha_max = alpha.getextrema()
+
+            self._current_file = None
+            self._current_time = 0.0
+            self._video_path = None
+            self._video_info = None
+            self._current_frame = None
+            self._clipboard_source_image = pasted if int(alpha_min) < 255 else None
+            self._source_image = pasted.convert("RGB")
+
+            self._source_revision += 1
+            self._reset_preview_temporal_state()
+            self._invalidate_rendered()
+            self.sourceChanged.emit()
+            self.playbackChanged.emit()
+            self._history.clear()
+            self.historyChanged.emit()
+            self._set_status(_tr("Pasted image from clipboard"))
+            self.schedulePreview(force=True)
+            self.refreshPresetThumbnails()
+        except Exception as exc:
+            self.errorOccurred.emit(_tr("Could not paste image"), str(exc))
 
     @Slot(str)
     def exportImage(self, value: str) -> None:

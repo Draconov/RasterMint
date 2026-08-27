@@ -584,6 +584,12 @@
     "Temporal Jitter": "Tremor temporal",
     "Horizontal jitter": "Tremor horizontal",
     "Head Switching Noise": "Ruído de comutação das cabeças",
-    "VHS & Analog": "VHS e analógico"
+    "VHS & Analog": "VHS e analógico",
+    "Paste Image from Clipboard": "Colar imagem da área de transferência",
+    "Clipboard": "Área de transferência",
+    "Clipboard Image": "Imagem da área de transferência",
+    "The clipboard does not contain an image.": "A área de transferência não contém uma imagem.",
+    "Could not paste image": "Não foi possível colar a imagem",
+    "Pasted image from clipboard": "Imagem colada da área de transferência"
   }
 }

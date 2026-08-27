@@ -584,6 +584,12 @@
     "Temporal Jitter": "Temblor temporal",
     "Horizontal jitter": "Temblor horizontal",
     "Head Switching Noise": "Ruido de conmutación del cabezal",
-    "VHS & Analog": "VHS y analógico"
+    "VHS & Analog": "VHS y analógico",
+    "Paste Image from Clipboard": "Pegar imagen desde el portapapeles",
+    "Clipboard": "Portapapeles",
+    "Clipboard Image": "Imagen del portapapeles",
+    "The clipboard does not contain an image.": "El portapapeles no contiene ninguna imagen.",
+    "Could not paste image": "No se pudo pegar la imagen",
+    "Pasted image from clipboard": "Imagen pegada desde el portapapeles"
   }
 }

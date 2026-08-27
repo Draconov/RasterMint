@@ -584,6 +584,12 @@
     "Temporal Jitter": "רעד זמני",
     "Horizontal jitter": "רעד אופקי",
     "Head Switching Noise": "רעש החלפת ראשים",
-    "VHS & Analog": "VHS ואנלוגי"
+    "VHS & Analog": "VHS ואנלוגי",
+    "Paste Image from Clipboard": "הדבק תמונה מהלוח",
+    "Clipboard": "לוח",
+    "Clipboard Image": "תמונה מהלוח",
+    "The clipboard does not contain an image.": "הלוח אינו מכיל תמונה.",
+    "Could not paste image": "לא ניתן להדביק את התמונה",
+    "Pasted image from clipboard": "התמונה הודבקה מהלוח"
   }
 }

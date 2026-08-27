@@ -584,6 +584,12 @@
     "Temporal Jitter": "Tremolio temporale",
     "Horizontal jitter": "Tremolio orizzontale",
     "Head Switching Noise": "Rumore di commutazione testine",
-    "VHS & Analog": "VHS e analogico"
+    "VHS & Analog": "VHS e analogico",
+    "Paste Image from Clipboard": "Incolla immagine dagli appunti",
+    "Clipboard": "Appunti",
+    "Clipboard Image": "Immagine dagli appunti",
+    "The clipboard does not contain an image.": "Gli appunti non contengono un’immagine.",
+    "Could not paste image": "Impossibile incollare l’immagine",
+    "Pasted image from clipboard": "Immagine incollata dagli appunti"
   }
 }

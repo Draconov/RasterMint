@@ -584,6 +584,12 @@
     "Temporal Jitter": "Часове тремтіння",
     "Horizontal jitter": "Горизонтальне тремтіння",
     "Head Switching Noise": "Шум перемикання головок",
-    "VHS & Analog": "VHS та аналогове відео"
+    "VHS & Analog": "VHS та аналогове відео",
+    "Paste Image from Clipboard": "Вставити зображення з буфера обміну",
+    "Clipboard": "Буфер обміну",
+    "Clipboard Image": "Зображення з буфера обміну",
+    "The clipboard does not contain an image.": "Буфер обміну не містить зображення.",
+    "Could not paste image": "Не вдалося вставити зображення",
+    "Pasted image from clipboard": "Зображення вставлено з буфера обміну"
   }
 }
