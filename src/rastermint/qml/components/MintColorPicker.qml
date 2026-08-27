@@ -169,16 +169,17 @@ Item {
 
     function commitColor() {
         var includeAlpha = alphaEnabled && popup.workingColor.a < 0.999
-        root.colorValue = colorToHex(popup.workingColor, includeAlpha)
-        addRecent(root.colorValue)
-        colorPicked(root.colorValue)
+        var committedValue = colorToHex(popup.workingColor, includeAlpha)
+        addRecent(committedValue)
+        colorPicked(committedValue)
         popup.close()
     }
 
     function openPicker(value) {
+        var selectedValue = root.colorValue
         if (value !== undefined && value !== null && String(value).length > 0)
-            root.colorValue = root.normalized(value)
-        root.syncUiFromColor(root.colorValue)
+            selectedValue = root.normalized(value)
+        root.syncUiFromColor(selectedValue)
         popup.open()
     }
 
