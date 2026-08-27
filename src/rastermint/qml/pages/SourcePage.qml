@@ -22,11 +22,11 @@ ScrollView {
                 ]
                 ColumnLayout {
                     Layout.fillWidth: true
-                    MintLabel { text: qsTr(modelData.label); color: theme.mutedTextColor }
+                    MintLabel { text: localization.translateRuntime(localization.effectiveLanguageId, String(modelData.label)); color: theme.mutedTextColor }
                     MintSlider {
                         Layout.fillWidth: true; from: 0; to: 0.49; stepSize: 0.01; value: backend.settingsMap[modelData.key]
                         onInteractionActiveChanged: {
-                            if (interactionActive) backend.beginHistoryGroup(qsTr("Crop %1").arg(qsTr(modelData.label).toLowerCase()))
+                            if (interactionActive) backend.beginHistoryGroup(qsTr("Crop %1").arg(localization.translateRuntime(localization.effectiveLanguageId, String(modelData.label)).toLowerCase()))
                             else backend.endHistoryGroup()
                         }
                         onUserMoved: function(newValue) { backend.setSetting(modelData.key, newValue) }

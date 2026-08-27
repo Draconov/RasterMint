@@ -8,7 +8,10 @@ Dialog {
     title: qsTr("Settings")
     modal: true
     popupType: Popup.Item
-    width: 460
+    // Localized labels can be substantially longer than English. Use the
+    // available application width instead of forcing the old 460 px dialog,
+    // while still keeping the settings window compact on large screens.
+    width: Math.min(620, Math.max(420, Overlay.overlay ? Overlay.overlay.width - 32 : 560))
     height: Math.min(680, Overlay.overlay ? Overlay.overlay.height - 32 : 680)
     anchors.centerIn: Overlay.overlay
     standardButtons: Dialog.NoButton

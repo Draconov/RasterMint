@@ -86,7 +86,7 @@ ScrollView {
         MintLabel { text: qsTr("Motion preset"); color: theme.mutedTextColor }
         RowLayout {
             Layout.fillWidth: true
-            MintComboBox { id: motionPreset; Layout.fillWidth: true; model: backend.animationPresetNames }
+            MintComboBox { id: motionPreset; Layout.fillWidth: true; model: backend.animationPresetNames; translateModel: true }
             MintButton { text: qsTr("Apply"); enabled: motionPreset.currentIndex >= 0; onClicked: backend.applyAnimationPreset(backend.animationPresetIds[motionPreset.currentIndex]) }
         }
         RowLayout {
@@ -139,7 +139,7 @@ ScrollView {
                     MintCheckBox { checked: modelData.enabled; onToggled: backend.setAnimationTrackEnabled(index, checked) }
                     ColumnLayout {
                         Layout.fillWidth: true; spacing: 0
-                        Text { Layout.fillWidth: true; text: qsTr(modelData.label); color: theme.textColor; font.bold: true; elide: Text.ElideRight }
+                        Text { Layout.fillWidth: true; text: localization.translateRuntime(localization.effectiveLanguageId, String(modelData.label)); color: theme.textColor; font.bold: true; elide: Text.ElideRight }
                         Text { Layout.fillWidth: true; text: Number(modelData.start).toFixed(2) + " → " + Number(modelData.end).toFixed(2) + " s  ·  " + modelData.easing; color: theme.mutedTextColor; font.pixelSize: 10; elide: Text.ElideRight }
                     }
                 }

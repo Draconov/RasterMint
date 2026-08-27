@@ -389,7 +389,7 @@ Item {
         }
 
         Rectangle { Layout.fillWidth: true; height: 1; color: theme.borderColor }
-        MintLabel { text: qsTr(backend.selectedLayerName); font.bold: true }
+        MintLabel { text: localization.translateRuntime(localization.effectiveLanguageId, String(backend.selectedLayerName)); font.bold: true }
         MintLabel {
             Layout.fillWidth: true
             visible: backend.selectedLayerName === "Hardware Limits" || backend.selectedLayerName === "Hardware Display"
@@ -602,7 +602,7 @@ Item {
                                 }
                                 Text {
                                     Layout.fillWidth: true
-                                    text: qsTr(categoryDelegate.modelData.name)
+                                    text: localization.translateRuntime(localization.effectiveLanguageId, String(categoryDelegate.modelData.name))
                                     color: theme.textColor
                                     font.bold: true
                                     verticalAlignment: Text.AlignVCenter
@@ -633,7 +633,7 @@ Item {
                                     implicitHeight: 32
                                     leftPadding: 28
                                     contentItem: Text {
-                                        text: qsTr(parent.modelData)
+                                        text: localization.translateRuntime(localization.effectiveLanguageId, String(parent.modelData))
                                         color: theme.textColor
                                         verticalAlignment: Text.AlignVCenter
                                         elide: Text.ElideRight
@@ -658,7 +658,7 @@ Item {
     Component {
         id: boolEditor
         MintCheckBox {
-            text: qsTr(param.label) + (param.animated ? "  · " + qsTr("animated") : "")
+            text: localization.translateRuntime(localization.effectiveLanguageId, String(param.label)) + (param.animated ? "  · " + qsTr("animated") : "")
             checked: Boolean(param.value)
             enabled: !param.animated
             onToggled: backend.setLayerParam(param.key, checked)
@@ -669,7 +669,7 @@ Item {
         id: choiceEditor
         ColumnLayout {
             spacing: 4
-            MintLabel { text: qsTr(param.label); color: theme.mutedTextColor }
+            MintLabel { text: localization.translateRuntime(localization.effectiveLanguageId, String(param.label)); color: theme.mutedTextColor }
             MintComboBox {
                 Layout.fillWidth: true
                 model: param.options
@@ -752,7 +752,7 @@ Item {
         id: textEditor
         ColumnLayout {
             spacing: 4
-            MintLabel { text: qsTr(param.label); color: theme.mutedTextColor }
+            MintLabel { text: localization.translateRuntime(localization.effectiveLanguageId, String(param.label)); color: theme.mutedTextColor }
             MintTextField {
                 Layout.fillWidth: true
                 text: String(param.value)
@@ -774,7 +774,7 @@ Item {
         id: colorEditor
         ColumnLayout {
             spacing: 4
-            MintLabel { text: qsTr(param.label); color: theme.mutedTextColor }
+            MintLabel { text: localization.translateRuntime(localization.effectiveLanguageId, String(param.label)); color: theme.mutedTextColor }
             MintColorPicker {
                 Layout.fillWidth: true
                 colorValue: String(param.value)
@@ -792,7 +792,7 @@ Item {
         ColumnLayout {
             id: glyphEditor
             spacing: 4
-            MintLabel { text: qsTr(param.label); color: theme.mutedTextColor }
+            MintLabel { text: localization.translateRuntime(localization.effectiveLanguageId, String(param.label)); color: theme.mutedTextColor }
 
             MintButton {
                 id: glyphButton
@@ -870,7 +870,7 @@ Item {
                                         }
                                         Text {
                                             Layout.fillWidth: true
-                                            text: qsTr(glyphCategoryDelegate.modelData.name)
+                                            text: localization.translateRuntime(localization.effectiveLanguageId, String(glyphCategoryDelegate.modelData.name))
                                             color: theme.textColor
                                             font.bold: true
                                             elide: Text.ElideRight
@@ -906,7 +906,7 @@ Item {
                                                 spacing: 8
                                                 Text {
                                                     Layout.preferredWidth: 112
-                                                    text: qsTr(glyphSetItem.modelData.name)
+                                                    text: localization.translateRuntime(localization.effectiveLanguageId, String(glyphSetItem.modelData.name))
                                                     color: theme.textColor
                                                     elide: Text.ElideRight
                                                 }
@@ -945,7 +945,7 @@ Item {
             spacing: 4
 
             MintLabel {
-                text: qsTr(param.label) + (param.animated ? "  · " + qsTr("animated") : "")
+                text: localization.translateRuntime(localization.effectiveLanguageId, String(param.label)) + (param.animated ? "  · " + qsTr("animated") : "")
                 color: theme.mutedTextColor
             }
 
@@ -1027,7 +1027,7 @@ Item {
             RowLayout {
                 Layout.fillWidth: true
                 MintLabel {
-                    text: qsTr(param.label) + (param.animated ? "  · " + qsTr("animated") : "")
+                    text: localization.translateRuntime(localization.effectiveLanguageId, String(param.label)) + (param.animated ? "  · " + qsTr("animated") : "")
                     color: theme.mutedTextColor
                     Layout.fillWidth: true
                 }

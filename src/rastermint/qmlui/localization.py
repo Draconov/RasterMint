@@ -192,6 +192,32 @@ class LocalizationManager(QObject):
     def languageNames(self) -> list[str]:
         return [self._language_names[language_id] for language_id in self._language_order]
 
+    @Slot(str, result=str)
+    def translateText(self, source_text: str) -> str:
+        """Translate runtime/data-driven UI text using the active dictionary.
+
+        QML's qsTr() is ideal for literal strings, but several RasterMint models
+        (effect metadata, preset categories and built-in preset descriptions)
+        are populated at runtime. Routing those strings through the installed
+        JSON translator makes them switch language just like literal QML text.
+        """
+        source = str(source_text or "")
+        if not source or self._language_id == DEFAULT_LANGUAGE_ID:
+            return source
+        translated = self._translator.translate("", source)
+        return translated or source
+
+    @Slot(str, str, result=str)
+    def translateRuntime(self, language_id: str, source_text: str) -> str:
+        """QML-friendly runtime translation with an explicit language dependency.
+
+        ``language_id`` is intentionally part of the call signature so QML
+        bindings re-evaluate when ``effectiveLanguageId`` changes at runtime.
+        The active translator remains the source of truth.
+        """
+        del language_id
+        return self.translateText(source_text)
+
     @Slot(str)
     def setLanguage(self, language_id_or_name: str) -> None:
         value = str(language_id_or_name or "")

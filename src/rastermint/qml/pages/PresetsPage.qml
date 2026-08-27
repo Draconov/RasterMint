@@ -94,7 +94,9 @@ Item {
         var filter = presetFilter.currentText
         for (var i = 0; i < source.length; ++i) {
             var item = source[i]
-            var haystack = (String(item.name || "") + " " + String(item.description || "") + " " + String(item.userCategory || "")).toLowerCase()
+            var searchName = Boolean(item.user) ? String(item.name || "") : localization.translateRuntime(localization.effectiveLanguageId, String(item.name || ""))
+            var searchDescription = Boolean(item.user) ? String(item.description || "") : localization.translateRuntime(localization.effectiveLanguageId, String(item.description || ""))
+            var haystack = (searchName + " " + searchDescription + " " + String(item.userCategory || "")).toLowerCase()
             if (query.length > 0 && haystack.indexOf(query) < 0) continue
             if (filter === qsTr("Favorites") && !Boolean(item.favorite)) continue
             if (filter === qsTr("Recent") && Number(item.recentRank) < 0) continue
@@ -158,7 +160,12 @@ Item {
             border.color: theme.borderColor
 
             property bool isUserPreset: Boolean(modelData.user)
-            property string descriptionText: modelData.description ? String(modelData.description) : ""
+            property string displayName: isUserPreset
+                ? String(modelData.name || "")
+                : localization.translateRuntime(localization.effectiveLanguageId, String(modelData.name || ""))
+            property string descriptionText: isUserPreset
+                ? String(modelData.description || "")
+                : localization.translateRuntime(localization.effectiveLanguageId, String(modelData.description || ""))
             property string hardwareName: modelData.hardwareProfileName ? String(modelData.hardwareProfileName) : ""
             property string hardwareMode: modelData.hardwareMode ? String(modelData.hardwareMode) : ""
             property string hardwareText: hardwareName !== "" ? qsTr("Hardware: %1").arg(hardwareName) : ""
@@ -187,7 +194,7 @@ Item {
 
                 Text {
                     Layout.fillWidth: true
-                    text: modelData.name + (presetCard.isUserPreset ? " · " + qsTr("custom") : "")
+                    text: presetCard.displayName + (presetCard.isUserPreset ? " · " + qsTr("custom") : "")
                     color: theme.textColor
                     font.bold: true
                     wrapMode: Text.WordWrap
@@ -401,7 +408,7 @@ Item {
 
                                 Text {
                                     Layout.fillWidth: true
-                                    text: qsTr(categorySection.categoryData.name)
+                                    text: localization.translateRuntime(localization.effectiveLanguageId, String(categorySection.categoryData.name))
                                     color: theme.textColor
                                     font.bold: true
                                     font.pixelSize: 12
