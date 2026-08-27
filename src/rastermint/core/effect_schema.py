@@ -81,6 +81,38 @@ EFFECT_DEFINITIONS: dict[str, dict[str, Any]] = {
         "strength": {"type": "float", "label": "Strength", "default": 0.45, "min": 0.0, "max": 1.0, "step": 0.01, "decimals": 2, "animatable": True},
         "decay": {"type": "float", "label": "Decay speed", "default": 1.0, "min": 0.1, "max": 4.0, "step": 0.05, "decimals": 2, "animatable": True},
     }},
+    "Chroma Bleed": {"params": {
+        "bleed": {"type": "float", "label": "Bleed", "default": 3.0, "min": 0.0, "max": 24.0, "step": 0.25, "decimals": 2, "suffix": " px", "animatable": True, "pixel_scaled": True},
+        "delay": {"type": "int", "label": "Delay", "default": 1, "min": -16, "max": 16, "step": 1, "suffix": " px", "animatable": True, "pixel_scaled": True},
+        "strength": {"type": "float", "label": "Strength", "default": 0.75, "min": 0.0, "max": 1.0, "step": 0.01, "decimals": 2, "animatable": True},
+    }},
+    "Tracking Error": {"params": {
+        "amount": {"type": "int", "label": "Shift", "default": 10, "min": 0, "max": 128, "step": 1, "suffix": " px", "animatable": True, "pixel_scaled": True},
+        "band_height": {"type": "int", "label": "Band height", "default": 6, "min": 1, "max": 64, "step": 1, "suffix": " px", "pixel_scaled": True},
+        "instability": {"type": "float", "label": "Instability", "default": 0.55, "min": 0.0, "max": 1.0, "step": 0.01, "decimals": 2, "animatable": True},
+        "speed": {"type": "float", "label": "Speed", "default": 4.0, "min": 0.0, "max": 30.0, "step": 0.1, "decimals": 1, "suffix": " Hz", "animatable": True},
+        "seed": {"type": "int", "label": "Seed", "default": 1, "min": 0, "max": 999999, "step": 1},
+    }},
+    "Tape Dropout": {"params": {
+        "amount": {"type": "float", "label": "Amount", "default": 0.18, "min": 0.0, "max": 1.0, "step": 0.01, "decimals": 2, "animatable": True},
+        "length": {"type": "int", "label": "Max streak length", "default": 48, "min": 2, "max": 256, "step": 1, "suffix": " px", "animatable": True, "pixel_scaled": True},
+        "thickness": {"type": "int", "label": "Max streak thickness", "default": 2, "min": 1, "max": 12, "step": 1, "suffix": " px", "pixel_scaled": True},
+        "strength": {"type": "float", "label": "Strength", "default": 0.65, "min": 0.0, "max": 1.0, "step": 0.01, "decimals": 2, "animatable": True},
+        "seed": {"type": "int", "label": "Seed", "default": 1, "min": 0, "max": 999999, "step": 1},
+    }},
+    "Temporal Jitter": {"params": {
+        "x": {"type": "float", "label": "Horizontal jitter", "default": 2.0, "min": 0.0, "max": 32.0, "step": 0.1, "decimals": 2, "suffix": " px", "animatable": True, "pixel_scaled": True},
+        "y": {"type": "float", "label": "Vertical jitter", "default": 1.0, "min": 0.0, "max": 32.0, "step": 0.1, "decimals": 2, "suffix": " px", "animatable": True, "pixel_scaled": True},
+        "speed": {"type": "float", "label": "Speed", "default": 6.0, "min": 0.0, "max": 30.0, "step": 0.1, "decimals": 1, "suffix": " Hz", "animatable": True},
+        "seed": {"type": "int", "label": "Seed", "default": 1, "min": 0, "max": 999999, "step": 1},
+    }},
+    "Head Switching Noise": {"params": {
+        "height": {"type": "int", "label": "Band height", "default": 18, "min": 1, "max": 96, "step": 1, "suffix": " px", "animatable": True, "pixel_scaled": True},
+        "shift": {"type": "int", "label": "Shift", "default": 20, "min": 0, "max": 256, "step": 1, "suffix": " px", "animatable": True, "pixel_scaled": True},
+        "noise": {"type": "float", "label": "Noise", "default": 0.35, "min": 0.0, "max": 1.0, "step": 0.01, "decimals": 2, "animatable": True},
+        "strength": {"type": "float", "label": "Strength", "default": 0.75, "min": 0.0, "max": 1.0, "step": 0.01, "decimals": 2, "animatable": True},
+        "seed": {"type": "int", "label": "Seed", "default": 1, "min": 0, "max": 999999, "step": 1},
+    }},
     "Noise": {"params": {
         "amount": {"type": "float", "label": "Amount", "default": 12.0, "min": 0.0, "max": 100.0, "step": 1.0, "decimals": 1, "animatable": True},
         "seed": {"type": "int", "label": "Seed", "default": 1, "min": 0, "max": 999999, "step": 1},
@@ -337,8 +369,9 @@ EFFECT_CATEGORIES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("Hardware Stages", (
         "Hardware Limits", "Hardware Display",
     )),
-    ("Display & Analog", (
-        "Pixel Aspect Ratio", "Scanlines", "Interlace", "Display Persistence", "JPEG Compression",
+    ("Display Effects", (
+        "Pixel Aspect Ratio", "Scanlines", "Interlace", "Display Persistence", "Chroma Bleed",
+        "Tracking Error", "Tape Dropout", "Temporal Jitter", "Head Switching Noise", "JPEG Compression",
     )),
     ("Glitch & Channels", (
         "Chromatic Shift", "RGB Split", "Pixel Sort", "Screen Melt", "Block Shuffle",

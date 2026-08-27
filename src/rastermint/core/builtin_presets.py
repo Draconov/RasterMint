@@ -49,8 +49,14 @@ BUILTIN_PRESETS: tuple[BuiltinPreset, ...] = (
     BuiltinPreset("amstrad-cpc", "Amstrad CPC", "Amstrad CPC vivid 27-colour microcomputer look."),
     BuiltinPreset("msx", "MSX", "MSX home-computer palette with saturated primaries."),
     BuiltinPreset("ti994a", "TI-99/4A", "Texas Instruments TI-99/4A palette look."),
-    BuiltinPreset("crt-ntsc", "CRT NTSC", "NTSC 4:3 display treatment with blur, scanlines and colour bleed.", hardware_profile_id="crt-ntsc", hardware_mode="visual"),
-    BuiltinPreset("crt-pal", "CRT PAL", "PAL 4:3 display treatment with non-square pixels and softer bleed.", hardware_profile_id="crt-pal", hardware_mode="visual"),
+    BuiltinPreset("crt-ntsc", "CRT NTSC", "NTSC 4:3 display treatment with blur, scanlines, colour bleed and phosphor persistence.", hardware_profile_id="crt-ntsc", hardware_mode="visual"),
+    BuiltinPreset("crt-pal", "CRT PAL", "PAL 4:3 display treatment with non-square pixels, softer bleed and phosphor persistence.", hardware_profile_id="crt-pal", hardware_mode="visual"),
+    BuiltinPreset("vhs-clean", "Clean VHS", "Mild tape softness, chroma bleed, fine noise and restrained tracking instability."),
+    BuiltinPreset("vhs-home-video", "90s Home Video", "Warm consumer VHS look with colour bleed, tape noise, light tracking and frame jitter."),
+    BuiltinPreset("vhs-c-camcorder", "VHS-C Camcorder", "Compact camcorder-style tape image with stronger noise, vertical jitter and soft chroma."),
+    BuiltinPreset("vhs-rental-tape", "Old Rental Tape", "A worn rental cassette with tracking slips, dropouts, chroma smear and head-switching noise."),
+    BuiltinPreset("vhs-damaged", "Damaged VHS", "Heavy tape damage with aggressive tracking errors, dropout streaks, jitter and bottom-edge tearing."),
+    BuiltinPreset("vhs-crt", "VHS on CRT", "Home-video tape artefacts played through an NTSC CRT with scanlines, bleed and phosphor persistence.", hardware_profile_id="crt-ntsc", hardware_mode="visual"),
     BuiltinPreset("monochrome-lcd", "Mono LCD", "Monochrome LCD look with muted four-colour palette.", hardware_profile_id="monochrome-lcd", hardware_mode="strict"),
     BuiltinPreset("green-crt", "Green CRT", "Monochrome green phosphor palette with scanlines and local contrast."),
     BuiltinPreset("amber-monitor", "Amber Monitor", "Warm amber monochrome monitor look."),
@@ -180,8 +186,101 @@ PRESET_CONFIGS: dict[str, dict[str, Any]] = {
     "amstrad-cpc": _palette_config("Amstrad CPC 27", dither="Bayer 4x4", strength=0.95, target=(320, 200), pixel_aspect=(5, 6), pixelate=2),
     "msx": _palette_config("MSX 15", dither="Floyd-Steinberg", strength=0.9, target=(256, 192), pixel_aspect=(8, 7), pixelate=2),
     "ti994a": _palette_config("TI-99/4A", dither="Bayer 4x4", strength=0.9, target=(256, 192), pixel_aspect=(8, 7), pixelate=2),
-    "crt-ntsc": _profile_config("crt-ntsc", mode="visual", constraints=False, pixelate=2),
-    "crt-pal": _profile_config("crt-pal", mode="visual", constraints=False, pixelate=2),
+    "crt-ntsc": _profile_config(
+        "crt-ntsc",
+        mode="visual",
+        constraints=False,
+        pixelate=2,
+        effects=[
+            _effect("Display Persistence", display_type="CRT", persistence_time=0.16, strength=0.24, decay=1.35),
+        ],
+    ),
+    "crt-pal": _profile_config(
+        "crt-pal",
+        mode="visual",
+        constraints=False,
+        pixelate=2,
+        effects=[
+            _effect("Display Persistence", display_type="CRT", persistence_time=0.18, strength=0.25, decay=1.30),
+        ],
+    ),
+    "vhs-clean": {
+        "dither": {"algorithm": "Nearest Palette", "mix": 0.0, "strength": 1.0, "serpentine": False},
+        "effects": [
+            _effect("Adjustments", brightness=1, contrast=-5, saturation=-6, gamma=1.02),
+            _effect("Gaussian Blur", radius=0.35),
+            _effect("Chroma Bleed", bleed=1.8, delay=1, strength=0.55),
+            _effect("Tracking Error", amount=2, band_height=9, instability=0.14, speed=1.5, seed=11),
+            _effect("Temporal Jitter", x=0.35, y=0.12, speed=7.0, seed=13),
+            _effect("Noise", amount=2.5, seed=17, temporal=True),
+        ],
+    },
+    "vhs-home-video": {
+        "dither": {"algorithm": "Nearest Palette", "mix": 0.0, "strength": 1.0, "serpentine": False},
+        "effects": [
+            _effect("Adjustments", brightness=2, contrast=-8, saturation=-10, gamma=1.02),
+            _effect("Gaussian Blur", radius=0.55),
+            _effect("Chroma Bleed", bleed=3.0, delay=2, strength=0.74),
+            _effect("Tracking Error", amount=5, band_height=7, instability=0.34, speed=3.0, seed=21),
+            _effect("Tape Dropout", amount=0.05, length=36, thickness=1, strength=0.42, seed=23),
+            _effect("Temporal Jitter", x=0.9, y=0.28, speed=6.0, seed=29),
+            _effect("Noise", amount=5.0, seed=31, temporal=True),
+        ],
+    },
+    "vhs-c-camcorder": {
+        "dither": {"algorithm": "Nearest Palette", "mix": 0.0, "strength": 1.0, "serpentine": False},
+        "effects": [
+            _effect("Adjustments", brightness=3, contrast=-6, saturation=-7, gamma=1.0),
+            _effect("Gaussian Blur", radius=0.48),
+            _effect("Chroma Bleed", bleed=2.6, delay=1, strength=0.70),
+            _effect("Tracking Error", amount=4, band_height=6, instability=0.28, speed=4.5, seed=37),
+            _effect("Tape Dropout", amount=0.07, length=28, thickness=1, strength=0.48, seed=41),
+            _effect("Temporal Jitter", x=0.75, y=0.75, speed=8.5, seed=43),
+            _effect("Noise", amount=6.0, seed=47, temporal=True),
+        ],
+    },
+    "vhs-rental-tape": {
+        "dither": {"algorithm": "Nearest Palette", "mix": 0.0, "strength": 1.0, "serpentine": False},
+        "effects": [
+            _effect("Adjustments", brightness=0, contrast=-12, saturation=-15, gamma=1.04),
+            _effect("Gaussian Blur", radius=0.8),
+            _effect("Chroma Bleed", bleed=4.5, delay=3, strength=0.88),
+            _effect("Tracking Error", amount=11, band_height=6, instability=0.62, speed=4.0, seed=53),
+            _effect("Tape Dropout", amount=0.24, length=70, thickness=3, strength=0.72, seed=59),
+            _effect("Temporal Jitter", x=1.8, y=0.65, speed=7.5, seed=61),
+            _effect("Head Switching Noise", height=18, shift=28, noise=0.48, strength=0.72, seed=67),
+            _effect("Noise", amount=8.0, seed=71, temporal=True),
+        ],
+    },
+    "vhs-damaged": {
+        "dither": {"algorithm": "Nearest Palette", "mix": 0.0, "strength": 1.0, "serpentine": False},
+        "effects": [
+            _effect("Adjustments", brightness=-2, contrast=-16, saturation=-20, gamma=1.08),
+            _effect("Gaussian Blur", radius=1.0),
+            _effect("Chroma Bleed", bleed=6.0, delay=4, strength=1.0),
+            _effect("Tracking Error", amount=24, band_height=5, instability=0.92, speed=5.5, seed=73),
+            _effect("Tape Dropout", amount=0.58, length=120, thickness=5, strength=0.92, seed=79),
+            _effect("Temporal Jitter", x=3.5, y=1.4, speed=9.0, seed=83),
+            _effect("Head Switching Noise", height=28, shift=48, noise=0.82, strength=0.95, seed=89),
+            _effect("Temporal Flicker", amount=0.045, speed=5.0),
+            _effect("Noise", amount=13.0, seed=97, temporal=True),
+        ],
+    },
+    "vhs-crt": _profile_config(
+        "crt-ntsc",
+        mode="visual",
+        constraints=False,
+        effects=[
+            _effect("Adjustments", brightness=1, contrast=-8, saturation=-10, gamma=1.02),
+            _effect("Gaussian Blur", radius=0.5),
+            _effect("Chroma Bleed", bleed=3.2, delay=2, strength=0.78),
+            _effect("Tracking Error", amount=5, band_height=7, instability=0.34, speed=3.5, seed=101),
+            _effect("Tape Dropout", amount=0.08, length=42, thickness=2, strength=0.5, seed=103),
+            _effect("Temporal Jitter", x=0.9, y=0.3, speed=7.0, seed=107),
+            _effect("Noise", amount=5.0, seed=109, temporal=True),
+            _effect("Display Persistence", display_type="CRT", persistence_time=0.18, strength=0.30, decay=1.25),
+        ],
+    ),
     "monochrome-lcd": _profile_config("monochrome-lcd", dither="Bayer 4x4", pixelate=2),
     "green-crt": _palette_config(
         "MDA Green 4",
@@ -451,7 +550,11 @@ def build_builtin_preset(preset_id: str, base: ProcessingSettings | None = None)
 
     # This preset is an algorithm recipe, not a palette preset. Preserve the
     # user's currently selected palette and lock state instead of replacing it.
-    if preset_id in {"accurate-1to1", "isolated-dither-glow"} and base is not None:
+    if preset_id in {
+        "accurate-1to1", "isolated-dither-glow",
+        "vhs-clean", "vhs-home-video", "vhs-c-camcorder",
+        "vhs-rental-tape", "vhs-damaged", "vhs-crt",
+    } and base is not None:
         settings.palette = list(base.palette)
         settings.palette_name = str(base.palette_name)
         settings.palette_author = str(base.palette_author)

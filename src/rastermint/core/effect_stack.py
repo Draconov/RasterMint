@@ -256,6 +256,261 @@ def _rgb_split(image: Image.Image, x: int, y: int) -> Image.Image:
     return Image.fromarray(out, "RGB")
 
 
+def _animated_rng(seed: int, frame_index: int, frame_time: float, salt: int = 0) -> np.random.Generator:
+    time_key = int(round(max(0.0, float(frame_time)) * 1000.0))
+    mixed = (
+        (int(seed) * 1000003)
+        ^ (int(frame_index) * 0x9E3779B1)
+        ^ (time_key * 0x85EBCA6B)
+        ^ int(salt)
+    ) & 0xFFFFFFFF
+    return np.random.default_rng(mixed)
+
+
+def _shift_with_edge(arr: np.ndarray, x: int = 0, y: int = 0) -> np.ndarray:
+    x = int(x)
+    y = int(y)
+    out = np.array(arr, copy=True)
+    h, w = out.shape[:2]
+    if w <= 0 or h <= 0:
+        return out
+
+    if x != 0:
+        shifted = np.empty_like(out)
+        if x > 0:
+            dx = min(x, w)
+            shifted[:, :dx] = out[:, :1]
+            shifted[:, dx:] = out[:, : w - dx]
+        else:
+            dx = min(-x, w)
+            shifted[:, w - dx :] = out[:, -1:]
+            shifted[:, : w - dx] = out[:, dx:]
+        out = shifted
+
+    if y != 0:
+        shifted = np.empty_like(out)
+        if y > 0:
+            dy = min(y, h)
+            shifted[:dy, :] = out[:1, :]
+            shifted[dy:, :] = out[: h - dy, :]
+        else:
+            dy = min(-y, h)
+            shifted[h - dy :, :] = out[-1:, :]
+            shifted[: h - dy, :] = out[dy:, :]
+        out = shifted
+
+    return out
+
+
+def _horizontal_blur_channel(channel: np.ndarray, radius: float) -> np.ndarray:
+    radius = max(0.0, float(radius))
+    if radius <= 1e-9:
+        return np.asarray(channel, dtype=np.float32)
+
+    whole = int(math.floor(radius))
+    frac = float(radius - whole)
+    offsets = range(-whole, whole + 1)
+    weights = [float(whole + 1 - abs(offset)) for offset in offsets]
+    if frac > 1e-6:
+        offsets = list(offsets) + [whole + 1, -(whole + 1)]
+        edge_weight = max(0.0, float(weights[-1]) * frac)
+        weights += [edge_weight, edge_weight]
+    total = max(1e-9, float(sum(weights)))
+
+    padded = np.pad(np.asarray(channel, dtype=np.float32), ((0, 0), (whole + 1, whole + 1)), mode="edge")
+    width = channel.shape[1]
+    out = np.zeros_like(channel, dtype=np.float32)
+    center = whole + 1
+    for offset, weight in zip(offsets, weights, strict=False):
+        start = center + int(offset)
+        out += padded[:, start : start + width] * float(weight)
+    return out / total
+
+
+def _chroma_bleed(image: Image.Image, bleed: float, delay: int, strength: float) -> Image.Image:
+    bleed = max(0.0, float(bleed))
+    delay = int(delay)
+    strength = max(0.0, min(1.0, float(strength)))
+    if bleed <= 1e-9 and delay == 0 or strength <= 1e-9:
+        return image
+
+    arr = np.asarray(image.convert("YCbCr"), dtype=np.float32)
+    cb = arr[..., 1]
+    cr = arr[..., 2]
+
+    cb_shifted = _shift_with_edge(_horizontal_blur_channel(cb, bleed), delay, 0)
+    cr_shifted = _shift_with_edge(_horizontal_blur_channel(cr, bleed * 1.2), delay + (1 if delay >= 0 else -1), 0)
+    arr[..., 1] = cb * (1.0 - strength) + cb_shifted * strength
+    arr[..., 2] = cr * (1.0 - strength) + cr_shifted * strength
+
+    return Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8), "YCbCr").convert("RGB")
+
+
+def _tracking_error(
+    image: Image.Image,
+    amount: int,
+    band_height: int,
+    instability: float,
+    speed: float,
+    seed: int,
+    frame_time: float,
+    frame_index: int,
+) -> Image.Image:
+    amount = max(0, int(amount))
+    band_height = max(1, int(band_height))
+    instability = max(0.0, min(1.0, float(instability)))
+    speed = max(0.0, float(speed))
+    if amount <= 0:
+        return image
+
+    arr = np.asarray(image.convert("RGB"), dtype=np.uint8)
+    out = arr.copy()
+    phase = 2.0 * np.pi * speed * max(0.0, float(frame_time))
+    rng = _animated_rng(seed, frame_index, frame_time, salt=101)
+
+    for band_index, y in enumerate(range(0, arr.shape[0], band_height)):
+        local_h = min(band_height, arr.shape[0] - y)
+        smooth = math.sin(phase + band_index * 0.83 + seed * 0.11)
+        noise = (float(rng.random()) * 2.0 - 1.0) * instability
+        spike = 0.0
+        if rng.random() < 0.05 + 0.25 * instability:
+            spike = (float(rng.random()) * 2.0 - 1.0) * (0.25 + 0.75 * instability)
+        shift = int(round(amount * max(-1.0, min(1.0, 0.65 * smooth + 0.35 * noise + spike))))
+        if shift:
+            out[y : y + local_h] = _shift_with_edge(arr[y : y + local_h], shift, 0)
+
+    return Image.fromarray(out, "RGB")
+
+
+def _tape_dropout(
+    image: Image.Image,
+    amount: float,
+    length: int,
+    thickness: int,
+    strength: float,
+    seed: int,
+    frame_time: float,
+    frame_index: int,
+) -> Image.Image:
+    amount = max(0.0, min(1.0, float(amount)))
+    length = max(2, int(length))
+    thickness = max(1, int(thickness))
+    strength = max(0.0, min(1.0, float(strength)))
+    if amount <= 1e-9 or strength <= 1e-9:
+        return image
+
+    arr = np.asarray(image.convert("RGB"), dtype=np.float32)
+    out = arr.copy()
+    h, w = out.shape[:2]
+    rng = _animated_rng(seed, frame_index, frame_time, salt=211)
+    count = max(1, int(round(amount * max(1.0, h / max(1, thickness)) * 0.6)))
+    min_length = max(2, int(round(length * 0.2)))
+
+    for _ in range(count):
+        streak_h = int(rng.integers(1, thickness + 1))
+        span = int(rng.integers(min_length, length + 1))
+        if span >= w:
+            x0 = 0
+            span = w
+        else:
+            x0 = int(rng.integers(0, w - span + 1))
+        y0 = int(rng.integers(0, max(1, h - streak_h + 1)))
+        opacity = strength * (0.35 + 0.65 * float(rng.random()))
+        region = out[y0 : y0 + streak_h, x0 : x0 + span]
+
+        if rng.random() < 0.3:
+            region[...] = region * (1.0 - opacity * 0.25) + 255.0 * (opacity * 0.9)
+        else:
+            luminance = (
+                0.2126 * region[..., 0]
+                + 0.7152 * region[..., 1]
+                + 0.0722 * region[..., 2]
+            )[..., None]
+            region[...] = np.clip(
+                (region * (1.0 - opacity) + luminance * (opacity * 0.55)) * (1.0 - opacity * 0.6),
+                0.0,
+                255.0,
+            )
+
+        if span > 6 and rng.random() < 0.45:
+            speckle_count = max(1, span // 12)
+            xs = rng.integers(x0, x0 + span, size=speckle_count)
+            ys = rng.integers(y0, y0 + streak_h, size=speckle_count)
+            out[ys, xs] = 255.0
+
+    return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), "RGB")
+
+
+def _temporal_jitter(
+    image: Image.Image,
+    x: float,
+    y: float,
+    speed: float,
+    seed: int,
+    frame_time: float,
+    frame_index: int,
+) -> Image.Image:
+    x = max(0.0, float(x))
+    y = max(0.0, float(y))
+    speed = max(0.0, float(speed))
+    if x <= 1e-9 and y <= 1e-9:
+        return image
+
+    theta = 2.0 * np.pi * speed * max(0.0, float(frame_time))
+    rng = _animated_rng(seed, frame_index, frame_time, salt=307)
+    dx = x * (0.75 * math.sin(theta + seed * 0.17) + 0.25 * (float(rng.random()) * 2.0 - 1.0))
+    dy = y * (0.75 * math.sin(theta * 0.87 + seed * 0.31) + 0.25 * (float(rng.random()) * 2.0 - 1.0))
+    shifted = _shift_with_edge(np.asarray(image.convert("RGB"), dtype=np.uint8), int(round(dx)), int(round(dy)))
+    return Image.fromarray(shifted, "RGB")
+
+
+def _head_switching_noise(
+    image: Image.Image,
+    height: int,
+    shift: int,
+    noise: float,
+    strength: float,
+    seed: int,
+    frame_time: float,
+    frame_index: int,
+) -> Image.Image:
+    height = max(1, int(height))
+    shift = max(0, int(shift))
+    noise = max(0.0, min(1.0, float(noise)))
+    strength = max(0.0, min(1.0, float(strength)))
+    if shift <= 0 and noise <= 1e-9:
+        return image
+
+    arr = np.asarray(image.convert("RGB"), dtype=np.float32)
+    out = arr.copy()
+    h, w = out.shape[:2]
+    band = min(h, height)
+    start = h - band
+    phase = 2.0 * np.pi * 6.0 * max(0.0, float(frame_time))
+    rng = _animated_rng(seed, frame_index, frame_time, salt=401)
+
+    for local_y in range(band):
+        y_index = start + local_y
+        weight = (local_y + 1) / max(1, band)
+        wave = math.sin(phase + local_y * 0.55 + seed * 0.07)
+        jitter = (float(rng.random()) * 2.0 - 1.0) * noise
+        row_shift = int(round(shift * weight * max(-1.0, min(1.0, 0.7 * wave + 0.3 * jitter))))
+        if row_shift:
+            out[y_index : y_index + 1] = _shift_with_edge(arr[y_index : y_index + 1], row_shift, 0)
+
+    if noise > 1e-9:
+        band_arr = out[start:].copy()
+        vertical_weight = np.linspace(0.45, 1.0, band, dtype=np.float32)[:, None, None]
+        grain = rng.normal(0.0, 255.0 * 0.18 * noise, size=band_arr.shape).astype(np.float32)
+        spark_mask = (rng.random((band, w, 1)) < (0.003 + 0.02 * noise)).astype(np.float32)
+        spark = spark_mask * rng.integers(160, 256, size=(band, w, 1), dtype=np.int16).astype(np.float32)
+        band_arr = band_arr * (1.0 - 0.12 * strength * vertical_weight) + grain * vertical_weight * (0.35 + 0.65 * strength)
+        band_arr = np.maximum(band_arr, spark * vertical_weight)
+        out[start:] = np.clip(band_arr, 0.0, 255.0)
+
+    return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), "RGB")
+
+
 def _posterize(image: Image.Image, levels: int) -> Image.Image:
     levels = max(2, min(64, int(levels)))
     arr = np.asarray(image.convert("RGB"), dtype=np.float32)
@@ -2250,6 +2505,11 @@ def apply_normalized_effect_stack(
                     frame_time=frame_time,
                     frame_index=frame_index,
                 )
+        elif kind == "Chroma Bleed": img = _chroma_bleed(img, float(p["bleed"]), int(p["delay"]), float(p["strength"]))
+        elif kind == "Tracking Error": img = _tracking_error(img, int(p["amount"]), int(p["band_height"]), float(p["instability"]), float(p["speed"]), int(p["seed"]), frame_time, frame_index)
+        elif kind == "Tape Dropout": img = _tape_dropout(img, float(p["amount"]), int(p["length"]), int(p["thickness"]), float(p["strength"]), int(p["seed"]), frame_time, frame_index)
+        elif kind == "Temporal Jitter": img = _temporal_jitter(img, float(p["x"]), float(p["y"]), float(p["speed"]), int(p["seed"]), frame_time, frame_index)
+        elif kind == "Head Switching Noise": img = _head_switching_noise(img, int(p["height"]), int(p["shift"]), float(p["noise"]), float(p["strength"]), int(p["seed"]), frame_time, frame_index)
         elif kind == "Noise": img = _noise(img, float(p["amount"]), _seed(p, frame_index))
         elif kind == "Temporal Flicker": img = _flicker(img, float(p["amount"]), float(p["speed"]), frame_time)
         elif kind == "Temporal Pattern": img = _temporal_pattern(img, str(p["pattern"]), float(p["amount"]), float(p["speed"]), float(p["scale"]), float(p["phase"]), frame_time, int(p["seed"]))

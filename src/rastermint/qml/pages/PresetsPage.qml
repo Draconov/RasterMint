@@ -68,6 +68,13 @@ Item {
             ]
         },
         {
+            "name": "VHS & Analog",
+            "ids": [
+                "vhs-clean", "vhs-home-video", "vhs-c-camcorder",
+                "vhs-rental-tape", "vhs-damaged", "vhs-crt"
+            ]
+        },
+        {
             "name": "Stylized & Print",
             "ids": ["halftone-print", "vector", "accurate-1to1", "isolated-dither-glow"]
         },

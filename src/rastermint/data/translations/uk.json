@@ -570,6 +570,20 @@
     "LCD models pixel-response lag, with darker transitions typically trailing longer.": "LCD моделює затримку відгуку пікселів, причому темні переходи зазвичай залишають довший слід.",
     "OLED models longer temporary retention concentrated in bright image regions.": "OLED моделює довше тимчасове утримання зображення, зосереджене переважно у яскравих ділянках.",
     "Generic blends a neutral exponential history of previous frame colours.": "Загальний режим змішує нейтральну експоненційну історію кольорів попередніх кадрів.",
-    "Decay speed 1.00 uses the selected persistence time directly. Lower values leave a longer tail; higher values fade faster.": "Швидкість згасання 1,00 безпосередньо використовує вибраний час післясвітіння. Нижчі значення залишають довший слід, вищі — згасають швидше."
+    "Decay speed 1.00 uses the selected persistence time directly. Lower values leave a longer tail; higher values fade faster.": "Швидкість згасання 1,00 безпосередньо використовує вибраний час післясвітіння. Нижчі значення залишають довший слід, вищі — згасають швидше.",
+    "Display Effects": "Ефекти дисплея",
+    "Chroma Bleed": "Розтікання хроми",
+    "Bleed": "Розтікання",
+    "Delay": "Затримка",
+    "Tracking Error": "Збій трекінгу",
+    "Shift": "Зсув",
+    "Instability": "Нестабільність",
+    "Tape Dropout": "Випадіння сигналу стрічки",
+    "Max streak length": "Максимальна довжина смуги",
+    "Max streak thickness": "Максимальна товщина смуги",
+    "Temporal Jitter": "Часове тремтіння",
+    "Horizontal jitter": "Горизонтальне тремтіння",
+    "Head Switching Noise": "Шум перемикання головок",
+    "VHS & Analog": "VHS та аналогове відео"
   }
 }

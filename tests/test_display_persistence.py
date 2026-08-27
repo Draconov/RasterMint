@@ -42,7 +42,7 @@ def test_display_persistence_schema_supports_long_typed_duration_and_category():
     ])
     assert normalized[0]["params"]["persistence_time"] == 240.0
     assert any(
-        row["name"] == "Display & Analog" and "Display Persistence" in row["effects"]
+        row["name"] == "Display Effects" and "Display Persistence" in row["effects"]
         for row in effect_categories()
     )
 

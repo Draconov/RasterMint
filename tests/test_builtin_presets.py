@@ -29,3 +29,41 @@ def test_hardware_presets_apply_expected_rasters():
     playstation = build_builtin_preset("playstation")
     assert playstation.hardware_profile_id == "playstation"
     assert any(step["kind"] == "Hardware Limits" for step in playstation.effect_stack)
+
+
+def test_vhs_presets_use_display_effects_and_crt_presets_include_persistence():
+    vhs_ids = {
+        "vhs-clean", "vhs-home-video", "vhs-c-camcorder",
+        "vhs-rental-tape", "vhs-damaged", "vhs-crt",
+    }
+    assert vhs_ids <= {preset.id for preset in BUILTIN_PRESETS}
+
+    for preset_id in vhs_ids:
+        settings = build_builtin_preset(preset_id)
+        kinds = [step["kind"] for step in settings.effect_stack if step.get("enabled", True)]
+        assert "Chroma Bleed" in kinds
+        assert "Tracking Error" in kinds
+        assert "Temporal Jitter" in kinds
+
+    damaged = build_builtin_preset("vhs-damaged")
+    damaged_kinds = {step["kind"] for step in damaged.effect_stack if step.get("enabled", True)}
+    assert {"Tape Dropout", "Head Switching Noise"} <= damaged_kinds
+
+    for preset_id in ("crt-ntsc", "crt-pal", "vhs-crt"):
+        settings = build_builtin_preset(preset_id)
+        persistence = [
+            step for step in settings.effect_stack
+            if step.get("enabled", True) and step.get("kind") == "Display Persistence"
+        ]
+        assert len(persistence) == 1
+        assert persistence[0]["params"]["display_type"] == "CRT"
+
+    from rastermint.core.settings import ProcessingSettings
+    base = ProcessingSettings()
+    base.palette = ["#112233", "#445566", "#778899"]
+    base.palette_locks = [False, True, False]
+    base.palette_name = "Keep Me"
+    preserved = build_builtin_preset("vhs-home-video", base)
+    assert preserved.palette == base.palette
+    assert preserved.palette_locks == base.palette_locks
+    assert preserved.palette_name == base.palette_name
