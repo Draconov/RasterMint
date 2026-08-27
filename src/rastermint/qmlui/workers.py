@@ -9,7 +9,6 @@ from typing import Any
 
 from PySide6.QtCore import QObject, QRunnable, Signal, Slot
 
-from rastermint.core.animation import settings_at_time
 from rastermint.core.settings import ProcessingSettings
 
 
@@ -32,6 +31,7 @@ class ProcessingWorker(QRunnable):
         frame_index: int = 0,
         display_mode: str = "raw",
         include_grid: bool = False,
+        temporal_state: Any | None = None,
     ) -> None:
         super().__init__()
         self.job_id = job_id
@@ -43,6 +43,7 @@ class ProcessingWorker(QRunnable):
         self.frame_index = int(frame_index)
         self.display_mode = str(display_mode or "raw")
         self.include_grid = bool(include_grid)
+        self.temporal_state = temporal_state
         self.signals = WorkerSignals()
 
     @Slot()
@@ -60,6 +61,7 @@ class ProcessingWorker(QRunnable):
                 frame_index=self.frame_index,
                 display_mode=self.display_mode,
                 include_grid=self.include_grid,
+                temporal_state=self.temporal_state,
             )
             self.signals.finished.emit(
                 self.job_id, self.purpose, result, self.context
@@ -92,28 +94,12 @@ class VideoCurrentFrameWorker(QRunnable):
     @Slot()
     def run(self) -> None:
         try:
-            from rastermint.core.media import probe_video, read_video_frame
-            from rastermint.core.processor import process_image
+            from rastermint.core.media import render_processed_video_frame
 
-            source = read_video_frame(self.path, self.time_seconds)
-            animated = settings_at_time(self.settings, self.time_seconds)
-            info = probe_video(self.path)
-            frame_index = max(
-                0, round(self.time_seconds * max(1.0, info.fps))
-            )
-            result = process_image(
-                source,
-                animated,
-                frame_time=self.time_seconds,
-                frame_index=frame_index,
-                display_mode=(
-                    animated.display_mode
-                    if animated.display_export
-                    else "raw"
-                ),
-                include_grid=(
-                    animated.grid_enabled and animated.grid_export
-                ),
+            result = render_processed_video_frame(
+                self.path,
+                self.settings,
+                self.time_seconds,
             )
             self.signals.finished.emit(
                 self.job_id, "export-video-frame", result, self.context

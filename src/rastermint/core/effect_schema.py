@@ -75,6 +75,12 @@ EFFECT_DEFINITIONS: dict[str, dict[str, Any]] = {
         "offset": {"type": "int", "label": "Odd-line shift", "default": 2, "min": -32, "max": 32, "step": 1, "suffix": " px", "animatable": True, "pixel_scaled": True},
         "darken": {"type": "float", "label": "Odd-line darken", "default": 0.12, "min": 0.0, "max": 1.0, "step": 0.02, "decimals": 2, "animatable": True},
     }},
+    "Display Persistence": {"params": {
+        "display_type": {"type": "choice", "label": "Display type", "default": "CRT", "options": ["Generic", "CRT", "LCD", "OLED"]},
+        "persistence_time": {"type": "duration", "label": "Persistence time", "default": 0.35, "min": 0.0, "max": 300.0, "slider_max": 60.0, "step": 0.05, "decimals": 2, "suffix": " s", "animatable": True},
+        "strength": {"type": "float", "label": "Strength", "default": 0.45, "min": 0.0, "max": 1.0, "step": 0.01, "decimals": 2, "animatable": True},
+        "decay": {"type": "float", "label": "Decay speed", "default": 1.0, "min": 0.1, "max": 4.0, "step": 0.05, "decimals": 2, "animatable": True},
+    }},
     "Noise": {"params": {
         "amount": {"type": "float", "label": "Amount", "default": 12.0, "min": 0.0, "max": 100.0, "step": 1.0, "decimals": 1, "animatable": True},
         "seed": {"type": "int", "label": "Seed", "default": 1, "min": 0, "max": 999999, "step": 1},
@@ -332,7 +338,7 @@ EFFECT_CATEGORIES: tuple[tuple[str, tuple[str, ...]], ...] = (
         "Hardware Limits", "Hardware Display",
     )),
     ("Display & Analog", (
-        "Pixel Aspect Ratio", "Scanlines", "Interlace", "JPEG Compression",
+        "Pixel Aspect Ratio", "Scanlines", "Interlace", "Display Persistence", "JPEG Compression",
     )),
     ("Glitch & Channels", (
         "Chromatic Shift", "RGB Split", "Pixel Sort", "Screen Melt", "Block Shuffle",
@@ -381,7 +387,7 @@ def effect_categories() -> list[dict[str, object]]:
 # requiring a second hand-maintained list of motion-capable parameters.
 for _definition in EFFECT_DEFINITIONS.values():
     for _param_name, _spec in _definition.get("params", {}).items():
-        if _spec.get("type") in {"int", "float"} and _param_name != "seed":
+        if _spec.get("type") in {"int", "float", "duration"} and _param_name != "seed":
             _spec.setdefault("animatable", True)
 
 
@@ -448,7 +454,7 @@ def normalize_effect_stack(stack: list[dict[str, Any]] | None, settings: Any | N
             try:
                 if ptype == "int":
                     value = max(int(spec["min"]), min(int(spec["max"]), int(round(float(value)))))
-                elif ptype == "float":
+                elif ptype in {"float", "duration"}:
                     value = max(float(spec["min"]), min(float(spec["max"]), float(value)))
                 elif ptype == "bool":
                     value = bool(value)

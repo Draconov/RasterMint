@@ -554,6 +554,22 @@
     "Japanese Computers": "Японські комп’ютери",
     "Displays & Monochrome": "Дисплеї та монохром",
     "Stylized & Print": "Стилізація та друк",
-    "Fantasy Consoles": "Фентезійні консолі"
+    "Fantasy Consoles": "Фентезійні консолі",
+    "Display Persistence": "Післясвітіння дисплея",
+    "Display type": "Тип дисплея",
+    "Generic": "Загальний",
+    "CRT": "CRT",
+    "LCD": "LCD",
+    "OLED": "OLED",
+    "Persistence time": "Час післясвітіння",
+    "Decay speed": "Швидкість згасання",
+    "s": "с",
+    "The slider covers 0–60 seconds. Type a value up to 300 seconds for longer retention.": "Повзунок охоплює 0–60 секунд. Введіть значення до 300 секунд для довшого післясвітіння.",
+    "Temporal history accumulates during forward playback, rendered animation/video previews, and sequential exports. After seeking or changing persistence settings, re-render the preview to rebuild history.": "Часова історія накопичується під час прямого відтворення, відрендереного перегляду анімації/відео та послідовного експорту. Після перемотування або зміни параметрів післясвітіння відрендерте перегляд повторно, щоб перебудувати історію.",
+    "CRT keeps bright phosphor trails, with green lingering slightly longer than red and blue.": "CRT зберігає яскраві сліди люмінофора, причому зелений канал затухає трохи довше за червоний і синій.",
+    "LCD models pixel-response lag, with darker transitions typically trailing longer.": "LCD моделює затримку відгуку пікселів, причому темні переходи зазвичай залишають довший слід.",
+    "OLED models longer temporary retention concentrated in bright image regions.": "OLED моделює довше тимчасове утримання зображення, зосереджене переважно у яскравих ділянках.",
+    "Generic blends a neutral exponential history of previous frame colours.": "Загальний режим змішує нейтральну експоненційну історію кольорів попередніх кадрів.",
+    "Decay speed 1.00 uses the selected persistence time directly. Lower values leave a longer tail; higher values fade faster.": "Швидкість згасання 1,00 безпосередньо використовує вибраний час післясвітіння. Нижчі значення залишають довший слід, вищі — згасають швидше."
   }
 }

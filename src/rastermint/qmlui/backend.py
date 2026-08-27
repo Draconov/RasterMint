@@ -182,6 +182,7 @@ class RasterMintBackend(QObject):
         self._latest_preview_job = 0
         self._preview_running = False
         self._pending_preview_side = 0
+        self._preview_temporal_state: Any | None = None
         self._export_jobs: set[int] = set()
         self._status = ""
         self._history = UndoHistory(limit=120)
@@ -518,7 +519,7 @@ class RasterMintBackend(QObject):
             params = step.get("params") if isinstance(step.get("params"), dict) else {}
             definition = EFFECT_DEFINITIONS.get(kind, {})
             for key, spec in definition.get("params", {}).items():
-                if not spec.get("animatable", False) or spec.get("type") not in {"int", "float"}:
+                if not spec.get("animatable", False) or spec.get("type") not in {"int", "float", "duration"}:
                     continue
                 value = params.get(key, spec.get("default", 0.0))
                 result.append({
@@ -571,6 +572,12 @@ class RasterMintBackend(QObject):
         self._rendered_times = []
         self._rendered_fps = 0.0
         self.renderedPreviewChanged.emit()
+
+    def _reset_preview_temporal_state(self) -> None:
+        # Do not mutate a state object that may still be owned by a running
+        # preview worker. Dropping our reference is enough; the worker can
+        # finish safely and the old history is then collected.
+        self._preview_temporal_state = None
 
     def _history_state(self) -> dict[str, Any]:
         return {
@@ -641,6 +648,7 @@ class RasterMintBackend(QObject):
         self._selected_layer = desired_layer
         self.layer_model.replace(self.settings.effect_stack)
         self._settings_revision += 1
+        self._reset_preview_temporal_state()
         self._invalidate_rendered()
         self.settingsChanged.emit()
         self.layerSelectionChanged.emit()
@@ -800,6 +808,7 @@ class RasterMintBackend(QObject):
             else:
                 raise ValueError(f"Unsupported file type: {suffix or '(none)'}")
             self._source_revision += 1
+            self._reset_preview_temporal_state()
             self._invalidate_rendered()
             self.sourceChanged.emit()
             self.playbackChanged.emit()
@@ -1652,6 +1661,7 @@ class RasterMintBackend(QObject):
     # ---------- timeline/media ----------
     @Slot(float)
     def setCurrentTime(self, seconds: float) -> None:
+        self._reset_preview_temporal_state()
         self._current_time = max(0.0, min(self.timelineDuration, float(seconds)))
         self._set_status(f"Timeline: {self._current_time:.2f} s")
         if self._video_path:
@@ -1783,6 +1793,12 @@ class RasterMintBackend(QObject):
             "settings_revision": self._settings_revision,
             "time": self._current_time,
         }
+        temporal_state = None
+        if self._playing and self._playback_mode != "Rendered":
+            if self._preview_temporal_state is None:
+                from rastermint.core.temporal import TemporalEffectState
+                self._preview_temporal_state = TemporalEffectState()
+            temporal_state = self._preview_temporal_state
         worker = ProcessingWorker(
             job,
             "preview",
@@ -1793,6 +1809,7 @@ class RasterMintBackend(QObject):
             frame_index=max(0, round(self._current_time * (self._video_info.fps if self._video_info else settings.animation_fps))),
             display_mode=settings.display_mode,
             include_grid=False,
+            temporal_state=temporal_state,
         )
         self._connect_worker(worker)
         self.thread_pool.start(worker)

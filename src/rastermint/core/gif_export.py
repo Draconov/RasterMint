@@ -16,6 +16,7 @@ from .animation import settings_at_time
 from .media import export_processed_gif, iter_video_frames
 from .processor import process_image
 from .settings import ProcessingSettings
+from .temporal import TemporalEffectState
 
 
 def _ffmpeg_executable() -> str:
@@ -78,6 +79,7 @@ def export_processed_video_gif(
     total = max(1, int(round(duration * fps)))
 
     temp_dir = Path(tempfile.mkdtemp(prefix="rastermint-gif-"))
+    temporal_state = TemporalEffectState()
     try:
         frame_count = 0
         for index, raw in enumerate(frames):
@@ -96,6 +98,7 @@ def export_processed_video_gif(
                     animated.display_mode if animated.display_export else "raw"
                 ),
                 include_grid=animated.grid_enabled and animated.grid_export,
+                temporal_state=temporal_state,
             )
             frame_path = temp_dir / f"frame_{index:08d}.png"
             result.save(frame_path, format="PNG", optimize=False)

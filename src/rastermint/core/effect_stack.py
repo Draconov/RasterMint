@@ -26,6 +26,7 @@ from .effect_schema import (
     scale_stack_for_preview,
 )
 from .palette import palette_array
+from .temporal import TemporalEffectState
 
 def _temporal_pattern(
     image: Image.Image,
@@ -2194,6 +2195,7 @@ def apply_normalized_effect_stack(
     *,
     frame_time: float = 0.0,
     frame_index: int = 0,
+    temporal_state: TemporalEffectState | None = None,
 ) -> Image.Image:
     """Apply a stack that has already been normalized by effect_schema.
 
@@ -2239,6 +2241,15 @@ def apply_normalized_effect_stack(
         elif kind == "Posterize": img = _posterize(img, int(p["levels"]))
         elif kind == "Scanlines": img = _scanlines(img, int(p["spacing"]), float(p["strength"]))
         elif kind == "Interlace": img = _interlace(img, int(p["offset"]), float(p["darken"]))
+        elif kind == "Display Persistence":
+            if temporal_state is not None:
+                img = temporal_state.apply_display_persistence(
+                    str(step.get("id", "display-persistence")),
+                    img,
+                    p,
+                    frame_time=frame_time,
+                    frame_index=frame_index,
+                )
         elif kind == "Noise": img = _noise(img, float(p["amount"]), _seed(p, frame_index))
         elif kind == "Temporal Flicker": img = _flicker(img, float(p["amount"]), float(p["speed"]), frame_time)
         elif kind == "Temporal Pattern": img = _temporal_pattern(img, str(p["pattern"]), float(p["amount"]), float(p["speed"]), float(p["scale"]), float(p["phase"]), frame_time, int(p["seed"]))
@@ -2365,6 +2376,7 @@ def apply_effect_stack(
     *,
     frame_time: float = 0.0,
     frame_index: int = 0,
+    temporal_state: TemporalEffectState | None = None,
 ) -> Image.Image:
     return apply_normalized_effect_stack(
         image,
@@ -2372,5 +2384,6 @@ def apply_effect_stack(
         palette,
         frame_time=frame_time,
         frame_index=frame_index,
+        temporal_state=temporal_state,
     )
 

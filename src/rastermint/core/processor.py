@@ -12,6 +12,7 @@ from .effect_schema import scale_normalized_stack_for_preview
 from .hardware import render_display_view
 from .palette import hex_to_rgb
 from .settings import ProcessingSettings
+from .temporal import TemporalEffectState
 
 PREVIEW_MAX_SIDE = 640
 FAST_PREVIEW_MAX_SIDE = 320
@@ -391,6 +392,7 @@ def process_image(
     frame_index: int = 0,
     display_mode: str = "raw",
     include_grid: bool = False,
+    temporal_state: TemporalEffectState | None = None,
 ) -> Image.Image:
     source = prepare_raster_source(image, settings)
     stack = normalize_effect_stack(settings.effect_stack, settings)
@@ -406,6 +408,7 @@ def process_image(
         settings.palette,
         frame_time=frame_time,
         frame_index=frame_index,
+        temporal_state=temporal_state,
     )
     if display_mode != "raw" or include_grid:
         alpha = result.getchannel("A") if "A" in result.getbands() else None

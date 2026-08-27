@@ -17,6 +17,7 @@ from PIL import Image
 from .animation import settings_at_time
 from .processor import make_preview_settings, make_preview_source, process_image, target_raster_size
 from .settings import ProcessingSettings
+from .temporal import TemporalEffectState, max_persistence_seconds
 
 SUPPORTED_VIDEO_SUFFIXES = {".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v", ".gif"}
 ANIMATED_IMAGE_SUFFIXES = {".gif"}
@@ -228,13 +229,14 @@ def export_image_animation(
     duration = max(0.1, float(duration if duration is not None else settings.animation_duration))
     fps = max(1, int(fps if fps is not None else settings.animation_fps))
     frame_count = max(1, int(round(duration * fps)))
+    temporal_state = TemporalEffectState()
 
     if target.suffix.lower() == ".gif":
         frames: list[Image.Image] = []
         for index in range(frame_count):
             t = index / fps
             animated = settings_at_time(settings, t)
-            frame = process_image(image, animated, frame_time=t, frame_index=index, display_mode=settings.display_mode if settings.display_export else "raw", include_grid=settings.grid_export)
+            frame = process_image(image, animated, frame_time=t, frame_index=index, display_mode=settings.display_mode if settings.display_export else "raw", include_grid=settings.grid_export, temporal_state=temporal_state)
             frames.append(frame.convert("P", palette=Image.Palette.ADAPTIVE, colors=256))
             if progress:
                 progress(index + 1, frame_count)
@@ -256,7 +258,7 @@ def export_image_animation(
         for index in range(frame_count):
             t = index / fps
             animated = settings_at_time(settings, t)
-            frame = process_image(image, animated, frame_time=t, frame_index=index, display_mode=settings.display_mode if settings.display_export else "raw", include_grid=settings.grid_export).convert("RGB")
+            frame = process_image(image, animated, frame_time=t, frame_index=index, display_mode=settings.display_mode if settings.display_export else "raw", include_grid=settings.grid_export, temporal_state=temporal_state).convert("RGB")
             frame = _prepare_h264_frame(frame)
             if writer is None:
                 writer = _open_mp4_writer(target, frame.size, fps)
@@ -284,6 +286,7 @@ def export_processed_gif(
     durations, _ = _gif_frame_durations(source)
     frames: list[Image.Image] = []
     elapsed = 0.0
+    temporal_state = TemporalEffectState()
     with Image.open(source) as gif:
         count = int(getattr(gif, "n_frames", 1))
         for index in range(count):
@@ -297,6 +300,7 @@ def export_processed_gif(
                 frame_index=index,
                 display_mode=settings.display_mode if settings.display_export else "raw",
                 include_grid=settings.grid_export,
+                temporal_state=temporal_state,
             )
             frames.append(result.convert("P", palette=Image.Palette.ADAPTIVE, colors=256))
             elapsed += durations[index] / 1000.0
@@ -335,6 +339,7 @@ def export_processed_video(
     fps = float(meta.get("fps") or 25.0)
     duration = float(meta.get("duration") or 0.0)
     total = max(0, int(round(duration * fps)))
+    temporal_state = TemporalEffectState()
 
     temp_dir = Path(tempfile.mkdtemp(prefix="rastermint-video-"))
     video_only = temp_dir / "video-only.mp4"
@@ -345,7 +350,7 @@ def export_processed_video(
             source_frame = Image.fromarray(arr, "RGB")
             t = index / fps
             animated = settings_at_time(settings, t)
-            result = process_image(source_frame, animated, frame_time=t, frame_index=index, display_mode=settings.display_mode if settings.display_export else "raw", include_grid=settings.grid_export).convert("RGB")
+            result = process_image(source_frame, animated, frame_time=t, frame_index=index, display_mode=settings.display_mode if settings.display_export else "raw", include_grid=settings.grid_export, temporal_state=temporal_state).convert("RGB")
             result = _prepare_h264_frame(result)
             if writer is None:
                 writer = _open_mp4_writer(video_only, result.size, fps)
@@ -394,6 +399,7 @@ def render_image_preview_frames(
     preview_source = make_preview_source(image, max_side=max_side, settings=settings)
     frames: list[Image.Image] = []
     times: list[float] = []
+    temporal_state = TemporalEffectState()
     for index in range(frame_count):
         t = min(duration, index / fps)
         animated = settings_at_time(settings, t)
@@ -405,6 +411,7 @@ def render_image_preview_frames(
             frame_index=index,
             display_mode=preview_settings.display_mode,
             include_grid=preview_settings.grid_enabled and preview_settings.grid_preview,
+            temporal_state=temporal_state,
         )
         frames.append(frame)
         times.append(t)
@@ -437,6 +444,52 @@ def _iter_video_segment_frames(path: str | Path, start_time: float, duration: fl
         generator.close()
 
 
+def render_processed_video_frame(
+    source_path: str | Path,
+    settings: ProcessingSettings,
+    time_seconds: float,
+) -> Image.Image:
+    """Render one video frame with temporal history rebuilt before it.
+
+    This is used for still-frame export from a video. The warm-up spans the
+    requested persistence window but bounds sampling to roughly 300 frames for
+    very long retention times. Sequential animation/video exports remain exact
+    at their export frame rate because they carry one state through every frame.
+    """
+    info = probe_video(source_path)
+    t_final = max(0.0, min(float(time_seconds), max(0.0, info.duration)))
+    temporal_state = TemporalEffectState()
+    persistence_window = min(t_final, max_persistence_seconds(settings.effect_stack))
+    if persistence_window > 0.0:
+        warmup_start = max(0.0, t_final - persistence_window)
+        warmup_fps = min(max(1.0, float(info.fps or 25.0)), max(1.0, 300.0 / max(1.0, persistence_window)))
+        for t, source_frame in _iter_video_segment_frames(
+            source_path, warmup_start, persistence_window, warmup_fps
+        ):
+            animated = settings_at_time(settings, t)
+            process_image(
+                source_frame,
+                animated,
+                frame_time=t,
+                frame_index=max(0, round(t * max(1.0, info.fps))),
+                display_mode=animated.display_mode if animated.display_export else "raw",
+                include_grid=animated.grid_enabled and animated.grid_export,
+                temporal_state=temporal_state,
+            )
+
+    source_frame = read_video_frame(source_path, t_final)
+    animated = settings_at_time(settings, t_final)
+    return process_image(
+        source_frame,
+        animated,
+        frame_time=t_final,
+        frame_index=max(0, round(t_final * max(1.0, info.fps))),
+        display_mode=animated.display_mode if animated.display_export else "raw",
+        include_grid=animated.grid_enabled and animated.grid_export,
+        temporal_state=temporal_state,
+    )
+
+
 def render_video_preview_frames(
     source_path: str | Path,
     settings: ProcessingSettings,
@@ -455,6 +508,31 @@ def render_video_preview_frames(
     expected = max(1, int(round(duration * fps)))
     frames: list[Image.Image] = []
     times: list[float] = []
+    temporal_state = TemporalEffectState()
+
+    # Rebuild temporal history when rendering a preview segment that starts in
+    # the middle of a video. Long persistence windows are sampled at a bounded
+    # warm-up rate so seeking remains practical without storing old frames.
+    persistence_window = min(start_time, max_persistence_seconds(settings.effect_stack))
+    if persistence_window > 0.0:
+        warmup_start = max(0.0, start_time - persistence_window)
+        warmup_fps = min(fps, max(1.0, 240.0 / max(1.0, persistence_window)))
+        for t, source_frame in _iter_video_segment_frames(
+            source_path, warmup_start, persistence_window, warmup_fps
+        ):
+            animated = settings_at_time(settings, t)
+            final_size = target_raster_size(source_frame.size, animated)
+            preview_source = make_preview_source(source_frame, max_side=max_side, settings=animated)
+            preview_settings = make_preview_settings(animated, final_size, preview_source.size)
+            process_image(
+                preview_source,
+                preview_settings,
+                frame_time=t,
+                frame_index=max(0, round(t * max(1.0, info.fps))),
+                display_mode=preview_settings.display_mode,
+                include_grid=preview_settings.grid_enabled and preview_settings.grid_preview,
+                temporal_state=temporal_state,
+            )
 
     for index, (t, source_frame) in enumerate(_iter_video_segment_frames(source_path, start_time, duration, fps)):
         animated = settings_at_time(settings, t)
@@ -468,6 +546,7 @@ def render_video_preview_frames(
             frame_index=max(0, round(t * max(1.0, info.fps))),
             display_mode=preview_settings.display_mode,
             include_grid=preview_settings.grid_enabled and preview_settings.grid_preview,
+            temporal_state=temporal_state,
         )
         frames.append(frame)
         times.append(t)
@@ -493,6 +572,7 @@ def export_image_sequence(
     frame_count = max(1, int(round(duration * fps)))
     digits = max(4, len(str(frame_count)))
     written: list[Path] = []
+    temporal_state = TemporalEffectState()
     for index in range(frame_count):
         t = index / fps
         animated = settings_at_time(settings, t)
@@ -503,6 +583,7 @@ def export_image_sequence(
             frame_index=index,
             display_mode=settings.display_mode if settings.display_export else "raw",
             include_grid=settings.grid_enabled and settings.grid_export,
+            temporal_state=temporal_state,
         )
         path = target_dir / f"{prefix}_{index + 1:0{digits}d}.png"
         frame.save(path, format="PNG")
@@ -527,6 +608,7 @@ def export_processed_video_sequence(
     total = max(1, info.frames)
     digits = max(4, len(str(total)))
     written: list[Path] = []
+    temporal_state = TemporalEffectState()
 
     if source.suffix.lower() == ".gif":
         durations, _ = _gif_frame_durations(source)
@@ -546,6 +628,7 @@ def export_processed_video_sequence(
                     frame_index=index,
                     display_mode=settings.display_mode if settings.display_export else "raw",
                     include_grid=settings.grid_enabled and settings.grid_export,
+                    temporal_state=temporal_state,
                 )
                 path = target_dir / f"{prefix}_{index + 1:0{digits}d}.png"
                 result.save(path, format="PNG")
@@ -571,6 +654,7 @@ def export_processed_video_sequence(
                 frame_index=index,
                 display_mode=settings.display_mode if settings.display_export else "raw",
                 include_grid=settings.grid_enabled and settings.grid_export,
+                temporal_state=temporal_state,
             )
             path = target_dir / f"{prefix}_{index + 1:0{digits}d}.png"
             result.save(path, format="PNG")

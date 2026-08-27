@@ -393,7 +393,9 @@ Item {
                                                ? colorEditor
                                                : param.type === "text" || param.type === "file"
                                                  ? textEditor
-                                                 : numberEditor
+                                                 : param.type === "duration"
+                                                   ? durationEditor
+                                                   : numberEditor
                     }
                 }
             }
@@ -549,6 +551,20 @@ Item {
                 enabled: !param.animated
                 Component.onCompleted: currentIndex = Math.max(0, param.options.indexOf(String(param.value)))
                 onActivated: backend.setLayerParam(param.key, currentText)
+            }
+            MintLabel {
+                Layout.fillWidth: true
+                visible: backend.selectedLayerName === "Display Persistence" && param.key === "display_type"
+                text: String(param.value) === "CRT"
+                      ? qsTr("CRT keeps bright phosphor trails, with green lingering slightly longer than red and blue.")
+                      : (String(param.value) === "LCD"
+                         ? qsTr("LCD models pixel-response lag, with darker transitions typically trailing longer.")
+                         : (String(param.value) === "OLED"
+                            ? qsTr("OLED models longer temporary retention concentrated in bright image regions.")
+                            : qsTr("Generic blends a neutral exponential history of previous frame colours.")))
+                color: theme.mutedTextColor
+                wrapMode: Text.WordWrap
+                font.pixelSize: 10
             }
             MintLabel {
                 Layout.fillWidth: true
@@ -798,6 +814,86 @@ Item {
     }
 
     Component {
+        id: durationEditor
+        ColumnLayout {
+            spacing: 4
+
+            MintLabel {
+                text: qsTr(param.label) + (param.animated ? "  · " + qsTr("animated") : "")
+                color: theme.mutedTextColor
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 7
+
+                MintSlider {
+                    id: durationSlider
+                    Layout.fillWidth: true
+                    enabled: !param.animated
+                    from: Number(param.min)
+                    to: Number(param.slider_max !== undefined ? param.slider_max : param.max)
+                    stepSize: Number(param.step || 0.05)
+                    value: Math.min(Number(param.value), to)
+
+                    onInteractionActiveChanged: {
+                        if (interactionActive) {
+                            root.beginParameterInteraction()
+                            backend.beginHistoryGroup(backend.selectedLayerName + " · " + param.label)
+                        } else {
+                            backend.endHistoryGroup()
+                            root.endParameterInteraction()
+                        }
+                    }
+                    onUserMoved: function(newValue) {
+                        backend.setLayerParam(param.key, newValue)
+                    }
+                }
+
+                MintTextField {
+                    id: durationField
+                    Layout.preferredWidth: 82
+                    enabled: !param.animated
+                    horizontalAlignment: TextInput.AlignRight
+                    text: Number(param.value).toFixed(param.decimals !== undefined ? param.decimals : 2)
+                    validator: DoubleValidator {
+                        bottom: Number(param.min)
+                        top: Number(param.max)
+                        decimals: param.decimals !== undefined ? Number(param.decimals) : 2
+                        notation: DoubleValidator.StandardNotation
+                    }
+                    onEditingFinished: {
+                        var parsed = Number(String(text).replace(",", "."))
+                        if (isFinite(parsed)) {
+                            parsed = Math.max(Number(param.min), Math.min(Number(param.max), parsed))
+                            backend.setLayerParam(param.key, parsed)
+                        } else {
+                            text = Number(param.value).toFixed(param.decimals !== undefined ? param.decimals : 2)
+                        }
+                    }
+                }
+                MintLabel { text: qsTr("s"); color: theme.mutedTextColor }
+            }
+
+            MintLabel {
+                Layout.fillWidth: true
+                text: qsTr("The slider covers 0–60 seconds. Type a value up to 300 seconds for longer retention.")
+                color: theme.mutedTextColor
+                wrapMode: Text.WordWrap
+                font.pixelSize: 10
+            }
+            MintLabel {
+                Layout.fillWidth: true
+                visible: backend.selectedLayerName === "Display Persistence"
+                text: qsTr("Temporal history accumulates during forward playback, rendered animation/video previews, and sequential exports. After seeking or changing persistence settings, re-render the preview to rebuild history.")
+                color: theme.mutedTextColor
+                wrapMode: Text.WordWrap
+                font.pixelSize: 10
+            }
+        }
+    }
+
+    Component {
         id: numberEditor
         ColumnLayout {
             spacing: 4
@@ -840,6 +936,14 @@ Item {
                 }
             }
 
+            MintLabel {
+                Layout.fillWidth: true
+                visible: backend.selectedLayerName === "Display Persistence" && param.key === "decay"
+                text: qsTr("Decay speed 1.00 uses the selected persistence time directly. Lower values leave a longer tail; higher values fade faster.")
+                color: theme.mutedTextColor
+                wrapMode: Text.WordWrap
+                font.pixelSize: 10
+            }
             MintLabel {
                 Layout.fillWidth: true
                 visible: backend.selectedLayerName === "ASCII / Glyph" && param.key === "font_scale"
