@@ -12,8 +12,9 @@ import traceback
 from pathlib import Path
 from typing import Any
 
-from PySide6.QtCore import QObject, Property, QSettings, QThreadPool, QTimer, QUrl, Signal, Slot
-from PySide6.QtGui import QColor, QImage
+from PySide6.QtCore import QObject, Property, QRect, QSettings, QThreadPool, QTimer, QUrl, Qt, Signal, Slot
+from PySide6.QtGui import QColor, QCursor, QGuiApplication, QImage, QPainter, QPen, QRasterWindow
+from PySide6.QtQuick import QQuickWindow
 
 from rastermint import __version__
 from rastermint.core.animation import EASINGS, normalize_tracks, settings_at_time
@@ -118,6 +119,117 @@ def _local_path(value: str | QUrl) -> str:
     return text
 
 
+class _ScreenEyedropperLoupe(QRasterWindow):
+    """Always-on-top pixel loupe that follows the screen eyedropper cursor."""
+
+    SAMPLE_SIZE = 17
+    ZOOM = 10
+    MARGIN = 8
+    FOOTER_HEIGHT = 30
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.setFlags(
+            Qt.WindowType.FramelessWindowHint
+            | Qt.WindowType.WindowStaysOnTopHint
+            | Qt.WindowType.Tool
+            | Qt.WindowType.WindowTransparentForInput
+            | Qt.WindowType.WindowDoesNotAcceptFocus
+        )
+        self.setTitle("RasterMint Eyedropper Loupe")
+        self._sample = QImage()
+        self._center_color = QColor("#000000")
+        side = self.SAMPLE_SIZE * self.ZOOM
+        self.resize(side + self.MARGIN * 2, side + self.MARGIN * 2 + self.FOOTER_HEIGHT)
+
+    def set_sample(self, image: QImage, color: QColor) -> None:
+        self._sample = image.copy()
+        self._center_color = QColor(color)
+        self.update()
+
+    def paintEvent(self, event) -> None:  # noqa: N802 - Qt virtual name
+        del event
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, False)
+        painter.fillRect(0, 0, self.width(), self.height(), QColor("#20262F"))
+
+        side = self.SAMPLE_SIZE * self.ZOOM
+        view = QRect(self.MARGIN, self.MARGIN, side, side)
+        if not self._sample.isNull():
+            painter.drawImage(view, self._sample)
+
+        # Pixel grid keeps neighbouring colours readable at high zoom.
+        painter.setPen(QPen(QColor(255, 255, 255, 48), 1))
+        for index in range(1, self.SAMPLE_SIZE):
+            pos = self.MARGIN + index * self.ZOOM
+            painter.drawLine(pos, self.MARGIN, pos, self.MARGIN + side)
+            painter.drawLine(self.MARGIN, pos, self.MARGIN + side, pos)
+
+        # The center cell is the exact pixel that a left click will select.
+        center = self.SAMPLE_SIZE // 2
+        cx = self.MARGIN + center * self.ZOOM
+        cy = self.MARGIN + center * self.ZOOM
+        cell = QRect(cx, cy, self.ZOOM, self.ZOOM)
+        painter.setPen(QPen(QColor("#000000"), 3))
+        painter.drawRect(cell.adjusted(-2, -2, 2, 2))
+        painter.setPen(QPen(QColor("#FFFFFF"), 2))
+        painter.drawRect(cell.adjusted(-1, -1, 1, 1))
+
+        footer_y = self.MARGIN + side + 6
+        swatch = QRect(self.MARGIN, footer_y, 18, 18)
+        painter.fillRect(swatch, self._center_color)
+        painter.setPen(QPen(QColor(255, 255, 255, 90), 1))
+        painter.drawRect(swatch)
+        painter.setPen(QColor("#F3F6FA"))
+        painter.drawText(
+            QRect(self.MARGIN + 26, footer_y, self.width() - self.MARGIN * 2 - 26, 18),
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+            self._center_color.name(QColor.NameFormat.HexRgb).upper(),
+        )
+        painter.end()
+
+
+class _ScreenEyedropperWindow(QQuickWindow):
+    """Transparent top-level hit target used for one-click screen sampling."""
+
+    picked = Signal(int, int)
+    cancelled = Signal()
+
+    def __init__(self, screen) -> None:
+        super().__init__()
+        self.setScreen(screen)
+        self.setFlags(
+            Qt.WindowType.FramelessWindowHint
+            | Qt.WindowType.WindowStaysOnTopHint
+            | Qt.WindowType.Tool
+        )
+        # A nearly-transparent surface remains an input target on Windows while
+        # leaving the desktop visually unchanged. It is hidden before sampling.
+        self.setColor(QColor(0, 0, 0, 1))
+        self.setCursor(Qt.CursorShape.CrossCursor)
+        self.setGeometry(screen.geometry())
+        self.setTitle("RasterMint Eyedropper")
+
+    def mousePressEvent(self, event) -> None:  # noqa: N802 - Qt virtual name
+        if event.button() == Qt.MouseButton.LeftButton:
+            point = event.globalPosition().toPoint()
+            self.picked.emit(point.x(), point.y())
+            event.accept()
+            return
+        if event.button() == Qt.MouseButton.RightButton:
+            self.cancelled.emit()
+            event.accept()
+            return
+        super().mousePressEvent(event)
+
+    def keyPressEvent(self, event) -> None:  # noqa: N802 - Qt virtual name
+        if event.key() == Qt.Key.Key_Escape:
+            self.cancelled.emit()
+            event.accept()
+            return
+        super().keyPressEvent(event)
+
+
 def _pil_to_qimage(image: Any) -> QImage:
     rgb = image if image.mode == "RGB" else image.convert("RGB")
     data = rgb.tobytes("raw", "RGB")
@@ -139,6 +251,8 @@ class RasterMintBackend(QObject):
     infoOccurred = Signal(str, str)
     historyChanged = Signal()
     showHotkeysChanged = Signal()
+    screenColorPicked = Signal(str)
+    screenEyedropperCancelled = Signal()
 
     def __init__(self, image_provider: RasterImageProvider, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -186,6 +300,11 @@ class RasterMintBackend(QObject):
         self._export_jobs: set[int] = set()
         self._status = ""
         self._history = UndoHistory(limit=120)
+        self._screen_eyedropper_windows: list[_ScreenEyedropperWindow] = []
+        self._screen_eyedropper_loupe: _ScreenEyedropperLoupe | None = None
+        self._screen_eyedropper_loupe_timer = QTimer(self)
+        self._screen_eyedropper_loupe_timer.setInterval(30)
+        self._screen_eyedropper_loupe_timer.timeout.connect(self._update_screen_eyedropper_loupe)
 
         self._random_history: list[dict[str, Any]] = []
         self._random_index = -1
@@ -214,6 +333,182 @@ class RasterMintBackend(QObject):
         self._play_timer = QTimer(self)
         self._play_timer.setInterval(33)
         self._play_timer.timeout.connect(self._play_tick)
+
+    def _close_screen_eyedropper(self) -> None:
+        self._screen_eyedropper_loupe_timer.stop()
+        loupe = self._screen_eyedropper_loupe
+        self._screen_eyedropper_loupe = None
+        if loupe is not None:
+            try:
+                loupe.hide()
+                loupe.close()
+                loupe.deleteLater()
+            except RuntimeError:
+                pass
+
+        windows = self._screen_eyedropper_windows
+        self._screen_eyedropper_windows = []
+        for window in windows:
+            try:
+                window.hide()
+                window.close()
+                window.deleteLater()
+            except RuntimeError:
+                pass
+
+    def _update_screen_eyedropper_loupe(self) -> None:
+        loupe = self._screen_eyedropper_loupe
+        if loupe is None or not self._screen_eyedropper_windows:
+            return
+
+        point = QCursor.pos()
+        screen = QGuiApplication.screenAt(point)
+        if screen is None:
+            return
+
+        geometry = screen.geometry()
+        radius = _ScreenEyedropperLoupe.SAMPLE_SIZE // 2
+        sample_size = _ScreenEyedropperLoupe.SAMPLE_SIZE
+        local_x = int(point.x() - geometry.x())
+        local_y = int(point.y() - geometry.y())
+        capture_left = local_x - radius
+        capture_top = local_y - radius
+
+        # Clip the desktop grab at monitor edges, then pad it back to a fixed
+        # square so the cursor pixel always remains the center loupe cell.
+        clipped_left = max(0, capture_left)
+        clipped_top = max(0, capture_top)
+        clipped_right = min(geometry.width(), capture_left + sample_size)
+        clipped_bottom = min(geometry.height(), capture_top + sample_size)
+        clipped_width = max(0, clipped_right - clipped_left)
+        clipped_height = max(0, clipped_bottom - clipped_top)
+        if clipped_width <= 0 or clipped_height <= 0:
+            return
+
+        pixmap = screen.grabWindow(
+            0,
+            int(clipped_left),
+            int(clipped_top),
+            int(clipped_width),
+            int(clipped_height),
+        )
+        grabbed = pixmap.toImage()
+        if grabbed.isNull():
+            return
+        if grabbed.width() != clipped_width or grabbed.height() != clipped_height:
+            grabbed = grabbed.scaled(
+                clipped_width,
+                clipped_height,
+                Qt.AspectRatioMode.IgnoreAspectRatio,
+                Qt.TransformationMode.FastTransformation,
+            )
+
+        sample = QImage(sample_size, sample_size, QImage.Format.Format_RGB32)
+        sample.fill(QColor("#000000"))
+        sample_painter = QPainter(sample)
+        sample_painter.drawImage(
+            int(clipped_left - capture_left),
+            int(clipped_top - capture_top),
+            grabbed,
+        )
+        sample_painter.end()
+        center_color = sample.pixelColor(radius, radius)
+        if not center_color.isValid():
+            center_color = QColor("#000000")
+
+        loupe.setScreen(screen)
+        loupe.set_sample(sample, center_color)
+
+        gap = 24
+        x = point.x() + gap
+        y = point.y() + gap
+        screen_right = geometry.x() + geometry.width()
+        screen_bottom = geometry.y() + geometry.height()
+        if x + loupe.width() > screen_right:
+            x = point.x() - gap - loupe.width()
+        if y + loupe.height() > screen_bottom:
+            y = point.y() - gap - loupe.height()
+        x = max(geometry.x(), min(x, screen_right - loupe.width()))
+        y = max(geometry.y(), min(y, screen_bottom - loupe.height()))
+        loupe.setPosition(int(x), int(y))
+        if not loupe.isVisible():
+            loupe.show()
+
+    def _cancel_screen_eyedropper(self) -> None:
+        if not self._screen_eyedropper_windows:
+            return
+        self._close_screen_eyedropper()
+        self.screenEyedropperCancelled.emit()
+
+    def _capture_screen_color(self, global_x: int, global_y: int) -> None:
+        # Remove the transparent hit windows before grabbing the pixel so the
+        # sample is the exact desktop/application colour underneath them.
+        self._close_screen_eyedropper()
+
+        def capture() -> None:
+            point = QCursor.pos()
+            # Keep the click coordinates authoritative; QCursor is only a
+            # fallback for platforms that report an invalid global event point.
+            if global_x or global_y:
+                from PySide6.QtCore import QPoint
+                point = QPoint(int(global_x), int(global_y))
+            screen = QGuiApplication.screenAt(point)
+            if screen is None:
+                screen = QGuiApplication.primaryScreen()
+            if screen is None:
+                self.screenEyedropperCancelled.emit()
+                return
+
+            geometry = screen.geometry()
+            local_x = int(point.x() - geometry.x())
+            local_y = int(point.y() - geometry.y())
+            pixmap = screen.grabWindow(0, local_x, local_y, 1, 1)
+            image = pixmap.toImage()
+            if image.isNull() or image.width() < 1 or image.height() < 1:
+                self.screenEyedropperCancelled.emit()
+                return
+            color = image.pixelColor(0, 0)
+            if not color.isValid():
+                self.screenEyedropperCancelled.emit()
+                return
+            self.screenColorPicked.emit(color.name(QColor.NameFormat.HexRgb).upper())
+
+            for window in QGuiApplication.topLevelWindows():
+                if window not in self._screen_eyedropper_windows and window.isVisible():
+                    try:
+                        window.requestActivate()
+                        break
+                    except RuntimeError:
+                        pass
+
+        # Let the compositor remove the overlay before reading the desktop.
+        QTimer.singleShot(0, capture)
+
+    @Slot()
+    def startScreenEyedropper(self) -> None:
+        self._close_screen_eyedropper()
+        screens = list(QGuiApplication.screens())
+        if not screens:
+            self.screenEyedropperCancelled.emit()
+            return
+
+        for screen in screens:
+            window = _ScreenEyedropperWindow(screen)
+            window.picked.connect(self._capture_screen_color)
+            window.cancelled.connect(self._cancel_screen_eyedropper)
+            self._screen_eyedropper_windows.append(window)
+            window.show()
+
+        self._screen_eyedropper_loupe = _ScreenEyedropperLoupe()
+        self._update_screen_eyedropper_loupe()
+        self._screen_eyedropper_loupe_timer.start()
+
+        cursor_screen = QGuiApplication.screenAt(QCursor.pos())
+        active = next(
+            (window for window in self._screen_eyedropper_windows if window.screen() is cursor_screen),
+            self._screen_eyedropper_windows[0],
+        )
+        QTimer.singleShot(0, active.requestActivate)
 
     # ---------- exposed models/data ----------
     @Property(QObject, constant=True)
@@ -1924,6 +2219,7 @@ class RasterMintBackend(QObject):
 
     @Slot()
     def shutdown(self) -> None:
+        self._close_screen_eyedropper()
         self._quick_timer.stop(); self._stable_timer.stop(); self._play_timer.stop()
         self.thread_pool.clear()
         self.thread_pool.waitForDone(1500)

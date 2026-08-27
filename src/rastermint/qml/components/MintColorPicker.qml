@@ -31,6 +31,7 @@ Item {
     property real pickerBrightness: 1.0
     property real pickerAlpha: 1.0
     property var _eyedropperDialog: null
+    property bool _eyedropperActive: false
 
     function clamp01(v) {
         return Math.max(0, Math.min(1, Number(v)))
@@ -189,7 +190,28 @@ Item {
         if (!_eyedropperDialog)
             return
         _eyedropperDialog.selectedColor = popup.workingColor
+        _eyedropperActive = true
+        popup.close()
         _eyedropperDialog.open()
+    }
+
+    Connections {
+        target: backend
+
+        function onScreenColorPicked(value) {
+            if (!root._eyedropperActive)
+                return
+            root._eyedropperActive = false
+            root.syncUiFromColor(value)
+            popup.open()
+        }
+
+        function onScreenEyedropperCancelled() {
+            if (!root._eyedropperActive)
+                return
+            root._eyedropperActive = false
+            popup.open()
+        }
     }
 
     function positionPopupInViewport() {
@@ -633,10 +655,24 @@ Item {
         }
     }
 
-    // Keep the native dialog lazy too. Creating one ColorDialog per picker during
-    // Main.qml startup needlessly enters the platform-dialog path before it is used.
+    // Keep the eyedropper controller lazy so every picker does not allocate
+    // screen-sampling state during Main.qml startup. The backend owns the
+    // transparent top-level capture windows because they must receive the next
+    // click even when it happens outside RasterMint.
     Component {
         id: eyedropperComponent
+
+        QtObject {
+            property color selectedColor: popup.workingColor
+            function open() { backend.startScreenEyedropper() }
+        }
+    }
+
+    // Retain a lazy native colour dialog component for platform fallback paths.
+    // It is never instantiated by the screen eyedropper and therefore adds no
+    // startup cost.
+    Component {
+        id: colorDialogComponent
 
         ColorDialog {
             title: qsTr("Sample colour")
