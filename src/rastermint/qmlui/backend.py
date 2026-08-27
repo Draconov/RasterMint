@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import colorsys
+from copy import deepcopy
 import json
 import math
 import random
@@ -11,31 +12,38 @@ import re
 import traceback
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 from PySide6.QtCore import QCoreApplication, QObject, Property, QRect, QSettings, QThreadPool, QTimer, QUrl, Qt, Signal, Slot
 from PySide6.QtGui import QColor, QCursor, QGuiApplication, QImage, QPainter, QPen, QRasterWindow
 from PySide6.QtQuick import QQuickWindow
 
 from rastermint import __version__
-from rastermint.core.animation import EASINGS, normalize_tracks, settings_at_time
+from rastermint.core.animation import EASINGS, MODULATORS, normalize_tracks, settings_at_time
 from rastermint.core.animation_presets import ANIMATION_PRESETS, apply_animation_preset
 from rastermint.core.builtin_presets import BUILTIN_PRESETS, build_builtin_preset
 from rastermint.core.dither_metadata import ALGORITHMS
-from rastermint.core.effect_schema import EFFECT_DEFINITIONS, FIXED_STAGE_KINDS, default_effect_stack, effect_categories, new_effect, normalize_effect_stack
+from rastermint.core.effect_schema import (
+    BLEND_MODES, EFFECT_DEFINITIONS, FIXED_STAGE_KINDS, MASK_TYPES,
+    default_effect_stack, default_layer_mask, effect_categories, new_effect, normalize_effect_stack,
+)
 from rastermint.core.gradient_presets import GRADIENT_PRESETS
 from rastermint.core.hardware_profiles import apply_profile_to_settings, load_builtin_profiles, load_profile_file, profile_summary
 from rastermint.core.history import UndoHistory
 from rastermint.core.lospec import fetch_lospec_palette
 from rastermint.core.palette_library import PALETTE_LIBRARY, find_palette, interpolate_palette, interpolate_palette_stops
+from rastermint.core.palette_lab import palette_analysis, palette_mapping, sort_palette
 from rastermint.core.presets import load_preset, save_preset
 from rastermint.core.settings import ProcessingSettings
 
 from .image_provider import RasterImageProvider
 from .models import LayerListModel
 from .workers import (
+    AudioEnvelopeWorker,
     BatchWorker,
     MediaExportWorker,
     ProcessingWorker,
+    BenchmarkWorker,
     RenderedPreviewWorker,
     SequenceExportWorker,
     VideoFrameWorker,
@@ -264,12 +272,18 @@ class RasterMintBackend(QObject):
     sourceChanged = Signal()
     settingsChanged = Signal()
     layerSelectionChanged = Signal()
+    layerWorkflowChanged = Signal()
     statusChanged = Signal()
     playbackChanged = Signal()
     renderedPreviewChanged = Signal()
     hardwareProfilesChanged = Signal()
     paletteLibraryChanged = Signal()
+    paletteLabChanged = Signal()
+    ditherMatrixLibraryChanged = Signal()
+    projectChanged = Signal()
+    comparisonChanged = Signal()
     audioExportChanged = Signal()
+    benchmarkChanged = Signal()
     errorOccurred = Signal(str, str)
     infoOccurred = Signal(str, str)
     historyChanged = Signal()
@@ -292,6 +306,8 @@ class RasterMintBackend(QObject):
         self.layer_model = LayerListModel(self)
         self.layer_model.replace(self.settings.effect_stack)
         self._selected_layer = min(len(self.settings.effect_stack) - 1, 0)
+        self._selected_layers: set[int] = {self._selected_layer} if self._selected_layer >= 0 else set()
+        self._layer_clipboard: dict[str, Any] | None = None
 
         self._source_image: Any | None = None
         self._clipboard_source_image: Any | None = None
@@ -333,6 +349,20 @@ class RasterMintBackend(QObject):
         self._random_history: list[dict[str, Any]] = []
         self._random_index = -1
         self._hardware_profiles = load_builtin_profiles()
+        self._palette_lab_data: dict[str, Any] = {}
+        self._palette_mapping_data: list[dict[str, Any]] = []
+        self._dither_matrix_library = self._load_dither_matrix_library()
+        self._keyframe_clipboard: dict[str, Any] | None = None
+        self._animation_clip_library = self._load_animation_clip_library()
+        self._project_path: Path | None = None
+        self._snapshot_a: dict[str, Any] | None = None
+        self._snapshot_b: dict[str, Any] | None = None
+        self._comparison_split = 0.5
+        self._comparison_enabled = False
+        self._benchmark_summary = ""
+        # Created lazily on the first eligible preview so importing the QML
+        # backend remains lightweight during application startup.
+        self._layer_render_cache: Any | None = None
 
         # Initialize base-owned user-palette state without virtual dispatch.
         # PreferencesBackend overrides _load_user_palettes(); calling it from
@@ -626,6 +656,46 @@ class RasterMintBackend(QObject):
         item = self.layer_model.item(self._selected_layer)
         return str(item.get("kind", "Layer")) if item else "Layer"
 
+    @Property("QStringList", constant=True)
+    def layerBlendModes(self) -> list[str]:
+        return list(BLEND_MODES)
+
+    @Property("QStringList", constant=True)
+    def layerMaskTypes(self) -> list[str]:
+        return list(MASK_TYPES)
+
+    @Property("QVariantList", notify=layerWorkflowChanged)
+    def selectedLayerIndices(self) -> list[int]:
+        return sorted(i for i in self._selected_layers if 0 <= i < len(self.settings.effect_stack))
+
+    @Property(float, notify=layerSelectionChanged)
+    def selectedLayerOpacity(self) -> float:
+        item = self.layer_model.item(self._selected_layer)
+        return float(item.get("opacity", 1.0) or 0.0) if item else 1.0
+
+    @Property(str, notify=layerSelectionChanged)
+    def selectedLayerBlendMode(self) -> str:
+        item = self.layer_model.item(self._selected_layer)
+        return str(item.get("blend_mode", "Normal") or "Normal") if item else "Normal"
+
+    @Property("QVariantMap", notify=layerSelectionChanged)
+    def selectedLayerMask(self) -> dict[str, Any]:
+        item = self.layer_model.item(self._selected_layer)
+        return dict(item.get("mask") or default_layer_mask()) if item else default_layer_mask()
+
+    @Property(bool, notify=layerWorkflowChanged)
+    def layerClipboardAvailable(self) -> bool:
+        return self._layer_clipboard is not None
+
+    @Property(bool, notify=settingsChanged)
+    def selectedLayerSolo(self) -> bool:
+        item = self.layer_model.item(self._selected_layer)
+        return bool(item and str(item.get("id", "")) == str(self.settings.solo_layer_id or ""))
+
+    @Property("QVariantList", notify=settingsChanged)
+    def layerGroups(self) -> list[dict[str, Any]]:
+        return [dict(group) for group in self.settings.layer_groups]
+
     @Property("QVariantList", notify=layerSelectionChanged)
     def selectedLayerParams(self) -> list[dict[str, Any]]:
         item = self.layer_model.item(self._selected_layer)
@@ -745,6 +815,211 @@ class RasterMintBackend(QObject):
                 return palette
         return None
 
+    @Property("QVariantMap", notify=paletteLabChanged)
+    def paletteLabData(self) -> dict[str, Any]:
+        return dict(self._palette_lab_data)
+
+    @Property("QVariantList", notify=paletteLabChanged)
+    def paletteMappingData(self) -> list[dict[str, Any]]:
+        return [dict(item) for item in self._palette_mapping_data]
+
+    @Slot()
+    def refreshPaletteLab(self) -> None:
+        try:
+            self._palette_lab_data = palette_analysis(
+                list(self.settings.palette),
+                self._active_source(),
+                max_pixels=60_000,
+            )
+        except Exception as exc:
+            self._palette_lab_data = {"error": str(exc)}
+        self.paletteLabChanged.emit()
+
+    @Slot(str)
+    def sortPalette(self, mode: str) -> None:
+        old_colors = list(self.settings.palette)
+        old_locks = list(self.settings.palette_locks)
+        sorted_colors = sort_palette(old_colors, mode)
+        if sorted_colors == old_colors:
+            return
+        # Preserve lock association even when a palette contains duplicate hexes.
+        remaining = list(enumerate(old_colors))
+        sorted_locks: list[bool] = []
+        for color in sorted_colors:
+            match = next((pair for pair in remaining if pair[1] == color), remaining[0])
+            remaining.remove(match)
+            sorted_locks.append(bool(old_locks[match[0]]) if match[0] < len(old_locks) else False)
+        data = self.settings.to_dict()
+        data["palette"] = sorted_colors
+        data["palette_locks"] = sorted_locks
+        data["palette_name"] = "Custom"
+        self._replace_settings(ProcessingSettings.from_dict(data), action=f"Palette sorted by {mode}")
+        self.refreshPaletteLab()
+
+    @Slot()
+    def removeUnusedPaletteColors(self) -> None:
+        if not self._palette_lab_data:
+            self.refreshPaletteLab()
+        rows = list(self._palette_lab_data.get("colors") or [])
+        if not rows:
+            return
+        keep = [int(row["index"]) for row in rows if not bool(row.get("unused", False))]
+        if len(keep) < 1 or len(keep) == len(self.settings.palette):
+            self._set_status("No unused palette colours to remove")
+            return
+        data = self.settings.to_dict()
+        data["palette"] = [self.settings.palette[i] for i in keep]
+        data["palette_locks"] = [self.settings.palette_locks[i] for i in keep]
+        data["palette_name"] = "Custom"
+        self._replace_settings(ProcessingSettings.from_dict(data), action=f"Removed {len(self.settings.palette) - len(keep)} unused palette colours")
+        self.refreshPaletteLab()
+
+    @Slot()
+    def applyPaletteReductionSuggestion(self) -> None:
+        if not self._palette_lab_data:
+            self.refreshPaletteLab()
+        target = int(self._palette_lab_data.get("suggested_count", len(self.settings.palette)) or len(self.settings.palette))
+        target = max(1, min(len(self.settings.palette), target))
+        if target >= len(self.settings.palette):
+            self._set_status("Palette is already compact")
+            return
+        source = self._active_source()
+        if source is None:
+            # Without an image, remove the least-separated colours first.
+            duplicates = list(self._palette_lab_data.get("near_duplicates") or [])
+            remove = {int(item.get("b", -1)) for item in duplicates if int(item.get("b", -1)) >= 0}
+            keep = [i for i in range(len(self.settings.palette)) if i not in remove][:target]
+            if len(keep) < target:
+                keep.extend(i for i in range(len(self.settings.palette)) if i not in keep and len(keep) < target)
+            colors = [self.settings.palette[i] for i in keep]
+        else:
+            from rastermint.core.palette import extract_palette
+            colors = extract_palette(source, colors=target, method="K-Means")
+        data = self.settings.to_dict()
+        data["palette"] = list(colors)
+        data["palette_locks"] = [False] * len(colors)
+        data["palette_name"] = "Custom"
+        self._replace_settings(ProcessingSettings.from_dict(data), action=f"Reduced palette to {len(colors)} colours")
+        self.refreshPaletteLab()
+
+    @Slot(str)
+    def analyzePaletteMapping(self, palette_id_or_name: str) -> None:
+        target_colors: list[str] = []
+        needle = str(palette_id_or_name or "")
+        for record in self.paletteLibrary:
+            if needle in {str(record.get("id", "")), str(record.get("name", ""))}:
+                target_colors = list(record.get("colors") or [])
+                break
+        if not target_colors:
+            self._palette_mapping_data = []
+        else:
+            self._palette_mapping_data = palette_mapping(list(self.settings.palette), target_colors)
+        self.paletteLabChanged.emit()
+
+    _DITHER_MATRIX_SETTINGS_KEY = "customDitherMatricesV1"
+
+    def _load_dither_matrix_library(self) -> list[dict[str, Any]]:
+        raw = self.app_settings.value(self._DITHER_MATRIX_SETTINGS_KEY, "[]")
+        try:
+            payload = json.loads(str(raw or "[]"))
+        except (TypeError, ValueError, json.JSONDecodeError):
+            payload = []
+        result: list[dict[str, Any]] = []
+        for item in payload if isinstance(payload, list) else []:
+            if not isinstance(item, dict):
+                continue
+            name = str(item.get("name", "")).strip()
+            matrix = item.get("matrix")
+            if name and isinstance(matrix, list) and 2 <= len(matrix) <= 16 and all(isinstance(row, list) and len(row) == len(matrix) for row in matrix):
+                result.append({"name": name, "matrix": matrix})
+        return result
+
+    def _save_dither_matrix_library(self) -> None:
+        self.app_settings.setValue(self._DITHER_MATRIX_SETTINGS_KEY, json.dumps(self._dither_matrix_library, ensure_ascii=False))
+        self.app_settings.sync()
+
+    def _dither_layer_index(self) -> int:
+        stack = normalize_effect_stack(self.settings.effect_stack, self.settings)
+        return next((i for i, step in enumerate(stack) if str(step.get("kind")) == "Dither"), -1)
+
+    def _current_dither_matrix(self) -> list[list[float]]:
+        index = self._dither_layer_index()
+        if index < 0:
+            return [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]
+        raw = self.settings.effect_stack[index].get("params", {}).get("custom_matrix_json", "")
+        try:
+            matrix = json.loads(str(raw))
+        except (TypeError, ValueError, json.JSONDecodeError):
+            matrix = None
+        if not isinstance(matrix, list) or not (2 <= len(matrix) <= 16) or not all(isinstance(row, list) and len(row) == len(matrix) for row in matrix):
+            return [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]
+        return [[float(value) for value in row] for row in matrix]
+
+    @Property("QVariantList", notify=settingsChanged)
+    def customDitherMatrix(self) -> list[list[float]]:
+        return self._current_dither_matrix()
+
+    @Property(int, notify=settingsChanged)
+    def customDitherMatrixSize(self) -> int:
+        return len(self._current_dither_matrix())
+
+    @Property("QVariantList", notify=ditherMatrixLibraryChanged)
+    def ditherMatrixLibrary(self) -> list[dict[str, Any]]:
+        return deepcopy(self._dither_matrix_library)
+
+    def _set_custom_dither_matrix(self, matrix: list[list[float]], action: str) -> None:
+        index = self._dither_layer_index()
+        if index < 0:
+            return
+        stack = normalize_effect_stack(self.settings.effect_stack, self.settings)
+        stack[index]["params"]["custom_matrix_json"] = json.dumps(matrix, separators=(",", ":"))
+        data = self.settings.to_dict()
+        data["effect_stack"] = stack
+        self._replace_settings(ProcessingSettings.from_dict(data), action=action, selected_layer=self._selected_layer)
+
+    @Slot(int)
+    def setCustomDitherMatrixSize(self, size: int) -> None:
+        size = max(2, min(16, int(size)))
+        old = self._current_dither_matrix()
+        matrix = [[float((y * size + x) % (size * size)) for x in range(size)] for y in range(size)]
+        for y in range(min(size, len(old))):
+            for x in range(min(size, len(old[y]))):
+                matrix[y][x] = float(old[y][x])
+        self._set_custom_dither_matrix(matrix, f"Custom dither matrix: {size}×{size}")
+
+    @Slot(int, int, float)
+    def setCustomDitherMatrixCell(self, row: int, column: int, value: float) -> None:
+        matrix = self._current_dither_matrix()
+        row, column = int(row), int(column)
+        if not (0 <= row < len(matrix) and 0 <= column < len(matrix)):
+            return
+        matrix[row][column] = float(value)
+        self._set_custom_dither_matrix(matrix, f"Dither matrix cell {row + 1},{column + 1}: {value:g}")
+
+    @Slot()
+    def resetCustomDitherMatrix(self) -> None:
+        matrix = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]
+        self._set_custom_dither_matrix(matrix, "Reset custom dither matrix")
+
+    @Slot(str)
+    def saveCustomDitherMatrix(self, name: str) -> None:
+        clean = str(name or "").strip() or "Custom Matrix"
+        matrix = self._current_dither_matrix()
+        existing = next((item for item in self._dither_matrix_library if str(item.get("name", "")).casefold() == clean.casefold()), None)
+        if existing is None:
+            self._dither_matrix_library.append({"name": clean, "matrix": matrix})
+        else:
+            existing["matrix"] = matrix
+        self._save_dither_matrix_library()
+        self.ditherMatrixLibraryChanged.emit()
+        self._set_status(f"Saved dither matrix: {clean}")
+
+    @Slot(str)
+    def loadCustomDitherMatrix(self, name: str) -> None:
+        record = next((item for item in self._dither_matrix_library if str(item.get("name", "")) == str(name)), None)
+        if record:
+            self._set_custom_dither_matrix(deepcopy(record["matrix"]), f"Dither matrix: {name}")
+
     @Property("QStringList", constant=True)
     def paletteOptimizerNames(self) -> list[str]:
         return list(PALETTE_OPTIMIZERS)
@@ -829,9 +1104,33 @@ class RasterMintBackend(QObject):
     def preserveAudio(self) -> bool:
         return self._preserve_audio
 
+    @Property(bool, notify=settingsChanged)
+    def audioEnvelopeReady(self) -> bool:
+        return bool(self.settings.audio_envelope)
+
+    @Property(int, notify=settingsChanged)
+    def audioEnvelopeSamples(self) -> int:
+        return len(self.settings.audio_envelope)
+
+    @Slot()
+    def analyzeAudioModulation(self) -> None:
+        path = self._video_path or self._current_file
+        if path is None:
+            self.errorOccurred.emit("Audio analysis", "Load a video or media file with an audio track first.")
+            return
+        job = self._next_job()
+        worker = AudioEnvelopeWorker(job, str(path), 30.0)
+        self._connect_worker(worker)
+        self.thread_pool.start(worker)
+        self._set_status("Analysing audio amplitude…")
+
     @Property("QStringList", constant=True)
     def easingNames(self) -> list[str]:
         return list(EASINGS)
+
+    @Property("QStringList", constant=True)
+    def modulatorNames(self) -> list[str]:
+        return list(MODULATORS)
 
     @Property("QVariantList", notify=settingsChanged)
     def animationTargets(self) -> list[dict[str, Any]]:
@@ -853,6 +1152,14 @@ class RasterMintBackend(QObject):
                     "max": float(spec.get("max", 10000.0)),
                     "decimals": int(spec.get("decimals", 0 if spec.get("type") == "int" else 2)),
                 })
+            result.append({
+                "id": f"effect:{effect_id}:__opacity__",
+                "label": f"{kind} · Opacity",
+                "default": float(step.get("opacity", 1.0)),
+                "min": 0.0,
+                "max": 1.0,
+                "decimals": 2,
+            })
         return result
 
     @Property("QStringList", notify=settingsChanged)
@@ -873,6 +1180,125 @@ class RasterMintBackend(QObject):
             row["label"] = labels.get(str(track.get("target", "")), str(track.get("target", "Parameter")))
             result.append(row)
         return result
+
+    @Property(str, notify=projectChanged)
+    def projectPath(self) -> str:
+        return str(self._project_path) if self._project_path else ""
+
+    @Property(str, notify=projectChanged)
+    def projectName(self) -> str:
+        return self._project_path.stem if self._project_path else ""
+
+    @Property(bool, notify=comparisonChanged)
+    def snapshotAReady(self) -> bool:
+        return self._snapshot_a is not None
+
+    @Property(bool, notify=comparisonChanged)
+    def snapshotBReady(self) -> bool:
+        return self._snapshot_b is not None
+
+    @Property(float, notify=comparisonChanged)
+    def comparisonSplit(self) -> float:
+        return float(self._comparison_split)
+
+    @Property(bool, notify=comparisonChanged)
+    def comparisonEnabled(self) -> bool:
+        return bool(self._comparison_enabled and self._snapshot_a is not None and self._snapshot_b is not None)
+
+    def _project_extra_state(self) -> dict[str, Any]:
+        return {}
+
+    def _restore_project_extra_state(self, payload: dict[str, Any]) -> None:
+        del payload
+
+    @Slot(str)
+    def saveProject(self, value: str) -> None:
+        try:
+            from rastermint.core.project import save_project_file
+            path = Path(_local_path(value))
+            source_ref = str(self._current_file) if self._current_file else ""
+            payload = {
+                "app_version": self.version,
+                "source": {"path": source_ref, "kind": "video" if self._video_path else ("image" if source_ref else "clipboard")},
+                "settings": self.settings.to_dict(),
+                "timeline": {
+                    "current_time": float(self._current_time),
+                    "playback_mode": str(self._playback_mode),
+                    "playback_speed": float(self._playback_speed),
+                },
+                "ui": {"selected_layer": int(self._selected_layer), "preview_mode": str(self._preview_mode)},
+                "snapshots": {"a": deepcopy(self._snapshot_a), "b": deepcopy(self._snapshot_b), "split": float(self._comparison_split)},
+                "export": self._project_extra_state(),
+            }
+            self._project_path = save_project_file(path, payload)
+            self.projectChanged.emit()
+            self._set_status(f"Saved project: {self._project_path.name}")
+        except Exception as exc:
+            self.errorOccurred.emit("Could not save project", str(exc))
+
+    @Slot(str)
+    def loadProject(self, value: str) -> None:
+        try:
+            from rastermint.core.project import load_project_file
+            path = Path(_local_path(value))
+            payload = load_project_file(path)
+            source = payload.get("source") if isinstance(payload.get("source"), dict) else {}
+            source_path = Path(str(source.get("path", ""))) if str(source.get("path", "")) else None
+            if source_path is not None:
+                if not source_path.exists():
+                    raise FileNotFoundError(f"Project source file is missing: {source_path}")
+                self.openFile(str(source_path))
+            settings_payload = payload.get("settings") if isinstance(payload.get("settings"), dict) else {}
+            loaded = ProcessingSettings.from_dict(settings_payload)
+            ui = payload.get("ui") if isinstance(payload.get("ui"), dict) else {}
+            selected = int(ui.get("selected_layer", 0) or 0)
+            self._replace_settings(loaded, action=f"Loaded project: {path.name}", selected_layer=selected, record_history=False)
+            self._preview_mode = str(ui.get("preview_mode", self._preview_mode) or self._preview_mode)
+            timeline = payload.get("timeline") if isinstance(payload.get("timeline"), dict) else {}
+            self._current_time = max(0.0, min(self.timelineDuration, float(timeline.get("current_time", 0.0) or 0.0)))
+            self._playback_mode = str(timeline.get("playback_mode", self._playback_mode) or self._playback_mode)
+            self._playback_speed = float(timeline.get("playback_speed", self._playback_speed) or self._playback_speed)
+            snapshots = payload.get("snapshots") if isinstance(payload.get("snapshots"), dict) else {}
+            self._snapshot_a = deepcopy(snapshots.get("a")) if isinstance(snapshots.get("a"), dict) else None
+            self._snapshot_b = deepcopy(snapshots.get("b")) if isinstance(snapshots.get("b"), dict) else None
+            self._comparison_split = max(0.0, min(1.0, float(snapshots.get("split", 0.5) or 0.5)))
+            self._restore_project_extra_state(payload.get("export") if isinstance(payload.get("export"), dict) else {})
+            self._project_path = path
+            self.projectChanged.emit()
+            self.comparisonChanged.emit()
+            self.playbackChanged.emit()
+            self.schedulePreview(force=True)
+            self._set_status(f"Loaded project: {path.name}")
+        except Exception as exc:
+            self.errorOccurred.emit("Could not load project", str(exc))
+
+    @Slot(str)
+    def captureSnapshot(self, slot: str) -> None:
+        payload = self.settings.to_dict()
+        if str(slot).upper() == "A":
+            self._snapshot_a = payload
+            self.provider.set_image("snapshot-a", self.provider.get_image("preview"))
+        else:
+            self._snapshot_b = payload
+            self.provider.set_image("snapshot-b", self.provider.get_image("preview"))
+        self.comparisonChanged.emit()
+        self._set_status(f"Captured snapshot {str(slot).upper()}")
+
+    @Slot(str)
+    def applySnapshot(self, slot: str) -> None:
+        payload = self._snapshot_a if str(slot).upper() == "A" else self._snapshot_b
+        if payload is not None:
+            self._replace_settings(ProcessingSettings.from_dict(deepcopy(payload)), action=f"Applied snapshot {str(slot).upper()}")
+
+    @Slot(float)
+    def setComparisonSplit(self, value: float) -> None:
+        self._comparison_split = max(0.0, min(1.0, float(value)))
+        self.comparisonChanged.emit()
+
+    @Slot(bool)
+    def setComparisonEnabled(self, enabled: bool) -> None:
+        self._comparison_enabled = bool(enabled)
+        self.comparisonChanged.emit()
 
     # ---------- basic mutation ----------
     def _active_source(self) -> Any | None:
@@ -906,6 +1332,7 @@ class RasterMintBackend(QObject):
         return {
             "settings": self.settings.to_dict(),
             "selected_layer": int(self._selected_layer),
+            "selected_layers": sorted(self._selected_layers),
             "preserve_audio": bool(self._preserve_audio),
             "preview_mode": str(self._preview_mode),
         }
@@ -913,6 +1340,10 @@ class RasterMintBackend(QObject):
     def _restore_history_state(self, state: dict[str, Any]) -> None:
         settings = ProcessingSettings.from_dict(dict(state.get("settings") or {}))
         self._selected_layer = max(0, int(state.get("selected_layer", 0)))
+        raw_selected = state.get("selected_layers", [self._selected_layer])
+        self._selected_layers = {int(i) for i in raw_selected if isinstance(i, (int, float)) and int(i) >= 0}
+        if not self._selected_layers:
+            self._selected_layers = {self._selected_layer}
         self._preserve_audio = bool(state.get("preserve_audio", self._preserve_audio))
         preview_mode = str(state.get("preview_mode", self._preview_mode)).title()
         if preview_mode in {"Quick", "Stable", "Full"}:
@@ -969,12 +1400,14 @@ class RasterMintBackend(QObject):
             self.historyChanged.emit()
         self.settings = canonical
         self._selected_layer = desired_layer
+        self._selected_layers = {desired_layer} if canonical.effect_stack else set()
         self.layer_model.replace(self.settings.effect_stack)
         self._settings_revision += 1
         self._reset_preview_temporal_state()
         self._invalidate_rendered()
         self.settingsChanged.emit()
         self.layerSelectionChanged.emit()
+        self.layerWorkflowChanged.emit()
         if schedule and self.hasSource:
             self.schedulePreview()
         if action:
@@ -1132,6 +1565,7 @@ class RasterMintBackend(QObject):
             else:
                 raise ValueError(f"Unsupported file type: {suffix or '(none)'}")
             self._source_revision += 1
+            self._clear_layer_render_cache()
             self._reset_preview_temporal_state()
             self._invalidate_rendered()
             self.sourceChanged.emit()
@@ -1178,6 +1612,7 @@ class RasterMintBackend(QObject):
             self._source_image = pasted.convert("RGB")
 
             self._source_revision += 1
+            self._clear_layer_render_cache()
             self._reset_preview_temporal_state()
             self._invalidate_rendered()
             self.sourceChanged.emit()
@@ -1276,9 +1711,30 @@ class RasterMintBackend(QObject):
     # ---------- layers ----------
     @Slot(int)
     def selectLayer(self, index: int) -> None:
-        if 0 <= int(index) < len(self.settings.effect_stack):
-            self._selected_layer = int(index)
+        index = int(index)
+        if 0 <= index < len(self.settings.effect_stack):
+            self._selected_layer = index
+            self._selected_layers = {index}
             self.layerSelectionChanged.emit()
+            self.layerWorkflowChanged.emit()
+
+    @Slot(int)
+    def toggleLayerSelection(self, index: int) -> None:
+        index = int(index)
+        if not (0 <= index < len(self.settings.effect_stack)):
+            return
+        if index in self._selected_layers and len(self._selected_layers) > 1:
+            self._selected_layers.remove(index)
+        else:
+            self._selected_layers.add(index)
+            self._selected_layer = index
+        self.layerSelectionChanged.emit()
+        self.layerWorkflowChanged.emit()
+
+    @Slot()
+    def clearLayerMultiSelection(self) -> None:
+        self._selected_layers = {self._selected_layer} if self._selected_layer >= 0 else set()
+        self.layerWorkflowChanged.emit()
 
     @Slot(str)
     def addLayer(self, kind: str) -> None:
@@ -1310,9 +1766,14 @@ class RasterMintBackend(QObject):
         if not (0 <= index < len(stack)):
             return
         kind = str(stack[index].get("kind", "Layer"))
+        removed_id = str(stack[index].get("id", ""))
         del stack[index]
+        used_groups = {str(step.get("group_id", "")) for step in stack if str(step.get("group_id", ""))}
         data = self.settings.to_dict()
         data["effect_stack"] = stack
+        data["layer_groups"] = [dict(group) for group in self.settings.layer_groups if str(group.get("id", "")) in used_groups]
+        if str(data.get("solo_layer_id", "")) == removed_id:
+            data["solo_layer_id"] = ""
         self._replace_settings(
             ProcessingSettings.from_dict(data),
             action=f"Removed layer: {kind}",
@@ -1329,7 +1790,11 @@ class RasterMintBackend(QObject):
         if kind in FIXED_STAGE_KINDS:
             return
         copy = new_effect(kind, enabled=bool(original.get("enabled", True)))
-        copy["params"].update(dict(original.get("params") or {}))
+        copy["params"].update(deepcopy(dict(original.get("params") or {})))
+        copy["opacity"] = float(original.get("opacity", 1.0) or 0.0)
+        copy["blend_mode"] = str(original.get("blend_mode", "Normal") or "Normal")
+        copy["mask"] = deepcopy(dict(original.get("mask") or default_layer_mask()))
+        copy["group_id"] = str(original.get("group_id", "") or "")
         stack.insert(index + 1, copy)
         data = self.settings.to_dict()
         data["effect_stack"] = stack
@@ -1375,6 +1840,248 @@ class RasterMintBackend(QObject):
             action=f"{kind}: {'Enabled' if enabled else 'Disabled'}",
             selected_layer=index,
         )
+
+    def _replace_layer_metadata(self, stack: list[dict[str, Any]], index: int, action: str) -> None:
+        data = self.settings.to_dict()
+        data["effect_stack"] = stack
+        self._replace_settings(
+            ProcessingSettings.from_dict(data),
+            action=action,
+            selected_layer=index,
+        )
+
+    @Slot(float)
+    def setLayerOpacity(self, value: float) -> None:
+        stack = normalize_effect_stack(self.settings.effect_stack, self.settings)
+        if not (0 <= self._selected_layer < len(stack)):
+            return
+        value = max(0.0, min(1.0, float(value)))
+        stack[self._selected_layer]["opacity"] = value
+        self._replace_layer_metadata(stack, self._selected_layer, f"{stack[self._selected_layer]['kind']} · Opacity: {round(value * 100)}%")
+
+    @Slot(str)
+    def setLayerBlendMode(self, mode: str) -> None:
+        mode = str(mode or "Normal")
+        if mode not in BLEND_MODES:
+            return
+        stack = normalize_effect_stack(self.settings.effect_stack, self.settings)
+        if not (0 <= self._selected_layer < len(stack)):
+            return
+        stack[self._selected_layer]["blend_mode"] = mode
+        self._replace_layer_metadata(stack, self._selected_layer, f"{stack[self._selected_layer]['kind']} · Blend: {mode}")
+
+    def _set_layer_mask_value(self, key: str, value: Any, action_value: str) -> None:
+        stack = normalize_effect_stack(self.settings.effect_stack, self.settings)
+        if not (0 <= self._selected_layer < len(stack)):
+            return
+        mask = dict(stack[self._selected_layer].get("mask") or default_layer_mask())
+        mask[str(key)] = value
+        stack[self._selected_layer]["mask"] = mask
+        self._replace_layer_metadata(stack, self._selected_layer, f"{stack[self._selected_layer]['kind']} · Mask {action_value}")
+
+    @Slot(str)
+    def setLayerMaskType(self, mask_type: str) -> None:
+        mask_type = str(mask_type or "None")
+        if mask_type not in MASK_TYPES:
+            return
+        self._set_layer_mask_value("type", mask_type, f"type: {mask_type}")
+
+    @Slot(bool)
+    def setLayerMaskInvert(self, invert: bool) -> None:
+        self._set_layer_mask_value("invert", bool(invert), f"invert: {'On' if invert else 'Off'}")
+
+    @Slot(float)
+    def setLayerMaskFeather(self, feather: float) -> None:
+        value = max(0.0, min(1.0, float(feather)))
+        self._set_layer_mask_value("feather", value, f"feather: {round(value * 100)}%")
+
+    @Slot(float)
+    def setLayerMaskStrength(self, strength: float) -> None:
+        value = max(0.0, min(1.0, float(strength)))
+        self._set_layer_mask_value("strength", value, f"strength: {round(value * 100)}%")
+
+    @Slot()
+    def duplicateSelectedLayer(self) -> None:
+        self.duplicateLayer(self._selected_layer)
+
+    @Slot()
+    def copySelectedLayerSettings(self) -> None:
+        stack = normalize_effect_stack(self.settings.effect_stack, self.settings)
+        if not (0 <= self._selected_layer < len(stack)):
+            return
+        self._layer_clipboard = deepcopy(stack[self._selected_layer])
+        self.layerWorkflowChanged.emit()
+        self._set_status(f"Copied layer settings: {stack[self._selected_layer].get('kind', 'Layer')}")
+
+    @Slot()
+    def pasteSelectedLayerSettings(self) -> None:
+        if self._layer_clipboard is None:
+            return
+        stack = normalize_effect_stack(self.settings.effect_stack, self.settings)
+        if not (0 <= self._selected_layer < len(stack)):
+            return
+        target = stack[self._selected_layer]
+        source = self._layer_clipboard
+        if str(target.get("kind")) != str(source.get("kind")):
+            self._set_status("Layer settings can only be pasted onto the same effect type")
+            return
+        target["params"] = deepcopy(dict(source.get("params") or {}))
+        target["opacity"] = float(source.get("opacity", 1.0) or 0.0)
+        target["blend_mode"] = str(source.get("blend_mode", "Normal") or "Normal")
+        target["mask"] = deepcopy(dict(source.get("mask") or default_layer_mask()))
+        self._replace_layer_metadata(stack, self._selected_layer, f"Pasted layer settings: {target.get('kind', 'Layer')}")
+
+    @Slot()
+    def resetSelectedLayer(self) -> None:
+        stack = normalize_effect_stack(self.settings.effect_stack, self.settings)
+        if not (0 <= self._selected_layer < len(stack)):
+            return
+        old = stack[self._selected_layer]
+        kind = str(old.get("kind", ""))
+        reset = new_effect(kind, enabled=bool(old.get("enabled", True)), effect_id=str(old.get("id", "")))
+        reset["group_id"] = str(old.get("group_id", "") or "")
+        stack[self._selected_layer] = reset
+        self._replace_layer_metadata(stack, self._selected_layer, f"Reset layer: {kind}")
+
+    @Slot()
+    def toggleSoloSelectedLayer(self) -> None:
+        stack = normalize_effect_stack(self.settings.effect_stack, self.settings)
+        if not (0 <= self._selected_layer < len(stack)):
+            return
+        layer_id = str(stack[self._selected_layer].get("id", ""))
+        data = self.settings.to_dict()
+        data["solo_layer_id"] = "" if str(self.settings.solo_layer_id or "") == layer_id else layer_id
+        enabled = bool(data["solo_layer_id"])
+        self._replace_settings(
+            ProcessingSettings.from_dict(data),
+            action=f"Solo {stack[self._selected_layer].get('kind', 'Layer')}: {'On' if enabled else 'Off'}",
+            selected_layer=self._selected_layer,
+        )
+
+    @Slot()
+    def removeSelectedLayers(self) -> None:
+        selected = sorted(i for i in self._selected_layers if 0 <= i < len(self.settings.effect_stack))
+        if not selected:
+            return
+        stack = normalize_effect_stack(self.settings.effect_stack, self.settings)
+        removed_ids = {str(stack[i].get("id", "")) for i in selected}
+        removed_names = [str(stack[i].get("kind", "Layer")) for i in selected]
+        stack = [step for i, step in enumerate(stack) if i not in set(selected)]
+        used_groups = {str(step.get("group_id", "")) for step in stack if str(step.get("group_id", ""))}
+        groups = [dict(group) for group in self.settings.layer_groups if str(group.get("id", "")) in used_groups]
+        data = self.settings.to_dict()
+        data["effect_stack"] = stack
+        data["layer_groups"] = groups
+        if str(data.get("solo_layer_id", "")) in removed_ids:
+            data["solo_layer_id"] = ""
+        self._replace_settings(
+            ProcessingSettings.from_dict(data),
+            action=f"Removed {len(selected)} layer{'s' if len(selected) != 1 else ''}: {', '.join(removed_names[:3])}",
+            selected_layer=max(0, min(selected[0], len(stack) - 1)),
+        )
+
+    @Slot(str)
+    def groupSelectedLayers(self, name: str) -> None:
+        selected = sorted(i for i in self._selected_layers if 0 <= i < len(self.settings.effect_stack))
+        if not selected:
+            return
+        group_id = f"group-{uuid4().hex[:10]}"
+        clean_name = str(name or "").strip() or "Layer Group"
+        stack = normalize_effect_stack(self.settings.effect_stack, self.settings)
+        for index in selected:
+            stack[index]["group_id"] = group_id
+        groups = [dict(group) for group in self.settings.layer_groups]
+        groups.append({"id": group_id, "name": clean_name, "collapsed": False, "enabled": True})
+        data = self.settings.to_dict()
+        data["effect_stack"] = stack
+        data["layer_groups"] = groups
+        self._replace_settings(
+            ProcessingSettings.from_dict(data),
+            action=f"Grouped {len(selected)} layers: {clean_name}",
+            selected_layer=selected[-1],
+        )
+
+    @Slot()
+    def ungroupSelectedLayers(self) -> None:
+        selected = sorted(i for i in self._selected_layers if 0 <= i < len(self.settings.effect_stack))
+        if not selected:
+            return
+        stack = normalize_effect_stack(self.settings.effect_stack, self.settings)
+        touched = {str(stack[index].get("group_id", "")) for index in selected if str(stack[index].get("group_id", ""))}
+        for index in selected:
+            stack[index]["group_id"] = ""
+        used = {str(step.get("group_id", "")) for step in stack if str(step.get("group_id", ""))}
+        groups = [dict(group) for group in self.settings.layer_groups if str(group.get("id", "")) in used]
+        data = self.settings.to_dict()
+        data["effect_stack"] = stack
+        data["layer_groups"] = groups
+        self._replace_settings(
+            ProcessingSettings.from_dict(data),
+            action=f"Ungrouped {len(selected)} layer{'s' if len(selected) != 1 else ''}",
+            selected_layer=selected[-1],
+        )
+
+    def _group_by_id(self, group_id: str) -> dict[str, Any] | None:
+        key = str(group_id or "")
+        return next((group for group in self.settings.layer_groups if str(group.get("id", "")) == key), None)
+
+    @Slot(str, result=str)
+    def layerGroupName(self, group_id: str) -> str:
+        group = self._group_by_id(group_id)
+        return str(group.get("name", "")) if group else ""
+
+    @Slot(str, result=bool)
+    def layerGroupCollapsed(self, group_id: str) -> bool:
+        group = self._group_by_id(group_id)
+        return bool(group and group.get("collapsed", False))
+
+    @Slot(str, result=bool)
+    def layerGroupEnabled(self, group_id: str) -> bool:
+        group = self._group_by_id(group_id)
+        return bool(group is None or group.get("enabled", True))
+
+    @Slot(str, result=int)
+    def layerGroupCount(self, group_id: str) -> int:
+        key = str(group_id or "")
+        return sum(1 for step in self.settings.effect_stack if str(step.get("group_id", "")) == key)
+
+    @Slot(int, result=bool)
+    def isFirstLayerInGroup(self, index: int) -> bool:
+        index = int(index)
+        if not (0 <= index < len(self.settings.effect_stack)):
+            return False
+        group_id = str(self.settings.effect_stack[index].get("group_id", "") or "")
+        if not group_id:
+            return False
+        return not any(str(step.get("group_id", "") or "") == group_id for step in self.settings.effect_stack[:index])
+
+    def _update_group(self, group_id: str, key: str, value: Any, action: str) -> None:
+        groups = [dict(group) for group in self.settings.layer_groups]
+        changed = False
+        for group in groups:
+            if str(group.get("id", "")) == str(group_id):
+                group[key] = value
+                changed = True
+                break
+        if not changed:
+            return
+        data = self.settings.to_dict()
+        data["layer_groups"] = groups
+        self._replace_settings(ProcessingSettings.from_dict(data), action=action, selected_layer=self._selected_layer)
+
+    @Slot(str, bool)
+    def setLayerGroupCollapsed(self, group_id: str, collapsed: bool) -> None:
+        self._update_group(group_id, "collapsed", bool(collapsed), "Layer group collapsed" if collapsed else "Layer group expanded")
+
+    @Slot(str, bool)
+    def setLayerGroupEnabled(self, group_id: str, enabled: bool) -> None:
+        self._update_group(group_id, "enabled", bool(enabled), f"Layer group: {'Enabled' if enabled else 'Disabled'}")
+
+    @Slot(str, str)
+    def renameLayerGroup(self, group_id: str, name: str) -> None:
+        clean = str(name or "").strip()
+        if clean:
+            self._update_group(group_id, "name", clean, f"Renamed layer group: {clean}")
 
     @Slot(str, "QVariant")
     def setLayerParam(self, key: str, value: Any) -> None:
@@ -1473,6 +2180,7 @@ class RasterMintBackend(QObject):
         settings.effect_stack = default_effect_stack(settings)
         self._preview_mode = "Quick"
         self.app_settings.setValue("previewModeQml", "Quick")
+        self._clear_layer_render_cache()
         self._replace_settings(settings, action="Reset settings")
 
     # ---------- palettes ----------
@@ -1957,6 +2665,152 @@ class RasterMintBackend(QObject):
             self.historyChanged.emit()
             self._set_status(action)
 
+    _ANIMATION_CLIP_SETTINGS_KEY = "animationClipLibraryV1"
+
+    def _load_animation_clip_library(self) -> list[dict[str, Any]]:
+        raw = self.app_settings.value(self._ANIMATION_CLIP_SETTINGS_KEY, "[]")
+        try:
+            payload = json.loads(str(raw or "[]"))
+        except (TypeError, ValueError, json.JSONDecodeError):
+            payload = []
+        result: list[dict[str, Any]] = []
+        for item in payload if isinstance(payload, list) else []:
+            if isinstance(item, dict) and str(item.get("name", "")).strip() and isinstance(item.get("track"), dict):
+                normalized = normalize_tracks([item["track"]])
+                if normalized:
+                    result.append({"name": str(item["name"]).strip(), "track": normalized[0]})
+        return result
+
+    def _save_animation_clip_library(self) -> None:
+        self.app_settings.setValue(self._ANIMATION_CLIP_SETTINGS_KEY, json.dumps(self._animation_clip_library, ensure_ascii=False))
+        self.app_settings.sync()
+
+    @Property("QVariantList", notify=settingsChanged)
+    def animationClipLibrary(self) -> list[dict[str, Any]]:
+        return [{"name": str(item.get("name", ""))} for item in self._animation_clip_library]
+
+    @Property(bool, notify=settingsChanged)
+    def keyframeClipboardAvailable(self) -> bool:
+        return self._keyframe_clipboard is not None
+
+    @Slot(int, float, float, str)
+    def addAnimationKeyframe(self, track_index: int, time_seconds: float, value: float, easing: str = "Linear") -> None:
+        tracks = normalize_tracks(self.settings.animation_tracks)
+        index = int(track_index)
+        if not (0 <= index < len(tracks)):
+            return
+        keyframes = [dict(item) for item in tracks[index].get("keyframes", [])]
+        keyframes.append({
+            "time": max(0.0, min(self.timelineDuration, float(time_seconds))),
+            "value": float(value),
+            "easing": str(easing) if str(easing) in EASINGS else "Linear",
+            "bezier": [0.25, 0.1, 0.25, 1.0],
+        })
+        tracks[index]["keyframes"] = keyframes
+        self._replace_tracks(tracks, "Added animation keyframe")
+
+    @Slot(int, int, float, float, str, "QVariantList")
+    def updateAnimationKeyframe(self, track_index: int, key_index: int, time_seconds: float, value: float, easing: str, bezier: list[Any]) -> None:
+        tracks = normalize_tracks(self.settings.animation_tracks)
+        ti, ki = int(track_index), int(key_index)
+        if not (0 <= ti < len(tracks)):
+            return
+        keys = [dict(item) for item in tracks[ti].get("keyframes", [])]
+        if not (0 <= ki < len(keys)):
+            return
+        control = list(bezier or [0.25, 0.1, 0.25, 1.0])[:4]
+        while len(control) < 4:
+            control.append([0.25, 0.1, 0.25, 1.0][len(control)])
+        keys[ki] = {
+            "time": max(0.0, min(self.timelineDuration, float(time_seconds))),
+            "value": float(value),
+            "easing": str(easing) if str(easing) in EASINGS else "Linear",
+            "bezier": [float(v) for v in control],
+        }
+        tracks[ti]["keyframes"] = keys
+        self._replace_tracks(tracks, "Updated animation keyframe")
+
+    @Slot(int, int)
+    def removeAnimationKeyframe(self, track_index: int, key_index: int) -> None:
+        tracks = normalize_tracks(self.settings.animation_tracks)
+        ti, ki = int(track_index), int(key_index)
+        if not (0 <= ti < len(tracks)):
+            return
+        keys = [dict(item) for item in tracks[ti].get("keyframes", [])]
+        if not (0 <= ki < len(keys)) or len(keys) <= 2:
+            return
+        del keys[ki]
+        tracks[ti]["keyframes"] = keys
+        self._replace_tracks(tracks, "Removed animation keyframe")
+
+    @Slot(int, int)
+    def copyAnimationKeyframe(self, track_index: int, key_index: int) -> None:
+        tracks = normalize_tracks(self.settings.animation_tracks)
+        ti, ki = int(track_index), int(key_index)
+        if 0 <= ti < len(tracks):
+            keys = tracks[ti].get("keyframes", [])
+            if 0 <= ki < len(keys):
+                self._keyframe_clipboard = deepcopy(keys[ki])
+                self.settingsChanged.emit()
+                self._set_status("Copied animation keyframe")
+
+    @Slot(int, float)
+    def pasteAnimationKeyframe(self, track_index: int, time_seconds: float) -> None:
+        if self._keyframe_clipboard is None:
+            return
+        tracks = normalize_tracks(self.settings.animation_tracks)
+        ti = int(track_index)
+        if not (0 <= ti < len(tracks)):
+            return
+        key = deepcopy(self._keyframe_clipboard)
+        key["time"] = max(0.0, min(self.timelineDuration, float(time_seconds)))
+        tracks[ti].setdefault("keyframes", []).append(key)
+        self._replace_tracks(tracks, "Pasted animation keyframe")
+
+    @Slot(int, str, float, float, float, float, int)
+    def setAnimationModulator(self, track_index: int, kind: str, amount: float, frequency: float, phase: float, bpm: float, seed: int) -> None:
+        tracks = normalize_tracks(self.settings.animation_tracks)
+        index = int(track_index)
+        if not (0 <= index < len(tracks)):
+            return
+        tracks[index]["modulator"] = {
+            "type": str(kind) if str(kind) in MODULATORS else "None",
+            "amount": float(amount),
+            "frequency": max(0.0, float(frequency)),
+            "phase": float(phase),
+            "bpm": max(1.0, float(bpm)),
+            "seed": int(seed),
+        }
+        self._replace_tracks(tracks, f"Animation modulator: {kind}")
+
+    @Slot(int, str)
+    def saveAnimationClip(self, track_index: int, name: str) -> None:
+        tracks = normalize_tracks(self.settings.animation_tracks)
+        index = int(track_index)
+        clean = str(name or "").strip()
+        if not clean or not (0 <= index < len(tracks)):
+            return
+        record = next((item for item in self._animation_clip_library if str(item.get("name", "")).casefold() == clean.casefold()), None)
+        payload = {"name": clean, "track": deepcopy(tracks[index])}
+        if record is None:
+            self._animation_clip_library.append(payload)
+        else:
+            record.update(payload)
+        self._save_animation_clip_library()
+        self.settingsChanged.emit()
+        self._set_status(f"Saved animation clip: {clean}")
+
+    @Slot(str, str)
+    def applyAnimationClip(self, name: str, target: str) -> None:
+        record = next((item for item in self._animation_clip_library if str(item.get("name", "")) == str(name)), None)
+        if record is None or not any(item["id"] == str(target) for item in self.animationTargets):
+            return
+        track = deepcopy(record["track"])
+        track["target"] = str(target)
+        tracks = normalize_tracks(self.settings.animation_tracks)
+        tracks.append(track)
+        self._replace_tracks(tracks, f"Animation clip: {name}")
+
     def _replace_tracks(self, tracks: list[dict[str, Any]], action: str) -> None:
         data = self.settings.to_dict()
         data["animation_tracks"] = normalize_tracks(tracks)
@@ -1967,10 +2821,16 @@ class RasterMintBackend(QObject):
         if not any(item["id"] == str(target) for item in self.animationTargets):
             return
         tracks = normalize_tracks(self.settings.animation_tracks)
+        start_time = max(0.0, float(start_time))
+        end_time = max(start_time, float(end_time))
+        ease = str(easing) if str(easing) in EASINGS else "Linear"
         tracks.append({
-            "target": str(target), "from": float(start_value), "to": float(end_value),
-            "start": max(0.0, float(start_time)), "end": max(float(start_time), float(end_time)),
-            "easing": str(easing) if str(easing) in EASINGS else "Linear", "enabled": True,
+            "target": str(target), "enabled": True,
+            "keyframes": [
+                {"time": start_time, "value": float(start_value), "easing": ease, "bezier": [0.25, 0.1, 0.25, 1.0]},
+                {"time": end_time, "value": float(end_value), "easing": "Linear", "bezier": [0.25, 0.1, 0.25, 1.0]},
+            ],
+            "modulator": {"type": "None", "amount": 0.0, "frequency": 1.0, "phase": 0.0, "bpm": 120.0, "seed": 1},
         })
         self._replace_tracks(tracks, f"Added animation track: {target}")
 
@@ -1980,10 +2840,15 @@ class RasterMintBackend(QObject):
         index = int(index)
         if not (0 <= index < len(tracks)) or not any(item["id"] == str(target) for item in self.animationTargets):
             return
+        start_time = max(0.0, float(start_time))
+        end_time = max(start_time, float(end_time))
+        ease = str(easing) if str(easing) in EASINGS else "Linear"
         tracks[index].update({
-            "target": str(target), "from": float(start_value), "to": float(end_value),
-            "start": max(0.0, float(start_time)), "end": max(float(start_time), float(end_time)),
-            "easing": str(easing) if str(easing) in EASINGS else "Linear",
+            "target": str(target),
+            "keyframes": [
+                {"time": start_time, "value": float(start_value), "easing": ease, "bezier": [0.25, 0.1, 0.25, 1.0]},
+                {"time": end_time, "value": float(end_value), "easing": "Linear", "bezier": [0.25, 0.1, 0.25, 1.0]},
+            ],
         })
         self._replace_tracks(tracks, f"Updated animation track: {target}")
 
@@ -1993,7 +2858,7 @@ class RasterMintBackend(QObject):
         index = int(index)
         if not (0 <= index < len(tracks)):
             return
-        tracks.insert(index + 1, dict(tracks[index]))
+        tracks.insert(index + 1, deepcopy(tracks[index]))
         self._replace_tracks(tracks, "Duplicated animation track")
 
     @Slot(int)
@@ -2112,6 +2977,51 @@ class RasterMintBackend(QObject):
             self.schedulePreview(force=True)
         self.playbackChanged.emit()
 
+    @Property(str, notify=benchmarkChanged)
+    def benchmarkSummary(self) -> str:
+        return self._benchmark_summary
+
+    @Slot()
+    def benchmarkCurrentStack(self) -> None:
+        source = self._active_source()
+        if source is None:
+            return
+        # Keep diagnostics interactive even for giant source files. Geometry and
+        # pixel-scaled parameters are still represented accurately at preview size.
+        settings = settings_at_time(self.settings, self._current_time)
+        final_size = target_raster_size(source.size, settings)
+        preview_source = make_preview_source(source, max_side=PREVIEW_MAX_SIDE, settings=settings)
+        preview_settings = make_preview_settings(settings, final_size, preview_source.size)
+        self._benchmark_summary = _tr("Benchmarking current stack…")
+        self.benchmarkChanged.emit()
+        job = self._next_job()
+        worker = BenchmarkWorker(job, preview_source, preview_settings)
+        self._connect_worker(worker)
+        self.thread_pool.start(worker)
+
+    def _preview_layer_cache(self):
+        if not bool(getattr(self, "layerCacheEnabled", True)):
+            return None
+        budget = int(getattr(self, "layerCacheMegabytes", 192) or 192)
+        if self._layer_render_cache is None:
+            from rastermint.core.render_cache import LayerRenderCache
+            self._layer_render_cache = LayerRenderCache(budget)
+        else:
+            try:
+                self._layer_render_cache.set_budget(budget)
+            except Exception:
+                self._layer_render_cache = None
+                return None
+        return self._layer_render_cache
+
+    def _clear_layer_render_cache(self) -> None:
+        cache = self._layer_render_cache
+        if cache is not None:
+            try:
+                cache.clear()
+            except Exception:
+                pass
+
     # ---------- preview pipeline ----------
     @Slot()
     def schedulePreview(self, force: bool = False) -> None:
@@ -2180,6 +3090,9 @@ class RasterMintBackend(QObject):
             display_mode=settings.display_mode,
             include_grid=False,
             temporal_state=temporal_state,
+            render_cache=self._preview_layer_cache(),
+            tiled_processing=bool(getattr(self, "tiledProcessingEnabled", True)),
+            tile_size=int(getattr(self, "processingTileSize", 1024) or 1024),
         )
         self._connect_worker(worker)
         self.thread_pool.start(worker)
@@ -2191,6 +3104,22 @@ class RasterMintBackend(QObject):
 
     @Slot(int, str, object, object)
     def _worker_finished(self, job_id: int, purpose: str, result: object, context: object) -> None:
+        if purpose == "benchmark" and isinstance(result, dict):
+            total = float(result.get("total_ms", 0.0) or 0.0)
+            layers = list(result.get("layers") or [])
+            slow = layers[:3]
+            details = ", ".join(
+                f"{row.get('kind', 'Layer')} {float(row.get('milliseconds', 0.0)):.1f} ms"
+                for row in slow
+                if isinstance(row, dict)
+            )
+            self._benchmark_summary = (
+                f"{int(result.get('width', 0))}×{int(result.get('height', 0))} · {total:.1f} ms"
+                + (f" · {details}" if details else "")
+            )
+            self.benchmarkChanged.emit()
+            self._set_status(f"Benchmark: {total:.1f} ms")
+            return
         if purpose == "preview":
             self._preview_running = False
             valid = isinstance(context, dict) and context.get("source_revision") == self._source_revision and context.get("settings_revision") == self._settings_revision
@@ -2228,6 +3157,14 @@ class RasterMintBackend(QObject):
             except Exception as exc:
                 self.errorOccurred.emit("Could not export image", str(exc))
             return
+        if purpose == "audio-envelope" and isinstance(result, dict):
+            data = self.settings.to_dict()
+            data["audio_envelope"] = list(result.get("envelope") or [])
+            data["audio_envelope_rate"] = float(result.get("rate", 30.0) or 30.0)
+            self._replace_settings(ProcessingSettings.from_dict(data), action="Analysed audio amplitude")
+            self._set_status(f"Audio envelope: {len(data['audio_envelope'])} samples")
+            return
+
         if purpose == "rendered-preview" and isinstance(result, dict):
             frames = result.get("frames") or []
             context_map = context if isinstance(context, dict) else {}

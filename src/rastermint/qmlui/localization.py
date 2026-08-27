@@ -5,10 +5,13 @@ from __future__ import annotations
 
 import json
 from importlib import resources
+from pathlib import Path
 from typing import Any
 
 from PySide6.QtCore import Property, QCoreApplication, QLocale, QObject, QSettings, QTranslator, Signal, Slot
 from PySide6.QtQml import QQmlEngine
+
+from rastermint.core.extensions import asset_files
 
 
 DEFAULT_LANGUAGE_ID = "en"
@@ -54,6 +57,24 @@ class _JsonTranslator(QTranslator):
         return self._messages.get(str(source_text), "")
 
 
+def _extension_translations() -> tuple[dict[str, Any], ...]:
+    records: list[dict[str, Any]] = []
+    for path in asset_files("translations"):
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if not isinstance(payload, dict):
+            continue
+        language_id = str(payload.get("language") or path.stem).strip().lower().replace("-", "_").split("_", 1)[0]
+        name = str(payload.get("name") or language_id).strip()
+        messages = payload.get("messages")
+        if not language_id or not name or not isinstance(messages, dict):
+            continue
+        records.append({"id": language_id, "name": name, "messages": messages, "path": Path(path)})
+    return tuple(records)
+
+
 class LocalizationManager(QObject):
     """Persistent runtime language switching for QML without Qt .qm tooling."""
 
@@ -65,6 +86,15 @@ class LocalizationManager(QObject):
         self._settings = QSettings("RasterMint", "RasterMint")
         self._translator = _JsonTranslator(self)
         self._translator_installed = False
+        self._extension_translations = _extension_translations()
+        extension_ids: list[str] = []
+        self._language_names = dict(LANGUAGE_NAMES)
+        for record in self._extension_translations:
+            language_id = str(record["id"])
+            if language_id not in self._language_names:
+                self._language_names[language_id] = str(record["name"])
+                extension_ids.append(language_id)
+        self._language_order = tuple(LANGUAGE_ORDER) + tuple(sorted(extension_ids, key=lambda key: self._language_names[key].casefold()))
 
         setting_key = "appearance/language"
         if self._settings.contains(setting_key):
@@ -78,12 +108,11 @@ class LocalizationManager(QObject):
         else:
             requested = self._system_language_id()
 
-        self._language_id = requested if requested in LANGUAGE_ORDER else DEFAULT_LANGUAGE_ID
+        self._language_id = requested if requested in self._language_order else DEFAULT_LANGUAGE_ID
         self._effective_language_id = self._language_id
         self._apply_language(retranslate=False)
 
-    @staticmethod
-    def _system_language_id() -> str:
+    def _system_language_id(self) -> str:
         """Return the supported OS language, falling back to English."""
         try:
             locale = QLocale.system()
@@ -95,29 +124,42 @@ class LocalizationManager(QObject):
         for candidate in candidates:
             code = str(candidate or "").replace("-", "_").split("_", 1)[0].lower()
             code = aliases.get(code, code)
-            if code in LANGUAGE_ORDER:
+            if code in self._language_order:
                 return code
         return DEFAULT_LANGUAGE_ID
 
-    @staticmethod
-    def _load_messages(language_id: str) -> dict[str, str]:
-        if language_id == "en":
-            return {}
-        try:
-            path = resources.files("rastermint").joinpath(
-                f"data/translations/{language_id}.json"
-            )
-            payload: Any = json.loads(path.read_text(encoding="utf-8"))
-            messages = payload.get("messages", {}) if isinstance(payload, dict) else {}
-            if not isinstance(messages, dict):
-                return {}
-            return {
-                str(source): str(translated)
-                for source, translated in messages.items()
-                if str(source) and str(translated)
-            }
-        except Exception:
-            return {}
+    def _load_messages(self, language_id: str) -> dict[str, str]:
+        messages: dict[str, str] = {}
+        if language_id != "en":
+            try:
+                path = resources.files("rastermint").joinpath(
+                    f"data/translations/{language_id}.json"
+                )
+                payload: Any = json.loads(path.read_text(encoding="utf-8"))
+                bundled = payload.get("messages", {}) if isinstance(payload, dict) else {}
+                if isinstance(bundled, dict):
+                    messages.update({
+                        str(source): str(translated)
+                        for source, translated in bundled.items()
+                        if str(source) and str(translated)
+                    })
+            except Exception:
+                pass
+
+        # Extensions may add a completely new language or fill missing strings
+        # for an existing language. Bundled non-empty translations remain the
+        # baseline; deterministic extension order allows deliberate add-ons.
+        for record in self._extension_translations:
+            if str(record.get("id")) != language_id:
+                continue
+            extra = record.get("messages")
+            if isinstance(extra, dict):
+                messages.update({
+                    str(source): str(translated)
+                    for source, translated in extra.items()
+                    if str(source) and str(translated)
+                })
+        return messages
 
     def _apply_language(self, *, retranslate: bool = True) -> None:
         self._effective_language_id = self._language_id
@@ -144,17 +186,17 @@ class LocalizationManager(QObject):
 
     @Property("QStringList", constant=True)
     def languageIds(self) -> list[str]:
-        return list(LANGUAGE_ORDER)
+        return list(self._language_order)
 
     @Property("QStringList", constant=True)
     def languageNames(self) -> list[str]:
-        return [LANGUAGE_NAMES[language_id] for language_id in LANGUAGE_ORDER]
+        return [self._language_names[language_id] for language_id in self._language_order]
 
     @Slot(str)
     def setLanguage(self, language_id_or_name: str) -> None:
         value = str(language_id_or_name or "")
-        selected = value if value in LANGUAGE_ORDER else next(
-            (key for key, name in LANGUAGE_NAMES.items() if name == value),
+        selected = value if value in self._language_order else next(
+            (key for key, name in self._language_names.items() if name == value),
             "",
         )
         if not selected or selected == self._language_id:

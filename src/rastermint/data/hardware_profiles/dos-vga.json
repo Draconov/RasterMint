@@ -1,14 +1,14 @@
 {
-  "id": "amiga-ocs",
-  "name": "Commodore Amiga OCS Lowres",
+  "id": "dos-vga",
+  "name": "DOS VGA 320×200",
   "category": "Computer",
-  "summary": "320×256 PAL-oriented low-resolution profile with 12-bit RGB master color and a 32-color normal-mode limit.",
+  "summary": "Creative VGA Mode 13h-style 320×200 output with 256-colour indexing and CRT display treatment.",
   "raster": {
     "width": 320,
-    "height": 256,
+    "height": 200,
     "pixel_aspect": [
-      16,
-      15
+      5,
+      6
     ],
     "tile": [
       0,
@@ -18,17 +18,17 @@
   },
   "palette": {
     "type": "native-depth",
-    "name": "Amiga OCS RGB444",
-    "description": "12-bit RGB master color; individual images choose their own palette."
+    "name": "VGA 6-bit DAC",
+    "description": "Creative approximation of VGA 6-bit-per-channel DAC output with up to 256 indexed colours on-screen."
   },
   "recommended_dither": "Nearest Palette",
   "visual": {
     "display": {
       "kind": "crt",
-      "gamma": 1.05,
-      "blur": 0.4,
-      "color_bleed": 0.7,
-      "scanlines": 0.1,
+      "gamma": 1.0,
+      "blur": 0.25,
+      "color_bleed": 0.25,
+      "scanlines": 0.08,
       "lcd_grid": 0.0
     },
     "effects": [
@@ -42,20 +42,20 @@
         }
       },
       {
-        "kind": "Chroma Bleed",
+        "kind": "Phosphor Glow",
         "params": {
-          "bleed": 0.65,
-          "delay": 0,
-          "strength": 0.28
+          "threshold": 0.68,
+          "radius": 1.1,
+          "intensity": 0.13
         }
       },
       {
         "kind": "Display Persistence",
         "params": {
           "display_type": "CRT",
-          "persistence_time": 0.065,
-          "strength": 0.14,
-          "decay": 1.6
+          "persistence_time": 0.055,
+          "strength": 0.12,
+          "decay": 1.7
         }
       }
     ]
@@ -64,11 +64,11 @@
     "supported": true,
     "constraints": {
       "channel_bits": [
-        4,
-        4,
-        4
+        6,
+        6,
+        6
       ],
-      "max_colors_global": 32
+      "max_colors_global": 256
     }
   },
   "sources": []

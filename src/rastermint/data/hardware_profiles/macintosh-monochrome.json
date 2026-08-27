@@ -1,0 +1,77 @@
+{
+  "id": "macintosh-monochrome",
+  "name": "Macintosh Monochrome CRT",
+  "category": "Computer",
+  "summary": "512×342 black-and-white compact Macintosh-inspired creative display profile.",
+  "raster": {
+    "width": 512,
+    "height": 342,
+    "pixel_aspect": [
+      1,
+      1
+    ],
+    "tile": [
+      0,
+      0
+    ],
+    "fit_mode": "fit"
+  },
+  "palette": {
+    "type": "fixed",
+    "name": "Macintosh Monochrome",
+    "colors": [
+      "#000000",
+      "#FFFFFF"
+    ],
+    "description": "Two-colour black-and-white framebuffer approximation."
+  },
+  "recommended_dither": "Bayer 4x4",
+  "visual": {
+    "display": {
+      "kind": "crt",
+      "gamma": 1.0,
+      "blur": 0.22,
+      "color_bleed": 0.0,
+      "scanlines": 0.06,
+      "lcd_grid": 0.0
+    },
+    "effects": [
+      {
+        "kind": "Phosphor Glow",
+        "params": {
+          "threshold": 0.55,
+          "radius": 1.4,
+          "intensity": 0.2
+        }
+      },
+      {
+        "kind": "CRT Curvature",
+        "params": {
+          "curvature": 0.045,
+          "zoom": 1.015,
+          "edge_fade": 0.04
+        }
+      },
+      {
+        "kind": "Display Persistence",
+        "params": {
+          "display_type": "CRT",
+          "persistence_time": 0.075,
+          "strength": 0.16,
+          "decay": 1.55
+        }
+      }
+    ]
+  },
+  "strict": {
+    "supported": true,
+    "constraints": {
+      "fixed_palette": [
+        "#000000",
+        "#FFFFFF"
+      ],
+      "max_colors_global": 2
+    }
+  },
+  "sources": []
+}

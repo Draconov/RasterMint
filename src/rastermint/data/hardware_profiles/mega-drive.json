@@ -30,7 +30,51 @@
       "color_bleed": 0.8,
       "scanlines": 0.12,
       "lcd_grid": 0.0
-    }
+    },
+    "effects": [
+      {
+        "kind": "Chroma Bleed",
+        "params": {
+          "bleed": 1.6,
+          "delay": 1,
+          "strength": 0.58
+        }
+      },
+      {
+        "kind": "Dot Crawl",
+        "params": {
+          "amount": 0.12,
+          "scale": 3.0,
+          "speed": 2.5
+        }
+      },
+      {
+        "kind": "Horizontal Bloom",
+        "params": {
+          "threshold": 0.72,
+          "radius": 2.5,
+          "intensity": 0.14
+        }
+      },
+      {
+        "kind": "CRT Mask",
+        "params": {
+          "mask_type": "Aperture Grille",
+          "scale": 3,
+          "strength": 0.16,
+          "brightness": 0.06
+        }
+      },
+      {
+        "kind": "Display Persistence",
+        "params": {
+          "display_type": "CRT",
+          "persistence_time": 0.075,
+          "strength": 0.16,
+          "decay": 1.5
+        }
+      }
+    ]
   },
   "strict": {
     "supported": true,

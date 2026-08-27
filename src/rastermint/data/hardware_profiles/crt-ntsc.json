@@ -30,7 +30,79 @@
       "color_bleed": 1.2,
       "scanlines": 0.14,
       "lcd_grid": 0.0
-    }
+    },
+    "effects": [
+      {
+        "kind": "RGB Convergence",
+        "params": {
+          "red_x": 0.7,
+          "red_y": 0.0,
+          "blue_x": -0.7,
+          "blue_y": 0.0,
+          "strength": 0.5
+        }
+      },
+      {
+        "kind": "CRT Mask",
+        "params": {
+          "mask_type": "Shadow Mask",
+          "scale": 3,
+          "strength": 0.2,
+          "brightness": 0.08
+        }
+      },
+      {
+        "kind": "Phosphor Glow",
+        "params": {
+          "threshold": 0.58,
+          "radius": 1.8,
+          "intensity": 0.24
+        }
+      },
+      {
+        "kind": "Beam Width",
+        "params": {
+          "spacing": 3,
+          "width": 0.68,
+          "strength": 0.2
+        }
+      },
+      {
+        "kind": "Horizontal Bloom",
+        "params": {
+          "threshold": 0.72,
+          "radius": 3.0,
+          "intensity": 0.18
+        }
+      },
+      {
+        "kind": "Scanline Variation",
+        "params": {
+          "spacing": 3,
+          "strength": 0.12,
+          "variation": 0.15,
+          "speed": 0.7,
+          "seed": 3
+        }
+      },
+      {
+        "kind": "CRT Curvature",
+        "params": {
+          "curvature": 0.07,
+          "zoom": 1.025,
+          "edge_fade": 0.05
+        }
+      },
+      {
+        "kind": "Display Persistence",
+        "params": {
+          "display_type": "CRT",
+          "persistence_time": 0.14,
+          "strength": 0.22,
+          "decay": 1.35
+        }
+      }
+    ]
   },
   "strict": {
     "supported": false,

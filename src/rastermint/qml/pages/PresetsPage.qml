@@ -12,6 +12,8 @@ Item {
     property int presetColumns: width >= 500 ? 2 : 1
 
     property var expandedPresetCategories: ({})
+    property string managePresetId: ""
+    property string managePresetName: ""
 
     function presetCategoryExpanded(name) {
         return Boolean(expandedPresetCategories[name])
@@ -36,7 +38,7 @@ Item {
         {
             "name": "Consoles",
             "ids": [
-                "nes", "snes", "master-system", "mega-drive", "playstation",
+                "nes", "snes", "snes-svideo", "master-system", "mega-drive", "playstation",
                 "intellivision", "colecovision"
             ]
         },
@@ -50,8 +52,8 @@ Item {
         {
             "name": "Home Computers",
             "ids": [
-                "apple-ii-hgr", "zx-spectrum", "cga-neon", "ega-crisp",
-                "amstrad-cpc", "msx", "ti994a", "mac-classic", "mac-gray",
+                "apple-ii-hgr", "zx-spectrum", "cga-neon", "ega-crisp", "dos-vga", "vga-320",
+                "amstrad-cpc", "msx", "ti994a", "mac-classic", "mac-gray", "macintosh-monochrome",
                 "atari-st", "atari-8bit", "teletext", "oric-atmos",
                 "dragon-coco", "coco3", "sam-coupe", "thomson"
             ]
@@ -63,15 +65,16 @@ Item {
         {
             "name": "Displays & Monochrome",
             "ids": [
-                "crt-ntsc", "crt-pal", "monochrome-lcd",
+                "crt-ntsc", "crt-pal", "consumer-crt", "pvm-crt", "arcade-crt", "cheap-rf-tv",
+                "monochrome-lcd", "early-lcd", "game-boy-lcd", "oled-ghosting", "security-camera",
                 "green-crt", "amber-monitor", "white-phosphor"
             ]
         },
         {
             "name": "VHS & Analog",
             "ids": [
-                "vhs-clean", "vhs-home-video", "vhs-c-camcorder",
-                "vhs-rental-tape", "vhs-damaged", "vhs-crt"
+                "vhs-clean", "vhs-sp", "vhs-ep", "vhs-home-video", "vhs-c-camcorder", "camcorder",
+                "vhs-rental-tape", "vhs-damaged", "vhs-crt", "crt-vhs"
             ]
         },
         {
@@ -85,7 +88,22 @@ Item {
     ]
 
     function allPresetItems() {
-        return backend.allPresets ? backend.allPresets : []
+        var source = backend.allPresets ? backend.allPresets : []
+        var result = []
+        var query = presetSearch.text.trim().toLowerCase()
+        var filter = presetFilter.currentText
+        for (var i = 0; i < source.length; ++i) {
+            var item = source[i]
+            var haystack = (String(item.name || "") + " " + String(item.description || "") + " " + String(item.userCategory || "")).toLowerCase()
+            if (query.length > 0 && haystack.indexOf(query) < 0) continue
+            if (filter === qsTr("Favorites") && !Boolean(item.favorite)) continue
+            if (filter === qsTr("Recent") && Number(item.recentRank) < 0) continue
+            if (filter === qsTr("Custom") && !Boolean(item.user)) continue
+            result.push(item)
+        }
+        if (filter === qsTr("Recent"))
+            result.sort(function(a, b) { return Number(a.recentRank) - Number(b.recentRank) })
+        return result
     }
 
     function presetsForIds(ids) {
@@ -209,6 +227,37 @@ Item {
             }
 
             MintButton {
+                z: 3
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.margins: 7
+                width: 30; height: 28
+                text: Boolean(modelData.favorite) ? "★" : "☆"
+                onClicked: backend.togglePresetFavorite(modelData.id)
+                ToolTip.visible: hovered
+                ToolTip.text: Boolean(modelData.favorite) ? qsTr("Remove from favourites") : qsTr("Add to favourites")
+            }
+
+            MintButton {
+                visible: presetCard.isUserPreset
+                z: 2
+                anchors.left: parent.left
+                anchors.bottom: parent.bottom
+                anchors.margins: 7
+                width: 30; height: 28
+                text: "⋯"
+                onClicked: {
+                    root.managePresetId = String(modelData.id)
+                    root.managePresetName = String(modelData.name)
+                    managePresetNameField.text = root.managePresetName
+                    managePresetCategoryField.text = String(modelData.userCategory || "")
+                    managePresetDialog.open()
+                }
+                ToolTip.visible: hovered
+                ToolTip.text: qsTr("Manage custom preset")
+            }
+
+            MintButton {
                 visible: presetCard.isUserPreset
                 z: 2
                 anchors.right: parent.right
@@ -288,6 +337,14 @@ Item {
                 ToolTip.visible: hovered
                 ToolTip.text: qsTr("Refresh preset thumbnails")
             }
+        }
+
+        RowLayout {
+            Layout.fillWidth: true
+            MintTextField { id: presetSearch; Layout.fillWidth: true; placeholderText: qsTr("Search presets…") }
+            MintComboBox { id: presetFilter; Layout.preferredWidth: 126; model: [qsTr("All"), qsTr("Favorites"), qsTr("Recent"), qsTr("Custom")] }
+            MintButton { text: qsTr("Import pack"); onClicked: importPresetPackDialog.open() }
+            MintButton { text: qsTr("Export pack"); onClicked: exportPresetPackDialog.open() }
         }
 
         ScrollView {
@@ -415,6 +472,42 @@ Item {
                 placeholderText: qsTr("Optional description")
             }
         }
+    }
+
+    Dialog {
+        id: managePresetDialog
+        title: qsTr("Manage custom preset")
+        modal: true
+        width: Math.min(420, root.width - 24)
+        standardButtons: Dialog.Close
+        contentItem: ColumnLayout {
+            spacing: 8
+            MintLabel { text: qsTr("Name") }
+            MintTextField { id: managePresetNameField; Layout.fillWidth: true }
+            MintLabel { text: qsTr("Category") }
+            MintTextField { id: managePresetCategoryField; Layout.fillWidth: true; placeholderText: qsTr("Optional user category") }
+            RowLayout {
+                Layout.fillWidth: true
+                MintButton { text: qsTr("Rename"); onClicked: { backend.renamePresetInLibrary(root.managePresetId, managePresetNameField.text); managePresetDialog.close() } }
+                MintButton { text: qsTr("Duplicate"); onClicked: { backend.duplicatePresetInLibrary(root.managePresetId, managePresetNameField.text + " Copy"); managePresetDialog.close() } }
+                MintButton { text: qsTr("Set category"); onClicked: backend.setPresetCategory(root.managePresetId, managePresetCategoryField.text) }
+            }
+        }
+    }
+
+    FileDialog {
+        id: importPresetPackDialog
+        title: qsTr("Import preset pack")
+        nameFilters: ["RasterMint preset pack (*.json)"]
+        onAccepted: backend.importPresetPack(selectedFile.toString())
+    }
+    FileDialog {
+        id: exportPresetPackDialog
+        title: qsTr("Export preset pack")
+        fileMode: FileDialog.SaveFile
+        defaultSuffix: "json"
+        nameFilters: ["RasterMint preset pack (*.json)"]
+        onAccepted: backend.exportPresetPack(selectedFile.toString())
     }
 
     FileDialog {

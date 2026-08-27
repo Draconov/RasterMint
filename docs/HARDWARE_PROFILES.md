@@ -105,7 +105,12 @@ A profile is normal JSON. Simplified example:
       "color_bleed": 0.7,
       "scanlines": 0.12,
       "lcd_grid": 0.0
-    }
+    },
+    "effects": [
+      {"kind": "Chroma Bleed", "params": {"bleed": 1.5, "strength": 0.5}},
+      {"kind": "CRT Mask", "params": {"style": "Shadow Mask", "strength": 0.22}},
+      {"kind": "Display Persistence", "params": {"display_type": "CRT", "persistence_time": 0.12, "strength": 0.25}}
+    ]
   },
   "strict": {
     "supported": true,
@@ -147,15 +152,9 @@ Profiles may provide a fixed palette or describe a broader color-depth model. Do
 
 ### Visual display treatment
 
-The lightweight display stage can model creative approximations such as:
+A profile can still configure the lightweight fixed display stage for gamma, blur, simple colour bleed, scanlines and LCD-grid treatment. It can also provide `visual.effects`: ordinary RasterMint effect-layer recipes inserted with profile-owned IDs. These composable layers can use Display Lab building blocks such as convergence, CRT masks, phosphor glow, composite artefacts, LCD response and Display Persistence.
 
-- gamma;
-- horizontal color bleed;
-- blur;
-- scanline darkening;
-- LCD grid darkening.
-
-These are presentation effects, not analog signal emulation.
+Switching hardware profiles replaces only the previous profile-owned visual layers; normal user layers remain intact. These are presentation effects and creative signal/display simulations, not analog hardware emulation.
 
 ## Strict constraint keys
 

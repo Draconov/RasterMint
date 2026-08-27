@@ -237,6 +237,11 @@ Item {
 
                 property bool fixedStage: kind === "Hardware Limits" || kind === "Hardware Display"
                 property bool isDragging: root.dragSourceIndex === index
+                property bool multiSelected: backend.selectedLayerIndices.indexOf(index) >= 0
+                property bool firstInGroup: String(groupId || "") !== "" && backend.isFirstLayerInGroup(index)
+                property string groupName: String(groupId || "") !== "" ? backend.layerGroupName(groupId) : ""
+                visible: String(groupId || "") === "" || !backend.layerGroupCollapsed(groupId) || firstInGroup
+                height: visible ? root.layerRowHeight : 0
                 property real liveReorderOffset: {
                     if (root.dragSourceIndex < 0 || root.dragTargetIndex === root.dragSourceIndex)
                         return 0
@@ -254,7 +259,7 @@ Item {
                 }
 
                 z: isDragging ? 20 : 0
-                color: index === backend.selectedLayerIndex
+                color: multiSelected
                        ? theme.selectionColor
                        : (layerHover.hovered ? theme.panelHoverColor : theme.panelRaisedColor)
                 border.color: isDragging ? theme.accentColor : theme.borderColor
@@ -270,6 +275,15 @@ Item {
                     anchors.margins: 7
                     spacing: 7
 
+                    MintButton {
+                        visible: layerDelegate.firstInGroup
+                        Layout.preferredWidth: 28
+                        text: backend.layerGroupCollapsed(groupId) ? "▸" : "▾"
+                        onClicked: backend.setLayerGroupCollapsed(groupId, !backend.layerGroupCollapsed(groupId))
+                        ToolTip.visible: hovered
+                        ToolTip.text: qsTr("Collapse / expand layer group")
+                    }
+
                     MintCheckBox {
                         checked: layerEnabled
                         onToggled: backend.setLayerEnabled(index, checked)
@@ -280,14 +294,18 @@ Item {
                         spacing: 1
                         Text {
                             Layout.fillWidth: true
-                            text: qsTr(kind)
+                            text: layerDelegate.firstInGroup && layerDelegate.groupName !== ""
+                                  ? (layerDelegate.groupName + " · " + qsTr(kind))
+                                  : qsTr(kind)
                             color: theme.textColor
                             font.bold: true
                             elide: Text.ElideRight
                         }
                         Text {
                             Layout.fillWidth: true
-                            text: qsTr(summary)
+                            text: (String(blendMode || "Normal") !== "Normal" || Number(layerOpacity) < 0.999
+                                  ? (qsTr(String(blendMode || "Normal")) + " · " + Math.round(Number(layerOpacity) * 100) + "%" + (String(summary) !== "" ? " · " : ""))
+                                  : "") + qsTr(summary)
                             color: theme.mutedTextColor
                             font.pixelSize: 10
                             elide: Text.ElideRight
@@ -304,7 +322,12 @@ Item {
                 }
 
                 TapHandler {
+                    acceptedModifiers: Qt.NoModifier
                     onTapped: backend.selectLayer(index)
+                }
+                TapHandler {
+                    acceptedModifiers: Qt.ControlModifier
+                    onTapped: backend.toggleLayerSelection(index)
                 }
 
                 // Dragging works from the whole layer card. Child buttons still
@@ -342,13 +365,28 @@ Item {
 
         RowLayout {
             Layout.fillWidth: true
+            spacing: 4
             MintButton {
                 Layout.fillWidth: true
                 text: qsTr("Duplicate")
                 enabled: backend.selectedLayerName !== "Hardware Limits" && backend.selectedLayerName !== "Hardware Display"
-                onClicked: backend.duplicateLayer(backend.selectedLayerIndex)
+                onClicked: backend.duplicateSelectedLayer()
             }
-            MintButton { Layout.fillWidth: true; text: qsTr("Remove"); onClicked: backend.removeLayer(backend.selectedLayerIndex) }
+            MintButton { Layout.fillWidth: true; text: qsTr("Copy"); onClicked: backend.copySelectedLayerSettings() }
+            MintButton { Layout.fillWidth: true; text: qsTr("Paste"); enabled: backend.layerClipboardAvailable; onClicked: backend.pasteSelectedLayerSettings() }
+            MintButton { Layout.fillWidth: true; text: qsTr("Reset"); onClicked: backend.resetSelectedLayer() }
+        }
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 4
+            MintButton { Layout.fillWidth: true; text: backend.selectedLayerSolo ? qsTr("Unsolo") : qsTr("Solo"); onClicked: backend.toggleSoloSelectedLayer() }
+            MintButton { Layout.fillWidth: true; text: qsTr("Group"); onClicked: groupDialog.open() }
+            MintButton { Layout.fillWidth: true; text: qsTr("Ungroup"); onClicked: backend.ungroupSelectedLayers() }
+            MintButton {
+                Layout.fillWidth: true
+                text: backend.selectedLayerIndices.length > 1 ? qsTr("Remove %1").arg(backend.selectedLayerIndices.length) : qsTr("Remove")
+                onClicked: backend.removeSelectedLayers()
+            }
         }
 
         Rectangle { Layout.fillWidth: true; height: 1; color: theme.borderColor }
@@ -377,6 +415,80 @@ Item {
                 width: paramScroll.availableWidth
                 spacing: 8
 
+                MintLabel { text: qsTr("Layer compositing"); font.bold: true }
+                RowLayout {
+                    Layout.fillWidth: true
+                    MintLabel { text: qsTr("Opacity"); color: theme.mutedTextColor; Layout.fillWidth: true }
+                    MintLabel { text: Math.round(backend.selectedLayerOpacity * 100) + "%" }
+                }
+                MintSlider {
+                    Layout.fillWidth: true
+                    from: 0; to: 1; stepSize: 0.01
+                    value: backend.selectedLayerOpacity
+                    onInteractionActiveChanged: {
+                        if (interactionActive) backend.beginHistoryGroup(backend.selectedLayerName + " · Opacity")
+                        else backend.endHistoryGroup()
+                    }
+                    onUserMoved: function(newValue) { backend.setLayerOpacity(newValue) }
+                }
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 3
+                    MintLabel { text: qsTr("Blend mode"); color: theme.mutedTextColor }
+                    MintComboBox {
+                        Layout.fillWidth: true
+                        model: backend.layerBlendModes
+                        translateModel: true
+                        Component.onCompleted: currentIndex = Math.max(0, backend.layerBlendModes.indexOf(backend.selectedLayerBlendMode))
+                        onActivated: backend.setLayerBlendMode(currentText)
+                    }
+                }
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 3
+                    MintLabel { text: qsTr("Mask"); color: theme.mutedTextColor }
+                    MintComboBox {
+                        Layout.fillWidth: true
+                        model: backend.layerMaskTypes
+                        translateModel: true
+                        Component.onCompleted: currentIndex = Math.max(0, backend.layerMaskTypes.indexOf(String(backend.selectedLayerMask.type || "None")))
+                        onActivated: backend.setLayerMaskType(currentText)
+                    }
+                }
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    visible: String(backend.selectedLayerMask.type || "None") !== "None"
+                    spacing: 4
+                    RowLayout {
+                        Layout.fillWidth: true
+                        MintLabel { text: qsTr("Mask strength"); color: theme.mutedTextColor; Layout.fillWidth: true }
+                        MintLabel { text: Math.round(Number(backend.selectedLayerMask.strength || 0) * 100) + "%" }
+                    }
+                    MintSlider {
+                        Layout.fillWidth: true; from: 0; to: 1; stepSize: 0.01
+                        value: Number(backend.selectedLayerMask.strength !== undefined ? backend.selectedLayerMask.strength : 1)
+                        onUserMoved: function(newValue) { backend.setLayerMaskStrength(newValue) }
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        MintLabel { text: qsTr("Mask feather"); color: theme.mutedTextColor; Layout.fillWidth: true }
+                        MintLabel { text: Math.round(Number(backend.selectedLayerMask.feather || 0) * 100) + "%" }
+                    }
+                    MintSlider {
+                        Layout.fillWidth: true; from: 0; to: 1; stepSize: 0.01
+                        value: Number(backend.selectedLayerMask.feather || 0)
+                        onUserMoved: function(newValue) { backend.setLayerMaskFeather(newValue) }
+                    }
+                    MintCheckBox {
+                        text: qsTr("Invert mask")
+                        checked: Boolean(backend.selectedLayerMask.invert)
+                        onToggled: backend.setLayerMaskInvert(checked)
+                    }
+                }
+
+                Rectangle { Layout.fillWidth: true; height: 1; color: theme.borderColor }
+                MintLabel { text: qsTr("Effect parameters"); font.bold: true }
+
                 Repeater {
                     model: root.editorLayerParams
                     delegate: Loader {
@@ -399,6 +511,21 @@ Item {
                     }
                 }
             }
+        }
+    }
+
+    Dialog {
+        id: groupDialog
+        title: qsTr("Create Layer Group")
+        modal: true
+        standardButtons: Dialog.Ok | Dialog.Cancel
+        anchors.centerIn: Overlay.overlay
+        onOpened: { groupNameField.text = qsTr("Layer Group"); groupNameField.forceActiveFocus() }
+        onAccepted: backend.groupSelectedLayers(groupNameField.text)
+        contentItem: ColumnLayout {
+            spacing: 8
+            MintLabel { text: qsTr("Group name"); color: theme.mutedTextColor }
+            MintTextField { id: groupNameField; Layout.preferredWidth: 260 }
         }
     }
 

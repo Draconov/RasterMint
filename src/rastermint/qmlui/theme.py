@@ -9,6 +9,8 @@ from typing import Any
 
 from PySide6.QtCore import QObject, Property, QSettings, Signal, Slot
 
+from rastermint.core.extensions import asset_files
+
 DEFAULT_THEME_ID = "rastermint-dark"
 
 # Keep the theme chooser intentional rather than depending on filename sorting.
@@ -51,7 +53,7 @@ class ThemeManager(QObject):
         try:
             entries = sorted(root.iterdir(), key=lambda p: p.name.casefold())
         except Exception:
-            return found
+            entries = []
         for entry in entries:
             if not entry.name.lower().endswith(".json"):
                 continue
@@ -61,6 +63,20 @@ class ThemeManager(QObject):
                     found[str(data["id"])] = data
             except Exception:
                 continue
+
+        # Extension themes are read-only additions. Shipped theme ids win over
+        # collisions so an extension cannot change the appearance of an
+        # existing saved theme selection behind the user's back.
+        for path in asset_files("themes"):
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+            if not isinstance(data, dict) or not data.get("id") or not data.get("name"):
+                continue
+            theme_id = str(data["id"])
+            if theme_id not in found:
+                found[theme_id] = data
 
         ordered: dict[str, dict[str, Any]] = {}
         for theme_id in THEME_ORDER:

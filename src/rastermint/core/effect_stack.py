@@ -511,6 +511,391 @@ def _head_switching_noise(
     return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), "RGB")
 
 
+def _rgb_convergence(
+    image: Image.Image,
+    red_x: float,
+    red_y: float,
+    blue_x: float,
+    blue_y: float,
+    strength: float,
+) -> Image.Image:
+    strength = max(0.0, min(1.0, float(strength)))
+    if strength <= 1e-9:
+        return image
+    arr = np.asarray(image.convert("RGB"), dtype=np.float32)
+    out = arr.copy()
+    red = _shift_with_edge(arr[..., 0], int(round(red_x)), int(round(red_y)))
+    blue = _shift_with_edge(arr[..., 2], int(round(blue_x)), int(round(blue_y)))
+    out[..., 0] = arr[..., 0] * (1.0 - strength) + red * strength
+    out[..., 2] = arr[..., 2] * (1.0 - strength) + blue * strength
+    return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), "RGB")
+
+
+def _crt_mask(image: Image.Image, mask_type: str, scale: int, strength: float, brightness: float) -> Image.Image:
+    scale = max(1, int(scale))
+    strength = max(0.0, min(1.0, float(strength)))
+    brightness = max(0.0, min(1.0, float(brightness)))
+    if strength <= 1e-9:
+        return image
+    arr = np.asarray(image.convert("RGB"), dtype=np.float32) / 255.0
+    h, w = arr.shape[:2]
+    yy, xx = np.mgrid[0:h, 0:w]
+    cell_x = (xx // scale).astype(np.int32)
+    cell_y = (yy // scale).astype(np.int32)
+    mask = np.ones((h, w, 3), dtype=np.float32)
+
+    kind = str(mask_type)
+    if kind == "Shadow Mask":
+        # Triad dots on alternating rows approximate a delta-gun shadow mask.
+        phase = (cell_x + (cell_y & 1)) % 3
+        for channel in range(3):
+            active = phase == channel
+            mask[..., channel] = np.where(active, 1.0, 0.42)
+        row_gate = np.where((yy % max(2, scale * 2)) < scale, 1.0, 0.82).astype(np.float32)
+        mask *= row_gate[..., None]
+    elif kind == "Slot Mask":
+        # Vertical RGB slots staggered every other row pair.
+        phase = (cell_x + ((cell_y // 2) & 1)) % 3
+        for channel in range(3):
+            active = phase == channel
+            mask[..., channel] = np.where(active, 1.0, 0.36)
+        gap = (yy % max(2, scale * 3)) >= max(1, scale * 2)
+        mask[gap] *= 0.68
+    else:  # Aperture Grille
+        phase = cell_x % 3
+        for channel in range(3):
+            active = phase == channel
+            mask[..., channel] = np.where(active, 1.0, 0.46)
+        # Sparse horizontal damper wires keep the effect CRT-like at larger scales.
+        wire_period = max(12, scale * 12)
+        wire = (yy % wire_period) == 0
+        mask[wire] *= 0.70
+
+    compensated = np.clip(mask + brightness, 0.0, 1.4)
+    factor = 1.0 - strength + compensated * strength
+    out = np.clip(arr * factor, 0.0, 1.0)
+    return Image.fromarray(np.rint(out * 255.0).astype(np.uint8), "RGB")
+
+
+def _phosphor_glow(image: Image.Image, threshold: float, radius: float, intensity: float) -> Image.Image:
+    threshold = max(0.0, min(1.0, float(threshold)))
+    radius = max(0.0, float(radius))
+    intensity = max(0.0, float(intensity))
+    if radius <= 1e-9 or intensity <= 1e-9:
+        return image
+    arr = np.asarray(image.convert("RGB"), dtype=np.float32) / 255.0
+    lum = 0.2126 * arr[..., 0] + 0.7152 * arr[..., 1] + 0.0722 * arr[..., 2]
+    denom = max(1e-6, 1.0 - threshold)
+    gate = np.clip((lum - threshold) / denom, 0.0, 1.0)[..., None]
+    bright = np.clip(arr * gate, 0.0, 1.0)
+    glow_img = Image.fromarray(np.rint(bright * 255.0).astype(np.uint8), "RGB").filter(
+        ImageFilter.GaussianBlur(radius=radius)
+    )
+    glow = np.asarray(glow_img, dtype=np.float32) / 255.0
+    out = 1.0 - (1.0 - arr) * (1.0 - np.clip(glow * intensity, 0.0, 1.0))
+    return Image.fromarray(np.rint(np.clip(out, 0.0, 1.0) * 255.0).astype(np.uint8), "RGB")
+
+
+def _beam_width(image: Image.Image, spacing: int, width: float, strength: float) -> Image.Image:
+    spacing = max(2, int(spacing))
+    width = max(0.1, min(1.5, float(width)))
+    strength = max(0.0, min(1.0, float(strength)))
+    if strength <= 1e-9:
+        return image
+    arr = np.asarray(image.convert("RGB"), dtype=np.float32)
+    h = arr.shape[0]
+    phase = (np.arange(h, dtype=np.float32) % spacing) / max(1.0, float(spacing - 1))
+    distance = np.abs(phase - 0.5) * 2.0
+    sigma = max(0.08, width * 0.55)
+    beam = np.exp(-(distance * distance) / (2.0 * sigma * sigma))
+    beam /= max(1e-6, float(beam.max()))
+    factor = 1.0 - strength * (1.0 - beam)
+    out = arr * factor[:, None, None]
+    return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), "RGB")
+
+
+def _horizontal_bloom(image: Image.Image, threshold: float, radius: float, intensity: float) -> Image.Image:
+    threshold = max(0.0, min(1.0, float(threshold)))
+    radius = max(0.0, float(radius))
+    intensity = max(0.0, float(intensity))
+    if radius <= 1e-9 or intensity <= 1e-9:
+        return image
+    arr = np.asarray(image.convert("RGB"), dtype=np.float32) / 255.0
+    lum = 0.2126 * arr[..., 0] + 0.7152 * arr[..., 1] + 0.0722 * arr[..., 2]
+    gate = np.clip((lum - threshold) / max(1e-6, 1.0 - threshold), 0.0, 1.0)
+    bright = arr * gate[..., None]
+    blurred = np.empty_like(bright)
+    for channel in range(3):
+        blurred[..., channel] = _horizontal_blur_channel(bright[..., channel], radius)
+    bloom = np.clip(blurred * intensity, 0.0, 1.0)
+    out = 1.0 - (1.0 - arr) * (1.0 - bloom)
+    return Image.fromarray(np.rint(np.clip(out, 0.0, 1.0) * 255.0).astype(np.uint8), "RGB")
+
+
+def _scanline_variation(
+    image: Image.Image,
+    spacing: int,
+    strength: float,
+    variation: float,
+    speed: float,
+    seed: int,
+    frame_time: float,
+) -> Image.Image:
+    spacing = max(2, int(spacing))
+    strength = max(0.0, min(1.0, float(strength)))
+    variation = max(0.0, min(1.0, float(variation)))
+    speed = max(0.0, float(speed))
+    if strength <= 1e-9:
+        return image
+    arr = np.asarray(image.convert("RGB"), dtype=np.float32).copy()
+    h = arr.shape[0]
+    rows = np.arange(h, dtype=np.float32)
+    phase = 2.0 * np.pi * speed * max(0.0, float(frame_time)) + float(seed) * 0.173
+    wave = 0.5 + 0.5 * np.sin(rows * 0.77 + phase)
+    darken = strength * (1.0 - variation + variation * wave)
+    active = (np.arange(h) % spacing) == 0
+    factors = np.ones(h, dtype=np.float32)
+    factors[active] = 1.0 - darken[active]
+    arr *= factors[:, None, None]
+    return Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8), "RGB")
+
+
+def _crt_curvature(image: Image.Image, curvature: float, zoom: float, edge_fade: float) -> Image.Image:
+    curvature = max(0.0, min(0.5, float(curvature)))
+    zoom = max(1.0, min(1.3, float(zoom)))
+    edge_fade = max(0.0, min(1.0, float(edge_fade)))
+    if curvature <= 1e-9 and abs(zoom - 1.0) <= 1e-9 and edge_fade <= 1e-9:
+        return image
+
+    src = image.convert("RGB")
+    w, h = src.size
+    # PIL MESH keeps memory bounded while approximating a barrel-distorted CRT face.
+    divisions = max(8, min(32, round(max(w, h) / 64)))
+    mesh = []
+
+    def source_point(x: float, y: float) -> tuple[float, float]:
+        nx = (x / max(1.0, w - 1.0)) * 2.0 - 1.0
+        ny = (y / max(1.0, h - 1.0)) * 2.0 - 1.0
+        r2 = nx * nx + ny * ny
+        factor = (1.0 + curvature * r2) / zoom
+        sx = ((nx * factor) + 1.0) * 0.5 * (w - 1.0)
+        sy = ((ny * factor) + 1.0) * 0.5 * (h - 1.0)
+        return sx, sy
+
+    for gy in range(divisions):
+        y0 = round(gy * h / divisions)
+        y1 = round((gy + 1) * h / divisions)
+        if y1 <= y0:
+            continue
+        for gx in range(divisions):
+            x0 = round(gx * w / divisions)
+            x1 = round((gx + 1) * w / divisions)
+            if x1 <= x0:
+                continue
+            p00 = source_point(x0, y0)
+            p10 = source_point(x1, y0)
+            p11 = source_point(x1, y1)
+            p01 = source_point(x0, y1)
+            mesh.append(((x0, y0, x1, y1), (*p00, *p10, *p11, *p01)))
+
+    curved = src.transform(src.size, Image.Transform.MESH, mesh, resample=Image.Resampling.BILINEAR)
+    if edge_fade <= 1e-9:
+        return curved
+
+    arr = np.asarray(curved, dtype=np.float32)
+    yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
+    nx = np.abs((xx / max(1.0, w - 1.0)) * 2.0 - 1.0)
+    ny = np.abs((yy / max(1.0, h - 1.0)) * 2.0 - 1.0)
+    edge = np.maximum(nx, ny)
+    fade = np.clip((edge - 0.82) / 0.18, 0.0, 1.0) * edge_fade
+    arr *= (1.0 - fade[..., None])
+    return Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8), "RGB")
+
+
+def _edge_distortion(image: Image.Image, amount: float, frequency: float, falloff: float) -> Image.Image:
+    amount = max(0.0, float(amount))
+    frequency = max(0.1, float(frequency))
+    falloff = max(0.05, min(1.0, float(falloff)))
+    if amount <= 1e-9:
+        return image
+    arr = np.asarray(image.convert("RGB"), dtype=np.uint8)
+    out = arr.copy()
+    h, w = arr.shape[:2]
+    center = (h - 1) * 0.5
+    half = max(1.0, center)
+    for y in range(h):
+        ny = abs((y - center) / half)
+        edge_weight = np.clip((ny - (1.0 - falloff)) / falloff, 0.0, 1.0)
+        if edge_weight <= 0.0:
+            continue
+        shift = int(round(math.sin((y / max(1.0, h)) * frequency * 2.0 * math.pi) * amount * edge_weight))
+        if shift:
+            out[y : y + 1] = _shift_with_edge(arr[y : y + 1], shift, 0)
+    return Image.fromarray(out, "RGB")
+
+
+def _vertical_sync_roll(image: Image.Image, amount: int, speed: float, softness: float, frame_time: float) -> Image.Image:
+    amount = max(0, int(amount))
+    speed = float(speed)
+    softness = max(0.0, min(1.0, float(softness)))
+    if amount <= 0 or abs(speed) <= 1e-9:
+        return image
+    arr = np.asarray(image.convert("RGB"), dtype=np.float32)
+    h = arr.shape[0]
+    center = ((max(0.0, float(frame_time)) * speed) % 1.0) * h
+    yy = np.arange(h, dtype=np.float32)
+    circular = np.minimum(np.abs(yy - center), h - np.abs(yy - center))
+    width = max(1.0, h * (0.05 + softness * 0.2))
+    weight = np.exp(-0.5 * (circular / width) ** 2)
+    out = arr.copy()
+    for y in range(h):
+        shift = int(round(amount * float(weight[y])))
+        if shift:
+            src_y = int((y - shift) % h)
+            out[y] = arr[src_y]
+    return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), "RGB")
+
+
+def _field_flicker(image: Image.Image, amount: float, field_rate: str, interlaced: bool, frame_time: float, frame_index: int) -> Image.Image:
+    amount = max(0.0, min(0.5, float(amount)))
+    if amount <= 1e-9:
+        return image
+    hz = 50.0 if str(field_rate).startswith("50") else 60.0
+    phase = math.sin(2.0 * math.pi * hz * max(0.0, float(frame_time)))
+    arr = np.asarray(image.convert("RGB"), dtype=np.float32).copy()
+    if interlaced:
+        parity = int(frame_index) & 1
+        arr[parity::2] *= max(0.0, 1.0 - amount * (0.55 + 0.45 * abs(phase)))
+        arr[1 - parity :: 2] *= min(1.5, 1.0 + amount * 0.22 * phase)
+    else:
+        arr *= max(0.0, 1.0 + amount * phase)
+    return Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8), "RGB")
+
+
+def _lcd_inversion(image: Image.Image, pattern: str, amount: float, scale: int, phase: int) -> Image.Image:
+    amount = max(0.0, min(0.5, float(amount)))
+    scale = max(1, int(scale))
+    phase = int(phase) & 1
+    if amount <= 1e-9:
+        return image
+    arr = np.asarray(image.convert("RGB"), dtype=np.float32)
+    h, w = arr.shape[:2]
+    yy, xx = np.mgrid[0:h, 0:w]
+    if pattern == "Rows":
+        polarity = ((yy // scale) + phase) & 1
+    elif pattern == "Checker":
+        polarity = ((xx // scale) + (yy // scale) + phase) & 1
+    else:
+        polarity = ((xx // scale) + phase) & 1
+    signed = np.where(polarity == 0, -1.0, 1.0).astype(np.float32)
+    lum = 0.2126 * arr[..., 0] + 0.7152 * arr[..., 1] + 0.0722 * arr[..., 2]
+    # Voltage inversion is most visible in mid-tones and should remain subtle.
+    mid_weight = 1.0 - np.abs(lum / 127.5 - 1.0)
+    factor = 1.0 + signed * amount * 0.18 * np.clip(mid_weight, 0.0, 1.0)
+    out = arr * factor[..., None]
+    return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), "RGB")
+
+
+def _dot_crawl(image: Image.Image, amount: float, scale: float, speed: float, frame_time: float) -> Image.Image:
+    amount = max(0.0, min(1.0, float(amount)))
+    scale = max(1.0, float(scale))
+    speed = max(0.0, float(speed))
+    if amount <= 1e-9:
+        return image
+    ycc = np.asarray(image.convert("YCbCr"), dtype=np.float32)
+    chroma = np.sqrt((ycc[..., 1] - 128.0) ** 2 + (ycc[..., 2] - 128.0) ** 2) / 181.0
+    # Crawl is strongest at chroma transitions.
+    edge = np.abs(chroma - np.roll(chroma, 1, axis=1))
+    h, w = chroma.shape
+    yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
+    phase = 2.0 * np.pi * speed * max(0.0, float(frame_time))
+    carrier = np.sin((xx + yy * 0.5) * (2.0 * np.pi / scale) + phase)
+    delta = carrier * edge * (32.0 * amount)
+    ycc[..., 1] = np.clip(ycc[..., 1] + delta, 0.0, 255.0)
+    ycc[..., 2] = np.clip(ycc[..., 2] - delta, 0.0, 255.0)
+    return Image.fromarray(ycc.astype(np.uint8), "YCbCr").convert("RGB")
+
+
+def _composite_noise(image: Image.Image, luma: float, chroma: float, seed: int, frame_time: float, frame_index: int) -> Image.Image:
+    luma = max(0.0, min(1.0, float(luma)))
+    chroma = max(0.0, min(1.0, float(chroma)))
+    if luma <= 1e-9 and chroma <= 1e-9:
+        return image
+    arr = np.asarray(image.convert("YCbCr"), dtype=np.float32)
+    h, w = arr.shape[:2]
+    rng = _animated_rng(seed, frame_index, frame_time, salt=503)
+    if luma > 0.0:
+        grain = rng.normal(0.0, 22.0 * luma, size=(h, w)).astype(np.float32)
+        # Slight horizontal correlation feels closer to analog composite noise.
+        grain = (grain + np.roll(grain, 1, axis=1) * 0.35) / 1.35
+        arr[..., 0] += grain
+    if chroma > 0.0:
+        low_w = max(1, w // 3)
+        cnoise_small = rng.normal(0.0, 30.0 * chroma, size=(h, low_w, 2)).astype(np.float32)
+        cnoise = np.repeat(cnoise_small, 3, axis=1)[:, :w]
+        arr[..., 1:] += cnoise
+    return Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8), "YCbCr").convert("RGB")
+
+
+def _rf_interference(image: Image.Image, amount: float, bands: int, speed: float, seed: int, frame_time: float, frame_index: int) -> Image.Image:
+    amount = max(0.0, min(1.0, float(amount)))
+    bands = max(1, min(16, int(bands)))
+    speed = max(0.0, float(speed))
+    if amount <= 1e-9:
+        return image
+    arr = np.asarray(image.convert("RGB"), dtype=np.float32)
+    h, w = arr.shape[:2]
+    yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
+    rng = _animated_rng(seed, frame_index, frame_time, salt=607)
+    phase = 2.0 * np.pi * speed * max(0.0, float(frame_time))
+    interference = np.zeros((h, w), dtype=np.float32)
+    for index in range(bands):
+        freq = 0.5 + (index + 1) * 0.37
+        angle = phase * (0.4 + index * 0.11) + float(rng.random()) * 2.0 * np.pi
+        interference += np.sin((yy / max(1.0, h)) * 2.0 * np.pi * freq + (xx / max(1.0, w)) * 0.65 + angle)
+    interference /= max(1, bands)
+    snow = rng.normal(0.0, 1.0, size=(h, w)).astype(np.float32)
+    delta = (interference * 22.0 + snow * 10.0) * amount
+    out = arr + delta[..., None]
+    # RF also makes rows wobble very slightly.
+    wobble = np.rint(np.sin(np.arange(h) * 0.31 + phase) * amount * 3.0).astype(np.int32)
+    shifted = np.empty_like(out)
+    for y in range(h):
+        shifted[y : y + 1] = _shift_with_edge(out[y : y + 1], int(wobble[y]), 0)
+    return Image.fromarray(np.clip(shifted, 0, 255).astype(np.uint8), "RGB")
+
+
+def _horizontal_tear(
+    image: Image.Image,
+    amount: int,
+    bands: int,
+    height: int,
+    speed: float,
+    seed: int,
+    frame_time: float,
+    frame_index: int,
+) -> Image.Image:
+    amount = max(0, int(amount))
+    bands = max(1, min(16, int(bands)))
+    height = max(1, int(height))
+    speed = max(0.0, float(speed))
+    if amount <= 0:
+        return image
+    arr = np.asarray(image.convert("RGB"), dtype=np.uint8)
+    out = arr.copy()
+    h = arr.shape[0]
+    rng = _animated_rng(seed, frame_index, frame_time, salt=709)
+    phase = max(0.0, float(frame_time)) * speed
+    for index in range(bands):
+        base = ((index / bands) + phase * (0.17 + index * 0.03) + float(rng.random()) * 0.25) % 1.0
+        y0 = min(h - 1, max(0, int(round(base * max(0, h - 1)))))
+        local_h = min(height, h - y0)
+        shift = int(round((float(rng.random()) * 2.0 - 1.0) * amount))
+        if shift:
+            out[y0 : y0 + local_h] = _shift_with_edge(arr[y0 : y0 + local_h], shift, 0)
+    return Image.fromarray(out, "RGB")
+
+
 def _posterize(image: Image.Image, levels: int) -> Image.Image:
     levels = max(2, min(64, int(levels)))
     arr = np.asarray(image.convert("RGB"), dtype=np.float32)
@@ -2443,6 +2828,125 @@ def effect_stack_output_size(size: tuple[int, int], stack: list[dict[str, Any]])
     return width, height
 
 
+def _blend_rgb(base: np.ndarray, effect: np.ndarray, mode: str) -> np.ndarray:
+    mode = str(mode or "Normal")
+    if mode == "Multiply":
+        return base * effect
+    if mode == "Screen":
+        return 1.0 - (1.0 - base) * (1.0 - effect)
+    if mode == "Overlay":
+        return np.where(base <= 0.5, 2.0 * base * effect, 1.0 - 2.0 * (1.0 - base) * (1.0 - effect))
+    if mode == "Soft Light":
+        # W3C-style soft-light approximation.
+        d = np.where(base <= 0.25, ((16.0 * base - 12.0) * base + 4.0) * base, np.sqrt(np.clip(base, 0.0, 1.0)))
+        return np.where(effect <= 0.5, base - (1.0 - 2.0 * effect) * base * (1.0 - base), base + (2.0 * effect - 1.0) * (d - base))
+    if mode == "Hard Light":
+        return np.where(effect <= 0.5, 2.0 * base * effect, 1.0 - 2.0 * (1.0 - base) * (1.0 - effect))
+    if mode == "Add":
+        return np.clip(base + effect, 0.0, 1.0)
+    if mode == "Difference":
+        return np.abs(base - effect)
+    if mode == "Darken":
+        return np.minimum(base, effect)
+    if mode == "Lighten":
+        return np.maximum(base, effect)
+    return effect
+
+
+def _layer_mask_array(base_image: Image.Image, mask: dict[str, Any], target_size: tuple[int, int]) -> np.ndarray:
+    w, h = target_size
+    kind = str(mask.get("type", "None") or "None")
+    strength = max(0.0, min(1.0, float(mask.get("strength", 1.0) or 0.0)))
+    invert = bool(mask.get("invert", False))
+    feather = max(0.0, min(1.0, float(mask.get("feather", 0.0) or 0.0)))
+
+    if kind == "None":
+        arr = np.ones((h, w), dtype=np.float32)
+    elif kind == "Alpha":
+        if "A" in base_image.getbands():
+            alpha = base_image.getchannel("A")
+            if alpha.size != target_size:
+                alpha = alpha.resize(target_size, Image.Resampling.BILINEAR)
+            arr = np.asarray(alpha, dtype=np.float32) / 255.0
+        else:
+            arr = np.ones((h, w), dtype=np.float32)
+    elif kind in {"Luminance", "Shadows", "Highlights"}:
+        rgb = base_image.convert("RGB")
+        if rgb.size != target_size:
+            rgb = rgb.resize(target_size, Image.Resampling.BILINEAR)
+        pixels = np.asarray(rgb, dtype=np.float32) / 255.0
+        lum = 0.2126 * pixels[..., 0] + 0.7152 * pixels[..., 1] + 0.0722 * pixels[..., 2]
+        if kind == "Shadows":
+            arr = np.clip(1.0 - lum, 0.0, 1.0)
+        elif kind == "Highlights":
+            arr = np.clip(lum, 0.0, 1.0)
+        else:
+            arr = np.clip(lum, 0.0, 1.0)
+    else:
+        yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
+        nx = xx / max(1.0, w - 1.0)
+        ny = yy / max(1.0, h - 1.0)
+        if kind == "Linear Horizontal":
+            arr = nx
+        elif kind == "Linear Vertical":
+            arr = ny
+        else:  # Radial
+            dx = (nx - 0.5) * 2.0
+            dy = (ny - 0.5) * 2.0
+            arr = np.clip(1.0 - np.sqrt(dx * dx + dy * dy), 0.0, 1.0)
+
+    if feather > 1e-9:
+        radius = max(0.1, feather * max(1.0, min(w, h)) * 0.08)
+        mask_img = Image.fromarray(np.rint(np.clip(arr, 0.0, 1.0) * 255.0).astype(np.uint8), "L")
+        mask_img = mask_img.filter(ImageFilter.GaussianBlur(radius=radius))
+        arr = np.asarray(mask_img, dtype=np.float32) / 255.0
+    if invert:
+        arr = 1.0 - arr
+    return np.clip(arr * strength, 0.0, 1.0)
+
+
+def _apply_layer_composite(base_image: Image.Image, effect_image: Image.Image, step: dict[str, Any]) -> Image.Image:
+    opacity = max(0.0, min(1.0, float(step.get("opacity", 1.0) or 0.0)))
+    mode = str(step.get("blend_mode", "Normal") or "Normal")
+    mask = step.get("mask") if isinstance(step.get("mask"), dict) else {"type": "None"}
+    default_mask = str(mask.get("type", "None") or "None") == "None" and not bool(mask.get("invert", False)) and float(mask.get("strength", 1.0) or 0.0) >= 0.999999
+
+    if opacity >= 0.999999 and mode == "Normal" and default_mask:
+        return effect_image
+    if opacity <= 1e-9:
+        if base_image.size == effect_image.size:
+            return base_image
+        return base_image.resize(effect_image.size, Image.Resampling.BILINEAR)
+
+    target_size = effect_image.size
+    base = base_image.convert("RGB")
+    if base.size != target_size:
+        base = base.resize(target_size, Image.Resampling.BILINEAR)
+    effect = effect_image.convert("RGB")
+    base_arr = np.asarray(base, dtype=np.float32) / 255.0
+    effect_arr = np.asarray(effect, dtype=np.float32) / 255.0
+    blended = np.clip(_blend_rgb(base_arr, effect_arr, mode), 0.0, 1.0)
+    mask_arr = _layer_mask_array(base_image, mask, target_size)
+    mix = np.clip(mask_arr * opacity, 0.0, 1.0)[..., None]
+    out = base_arr * (1.0 - mix) + blended * mix
+    result = Image.fromarray(np.rint(np.clip(out, 0.0, 1.0) * 255.0).astype(np.uint8), "RGB")
+
+    # Preserve the effect-stage alpha contract. Existing RasterMint effects keep
+    # source transparency, so blend/mask controls should not unexpectedly make
+    # transparent source pixels opaque.
+    alpha = None
+    if "A" in effect_image.getbands():
+        alpha = effect_image.getchannel("A")
+    elif "A" in base_image.getbands():
+        alpha = base_image.getchannel("A")
+    if alpha is not None:
+        if alpha.size != target_size:
+            alpha = alpha.resize(target_size, Image.Resampling.BILINEAR)
+        result = result.convert("RGBA")
+        result.putalpha(alpha)
+    return result
+
+
 def apply_normalized_effect_stack(
     image: Image.Image,
     stack: list[dict[str, Any]],
@@ -2451,6 +2955,8 @@ def apply_normalized_effect_stack(
     frame_time: float = 0.0,
     frame_index: int = 0,
     temporal_state: TemporalEffectState | None = None,
+    render_cache: Any | None = None,
+    cache_context: str = "",
 ) -> Image.Image:
     """Apply a stack that has already been normalized by effect_schema.
 
@@ -2461,11 +2967,33 @@ def apply_normalized_effect_stack(
     img = image if image.mode == "RGB" else image.convert("RGB")
     palette_np = palette_array(palette)
 
-    for step in stack:
+    cache_signatures: list[str] | None = None
+    start_index = 0
+    if render_cache is not None and cache_context:
+        try:
+            cache_signatures = render_cache.prefix_signatures(stack, palette)
+            start_index, cached = render_cache.longest_prefix(str(cache_context), cache_signatures)
+            if cached is not None:
+                img = cached
+        except Exception:
+            # Caching is an optimization only. A stale/broken cache must never
+            # affect the correctness of the processing pipeline.
+            cache_signatures = None
+            start_index = 0
+
+    for step_index, step in enumerate(stack):
+        if step_index < start_index:
+            continue
         if not step.get("enabled", True):
+            if cache_signatures is not None and render_cache is not None:
+                try:
+                    render_cache.store(str(cache_context), cache_signatures[step_index], img)
+                except Exception:
+                    pass
             continue
         kind = step["kind"]
         p = step["params"]
+        layer_input = img.copy()
         alpha_before = img.getchannel("A") if "A" in img.getbands() else None
         if alpha_before is not None:
             img = img.convert("RGB")
@@ -2510,6 +3038,21 @@ def apply_normalized_effect_stack(
         elif kind == "Tape Dropout": img = _tape_dropout(img, float(p["amount"]), int(p["length"]), int(p["thickness"]), float(p["strength"]), int(p["seed"]), frame_time, frame_index)
         elif kind == "Temporal Jitter": img = _temporal_jitter(img, float(p["x"]), float(p["y"]), float(p["speed"]), int(p["seed"]), frame_time, frame_index)
         elif kind == "Head Switching Noise": img = _head_switching_noise(img, int(p["height"]), int(p["shift"]), float(p["noise"]), float(p["strength"]), int(p["seed"]), frame_time, frame_index)
+        elif kind == "RGB Convergence": img = _rgb_convergence(img, float(p["red_x"]), float(p["red_y"]), float(p["blue_x"]), float(p["blue_y"]), float(p["strength"]))
+        elif kind == "CRT Mask": img = _crt_mask(img, str(p["mask_type"]), int(p["scale"]), float(p["strength"]), float(p["brightness"]))
+        elif kind == "Phosphor Glow": img = _phosphor_glow(img, float(p["threshold"]), float(p["radius"]), float(p["intensity"]))
+        elif kind == "Beam Width": img = _beam_width(img, int(p["spacing"]), float(p["width"]), float(p["strength"]))
+        elif kind == "Horizontal Bloom": img = _horizontal_bloom(img, float(p["threshold"]), float(p["radius"]), float(p["intensity"]))
+        elif kind == "Scanline Variation": img = _scanline_variation(img, int(p["spacing"]), float(p["strength"]), float(p["variation"]), float(p["speed"]), int(p["seed"]), frame_time)
+        elif kind == "CRT Curvature": img = _crt_curvature(img, float(p["curvature"]), float(p["zoom"]), float(p["edge_fade"]))
+        elif kind == "Edge Distortion": img = _edge_distortion(img, float(p["amount"]), float(p["frequency"]), float(p["falloff"]))
+        elif kind == "Vertical Sync Roll": img = _vertical_sync_roll(img, int(p["amount"]), float(p["speed"]), float(p["softness"]), frame_time)
+        elif kind == "Field Flicker": img = _field_flicker(img, float(p["amount"]), str(p["field_rate"]), bool(p["interlaced"]), frame_time, frame_index)
+        elif kind == "LCD Inversion": img = _lcd_inversion(img, str(p["pattern"]), float(p["amount"]), int(p["scale"]), int(p["phase"]))
+        elif kind == "Dot Crawl": img = _dot_crawl(img, float(p["amount"]), float(p["scale"]), float(p["speed"]), frame_time)
+        elif kind == "Composite Noise": img = _composite_noise(img, float(p["luma"]), float(p["chroma"]), int(p["seed"]), frame_time, frame_index)
+        elif kind == "RF Interference": img = _rf_interference(img, float(p["amount"]), int(p["bands"]), float(p["speed"]), int(p["seed"]), frame_time, frame_index)
+        elif kind == "Horizontal Tear": img = _horizontal_tear(img, int(p["amount"]), int(p["bands"]), int(p["height"]), float(p["speed"]), int(p["seed"]), frame_time, frame_index)
         elif kind == "Noise": img = _noise(img, float(p["amount"]), _seed(p, frame_index))
         elif kind == "Temporal Flicker": img = _flicker(img, float(p["amount"]), float(p["speed"]), frame_time)
         elif kind == "Temporal Pattern": img = _temporal_pattern(img, str(p["pattern"]), float(p["amount"]), float(p["speed"]), float(p["scale"]), float(p["phase"]), frame_time, int(p["seed"]))
@@ -2613,6 +3156,7 @@ def apply_normalized_effect_stack(
                 color_mix_pattern=str(p.get("color_mix_pattern", "Checker")),
                 color_mix_distance=str(p.get("color_mix_distance", "OKLab")),
                 color_mix_phase=int(p.get("color_mix_phase", 0)),
+                custom_matrix=p.get("custom_matrix_json"),
             )
             dithered = Image.fromarray(np.clip(result, 0, 255).astype(np.uint8), "RGB")
             img = dithered if mix >= 1.0 else Image.blend(before, dithered, mix)
@@ -2627,6 +3171,13 @@ def apply_normalized_effect_stack(
             rgba = img.convert("RGBA")
             rgba.putalpha(alpha)
             img = rgba
+
+        img = _apply_layer_composite(layer_input, img, step)
+        if cache_signatures is not None and render_cache is not None:
+            try:
+                render_cache.store(str(cache_context), cache_signatures[step_index], img)
+            except Exception:
+                pass
     return img
 
 def apply_effect_stack(

@@ -1,0 +1,67 @@
+{
+  "id": "vga-320",
+  "name": "IBM PC VGA 320×200",
+  "category": "Computer",
+  "summary": "VGA 320×200 creative hardware/display profile with indexed 256-colour limits and analog CRT presentation.",
+  "raster": {
+    "width": 320,
+    "height": 200,
+    "pixel_aspect": [
+      5,
+      6
+    ],
+    "tile": [
+      0,
+      0
+    ],
+    "fit_mode": "fit"
+  },
+  "palette": {
+    "type": "native-depth",
+    "name": "VGA RGB666",
+    "description": "6-bit-per-channel VGA DAC colour space; software-selected indexed palettes are approximated."
+  },
+  "recommended_dither": "Nearest Palette",
+  "visual": {
+    "display": {
+      "kind": "crt",
+      "gamma": 1.0,
+      "blur": 0.2,
+      "color_bleed": 0.2,
+      "scanlines": 0.07,
+      "lcd_grid": 0.0
+    },
+    "effects": [
+      {
+        "kind": "CRT Mask",
+        "params": {
+          "mask_type": "Aperture Grille",
+          "scale": 3,
+          "strength": 0.13,
+          "brightness": 0.05
+        }
+      },
+      {
+        "kind": "Display Persistence",
+        "params": {
+          "display_type": "CRT",
+          "persistence_time": 0.05,
+          "strength": 0.11,
+          "decay": 1.75
+        }
+      }
+    ]
+  },
+  "strict": {
+    "supported": true,
+    "constraints": {
+      "channel_bits": [
+        6,
+        6,
+        6
+      ],
+      "max_colors_global": 256
+    }
+  },
+  "sources": []
+}

@@ -48,7 +48,35 @@
       "color_bleed": 0.65,
       "scanlines": 0.1,
       "lcd_grid": 0.0
-    }
+    },
+    "effects": [
+      {
+        "kind": "CRT Mask",
+        "params": {
+          "mask_type": "Aperture Grille",
+          "scale": 3,
+          "strength": 0.16,
+          "brightness": 0.06
+        }
+      },
+      {
+        "kind": "Phosphor Glow",
+        "params": {
+          "threshold": 0.68,
+          "radius": 1.2,
+          "intensity": 0.14
+        }
+      },
+      {
+        "kind": "Display Persistence",
+        "params": {
+          "display_type": "CRT",
+          "persistence_time": 0.06,
+          "strength": 0.13,
+          "decay": 1.65
+        }
+      }
+    ]
   },
   "strict": {
     "supported": true,

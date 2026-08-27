@@ -30,7 +30,27 @@
       "color_bleed": 0.0,
       "scanlines": 0.0,
       "lcd_grid": 0.08
-    }
+    },
+    "effects": [
+      {
+        "kind": "Display Persistence",
+        "params": {
+          "display_type": "LCD",
+          "persistence_time": 0.1,
+          "strength": 0.3,
+          "decay": 1.15
+        }
+      },
+      {
+        "kind": "LCD Inversion",
+        "params": {
+          "pattern": "Checker",
+          "amount": 0.045,
+          "scale": 2,
+          "phase": 0
+        }
+      }
+    ]
   },
   "strict": {
     "supported": true,

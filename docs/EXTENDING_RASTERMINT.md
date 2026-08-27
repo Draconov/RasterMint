@@ -216,7 +216,7 @@ Unknown third-party theme IDs are still loaded and appended alphabetically after
 
 ## Adding a language
 
-English is RasterMint's source/default language. User-visible QML strings should normally be wrapped with `qsTr("...")`. Do not translate stable processing identifiers, effect type IDs, preset/settings keys, serialized enum values, or other backend contracts.
+English is RasterMint's source language. User-visible QML strings should normally be wrapped with `qsTr("...")`. Do not translate stable processing identifiers, effect type IDs, preset/settings keys, serialized enum values, or other backend contracts.
 
 To add a language:
 
@@ -226,7 +226,7 @@ To add a language:
 4. switch languages at runtime and verify menus, dialogs, inspector pages, dynamic labels, and tooltips retranslate without restart;
 5. keep the product name **RasterMint** literal/non-translatable where it is branding.
 
-`LocalizationManager` uses a JSON-backed `QTranslator` and `QQmlEngine.retranslate()`. Do not introduce `.qm`/`lrelease` tooling unless the localization architecture is intentionally being replaced. English remains the fallback/default when a stored language is missing or invalid.
+`LocalizationManager` uses a JSON-backed `QTranslator` and `QQmlEngine.retranslate()`. Do not introduce `.qm`/`lrelease` tooling unless the localization architecture is intentionally being replaced. On first run/reset RasterMint selects the supported OS language when available and otherwise falls back to English; an invalid stored language also falls back to English.
 
 ## Adding or replacing a sidebar icon
 
@@ -283,3 +283,29 @@ For a new rendering feature:
 - [ ] packaging changes are verified on all affected release platforms.
 
 See [`TESTING.md`](TESTING.md) for test placement and regression-test policy.
+
+
+## Data extension packs
+
+User-installed, read-only data can be packaged without modifying RasterMint's install directory. Create a folder under RasterMint's user-data `extensions/` directory with an `extension.json` manifest:
+
+```json
+{
+  "format": "rastermint-extension",
+  "schema_version": 1,
+  "id": "example-pack",
+  "name": "Example Pack",
+  "version": "1.0",
+  "assets": {
+    "palettes": "palettes",
+    "themes": "themes",
+    "translations": "translations",
+    "hardware_profiles": "hardware_profiles",
+    "presets": "presets"
+  }
+}
+```
+
+Only asset paths inside the extension folder are accepted. Omit asset types the pack does not provide. Files use the same JSON schemas as built-in/user equivalents; shipped IDs take precedence over collisions. Extension presets are read-only library entries, while extension translations can either add a language or augment an existing dictionary.
+
+This mechanism intentionally does **not** execute arbitrary Python. A future Python effect-plugin API should be explicit/opt-in and versioned separately from safe data packs.

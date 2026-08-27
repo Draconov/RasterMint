@@ -22,7 +22,7 @@ ERROR_DIFFUSION_KERNELS: dict[str, tuple[Kernel, float]] = {
 ALGORITHM_GROUPS: dict[str, list[str]] = {
     "Quantization": ["Nearest Palette", "Threshold", "Random", "Interleaved Gradient Noise", "Blue Noise"],
     "Palette Mixing": ["1:1 Colour Mix"],
-    "Ordered": ["Bayer 2x2", "Bayer 4x4", "Bayer 8x8", "Bayer 16x16", "Bayer 32x32", "Clustered Dot 4x4", "Clustered Dot 8x8", "Random Ordered", "Halftone"],
+    "Ordered": ["Bayer 2x2", "Bayer 4x4", "Bayer 8x8", "Bayer 16x16", "Bayer 32x32", "Clustered Dot 4x4", "Clustered Dot 8x8", "Random Ordered", "Custom Matrix", "Halftone"],
     "Pattern": ["Bit Tone", "Pattern", "Dot Pattern", "Modulation"],
     "Error Diffusion": list(ERROR_DIFFUSION_KERNELS),
     "Advanced": ["Dot Diffusion", "Riemersma"],

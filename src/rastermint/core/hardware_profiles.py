@@ -10,6 +10,7 @@ from importlib import resources
 from pathlib import Path
 from typing import Any, Iterable
 
+from .extensions import asset_files
 from .settings import ProcessingSettings
 
 @dataclass(frozen=True, slots=True)
@@ -63,12 +64,18 @@ def load_profile_file(path: str | Path) -> HardwareProfile:
 
 
 def load_builtin_profiles() -> list[HardwareProfile]:
+    """Load shipped profiles plus read-only hardware-profile extensions.
+
+    Built-in ids always win over extension collisions so installing an
+    extension cannot silently replace RasterMint's compatibility profiles.
+    """
     profiles: list[HardwareProfile] = []
+    seen_ids: set[str] = set()
     package_root = resources.files("rastermint") / "data" / "hardware_profiles"
     try:
         entries = sorted(package_root.iterdir(), key=lambda item: item.name.lower())
     except (FileNotFoundError, ModuleNotFoundError):
-        return []
+        entries = []
     for entry in entries:
         if not entry.name.lower().endswith(".json"):
             continue
@@ -76,11 +83,24 @@ def load_builtin_profiles() -> list[HardwareProfile]:
             raw = entry.read_text(encoding="utf-8")
             data = json.loads(raw)
             if isinstance(data, dict):
-                profiles.append(_profile_from_mapping(data))
+                profile = _profile_from_mapping(data)
+                if profile.id not in seen_ids:
+                    profiles.append(profile)
+                    seen_ids.add(profile.id)
         except Exception:
             # One malformed optional profile must not prevent RasterMint from
             # starting. The custom-profile loader surfaces errors explicitly.
             continue
+
+    for path in asset_files("hardware_profiles"):
+        try:
+            profile = load_profile_file(path)
+        except Exception:
+            continue
+        if profile.id in seen_ids:
+            continue
+        profiles.append(profile)
+        seen_ids.add(profile.id)
     return sorted(profiles, key=lambda p: (p.category.lower(), p.name.lower()))
 
 
@@ -133,6 +153,49 @@ def _palette_group_indices(groups: object, fixed_palette: list[str]) -> list[lis
         if indices:
             result.append(indices)
     return result
+
+
+def _replace_profile_visual_effects(
+    stack: list[dict[str, Any]],
+    effects: object,
+    *,
+    profile_id: str,
+) -> list[dict[str, Any]]:
+    """Replace composable display-simulation layers owned by a profile."""
+    from .effect_schema import EFFECT_DEFINITIONS, new_effect, normalize_effect_stack
+
+    kept = [
+        step for step in stack
+        if not str(step.get("id", "")).startswith("hardware-visual-")
+    ]
+    if not isinstance(effects, list):
+        return kept
+
+    added: list[dict[str, Any]] = []
+    for index, raw in enumerate(effects):
+        if not isinstance(raw, dict):
+            continue
+        kind = str(raw.get("kind", ""))
+        if kind not in EFFECT_DEFINITIONS or kind in {"Hardware Limits", "Hardware Display"}:
+            continue
+        step = new_effect(
+            kind,
+            enabled=bool(raw.get("enabled", True)),
+            effect_id=f"hardware-visual-{profile_id}-{index}",
+        )
+        if isinstance(raw.get("params"), dict):
+            step["params"].update(dict(raw["params"]))
+        try:
+            step["opacity"] = max(0.0, min(1.0, float(raw.get("opacity", 1.0))))
+        except (TypeError, ValueError):
+            pass
+        step["blend_mode"] = str(raw.get("blend_mode", "Normal") or "Normal")
+        if isinstance(raw.get("mask"), dict):
+            step["mask"] = dict(raw["mask"])
+        normalized = normalize_effect_stack([step])
+        if normalized:
+            added.append(normalized[0])
+    return kept + added
 
 
 def apply_profile_to_settings(
@@ -237,8 +300,15 @@ def apply_profile_to_settings(
                 ),
             )
         result.effect_stack = _replace_stage_layer(result.effect_stack, "Hardware Limits", limits_step)
+    visual = profile.visual
+    visual_effects = visual.get("effects") if isinstance(visual, dict) else []
+    result.effect_stack = _replace_profile_visual_effects(
+        result.effect_stack,
+        visual_effects if apply_display else [],
+        profile_id=profile.id,
+    )
+
     if apply_display:
-        visual = profile.visual
         display = visual.get("display") if isinstance(visual, dict) else {}
         display_step = None
         if isinstance(display, dict) and display:
@@ -253,6 +323,8 @@ def apply_profile_to_settings(
         result.effect_stack = _replace_stage_layer(result.effect_stack, "Hardware Display", display_step)
         result.display_profile = {}
         result.display_mode = "display" if display_step is not None else "corrected"
+    else:
+        result.effect_stack = _replace_stage_layer(result.effect_stack, "Hardware Display", None)
 
     result.effect_stack = normalize_effect_stack(result.effect_stack, result)
     return result

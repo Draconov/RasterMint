@@ -144,6 +144,9 @@ ApplicationWindow {
                 onTriggered: backend.pasteImageFromClipboard()
             }
             MintMenuSeparator { }
+            Action { text: qsTr("Open Project…"); shortcut: "Ctrl+Alt+O"; onTriggered: openProjectDialog.open() }
+            Action { text: qsTr("Save Project…"); shortcut: "Ctrl+Alt+Shift+S"; onTriggered: saveProjectDialog.open() }
+            MintMenuSeparator { }
             Action { text: qsTr("Export to Clipboard…"); enabled: backend.hasSource; onTriggered: backend.exportToClipboard() }
             Action { text: qsTr("Quick Export Image…"); enabled: backend.hasSource; shortcut: "Ctrl+E"; onTriggered: window.openQuickExportImageDialog() }
             Action { text: qsTr("Export Image…"); enabled: backend.hasSource; shortcut: "Ctrl+Shift+E"; onTriggered: advancedExportDialog.open() }
@@ -210,6 +213,12 @@ ApplicationWindow {
                 checked: backend.showHotkeys
                 onTriggered: backend.setShowHotkeys(checked)
             }
+            MintMenuSeparator { }
+            Action { text: qsTr("Capture Snapshot A"); enabled: backend.hasSource; shortcut: "Ctrl+Alt+1"; onTriggered: backend.captureSnapshot("A") }
+            Action { text: qsTr("Capture Snapshot B"); enabled: backend.hasSource; shortcut: "Ctrl+Alt+2"; onTriggered: backend.captureSnapshot("B") }
+            Action { text: qsTr("Apply Snapshot A"); enabled: backend.snapshotAReady; onTriggered: backend.applySnapshot("A") }
+            Action { text: qsTr("Apply Snapshot B"); enabled: backend.snapshotBReady; onTriggered: backend.applySnapshot("B") }
+            Action { text: qsTr("A/B Split View"); enabled: backend.snapshotAReady && backend.snapshotBReady; checkable: true; checked: backend.comparisonEnabled; onTriggered: backend.setComparisonEnabled(checked) }
             MintMenuSeparator { }
             Action { text: qsTr("About RasterMint"); shortcut: "F1"; onTriggered: aboutDialog.open() }
         }
@@ -457,6 +466,8 @@ ApplicationWindow {
         onAccepted: backend.exportMedia(window.urlString(selectedFile))
     }
     FolderDialog { id: sequenceFolderDialog; title: qsTr("Choose PNG sequence folder"); onAccepted: backend.exportSequence(window.urlString(selectedFolder)) }
+    FileDialog { id: openProjectDialog; title: qsTr("Open RasterMint project"); nameFilters: ["RasterMint Project (*.rastermint)"]; onAccepted: backend.loadProject(window.urlString(selectedFile)) }
+    FileDialog { id: saveProjectDialog; title: qsTr("Save RasterMint project"); fileMode: FileDialog.SaveFile; defaultSuffix: "rastermint"; nameFilters: ["RasterMint Project (*.rastermint)"]; onAccepted: backend.saveProject(window.urlString(selectedFile)) }
     FileDialog { id: loadPresetDialog; title: qsTr("Load preset"); nameFilters: ["JSON preset (*.json)"]; onAccepted: backend.loadPreset(window.urlString(selectedFile)) }
     FileDialog { id: savePresetDialog; title: qsTr("Save preset"); fileMode: FileDialog.SaveFile; defaultSuffix: "json"; nameFilters: ["JSON preset (*.json)"]; onAccepted: backend.savePreset(window.urlString(selectedFile)) }
 
