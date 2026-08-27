@@ -7,15 +7,25 @@ import json
 from importlib import resources
 from typing import Any
 
-from PySide6.QtCore import Property, QCoreApplication, QObject, QSettings, QTranslator, Signal, Slot
+from PySide6.QtCore import Property, QCoreApplication, QLocale, QObject, QSettings, QTranslator, Signal, Slot
 from PySide6.QtQml import QQmlEngine
 
 
 DEFAULT_LANGUAGE_ID = "en"
-LANGUAGE_ORDER = ("en", "uk")
+LANGUAGE_ORDER = ("en", "uk", "fr", "de", "es", "pt", "it", "he", "ar", "pl", "ga", "lv")
 LANGUAGE_NAMES = {
     "en": "English",
     "uk": "Українська",
+    "fr": "Français",
+    "de": "Deutsch",
+    "es": "Español",
+    "pt": "Português",
+    "it": "Italiano",
+    "he": "עברית",
+    "ar": "العربية",
+    "pl": "Polski",
+    "ga": "Gaeilge",
+    "lv": "Latviešu",
 }
 _LEGACY_SYSTEM_LANGUAGE_ID = "system"
 
@@ -56,17 +66,38 @@ class LocalizationManager(QObject):
         self._translator = _JsonTranslator(self)
         self._translator_installed = False
 
-        requested = str(
-            self._settings.value("appearance/language", DEFAULT_LANGUAGE_ID)
-            or DEFAULT_LANGUAGE_ID
-        )
-        # Migrate the old "System default" choice to the new explicit default.
-        if requested == _LEGACY_SYSTEM_LANGUAGE_ID:
-            requested = DEFAULT_LANGUAGE_ID
-            self._settings.setValue("appearance/language", requested)
+        setting_key = "appearance/language"
+        if self._settings.contains(setting_key):
+            requested = str(self._settings.value(setting_key, "") or "")
+            # Old builds exposed a visible "System default" choice. Keep the
+            # same intent internally, but resolve it to an actual language and
+            # remove the legacy marker because it is no longer shown in the UI.
+            if requested == _LEGACY_SYSTEM_LANGUAGE_ID:
+                self._settings.remove(setting_key)
+                requested = self._system_language_id()
+        else:
+            requested = self._system_language_id()
+
         self._language_id = requested if requested in LANGUAGE_ORDER else DEFAULT_LANGUAGE_ID
         self._effective_language_id = self._language_id
         self._apply_language(retranslate=False)
+
+    @staticmethod
+    def _system_language_id() -> str:
+        """Return the supported OS language, falling back to English."""
+        try:
+            locale = QLocale.system()
+            candidates = [locale.name(), locale.bcp47Name()]
+        except Exception:
+            candidates = []
+
+        aliases = {"iw": "he"}
+        for candidate in candidates:
+            code = str(candidate or "").replace("-", "_").split("_", 1)[0].lower()
+            code = aliases.get(code, code)
+            if code in LANGUAGE_ORDER:
+                return code
+        return DEFAULT_LANGUAGE_ID
 
     @staticmethod
     def _load_messages(language_id: str) -> dict[str, str]:
@@ -135,4 +166,14 @@ class LocalizationManager(QObject):
 
     @Slot()
     def resetLanguage(self) -> None:
-        self.setLanguage(DEFAULT_LANGUAGE_ID)
+        # Reset means "use RasterMint's default" rather than force English.
+        # The default follows the OS language when supported and otherwise
+        # resolves to English. Removing the key keeps future launches in auto
+        # mode until the user explicitly chooses a language again.
+        self._settings.remove("appearance/language")
+        selected = self._system_language_id()
+        if selected == self._language_id:
+            return
+        self._language_id = selected
+        self._apply_language(retranslate=True)
+        self.languageChanged.emit()

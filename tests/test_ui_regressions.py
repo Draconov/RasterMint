@@ -236,7 +236,7 @@ def test_runtime_localization_is_packaged_and_exposed_to_qml():
     assert 'separatorToken: "__language_separator__"' in settings
     assert 'qsTr("System default")' not in settings
     assert 'DEFAULT_LANGUAGE_ID = "en"' in localization
-    assert 'LANGUAGE_ORDER = ("en", "uk")' in localization
+    assert 'LANGUAGE_ORDER = ("en", "uk", "fr", "de", "es", "pt", "it", "he", "ar", "pl", "ga", "lv")' in localization
     assert 'data/translations/*.json' in pyproject
     assert '"data/translations/*.json"' in spec
     assert ukrainian.is_file()
