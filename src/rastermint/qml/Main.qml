@@ -257,7 +257,7 @@ ApplicationWindow {
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.bottom: parent.bottom
                 anchors.bottomMargin: 18
-                visible: backend.renderBusy
+                visible: backend.renderBusy && backend.renderProgressVisible
                 z: 110
                 width: Math.min(parent.width - 48, 520)
                 height: 62

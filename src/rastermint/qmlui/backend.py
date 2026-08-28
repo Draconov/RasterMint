@@ -359,6 +359,7 @@ class RasterMintBackend(QObject):
         self._render_progress = 0.0
         self._render_eta_seconds = -1.0
         self._render_stage = ""
+        self._render_progress_visible = False
         self._render_started_at = 0.0
         self._render_job_id = 0
         self._render_estimate_key = ""
@@ -645,6 +646,10 @@ class RasterMintBackend(QObject):
     @Property(float, notify=renderProgressChanged)
     def renderEtaSeconds(self) -> float:
         return self._render_eta_seconds
+
+    @Property(bool, notify=renderProgressChanged)
+    def renderProgressVisible(self) -> bool:
+        return self._render_progress_visible
 
     @Property(str, notify=renderProgressChanged)
     def renderStage(self) -> str:
@@ -3077,7 +3082,12 @@ class RasterMintBackend(QObject):
         self._render_started_at = time.perf_counter()
         self._render_busy = True
         self._render_progress = 0.0
-        self._render_eta_seconds = float(self._render_estimates.get(key, -1.0))
+        prior_estimate = self._render_estimates.get(key)
+        self._render_eta_seconds = float(prior_estimate if prior_estimate is not None else -1.0)
+        # Do not flash progress UI for normal fast previews. Once a render is
+        # known to be long, keep the panel visible through completion instead
+        # of hiding it when the remaining ETA drops below five seconds.
+        self._render_progress_visible = bool(prior_estimate is not None and float(prior_estimate) >= 5.0)
         self._render_stage = _tr("Preparing preview")
         self.renderProgressChanged.emit()
 
@@ -3109,6 +3119,17 @@ class RasterMintBackend(QObject):
             self._render_eta_seconds = prior_eta
         else:
             self._render_eta_seconds = -1.0
+
+        if not self._render_progress_visible:
+            estimated_total = -1.0
+            if self._render_eta_seconds >= 0.0:
+                estimated_total = elapsed + self._render_eta_seconds
+            elif prior_total is not None:
+                estimated_total = float(prior_total)
+            # The elapsed-time check is a final guarantee for jobs whose early
+            # progress callbacks are too irregular to yield a stable ETA.
+            if estimated_total >= 5.0 or elapsed >= 5.0:
+                self._render_progress_visible = True
         self.renderProgressChanged.emit()
 
     def _finish_preview_render(self, job_id: int, *, keep_busy: bool = False) -> None:
@@ -3125,6 +3146,7 @@ class RasterMintBackend(QObject):
         self._render_busy = bool(keep_busy)
         if not keep_busy:
             self._render_job_id = 0
+            self._render_progress_visible = False
         self.renderProgressChanged.emit()
 
     # ---------- preview pipeline ----------

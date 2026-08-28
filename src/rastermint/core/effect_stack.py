@@ -830,7 +830,9 @@ def _composite_noise(image: Image.Image, luma: float, chroma: float, seed: int, 
         grain = (grain + np.roll(grain, 1, axis=1) * 0.35) / 1.35
         arr[..., 0] += grain
     if chroma > 0.0:
-        low_w = max(1, w // 3)
+        # Ceiling division guarantees that the repeated low-resolution chroma
+        # noise always covers widths that are not divisible by three.
+        low_w = max(1, (w + 2) // 3)
         cnoise_small = rng.normal(0.0, 30.0 * chroma, size=(h, low_w, 2)).astype(np.float32)
         cnoise = np.repeat(cnoise_small, 3, axis=1)[:, :w]
         arr[..., 1:] += cnoise
