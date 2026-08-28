@@ -7,7 +7,33 @@ ScrollView {
     id: root
     contentWidth: availableWidth
     property int selectedTrack: -1
+    property int selectedKey: -1
     property var playbackModeValues: ["Quick", "Rendered"]
+
+    function selectedTrackData() {
+        var tracks = backend.animationTracks || []
+        return selectedTrack >= 0 && selectedTrack < tracks.length ? tracks[selectedTrack] : null
+    }
+
+    function selectedKeyData() {
+        var track = selectedTrackData()
+        var keys = track ? (track.keyframes || []) : []
+        return selectedKey >= 0 && selectedKey < keys.length ? keys[selectedKey] : null
+    }
+
+    function loadKey(index) {
+        selectedKey = index
+        var key = selectedKeyData()
+        if (!key) return
+        keyTimeField.text = Number(key.time).toFixed(3)
+        keyValueField.text = Number(key.value).toString()
+        keyEasingCombo.currentIndex = Math.max(0, backend.easingNames.indexOf(String(key.easing || "Linear")))
+        var bezier = key.bezier || [0.25, 0.1, 0.25, 1.0]
+        bezierX1.text = Number(bezier[0]).toFixed(2)
+        bezierY1.text = Number(bezier[1]).toFixed(2)
+        bezierX2.text = Number(bezier[2]).toFixed(2)
+        bezierY2.text = Number(bezier[3]).toFixed(2)
+    }
     clip: true
     ScrollBar.vertical.policy: ScrollBar.AlwaysOff
 
@@ -22,6 +48,7 @@ ScrollView {
 
     function loadTrack(row) {
         selectedTrack = row.index
+        selectedKey = -1
         var targetIndex = backend.animationTargetIds.indexOf(row.target)
         targetCombo.currentIndex = Math.max(0, targetIndex)
         fromField.text = Number(row.from).toString()
@@ -59,7 +86,7 @@ ScrollView {
         MintLabel { text: qsTr("Motion preset"); color: theme.mutedTextColor }
         RowLayout {
             Layout.fillWidth: true
-            MintComboBox { id: motionPreset; Layout.fillWidth: true; model: backend.animationPresetNames }
+            MintComboBox { id: motionPreset; Layout.fillWidth: true; model: backend.animationPresetNames; translateModel: true }
             MintButton { text: qsTr("Apply"); enabled: motionPreset.currentIndex >= 0; onClicked: backend.applyAnimationPreset(backend.animationPresetIds[motionPreset.currentIndex]) }
         }
         RowLayout {
@@ -112,13 +139,166 @@ ScrollView {
                     MintCheckBox { checked: modelData.enabled; onToggled: backend.setAnimationTrackEnabled(index, checked) }
                     ColumnLayout {
                         Layout.fillWidth: true; spacing: 0
-                        Text { Layout.fillWidth: true; text: qsTr(modelData.label); color: theme.textColor; font.bold: true; elide: Text.ElideRight }
+                        Text { Layout.fillWidth: true; text: localization.translateRuntime(localization.effectiveLanguageId, String(modelData.label)); color: theme.textColor; font.bold: true; elide: Text.ElideRight }
                         Text { Layout.fillWidth: true; text: Number(modelData.start).toFixed(2) + " → " + Number(modelData.end).toFixed(2) + " s  ·  " + modelData.easing; color: theme.mutedTextColor; font.pixelSize: 10; elide: Text.ElideRight }
                     }
                 }
                 HoverHandler { id: trackHover }
                 TapHandler { onTapped: root.loadTrack(modelData) }
             }
+        }
+
+        MintLabel { text: qsTr("Keyframes"); font.bold: true; visible: root.selectedTrack >= 0 }
+        Rectangle {
+            id: keyTimeline
+            Layout.fillWidth: true
+            Layout.preferredHeight: 58
+            visible: root.selectedTrack >= 0
+            radius: 6
+            color: theme.panelRaisedColor
+            border.color: theme.borderColor
+            Rectangle { anchors.left: parent.left; anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; anchors.leftMargin: 12; anchors.rightMargin: 12; height: 2; color: theme.borderColor }
+            Repeater {
+                model: {
+                    var track = root.selectedTrackData()
+                    return track ? (track.keyframes || []) : []
+                }
+                delegate: Rectangle {
+                    id: keyDot
+                    required property var modelData
+                    required property int index
+                    width: 14; height: 14; radius: 3
+                    rotation: 45
+                    y: (keyTimeline.height - height) / 2
+                    x: 7 + (keyTimeline.width - 28) * Math.max(0, Math.min(1, Number(modelData.time) / Math.max(0.001, backend.timelineDuration)))
+                    color: index === root.selectedKey ? theme.accentColor : theme.textColor
+                    border.color: theme.panelColor
+                    MouseArea {
+                        anchors.fill: parent
+                        anchors.margins: -7
+                        cursorShape: Qt.SizeHorCursor
+                        drag.target: keyDot
+                        drag.axis: Drag.XAxis
+                        drag.minimumX: 7
+                        drag.maximumX: Math.max(7, keyTimeline.width - 21)
+                        onPressed: root.loadKey(index)
+                        onReleased: {
+                            var time = Math.max(0, Math.min(backend.timelineDuration,
+                                ((keyDot.x - 7) / Math.max(1, keyTimeline.width - 28)) * backend.timelineDuration))
+                            var key = root.selectedKeyData()
+                            if (key)
+                                backend.updateAnimationKeyframe(root.selectedTrack, index, time, Number(key.value), String(key.easing), key.bezier || [0.25,0.1,0.25,1.0])
+                        }
+                    }
+                    ToolTip.visible: keyMouseHover.hovered
+                    ToolTip.text: Number(modelData.time).toFixed(2) + " s · " + Number(modelData.value).toFixed(2)
+                    HoverHandler { id: keyMouseHover }
+                }
+            }
+        }
+        RowLayout {
+            Layout.fillWidth: true
+            visible: root.selectedTrack >= 0
+            MintButton {
+                text: qsTr("Add key")
+                onClicked: {
+                    var track = root.selectedTrackData()
+                    if (!track) return
+                    var value = Number(track.from || 0)
+                    var keys = track.keyframes || []
+                    if (keys.length) {
+                        var closest = keys[0]
+                        for (var i = 1; i < keys.length; ++i)
+                            if (Math.abs(Number(keys[i].time) - backend.currentTime) < Math.abs(Number(closest.time) - backend.currentTime)) closest = keys[i]
+                        value = Number(closest.value)
+                    }
+                    backend.addAnimationKeyframe(root.selectedTrack, backend.currentTime, value, "Linear")
+                }
+            }
+            MintButton { text: qsTr("Copy key"); enabled: root.selectedKey >= 0; onClicked: backend.copyAnimationKeyframe(root.selectedTrack, root.selectedKey) }
+            MintButton { text: qsTr("Paste key"); enabled: backend.keyframeClipboardAvailable; onClicked: backend.pasteAnimationKeyframe(root.selectedTrack, backend.currentTime) }
+            MintButton { text: qsTr("Remove key"); enabled: root.selectedKey >= 0 && ((root.selectedTrackData() || {}).keyframes || []).length > 2; onClicked: { backend.removeAnimationKeyframe(root.selectedTrack, root.selectedKey); root.selectedKey = -1 } }
+        }
+        GridLayout {
+            Layout.fillWidth: true
+            visible: root.selectedTrack >= 0 && root.selectedKey >= 0
+            columns: 2
+            columnSpacing: 6; rowSpacing: 5
+            MintLabel { text: qsTr("Key time"); color: theme.mutedTextColor }
+            MintTextField {
+                id: keyTimeField
+                Layout.fillWidth: true
+                validator: DoubleValidator { bottom: 0 }
+                text: "0"
+            }
+            MintLabel { text: qsTr("Key value"); color: theme.mutedTextColor }
+            MintTextField {
+                id: keyValueField
+                Layout.fillWidth: true
+                validator: DoubleValidator {}
+                text: "0"
+            }
+            MintLabel { text: qsTr("Key easing"); color: theme.mutedTextColor }
+            MintComboBox { id: keyEasingCombo; Layout.fillWidth: true; model: backend.easingNames }
+            MintLabel { text: qsTr("Bezier x1 / y1"); visible: keyEasingCombo.currentText === "Bezier"; color: theme.mutedTextColor }
+            RowLayout {
+                visible: keyEasingCombo.currentText === "Bezier"; Layout.fillWidth: true
+                MintTextField { id: bezierX1; Layout.fillWidth: true; text: "0.25"; validator: DoubleValidator {} }
+                MintTextField { id: bezierY1; Layout.fillWidth: true; text: "0.10"; validator: DoubleValidator {} }
+            }
+            MintLabel { text: qsTr("Bezier x2 / y2"); visible: keyEasingCombo.currentText === "Bezier"; color: theme.mutedTextColor }
+            RowLayout {
+                visible: keyEasingCombo.currentText === "Bezier"; Layout.fillWidth: true
+                MintTextField { id: bezierX2; Layout.fillWidth: true; text: "0.25"; validator: DoubleValidator {} }
+                MintTextField { id: bezierY2; Layout.fillWidth: true; text: "1.00"; validator: DoubleValidator {} }
+            }
+        }
+        MintButton {
+            visible: root.selectedTrack >= 0 && root.selectedKey >= 0
+            text: qsTr("Update key")
+            onClicked: backend.updateAnimationKeyframe(root.selectedTrack, root.selectedKey,
+                Number(keyTimeField.text), Number(keyValueField.text), keyEasingCombo.currentText,
+                [Number(bezierX1.text), Number(bezierY1.text), Number(bezierX2.text), Number(bezierY2.text)])
+        }
+
+        Rectangle { Layout.fillWidth: true; height: 1; color: theme.borderColor; visible: root.selectedTrack >= 0 }
+        MintLabel { text: qsTr("Modulator"); font.bold: true; visible: root.selectedTrack >= 0 }
+        GridLayout {
+            Layout.fillWidth: true; visible: root.selectedTrack >= 0
+            columns: 2; columnSpacing: 6; rowSpacing: 5
+            MintLabel { text: qsTr("Type"); color: theme.mutedTextColor }
+            MintComboBox {
+                id: modType
+                Layout.fillWidth: true
+                model: backend.modulatorNames
+                Component.onCompleted: currentIndex = 0
+            }
+            MintLabel { text: qsTr("Amount"); color: theme.mutedTextColor }
+            MintTextField { id: modAmount; Layout.fillWidth: true; text: "0"; validator: DoubleValidator {} }
+            MintLabel { text: qsTr("Frequency"); color: theme.mutedTextColor }
+            MintTextField { id: modFrequency; Layout.fillWidth: true; text: "1"; validator: DoubleValidator { bottom: 0 } }
+            MintLabel { text: qsTr("Phase"); color: theme.mutedTextColor }
+            MintTextField { id: modPhase; Layout.fillWidth: true; text: "0"; validator: DoubleValidator {} }
+            MintLabel { text: "BPM"; color: theme.mutedTextColor }
+            MintTextField { id: modBpm; Layout.fillWidth: true; text: "120"; validator: DoubleValidator { bottom: 1 } }
+            MintLabel { text: qsTr("Seed"); color: theme.mutedTextColor }
+            MintSpinBox { id: modSeed; Layout.fillWidth: true; from: 0; to: 999999; value: 1 }
+        }
+        RowLayout {
+            Layout.fillWidth: true; visible: root.selectedTrack >= 0
+            MintButton { text: qsTr("Apply modulator"); onClicked: backend.setAnimationModulator(root.selectedTrack, modType.currentText, Number(modAmount.text), Number(modFrequency.text), Number(modPhase.text), Number(modBpm.text), modSeed.value) }
+            MintButton { text: backend.audioEnvelopeReady ? qsTr("Re-analyse audio") : qsTr("Analyse audio"); onClicked: backend.analyzeAudioModulation() }
+            MintLabel { Layout.fillWidth: true; text: backend.audioEnvelopeReady ? qsTr("%1 audio samples").arg(backend.audioEnvelopeSamples) : ""; color: theme.mutedTextColor }
+        }
+        RowLayout {
+            Layout.fillWidth: true; visible: root.selectedTrack >= 0
+            MintTextField { id: clipName; Layout.fillWidth: true; placeholderText: qsTr("Animation clip name") }
+            MintButton { text: qsTr("Save clip"); onClicked: backend.saveAnimationClip(root.selectedTrack, clipName.text) }
+        }
+        RowLayout {
+            Layout.fillWidth: true
+            MintComboBox { id: clipCombo; Layout.fillWidth: true; model: (backend.animationClipLibrary || []).map(function(item) { return item.name }) }
+            MintButton { text: qsTr("Apply clip"); enabled: clipCombo.currentIndex >= 0 && targetCombo.currentIndex >= 0; onClicked: backend.applyAnimationClip(clipCombo.currentText, backend.animationTargetIds[targetCombo.currentIndex]) }
         }
 
         MintLabel { text: qsTr("Animate"); color: theme.mutedTextColor }

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from array import array
 from functools import lru_cache
+import json
 import math
 import numpy as np
 
@@ -79,6 +80,28 @@ PATTERN_MATRICES: dict[str, np.ndarray] = {
     "Pattern": _structured_pattern_matrix(8),
     "Dot Pattern": _clustered_matrix(6),
 }
+
+def normalize_custom_matrix(value: object) -> np.ndarray:
+    """Validate and rank a user threshold matrix into 0..N²-1 values."""
+    payload = value
+    if isinstance(value, str):
+        try:
+            payload = json.loads(value)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            payload = None
+    try:
+        matrix = np.asarray(payload, dtype=np.float32)
+    except (TypeError, ValueError):
+        matrix = BAYER_MATRICES["Bayer 4x4"].copy()
+    if matrix.ndim != 2 or matrix.shape[0] != matrix.shape[1] or not (2 <= matrix.shape[0] <= 16):
+        matrix = BAYER_MATRICES["Bayer 4x4"].copy()
+    if not np.all(np.isfinite(matrix)):
+        matrix = BAYER_MATRICES["Bayer 4x4"].copy()
+    order = np.argsort(matrix, axis=None, kind="stable")
+    ranked = np.empty(order.size, dtype=np.float32)
+    ranked[order] = np.arange(order.size, dtype=np.float32)
+    return ranked.reshape(matrix.shape)
+
 
 def ordered_dither(image: np.ndarray, palette: np.ndarray, matrix: np.ndarray, strength: float) -> np.ndarray:
     h, w, _ = image.shape
@@ -489,6 +512,7 @@ def apply_dither(
     color_mix_pattern: str = "Checker",
     color_mix_distance: str = "OKLab",
     color_mix_phase: int = 0,
+    custom_matrix: object | None = None,
 ) -> np.ndarray:
     if algorithm == "Nearest Palette":
         return quantize_nearest(image, palette)
@@ -511,6 +535,8 @@ def apply_dither(
         return ordered_dither(image, palette, CLUSTERED_MATRICES[algorithm], strength)
     if algorithm in PATTERN_MATRICES:
         return ordered_dither(image, palette, PATTERN_MATRICES[algorithm], strength)
+    if algorithm == "Custom Matrix":
+        return ordered_dither(image, palette, normalize_custom_matrix(custom_matrix), strength)
     if algorithm == "Modulation":
         return modulation_dither(image, palette, strength)
     if algorithm == "Halftone":

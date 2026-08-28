@@ -1,14 +1,14 @@
 {
-  "id": "snes",
-  "name": "Super Nintendo / Super Famicom",
+  "id": "snes-svideo",
+  "name": "SNES S-Video",
   "category": "Console",
-  "summary": "256×224 low-resolution console profile with 15-bit RGB color depth.",
+  "summary": "Cleaner SNES/Super Famicom presentation with reduced composite bleed and a crisp CRT treatment.",
   "raster": {
     "width": 256,
     "height": 224,
     "pixel_aspect": [
-      7,
-      6
+      8,
+      7
     ],
     "tile": [
       8,
@@ -19,35 +19,19 @@
   "palette": {
     "type": "native-depth",
     "name": "SNES RGB555",
-    "description": "15-bit RGB master color space; games choose their own palettes."
+    "description": "15-bit master colour space; games select smaller palettes per scene."
   },
   "recommended_dither": "Nearest Palette",
   "visual": {
     "display": {
       "kind": "crt",
-      "gamma": 1.05,
-      "blur": 0.45,
-      "color_bleed": 0.8,
-      "scanlines": 0.12,
+      "gamma": 1.02,
+      "blur": 0.18,
+      "color_bleed": 0.15,
+      "scanlines": 0.1,
       "lcd_grid": 0.0
     },
     "effects": [
-      {
-        "kind": "Chroma Bleed",
-        "params": {
-          "bleed": 1.25,
-          "delay": 1,
-          "strength": 0.5
-        }
-      },
-      {
-        "kind": "Dot Crawl",
-        "params": {
-          "amount": 0.09,
-          "scale": 3.0,
-          "speed": 2.0
-        }
-      },
       {
         "kind": "CRT Mask",
         "params": {
@@ -58,12 +42,20 @@
         }
       },
       {
+        "kind": "Phosphor Glow",
+        "params": {
+          "threshold": 0.7,
+          "radius": 1.0,
+          "intensity": 0.1
+        }
+      },
+      {
         "kind": "Display Persistence",
         "params": {
           "display_type": "CRT",
-          "persistence_time": 0.07,
-          "strength": 0.15,
-          "decay": 1.55
+          "persistence_time": 0.06,
+          "strength": 0.13,
+          "decay": 1.7
         }
       }
     ]

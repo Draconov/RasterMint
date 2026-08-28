@@ -2,6 +2,46 @@
 
 Notable user-facing and engineering changes are recorded here. RasterMint is still in active alpha development, so entries focus on behavior that affects releases, compatibility, or contributor expectations.
 
+## Unreleased - Singular Lab Update
+
+### Display Lab
+
+- Expanded **Display Effects** into composable CRT/LCD/OLED/composite/RF/VHS building blocks: RGB convergence, aperture-grille/shadow-mask/slot-mask simulation, phosphor glow, beam width, horizontal bloom, scanline variation, curvature/edge distortion, vertical-sync roll, field flicker, LCD inversion, dot crawl, composite noise, RF interference, horizontal tearing, chroma bleed, tracking errors, tape dropout, head-switch noise, temporal jitter, and display persistence.
+- Added/expanded display recipes for Consumer CRT, PVM, Arcade CRT, Cheap RF TV, VHS SP/EP, Early LCD, Game Boy LCD, OLED Ghosting, Security Camera, Camcorder, CRT + VHS, DOS VGA, VGA 320×200, Macintosh Monochrome, and SNES S-Video.
+- Hardware profiles can now inject normal composable display-effect layers instead of hiding an entire look inside one monolithic display stage.
+
+### Layer System 2.0
+
+- Added per-layer **Opacity**, **Blend Mode**, and procedural **Mask** metadata with shared compositing in the normal effect stack.
+- Added solo, duplicate, reset, copy/paste layer settings, multi-selection, and collapsible layer groups while preserving stable layer IDs and serialized settings.
+
+### Palette & Dither Lab
+
+- Added palette analysis for colour usage, luminance/hue/saturation sorting, near-duplicate detection, ramp detection, distance analysis, unused-colour reporting, and palette-reduction suggestions.
+- Added a **Dither Matrix Designer** and custom ordered-dither matrices that serialize with normal settings/presets.
+
+### Motion Studio
+
+- Expanded animation tracks to support multiple keyframes, per-key easing/Bezier data, key copy/paste, reusable animation clips, and procedural modulators.
+- Added audio-amplitude analysis as a modulation source while keeping frame rendering on the shared processing pipeline.
+
+### Projects and workflow
+
+- Added `.rastermint` project files for processing state, source references, playback/UI state, export state, layer selection, and A/B snapshots.
+- Added A/B snapshot capture/apply and draggable split comparison in the preview.
+- Expanded the preset library with search, favourites, recent presets, user categories, rename/duplicate actions, and preset-pack import/export foundations.
+
+### Performance
+
+- Added bounded per-layer intermediate caching so editing a later layer can reuse unchanged earlier results.
+- Added exact-safe tiled processing for very large images when the active stack can be processed tile-by-tile without changing output.
+- Added configurable cache memory/tile size controls and a current-stack benchmark action in Settings.
+
+### Extensions and localization
+
+- Added manifest-based, read-only extension discovery for palettes, themes, translations, hardware profiles, and effect presets under the user extension directory. Built-in IDs win collisions and extension paths are contained to their package directory.
+- Localized all new singular-update UI/effect labels across the current 11 non-English dictionaries while preserving English source strings and the existing system-language-first fallback behavior.
+
 ## 0.2.4 - 2026-08-26
 
 ### Inspector and navigation

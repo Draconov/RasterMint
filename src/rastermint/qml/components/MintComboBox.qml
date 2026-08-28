@@ -11,7 +11,7 @@ ComboBox {
     font.pixelSize: 13
     contentItem: Text {
         leftPadding: 2
-        text: control.translateModel ? qsTr(control.displayText) : control.displayText
+        text: control.translateModel ? localization.translateRuntime(localization.effectiveLanguageId, String(control.displayText)) : control.displayText
         color: theme.textColor
         verticalAlignment: Text.AlignVCenter
         elide: Text.ElideRight
@@ -58,7 +58,7 @@ ComboBox {
         highlighted: !isSeparator && control.highlightedIndex === index
         contentItem: Text {
             visible: !delegateItem.isSeparator
-            text: control.translateModel ? qsTr(modelData) : modelData
+            text: control.translateModel ? localization.translateRuntime(localization.effectiveLanguageId, String(modelData)) : modelData
             color: theme.textColor
             elide: Text.ElideRight
             verticalAlignment: Text.AlignVCenter

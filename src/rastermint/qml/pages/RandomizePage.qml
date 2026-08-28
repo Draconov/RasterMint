@@ -20,7 +20,7 @@ ScrollView {
                 {key:"parameters", label:"Parameters"}
             ]
             MintCheckBox {
-                text: qsTr("Lock ") + qsTr(modelData.label)
+                text: qsTr("Lock ") + localization.translateRuntime(localization.effectiveLanguageId, String(modelData.label))
                 checked: Boolean((backend.settingsMap.random_locks || {})[modelData.key])
                 onToggled: {
                     var locks = backend.settingsMap.random_locks

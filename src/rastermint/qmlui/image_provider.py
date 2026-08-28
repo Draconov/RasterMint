@@ -23,6 +23,10 @@ class RasterImageProvider(QQuickImageProvider):
         with self._lock:
             self._images[str(key)] = image.copy()
 
+    def get_image(self, key: str = "preview") -> QImage:
+        with self._lock:
+            return self._images.get(str(key), QImage()).copy()
+
     def clear(self, key: str = "preview") -> None:
         with self._lock:
             self._images[str(key)] = QImage()

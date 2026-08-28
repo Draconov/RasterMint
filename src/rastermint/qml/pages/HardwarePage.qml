@@ -87,7 +87,7 @@ ScrollView {
                 hoverEnabled: true
 
                 contentItem: Text {
-                    text: parent.modelData.name
+                    text: localization.translateRuntime(localization.effectiveLanguageId, String(parent.modelData.name))
                     color: theme.textColor
                     elide: Text.ElideRight
                     verticalAlignment: Text.AlignVCenter

@@ -30,7 +30,45 @@
       "color_bleed": 0.9,
       "scanlines": 0.12,
       "lcd_grid": 0.0
-    }
+    },
+    "effects": [
+      {
+        "kind": "RGB Convergence",
+        "params": {
+          "red_x": 0.45,
+          "red_y": 0.0,
+          "blue_x": -0.45,
+          "blue_y": 0.0,
+          "strength": 0.35
+        }
+      },
+      {
+        "kind": "Chroma Bleed",
+        "params": {
+          "bleed": 0.85,
+          "delay": 1,
+          "strength": 0.38
+        }
+      },
+      {
+        "kind": "CRT Mask",
+        "params": {
+          "mask_type": "Aperture Grille",
+          "scale": 3,
+          "strength": 0.13,
+          "brightness": 0.05
+        }
+      },
+      {
+        "kind": "Display Persistence",
+        "params": {
+          "display_type": "CRT",
+          "persistence_time": 0.06,
+          "strength": 0.13,
+          "decay": 1.65
+        }
+      }
+    ]
   },
   "strict": {
     "supported": true,

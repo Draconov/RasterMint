@@ -89,11 +89,20 @@ class ProcessingSettings:
     palette_author: str = ""
     palette_source: str = ""
     effect_stack: list[dict[str, Any]] = field(default_factory=list)
+    # Layer groups are organizational metadata. Effects remain a flat ordered
+    # pipeline so old projects/presets retain identical processing semantics.
+    layer_groups: list[dict[str, Any]] = field(default_factory=list)
+    solo_layer_id: str = ""
 
     animation_duration: float = 4.0
     animation_fps: int = 12
     animation_loop: bool = True
     animation_tracks: list[dict[str, Any]] = field(default_factory=list)
+    # Optional normalized audio envelope used by the Audio amplitude modulator.
+    # It is deliberately lightweight (typically 30 samples/second) and can be
+    # saved inside .rastermint projects for deterministic playback/export.
+    audio_envelope: list[float] = field(default_factory=list)
+    audio_envelope_rate: float = 30.0
 
     random_locks: dict[str, bool] = field(default_factory=_default_random_locks)
 
@@ -117,6 +126,38 @@ class ProcessingSettings:
             self.random_locks = merged
         if not isinstance(self.display_profile, dict):
             self.display_profile = {}
+        if not isinstance(self.layer_groups, list):
+            self.layer_groups = []
+        self.solo_layer_id = str(self.solo_layer_id or "")
+        normalized_groups: list[dict[str, Any]] = []
+        seen_group_ids: set[str] = set()
+        for raw in self.layer_groups:
+            if not isinstance(raw, dict):
+                continue
+            group_id = str(raw.get("id", "") or "").strip()
+            if not group_id or group_id in seen_group_ids:
+                continue
+            seen_group_ids.add(group_id)
+            normalized_groups.append({
+                "id": group_id,
+                "name": str(raw.get("name", "Layer Group") or "Layer Group"),
+                "collapsed": bool(raw.get("collapsed", False)),
+                "enabled": bool(raw.get("enabled", True)),
+            })
+        self.layer_groups = normalized_groups
+        if not isinstance(self.audio_envelope, list):
+            self.audio_envelope = []
+        cleaned_envelope: list[float] = []
+        for value in self.audio_envelope[:180000]:
+            try:
+                cleaned_envelope.append(max(0.0, min(1.0, float(value))))
+            except (TypeError, ValueError):
+                continue
+        self.audio_envelope = cleaned_envelope
+        try:
+            self.audio_envelope_rate = max(1.0, min(240.0, float(self.audio_envelope_rate)))
+        except (TypeError, ValueError):
+            self.audio_envelope_rate = 30.0
 
     def clone(self) -> "ProcessingSettings":
         """Fast independent copy for preview/frame evaluation.
@@ -131,7 +172,9 @@ class ProcessingSettings:
         cloned.palette = list(self.palette)
         cloned.palette_locks = list(self.palette_locks)
         cloned.effect_stack = deepcopy(self.effect_stack)
+        cloned.layer_groups = deepcopy(self.layer_groups)
         cloned.animation_tracks = deepcopy(self.animation_tracks)
+        cloned.audio_envelope = list(self.audio_envelope)
         cloned.random_locks = dict(self.random_locks)
         return cloned
 
@@ -153,9 +196,9 @@ class ProcessingSettings:
             "grid_enabled", "grid_preview", "grid_export", "grid_spacing",
             "grid_major_spacing", "grid_opacity", "hardware_profile_id",
             "hardware_mode", "palette", "palette_locks", "palette_name",
-            "palette_author", "palette_source", "effect_stack",
+            "palette_author", "palette_source", "effect_stack", "layer_groups", "solo_layer_id",
             "animation_duration", "animation_fps", "animation_loop", "animation_tracks",
-            "random_locks",
+            "audio_envelope", "audio_envelope_rate", "random_locks",
         }
         clean = {k: v for k, v in data.items() if k in allowed}
         obj = cls(**clean)
@@ -234,8 +277,40 @@ class ProcessingSettings:
         obj.palette_source = str(obj.palette_source or "")
         if not isinstance(obj.effect_stack, list):
             obj.effect_stack = []
+        if not isinstance(obj.layer_groups, list):
+            obj.layer_groups = []
+        obj.solo_layer_id = str(obj.solo_layer_id or "")
+        normalized_groups: list[dict[str, Any]] = []
+        seen_group_ids: set[str] = set()
+        for raw in obj.layer_groups:
+            if not isinstance(raw, dict):
+                continue
+            group_id = str(raw.get("id", "") or "").strip()
+            if not group_id or group_id in seen_group_ids:
+                continue
+            seen_group_ids.add(group_id)
+            normalized_groups.append({
+                "id": group_id,
+                "name": str(raw.get("name", "Layer Group") or "Layer Group"),
+                "collapsed": bool(raw.get("collapsed", False)),
+                "enabled": bool(raw.get("enabled", True)),
+            })
+        obj.layer_groups = normalized_groups
         if not isinstance(obj.animation_tracks, list):
             obj.animation_tracks = []
+        if not isinstance(obj.audio_envelope, list):
+            obj.audio_envelope = []
+        cleaned_envelope: list[float] = []
+        for value in obj.audio_envelope[:180000]:
+            try:
+                cleaned_envelope.append(max(0.0, min(1.0, float(value))))
+            except (TypeError, ValueError):
+                continue
+        obj.audio_envelope = cleaned_envelope
+        try:
+            obj.audio_envelope_rate = max(1.0, min(240.0, float(obj.audio_envelope_rate)))
+        except (TypeError, ValueError):
+            obj.audio_envelope_rate = 30.0
         obj.animation_duration = max(0.1, min(600.0, float(obj.animation_duration)))
         obj.animation_fps = max(1, min(120, int(obj.animation_fps)))
         obj.animation_loop = bool(obj.animation_loop)

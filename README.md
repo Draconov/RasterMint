@@ -19,6 +19,18 @@ RasterMint is built around a single processing pipeline: the live preview, still
 
 > **Status:** RasterMint is under active development. Project files, presets, and behavior may continue to evolve between releases.
 
+## Singular Lab update
+
+RasterMint's current development build expands beyond still-image dithering into a composable visual workstation:
+
+- **Display Lab:** CRT/LCD/OLED/composite/RF/VHS effects and reusable display/tape presets.
+- **Layer System 2.0:** opacity, blend modes, masks, groups, solo, duplicate/reset, copy/paste and multi-selection.
+- **Palette & Dither Lab:** usage analysis, sorting, ramps, near-duplicates, reduction suggestions and custom dither matrices.
+- **Motion Studio:** multi-keyframe tracks, Bezier easing, reusable clips and procedural/audio modulators.
+- **Projects:** `.rastermint` project files plus A/B snapshots and split comparison.
+- **Performance:** per-layer render caching, safe large-image tiling and built-in stack benchmarking.
+- **Extensions:** data-only packs can add palettes, themes, translations, hardware profiles and presets without modifying the application install.
+
 ## Download
 
 Prebuilt releases are published from the `main` branch:
@@ -48,9 +60,9 @@ The Windows release intentionally remains a **single executable**. The build use
 
 ### Layer-based image processing
 
-RasterMint uses a reorderable effect stack. Layers can be enabled, bypassed, duplicated, reordered, or removed.
+RasterMint uses a reorderable effect stack. Layers can be enabled, bypassed, duplicated, reordered, grouped, soloed, or removed. Each layer can use opacity, a blend mode, and a procedural mask.
 
-Available processing includes color adjustments, local contrast, blur, sharpen, glow, bloom, chromatic effects, posterization, scanlines, temporal effects, glitch processing, pixel sorting, pixel materials, text overlays, pixelation, dithering, and more.
+Available processing includes color adjustments, local contrast, blur, sharpen, glow, bloom, chromatic effects, posterization, dithering, text/pixel effects, and a dedicated **Display Effects** lab for CRT/LCD/OLED/composite/RF/VHS simulation including temporal persistence.
 
 ### Raster and retro-hardware workflows
 
@@ -65,7 +77,7 @@ Hardware profiles are creative image-processing models, **not hardware emulators
 ### Animation and media
 
 - Parameter animation on the same layer stack used for still images.
-- Timeline tracks with easing, start/end timing, duplication, enable/bypass, and presets.
+- Multi-keyframe tracks with easing/Bezier curves, reusable clips, and procedural/audio modulators.
 - Quick playback and rendered-preview caching for expensive effects.
 - Animated GIF and common video input through FFmpeg.
 - MP4, GIF, and numbered PNG-sequence export where applicable.
@@ -73,7 +85,7 @@ Hardware profiles are creative image-processing models, **not hardware emulators
 
 ### Workflow and interface
 
-- Drag-and-drop or normal file opening.
+- Drag-and-drop, normal file opening, or **Paste Image from Clipboard** / Ctrl+V.
 - Pan, zoom, fit-to-view, and automatic high-zoom pixel grid.
 - Quick, Stable, and Full preview modes.
 - Background rendering with stale-result protection.
@@ -81,9 +93,9 @@ Hardware profiles are creative image-processing models, **not hardware emulators
 - Batch export with format, scaling, overwrite, and per-source sizing controls.
 - Direct **Export to Clipboard** for pasting the processed image into another application without a temporary file.
 - Compact icon-based inspector navigation with grouped sections and translated hover labels.
-- JSON presets, themes, translations, and data-driven hardware profiles.
+- `.rastermint` project files, A/B snapshots/split comparison, searchable preset library, themes, translations, and data-driven hardware profiles.
 - **14 built-in application themes**, including Studio Gray, Midnight, Violet, Amber, and Hacker.
-- Runtime **English and Ukrainian localization** with live language switching in Settings; English is the default/fallback language.
+- Runtime localization for **12 languages** (English plus Ukrainian, French, German, Spanish, Portuguese, Italian, Hebrew, Arabic, Polish, Irish, and Latvian) with live switching. First run/reset follows the supported system language and otherwise falls back to English.
 
 ## Supported formats
 
@@ -222,3 +234,4 @@ Third-party components and notices are documented in [`THIRD_PARTY_NOTICES.md`](
 RasterMint is available for noncommercial use under the terms in [`LICENSE`](LICENSE). Commercial licensing information is available in [`COMMERCIAL-LICENSE.md`](COMMERCIAL-LICENSE.md).
 
 Copyright © 2026 Draconov.
+

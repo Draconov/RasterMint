@@ -48,7 +48,35 @@
       "color_bleed": 0.9,
       "scanlines": 0.12,
       "lcd_grid": 0.0
-    }
+    },
+    "effects": [
+      {
+        "kind": "Chroma Bleed",
+        "params": {
+          "bleed": 1.4,
+          "delay": 1,
+          "strength": 0.5
+        }
+      },
+      {
+        "kind": "CRT Mask",
+        "params": {
+          "mask_type": "Shadow Mask",
+          "scale": 3,
+          "strength": 0.16,
+          "brightness": 0.06
+        }
+      },
+      {
+        "kind": "Display Persistence",
+        "params": {
+          "display_type": "CRT",
+          "persistence_time": 0.08,
+          "strength": 0.16,
+          "decay": 1.5
+        }
+      }
+    ]
   },
   "strict": {
     "supported": true,

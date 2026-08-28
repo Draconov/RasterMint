@@ -97,8 +97,14 @@ The main responsibilities under `src/rastermint/core/` are:
 | `gradient_presets.py` | Built-in gradient preset definitions |
 | `hardware_profiles.py` | Lightweight profile loading/metadata |
 | `hardware.py` | Hardware constraints and display processing |
-| `animation.py` | Track evaluation and easing |
+| `animation.py` | Multi-keyframe track evaluation, easing, and modulators |
 | `animation_presets.py` | Built-in motion presets |
+| `audio.py` | Audio-amplitude envelope analysis for modulation |
+| `palette_lab.py` | Palette analysis, ramps, distances, reduction suggestions |
+| `project.py` | `.rastermint` project serialization |
+| `render_cache.py` | Bounded cumulative per-layer render cache |
+| `benchmark.py` | Current-stack processing benchmark |
+| `extensions.py` | Safe manifest/data-asset extension discovery |
 | `media.py` | FFmpeg-backed media probing/decoding/export |
 | `gif_export.py` | GIF-specific export helpers |
 | `batch.py` | Sequential batch processing |
@@ -123,6 +129,14 @@ A new effect should:
 - round-trip through presets/settings.
 
 The order of effect nodes is meaningful and must be preserved.
+
+## Layer compositing and caching
+
+Normal effect nodes now also carry layer metadata (`opacity`, `blend_mode`, `mask`, and optional `group_id`). Effect rendering and layer compositing remain separate steps so every effect can benefit from the same opacity/blend/mask behavior.
+
+Interactive preview may use a bounded cumulative per-layer cache. Cache keys include the source signature, stack prefix and processing context; changing layer *N* can therefore reuse a valid result from layers before *N*. Temporal renders and non-zero frame contexts bypass this cache so history-sensitive output cannot leak between frames.
+
+For very large images, `processor.py` may tile the frame only when the complete active stack is explicitly classified as tile-safe. Effects with neighbourhood/global/temporal semantics fall back to full-frame processing. Tiling is an exact-memory policy, not a different visual mode.
 
 ## Preview scheduling
 
@@ -192,9 +206,9 @@ The Canvas implementation deliberately uses `source-in` composition instead of `
 
 `rastermint.app` creates `LocalizationManager(engine)` and exposes it to QML as the `localization` context property alongside `backend` and `theme`.
 
-English is the source/default language. User-facing QML strings use `qsTr(...)`; non-English dictionaries live under `data/translations/` (currently `uk.json` for Ukrainian). `LocalizationManager` loads the selected JSON dictionary into a small `QTranslator` implementation, installs it on the application, and calls `QQmlEngine.retranslate()` when the language changes. The preference is persisted through `QSettings`.
+English is the source language. User-facing QML strings use `qsTr(...)`; packaged non-English dictionaries live under `data/translations/`. `LocalizationManager` loads the selected JSON dictionary into a small `QTranslator` implementation, installs it on the application, and calls `QQmlEngine.retranslate()` when the language changes. The preference is persisted through `QSettings`.
 
-The language chooser shows the active language first, then a separator and the remaining languages. English is the fallback for missing/invalid or legacy `system` preferences. Product branding such as the literal name **RasterMint** is intentionally not translated.
+On first run/reset, RasterMint resolves the OS language when that language is available and otherwise falls back to English. The chooser still shows a concrete active language first, then a separator and the remaining languages; it does not expose a synthetic “System default” entry. Data extensions may add new translation dictionaries at startup. Product branding such as the literal name **RasterMint** is intentionally not translated.
 
 Backend IDs, effect types, preset/settings keys, and other serialized identifiers must remain language-independent; localization belongs at the presentation boundary.
 
@@ -287,3 +301,9 @@ Changes should preserve these guarantees:
 - release builds must contain the resources/codecs required by supported workflows.
 
 See [`TESTING.md`](TESTING.md) for how these contracts are verified.
+
+## Extension packages
+
+RasterMint supports read-only data extensions from the per-user `extensions/` directory. Each extension folder contains `extension.json` with `format: "rastermint-extension"`, `schema_version: 1`, a stable `id`/`name`, and an `assets` mapping. Supported asset directories are `palettes`, `themes`, `translations`, `hardware_profiles`, and `presets`.
+
+The loader rejects path traversal outside the extension package and never lets extension assets silently replace a shipped ID. Python effect code is intentionally not auto-executed by this data-extension path.

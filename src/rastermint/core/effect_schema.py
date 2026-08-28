@@ -12,6 +12,19 @@ from .dither_metadata import ALGORITHMS
 
 # The UI consumes this schema directly. Keeping effect metadata in the core means
 # adding a new effect does not require hard-coding another form in the QML UI.
+
+BLEND_MODES: tuple[str, ...] = (
+    "Normal", "Multiply", "Screen", "Overlay", "Soft Light", "Hard Light",
+    "Add", "Difference", "Darken", "Lighten",
+)
+MASK_TYPES: tuple[str, ...] = (
+    "None", "Luminance", "Shadows", "Highlights", "Alpha",
+    "Radial", "Linear Horizontal", "Linear Vertical",
+)
+
+def default_layer_mask() -> dict[str, Any]:
+    return {"type": "None", "invert": False, "feather": 0.0, "strength": 1.0}
+
 EFFECT_DEFINITIONS: dict[str, dict[str, Any]] = {
     "Adjustments": {"params": {
         "brightness": {"type": "int", "label": "Brightness", "default": 0, "min": -100, "max": 100, "step": 1, "animatable": True},
@@ -111,6 +124,90 @@ EFFECT_DEFINITIONS: dict[str, dict[str, Any]] = {
         "shift": {"type": "int", "label": "Shift", "default": 20, "min": 0, "max": 256, "step": 1, "suffix": " px", "animatable": True, "pixel_scaled": True},
         "noise": {"type": "float", "label": "Noise", "default": 0.35, "min": 0.0, "max": 1.0, "step": 0.01, "decimals": 2, "animatable": True},
         "strength": {"type": "float", "label": "Strength", "default": 0.75, "min": 0.0, "max": 1.0, "step": 0.01, "decimals": 2, "animatable": True},
+        "seed": {"type": "int", "label": "Seed", "default": 1, "min": 0, "max": 999999, "step": 1},
+    }},
+    "RGB Convergence": {"params": {
+        "red_x": {"type": "float", "label": "Red X", "default": 1.0, "min": -12.0, "max": 12.0, "step": 0.1, "decimals": 2, "suffix": " px", "animatable": True, "pixel_scaled": True},
+        "red_y": {"type": "float", "label": "Red Y", "default": 0.0, "min": -12.0, "max": 12.0, "step": 0.1, "decimals": 2, "suffix": " px", "animatable": True, "pixel_scaled": True},
+        "blue_x": {"type": "float", "label": "Blue X", "default": -1.0, "min": -12.0, "max": 12.0, "step": 0.1, "decimals": 2, "suffix": " px", "animatable": True, "pixel_scaled": True},
+        "blue_y": {"type": "float", "label": "Blue Y", "default": 0.0, "min": -12.0, "max": 12.0, "step": 0.1, "decimals": 2, "suffix": " px", "animatable": True, "pixel_scaled": True},
+        "strength": {"type": "float", "label": "Strength", "default": 0.7, "min": 0.0, "max": 1.0, "step": 0.01, "decimals": 2, "animatable": True},
+    }},
+    "CRT Mask": {"params": {
+        "mask_type": {"type": "choice", "label": "Mask type", "default": "Aperture Grille", "options": ["Aperture Grille", "Shadow Mask", "Slot Mask"]},
+        "scale": {"type": "int", "label": "Cell size", "default": 3, "min": 1, "max": 16, "step": 1, "suffix": " px", "pixel_scaled": True},
+        "strength": {"type": "float", "label": "Mask strength", "default": 0.32, "min": 0.0, "max": 1.0, "step": 0.01, "decimals": 2, "animatable": True},
+        "brightness": {"type": "float", "label": "Brightness compensation", "default": 0.12, "min": 0.0, "max": 1.0, "step": 0.01, "decimals": 2, "animatable": True},
+    }},
+    "Phosphor Glow": {"params": {
+        "threshold": {"type": "float", "label": "Threshold", "default": 0.55, "min": 0.0, "max": 1.0, "step": 0.01, "decimals": 2, "animatable": True},
+        "radius": {"type": "float", "label": "Radius", "default": 2.2, "min": 0.0, "max": 24.0, "step": 0.1, "decimals": 2, "suffix": " px", "animatable": True, "pixel_scaled": True},
+        "intensity": {"type": "float", "label": "Intensity", "default": 0.35, "min": 0.0, "max": 2.0, "step": 0.01, "decimals": 2, "animatable": True},
+    }},
+    "Beam Width": {"params": {
+        "spacing": {"type": "int", "label": "Spacing", "default": 3, "min": 2, "max": 16, "step": 1, "pixel_scaled": True},
+        "width": {"type": "float", "label": "Beam width", "default": 0.65, "min": 0.1, "max": 1.5, "step": 0.01, "decimals": 2, "animatable": True},
+        "strength": {"type": "float", "label": "Strength", "default": 0.35, "min": 0.0, "max": 1.0, "step": 0.01, "decimals": 2, "animatable": True},
+    }},
+    "Horizontal Bloom": {"params": {
+        "threshold": {"type": "float", "label": "Threshold", "default": 0.7, "min": 0.0, "max": 1.0, "step": 0.01, "decimals": 2, "animatable": True},
+        "radius": {"type": "float", "label": "Horizontal radius", "default": 5.0, "min": 0.0, "max": 64.0, "step": 0.25, "decimals": 2, "suffix": " px", "animatable": True, "pixel_scaled": True},
+        "intensity": {"type": "float", "label": "Intensity", "default": 0.4, "min": 0.0, "max": 2.0, "step": 0.01, "decimals": 2, "animatable": True},
+    }},
+    "Scanline Variation": {"params": {
+        "spacing": {"type": "int", "label": "Spacing", "default": 3, "min": 2, "max": 16, "step": 1, "pixel_scaled": True},
+        "strength": {"type": "float", "label": "Darken", "default": 0.18, "min": 0.0, "max": 1.0, "step": 0.01, "decimals": 2, "animatable": True},
+        "variation": {"type": "float", "label": "Variation", "default": 0.35, "min": 0.0, "max": 1.0, "step": 0.01, "decimals": 2, "animatable": True},
+        "speed": {"type": "float", "label": "Speed", "default": 1.5, "min": 0.0, "max": 20.0, "step": 0.1, "decimals": 1, "suffix": " Hz", "animatable": True},
+        "seed": {"type": "int", "label": "Seed", "default": 1, "min": 0, "max": 999999, "step": 1},
+    }},
+    "CRT Curvature": {"params": {
+        "curvature": {"type": "float", "label": "Curvature", "default": 0.12, "min": 0.0, "max": 0.5, "step": 0.005, "decimals": 3, "animatable": True},
+        "zoom": {"type": "float", "label": "Overscan", "default": 1.03, "min": 1.0, "max": 1.3, "step": 0.005, "decimals": 3, "animatable": True},
+        "edge_fade": {"type": "float", "label": "Edge fade", "default": 0.08, "min": 0.0, "max": 1.0, "step": 0.01, "decimals": 2, "animatable": True},
+    }},
+    "Edge Distortion": {"params": {
+        "amount": {"type": "float", "label": "Amount", "default": 2.0, "min": 0.0, "max": 32.0, "step": 0.1, "decimals": 2, "suffix": " px", "animatable": True, "pixel_scaled": True},
+        "frequency": {"type": "float", "label": "Frequency", "default": 2.0, "min": 0.1, "max": 16.0, "step": 0.1, "decimals": 1, "animatable": True},
+        "falloff": {"type": "float", "label": "Edge falloff", "default": 0.35, "min": 0.05, "max": 1.0, "step": 0.01, "decimals": 2, "animatable": True},
+    }},
+    "Vertical Sync Roll": {"params": {
+        "amount": {"type": "int", "label": "Roll amount", "default": 24, "min": 0, "max": 256, "step": 1, "suffix": " px", "animatable": True, "pixel_scaled": True},
+        "speed": {"type": "float", "label": "Speed", "default": 0.35, "min": -5.0, "max": 5.0, "step": 0.05, "decimals": 2, "suffix": " Hz", "animatable": True},
+        "softness": {"type": "float", "label": "Band softness", "default": 0.25, "min": 0.0, "max": 1.0, "step": 0.01, "decimals": 2, "animatable": True},
+    }},
+    "Field Flicker": {"params": {
+        "amount": {"type": "float", "label": "Amount", "default": 0.06, "min": 0.0, "max": 0.5, "step": 0.005, "decimals": 3, "animatable": True},
+        "field_rate": {"type": "choice", "label": "Field rate", "default": "60 Hz", "options": ["50 Hz", "60 Hz"]},
+        "interlaced": {"type": "bool", "label": "Alternate fields", "default": True},
+    }},
+    "LCD Inversion": {"params": {
+        "pattern": {"type": "choice", "label": "Pattern", "default": "Columns", "options": ["Columns", "Rows", "Checker"]},
+        "amount": {"type": "float", "label": "Amount", "default": 0.08, "min": 0.0, "max": 0.5, "step": 0.005, "decimals": 3, "animatable": True},
+        "scale": {"type": "int", "label": "Cell size", "default": 1, "min": 1, "max": 8, "step": 1, "pixel_scaled": True},
+        "phase": {"type": "int", "label": "Phase", "default": 0, "min": 0, "max": 1, "step": 1, "animatable": True},
+    }},
+    "Dot Crawl": {"params": {
+        "amount": {"type": "float", "label": "Amount", "default": 0.18, "min": 0.0, "max": 1.0, "step": 0.01, "decimals": 2, "animatable": True},
+        "scale": {"type": "float", "label": "Scale", "default": 2.0, "min": 1.0, "max": 16.0, "step": 0.25, "decimals": 2, "suffix": " px", "animatable": True, "pixel_scaled": True},
+        "speed": {"type": "float", "label": "Speed", "default": 3.58, "min": 0.0, "max": 20.0, "step": 0.01, "decimals": 2, "animatable": True},
+    }},
+    "Composite Noise": {"params": {
+        "luma": {"type": "float", "label": "Luma noise", "default": 0.06, "min": 0.0, "max": 1.0, "step": 0.01, "decimals": 2, "animatable": True},
+        "chroma": {"type": "float", "label": "Chroma noise", "default": 0.08, "min": 0.0, "max": 1.0, "step": 0.01, "decimals": 2, "animatable": True},
+        "seed": {"type": "int", "label": "Seed", "default": 1, "min": 0, "max": 999999, "step": 1},
+    }},
+    "RF Interference": {"params": {
+        "amount": {"type": "float", "label": "Amount", "default": 0.2, "min": 0.0, "max": 1.0, "step": 0.01, "decimals": 2, "animatable": True},
+        "bands": {"type": "int", "label": "Bands", "default": 3, "min": 1, "max": 16, "step": 1},
+        "speed": {"type": "float", "label": "Speed", "default": 2.0, "min": 0.0, "max": 20.0, "step": 0.1, "decimals": 1, "animatable": True},
+        "seed": {"type": "int", "label": "Seed", "default": 1, "min": 0, "max": 999999, "step": 1},
+    }},
+    "Horizontal Tear": {"params": {
+        "amount": {"type": "int", "label": "Shift", "default": 20, "min": 0, "max": 256, "step": 1, "suffix": " px", "animatable": True, "pixel_scaled": True},
+        "bands": {"type": "int", "label": "Bands", "default": 2, "min": 1, "max": 16, "step": 1},
+        "height": {"type": "int", "label": "Band height", "default": 6, "min": 1, "max": 64, "step": 1, "suffix": " px", "pixel_scaled": True},
+        "speed": {"type": "float", "label": "Speed", "default": 3.0, "min": 0.0, "max": 20.0, "step": 0.1, "decimals": 1, "animatable": True},
         "seed": {"type": "int", "label": "Seed", "default": 1, "min": 0, "max": 999999, "step": 1},
     }},
     "Noise": {"params": {
@@ -353,6 +450,7 @@ EFFECT_DEFINITIONS: dict[str, dict[str, Any]] = {
         "color_mix_pattern": {"type": "choice", "label": "1:1 pattern", "default": "Checker", "options": ["Checker", "Horizontal", "Vertical", "Bayer 2x2"]},
         "color_mix_distance": {"type": "choice", "label": "1:1 matching", "default": "OKLab", "options": ["OKLab", "RGB"]},
         "color_mix_phase": {"type": "int", "label": "1:1 phase", "default": 0, "min": 0, "max": 1, "step": 1, "animatable": True},
+        "custom_matrix_json": {"type": "text", "label": "Custom threshold matrix", "default": "[[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]", "hidden": True},
     }},
 }
 
@@ -370,8 +468,12 @@ EFFECT_CATEGORIES: tuple[tuple[str, tuple[str, ...]], ...] = (
         "Hardware Limits", "Hardware Display",
     )),
     ("Display Effects", (
-        "Pixel Aspect Ratio", "Scanlines", "Interlace", "Display Persistence", "Chroma Bleed",
-        "Tracking Error", "Tape Dropout", "Temporal Jitter", "Head Switching Noise", "JPEG Compression",
+        "Pixel Aspect Ratio", "Scanlines", "Interlace", "Display Persistence",
+        "RGB Convergence", "CRT Mask", "Phosphor Glow", "Beam Width", "Horizontal Bloom",
+        "Scanline Variation", "CRT Curvature", "Edge Distortion", "Vertical Sync Roll",
+        "Field Flicker", "LCD Inversion", "Chroma Bleed", "Dot Crawl", "Composite Noise",
+        "RF Interference", "Tracking Error", "Tape Dropout", "Temporal Jitter",
+        "Head Switching Noise", "Horizontal Tear", "JPEG Compression",
     )),
     ("Glitch & Channels", (
         "Chromatic Shift", "RGB Split", "Pixel Sort", "Screen Melt", "Block Shuffle",
@@ -428,7 +530,16 @@ def new_effect(kind: str, *, enabled: bool = True, effect_id: str | None = None)
     if kind not in EFFECT_DEFINITIONS:
         raise ValueError(f"Unknown effect type: {kind}")
     params = {key: deepcopy(spec.get("default")) for key, spec in EFFECT_DEFINITIONS[kind]["params"].items()}
-    return {"id": effect_id or uuid4().hex[:12], "kind": kind, "enabled": bool(enabled), "params": params}
+    return {
+        "id": effect_id or uuid4().hex[:12],
+        "kind": kind,
+        "enabled": bool(enabled),
+        "opacity": 1.0,
+        "blend_mode": "Normal",
+        "mask": default_layer_mask(),
+        "group_id": "",
+        "params": params,
+    }
 
 
 def default_effect_stack(settings: Any | None = None) -> list[dict[str, Any]]:
@@ -478,6 +589,31 @@ def normalize_effect_stack(stack: list[dict[str, Any]] | None, settings: Any | N
             effect_id = uuid4().hex[:12]
         seen_ids.add(effect_id)
         step = new_effect(kind, enabled=bool(raw.get("enabled", True)), effect_id=effect_id)
+        try:
+            step["opacity"] = max(0.0, min(1.0, float(raw.get("opacity", 1.0))))
+        except (TypeError, ValueError):
+            step["opacity"] = 1.0
+        blend_mode = str(raw.get("blend_mode", "Normal") or "Normal")
+        step["blend_mode"] = blend_mode if blend_mode in BLEND_MODES else "Normal"
+        raw_mask = raw.get("mask") if isinstance(raw.get("mask"), dict) else {}
+        mask_type = str(raw_mask.get("type", "None") or "None")
+        if mask_type not in MASK_TYPES:
+            mask_type = "None"
+        try:
+            mask_feather = max(0.0, min(1.0, float(raw_mask.get("feather", 0.0))))
+        except (TypeError, ValueError):
+            mask_feather = 0.0
+        try:
+            mask_strength = max(0.0, min(1.0, float(raw_mask.get("strength", 1.0))))
+        except (TypeError, ValueError):
+            mask_strength = 1.0
+        step["mask"] = {
+            "type": mask_type,
+            "invert": bool(raw_mask.get("invert", False)),
+            "feather": mask_feather,
+            "strength": mask_strength,
+        }
+        step["group_id"] = str(raw.get("group_id", "") or "")
         raw_params = raw.get("params", {}) if isinstance(raw.get("params"), dict) else {}
         for key, spec in EFFECT_DEFINITIONS[kind]["params"].items():
             if key not in raw_params:
@@ -540,6 +676,7 @@ def scale_stack_for_preview(stack: list[dict[str, Any]], scale: float) -> list[d
 def animatable_targets(stack: list[dict[str, Any]]) -> list[tuple[str, str, float]]:
     targets: list[tuple[str, str, float]] = []
     for step in normalize_effect_stack(stack):
+        targets.append((f"effect:{step['id']}:__opacity__", f"{step['kind']} · Opacity", float(step.get("opacity", 1.0))))
         definition = EFFECT_DEFINITIONS.get(step["kind"], {})
         for key, spec in definition.get("params", {}).items():
             if not spec.get("animatable"):

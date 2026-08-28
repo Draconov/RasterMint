@@ -12,6 +12,7 @@ from typing import Iterable
 import warnings
 
 from .color_utils import hex_to_rgb, rgb_to_hex
+from .extensions import asset_directories
 
 
 @dataclass(frozen=True)
@@ -183,6 +184,17 @@ def load_bundled_palettes() -> tuple[PaletteRecord, ...]:
                     RuntimeWarning,
                     stacklevel=2,
                 )
+                continue
+            seen_ids.add(record.id)
+            seen_names.add(record.name)
+            records.append(record)
+
+    # Extension palettes use the exact same rastermint-palette v1 schema. They
+    # are appended after the shipped library and cannot shadow a built-in id or
+    # name, keeping saved preset references deterministic.
+    for directory in asset_directories("palettes"):
+        for record in _load_palette_directory(directory):
+            if record.id in seen_ids or record.name in seen_names:
                 continue
             seen_ids.add(record.id)
             seen_names.add(record.name)

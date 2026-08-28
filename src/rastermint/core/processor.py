@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import math
+from typing import Callable
+
 import numpy as np
 from PIL import Image, ImageOps
 
@@ -16,6 +18,38 @@ from .temporal import TemporalEffectState
 
 PREVIEW_MAX_SIDE = 640
 FAST_PREVIEW_MAX_SIDE = 320
+
+
+def runtime_effect_stack(settings: ProcessingSettings) -> list[dict[str, object]]:
+    """Return the normalized stack with UI group/solo visibility applied.
+
+    Group enable and Solo are non-destructive layer-workflow controls. They must
+    affect previews and exports without overwriting each layer's own enabled
+    flag, so runtime visibility is derived on a shallow copy only when needed.
+    """
+    stack = normalize_effect_stack(settings.effect_stack, settings)
+    groups = {
+        str(group.get("id", "")): bool(group.get("enabled", True))
+        for group in getattr(settings, "layer_groups", [])
+        if isinstance(group, dict) and str(group.get("id", ""))
+    }
+    solo_id = str(getattr(settings, "solo_layer_id", "") or "")
+    if not groups and not solo_id:
+        return stack
+
+    runtime: list[dict[str, object]] = []
+    for step in stack:
+        visible = bool(step.get("enabled", True))
+        group_id = str(step.get("group_id", "") or "")
+        if group_id and not groups.get(group_id, True):
+            visible = False
+        if solo_id and str(step.get("id", "")) != solo_id:
+            visible = False
+        if visible == bool(step.get("enabled", True)):
+            runtime.append(step)
+        else:
+            runtime.append({**step, "enabled": visible})
+    return runtime
 
 
 def adaptive_preview_max_side(settings: ProcessingSettings, requested: int) -> int:
@@ -127,7 +161,7 @@ def target_raster_size(source_size: tuple[int, int], settings: ProcessingSetting
 
 def processed_raster_size(source_size: tuple[int, int], settings: ProcessingSettings) -> tuple[int, int]:
     base = target_raster_size(source_size, settings)
-    return effect_stack_output_size(base, settings.effect_stack)
+    return effect_stack_output_size(base, runtime_effect_stack(settings))
 
 
 def display_output_size(source_size: tuple[int, int], settings: ProcessingSettings) -> tuple[int, int]:
@@ -384,6 +418,77 @@ def prepare_raster_source(
     return _apply_axis_mirror(raster, settings)
 
 
+_TILE_SAFE_EFFECTS = frozenset({
+    "Adjustments", "Levels", "Hue Rotate", "Grayscale", "Invert", "Posterize",
+    "Channel Swap", "Hardware Display",
+})
+
+
+def _stack_supports_exact_tiling(stack: list[dict[str, object]]) -> bool:
+    """Return whether independently processed tiles are pixel-identical.
+
+    Only point-wise effects are admitted here. Neighborhood filters, geometry,
+    temporal/random effects, hardware tile constraints and ordered diffusion
+    deliberately fall back to the normal full-frame path.
+    """
+    for step in stack:
+        if not bool(step.get("enabled", True)):
+            continue
+        mask = step.get("mask") if isinstance(step.get("mask"), dict) else {}
+        if str(mask.get("type", "None") or "None") in {"Linear Horizontal", "Linear Vertical", "Radial"}:
+            return False
+        kind = str(step.get("kind", ""))
+        if kind == "Dither":
+            params = step.get("params") if isinstance(step.get("params"), dict) else {}
+            if str(params.get("algorithm", "")) not in {"Nearest Palette", "Threshold"}:
+                return False
+            continue
+        if kind not in _TILE_SAFE_EFFECTS:
+            return False
+    return True
+
+
+def _apply_stack_tiled(
+    source: Image.Image,
+    stack: list[dict[str, object]],
+    palette: list[str],
+    *,
+    tile_size: int,
+    frame_time: float,
+    frame_index: int,
+    progress_callback: Callable[[int, int, str], None] | None = None,
+) -> Image.Image:
+    tile_size = max(256, min(4096, int(tile_size)))
+    output = Image.new(source.mode, source.size)
+    tiles_x = max(1, math.ceil(source.width / tile_size))
+    tiles_y = max(1, math.ceil(source.height / tile_size))
+    total_tiles = tiles_x * tiles_y
+    completed = 0
+    for top in range(0, source.height, tile_size):
+        bottom = min(source.height, top + tile_size)
+        for left in range(0, source.width, tile_size):
+            right = min(source.width, left + tile_size)
+            tile = source.crop((left, top, right, bottom))
+            rendered = apply_normalized_effect_stack(
+                tile,
+                stack,  # type: ignore[arg-type]
+                palette,
+                frame_time=frame_time,
+                frame_index=frame_index,
+            )
+            # Tile-safe effects are size preserving by definition. Keep a
+            # defensive fallback contract if a future schema change violates it.
+            if rendered.size != tile.size:
+                raise RuntimeError("A tile-safe effect unexpectedly changed raster size")
+            if output.mode != rendered.mode:
+                output = output.convert(rendered.mode)
+            output.paste(rendered, (left, top))
+            completed += 1
+            if progress_callback is not None:
+                progress_callback(completed, total_tiles, "Processing tiles")
+    return output
+
+
 def process_image(
     image: Image.Image,
     settings: ProcessingSettings,
@@ -393,23 +498,84 @@ def process_image(
     display_mode: str = "raw",
     include_grid: bool = False,
     temporal_state: TemporalEffectState | None = None,
+    render_cache: object | None = None,
+    cache_context: str = "",
+    tiled_processing: bool = True,
+    tile_size: int = 1024,
+    tile_threshold_pixels: int = 12_000_000,
+    progress_callback: Callable[[int, int, str], None] | None = None,
 ) -> Image.Image:
+    stack = runtime_effect_stack(settings)
+    overall_total = max(2, len(stack) + 2)
+    if progress_callback is not None:
+        progress_callback(0, overall_total, "Preparing source")
+
     source = prepare_raster_source(image, settings)
-    stack = normalize_effect_stack(settings.effect_stack, settings)
+    if progress_callback is not None:
+        progress_callback(1, overall_total, "Preparing source")
+
     display_stage_present = any(step.get("kind") == "Hardware Display" for step in stack)
     display_profiles = [
         dict(step.get("params") or {})
         for step in stack
         if step.get("kind") == "Hardware Display" and step.get("enabled", True)
     ]
-    result = apply_normalized_effect_stack(
-        source,
-        stack,
-        settings.palette,
-        frame_time=frame_time,
-        frame_index=frame_index,
-        temporal_state=temporal_state,
+    use_tiles = (
+        bool(tiled_processing)
+        and source.width * source.height >= max(1, int(tile_threshold_pixels))
+        and temporal_state is None
+        and _stack_supports_exact_tiling(stack)
     )
+    if use_tiles:
+        def tiled_progress(current: int, total: int, label: str) -> None:
+            if progress_callback is None:
+                return
+            span = max(1, overall_total - 2)
+            fraction = max(0.0, min(1.0, current / max(1, total)))
+            mapped = 1 + round(fraction * span)
+            progress_callback(mapped, overall_total, label)
+
+        result = _apply_stack_tiled(
+            source, stack, settings.palette,
+            tile_size=tile_size,
+            frame_time=frame_time,
+            frame_index=frame_index,
+            progress_callback=tiled_progress if progress_callback is not None else None,
+        )
+    else:
+        cache = render_cache
+        resolved_context = str(cache_context or "")
+        if cache is not None:
+            # Stateful/animated frames must never borrow static intermediate
+            # results. Cache use is intentionally restricted to frame zero.
+            if temporal_state is not None or abs(float(frame_time)) > 1e-12 or int(frame_index) != 0:
+                cache = None
+            elif not resolved_context:
+                try:
+                    resolved_context = str(cache.source_signature(source))
+                except Exception:
+                    cache = None
+
+        def layer_progress(current: int, total: int, label: str) -> None:
+            del total
+            if progress_callback is not None:
+                progress_callback(1 + current, overall_total, label)
+
+        result = apply_normalized_effect_stack(
+            source,
+            stack,
+            settings.palette,
+            frame_time=frame_time,
+            frame_index=frame_index,
+            temporal_state=temporal_state,
+            render_cache=cache,
+            cache_context=resolved_context,
+            progress_callback=layer_progress if progress_callback is not None else None,
+        )
+
+    if progress_callback is not None:
+        progress_callback(overall_total - 1, overall_total, "Finalizing display")
+
     if display_mode != "raw" or include_grid:
         alpha = result.getchannel("A") if "A" in result.getbands() else None
         result = render_display_view(
@@ -424,6 +590,9 @@ def process_image(
                 alpha = alpha.resize(result.size, Image.Resampling.NEAREST)
             result = result.convert("RGBA")
             result.putalpha(alpha)
+
+    if progress_callback is not None:
+        progress_callback(overall_total, overall_total, "Complete")
     return result
 
 

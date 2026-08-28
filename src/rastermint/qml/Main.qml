@@ -36,6 +36,16 @@ ApplicationWindow {
         return typeName.indexOf("TextInput") < 0 && typeName.indexOf("TextEdit") < 0
     }
 
+    function renderEtaLabel() {
+        var eta = Number(backend.renderEtaSeconds)
+        if (!isFinite(eta) || eta < 0)
+            return qsTr("Estimating…")
+        if (eta < 0.1)
+            return qsTr("Finishing…")
+        var value = eta < 10 ? eta.toFixed(1) : String(Math.ceil(eta))
+        return qsTr("~%1 s remaining").arg(value)
+    }
+
     function openQuickExportImageDialog() {
         quickExportImageDialog.selectedFile = backend.suggestedExportFile("PNG")
         quickExportImageDialog.open()
@@ -144,6 +154,9 @@ ApplicationWindow {
                 onTriggered: backend.pasteImageFromClipboard()
             }
             MintMenuSeparator { }
+            Action { text: qsTr("Open Project…"); shortcut: "Ctrl+Alt+O"; onTriggered: openProjectDialog.open() }
+            Action { text: qsTr("Save Project…"); shortcut: "Ctrl+Alt+Shift+S"; onTriggered: saveProjectDialog.open() }
+            MintMenuSeparator { }
             Action { text: qsTr("Export to Clipboard…"); enabled: backend.hasSource; onTriggered: backend.exportToClipboard() }
             Action { text: qsTr("Quick Export Image…"); enabled: backend.hasSource; shortcut: "Ctrl+E"; onTriggered: window.openQuickExportImageDialog() }
             Action { text: qsTr("Export Image…"); enabled: backend.hasSource; shortcut: "Ctrl+Shift+E"; onTriggered: advancedExportDialog.open() }
@@ -211,6 +224,12 @@ ApplicationWindow {
                 onTriggered: backend.setShowHotkeys(checked)
             }
             MintMenuSeparator { }
+            Action { text: qsTr("Capture Snapshot A"); enabled: backend.hasSource; shortcut: "Ctrl+Alt+1"; onTriggered: backend.captureSnapshot("A") }
+            Action { text: qsTr("Capture Snapshot B"); enabled: backend.hasSource; shortcut: "Ctrl+Alt+2"; onTriggered: backend.captureSnapshot("B") }
+            Action { text: qsTr("Apply Snapshot A"); enabled: backend.snapshotAReady; onTriggered: backend.applySnapshot("A") }
+            Action { text: qsTr("Apply Snapshot B"); enabled: backend.snapshotBReady; onTriggered: backend.applySnapshot("B") }
+            Action { text: qsTr("A/B Split View"); enabled: backend.snapshotAReady && backend.snapshotBReady; checkable: true; checked: backend.comparisonEnabled; onTriggered: backend.setComparisonEnabled(checked) }
+            MintMenuSeparator { }
             Action { text: qsTr("About RasterMint"); shortcut: "F1"; onTriggered: aboutDialog.open() }
         }
     }
@@ -232,6 +251,79 @@ ApplicationWindow {
                     }
                 }
             }
+            Rectangle {
+                id: renderProgressPanel
+                objectName: "renderProgressPanel"
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.bottom: parent.bottom
+                anchors.bottomMargin: 18
+                visible: backend.renderBusy && backend.renderProgressVisible
+                z: 110
+                width: Math.min(parent.width - 48, 520)
+                height: 62
+                radius: 7
+                color: theme.panelRaisedColor
+                border.color: theme.borderColor
+                border.width: 1
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: 10
+                    spacing: 7
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 10
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: backend.renderStage.length > 0 ? backend.renderStage : qsTr("Rendering preview")
+                            color: theme.textColor
+                            font.pixelSize: 11
+                            font.bold: true
+                            elide: Text.ElideRight
+                        }
+
+                        Text {
+                            text: window.renderEtaLabel()
+                            color: theme.mutedTextColor
+                            font.pixelSize: 10
+                            horizontalAlignment: Text.AlignRight
+                        }
+                    }
+
+                    ProgressBar {
+                        id: renderProgressBar
+                        objectName: "renderProgressBar"
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 8
+                        from: 0
+                        to: 1
+                        value: Math.max(0, Math.min(1, backend.renderProgress))
+                        padding: 0
+
+                        background: Rectangle {
+                            implicitHeight: 8
+                            radius: 4
+                            color: theme.panelColor
+                            border.color: theme.borderColor
+                            border.width: 1
+                        }
+
+                        contentItem: Item {
+                            implicitHeight: 8
+                            clip: true
+                            Rectangle {
+                                width: renderProgressBar.visualPosition * parent.width
+                                height: parent.height
+                                radius: 4
+                                color: theme.accentColor
+                            }
+                        }
+                    }
+                }
+            }
+
             Rectangle {
                 id: actionToast
                 objectName: "lastActionToast"
@@ -457,6 +549,8 @@ ApplicationWindow {
         onAccepted: backend.exportMedia(window.urlString(selectedFile))
     }
     FolderDialog { id: sequenceFolderDialog; title: qsTr("Choose PNG sequence folder"); onAccepted: backend.exportSequence(window.urlString(selectedFolder)) }
+    FileDialog { id: openProjectDialog; title: qsTr("Open RasterMint project"); nameFilters: ["RasterMint Project (*.rastermint)"]; onAccepted: backend.loadProject(window.urlString(selectedFile)) }
+    FileDialog { id: saveProjectDialog; title: qsTr("Save RasterMint project"); fileMode: FileDialog.SaveFile; defaultSuffix: "rastermint"; nameFilters: ["RasterMint Project (*.rastermint)"]; onAccepted: backend.saveProject(window.urlString(selectedFile)) }
     FileDialog { id: loadPresetDialog; title: qsTr("Load preset"); nameFilters: ["JSON preset (*.json)"]; onAccepted: backend.loadPreset(window.urlString(selectedFile)) }
     FileDialog { id: savePresetDialog; title: qsTr("Save preset"); fileMode: FileDialog.SaveFile; defaultSuffix: "json"; nameFilters: ["JSON preset (*.json)"]; onAccepted: backend.savePreset(window.urlString(selectedFile)) }
 

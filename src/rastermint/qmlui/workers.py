@@ -32,6 +32,10 @@ class ProcessingWorker(QRunnable):
         display_mode: str = "raw",
         include_grid: bool = False,
         temporal_state: Any | None = None,
+        render_cache: Any | None = None,
+        cache_context: str = "",
+        tiled_processing: bool = True,
+        tile_size: int = 1024,
     ) -> None:
         super().__init__()
         self.job_id = job_id
@@ -44,6 +48,10 @@ class ProcessingWorker(QRunnable):
         self.display_mode = str(display_mode or "raw")
         self.include_grid = bool(include_grid)
         self.temporal_state = temporal_state
+        self.render_cache = render_cache
+        self.cache_context = str(cache_context or "")
+        self.tiled_processing = bool(tiled_processing)
+        self.tile_size = max(256, int(tile_size))
         self.signals = WorkerSignals()
 
     @Slot()
@@ -54,6 +62,15 @@ class ProcessingWorker(QRunnable):
             # the QML backend during application startup must stay lightweight.
             from rastermint.core.processor import process_image
 
+            def progress(current: int, total: int, label: str) -> None:
+                self.signals.progress.emit(
+                    self.job_id,
+                    self.purpose,
+                    int(current),
+                    int(total),
+                    str(label or ""),
+                )
+
             result = process_image(
                 self.image,
                 self.settings,
@@ -62,6 +79,11 @@ class ProcessingWorker(QRunnable):
                 display_mode=self.display_mode,
                 include_grid=self.include_grid,
                 temporal_state=self.temporal_state,
+                render_cache=self.render_cache,
+                cache_context=self.cache_context,
+                tiled_processing=self.tiled_processing,
+                tile_size=self.tile_size,
+                progress_callback=progress,
             )
             self.signals.finished.emit(
                 self.job_id, self.purpose, result, self.context
@@ -111,6 +133,42 @@ class VideoCurrentFrameWorker(QRunnable):
                 traceback.format_exc(),
                 self.context,
             )
+
+
+class AudioEnvelopeWorker(QRunnable):
+    def __init__(self, job_id: int, path: str, rate: float = 30.0) -> None:
+        super().__init__()
+        self.job_id = int(job_id)
+        self.path = str(path)
+        self.rate = float(rate)
+        self.signals = WorkerSignals()
+
+    @Slot()
+    def run(self) -> None:
+        try:
+            from rastermint.core.audio import extract_audio_envelope
+            envelope, rate = extract_audio_envelope(self.path, rate=self.rate)
+            self.signals.finished.emit(self.job_id, "audio-envelope", {"envelope": envelope, "rate": rate}, self.path)
+        except Exception:
+            self.signals.failed.emit(self.job_id, "audio-envelope", traceback.format_exc(), self.path)
+
+
+class BenchmarkWorker(QRunnable):
+    def __init__(self, job_id: int, image: Any, settings: ProcessingSettings) -> None:
+        super().__init__()
+        self.job_id = int(job_id)
+        self.image = image
+        self.settings = ProcessingSettings.from_dict(settings.to_dict())
+        self.signals = WorkerSignals()
+
+    @Slot()
+    def run(self) -> None:
+        try:
+            from rastermint.core.benchmark import benchmark_processing
+            result = benchmark_processing(self.image, self.settings)
+            self.signals.finished.emit(self.job_id, "benchmark", result, None)
+        except Exception:
+            self.signals.failed.emit(self.job_id, "benchmark", traceback.format_exc(), None)
 
 
 class VideoFrameWorker(QRunnable):

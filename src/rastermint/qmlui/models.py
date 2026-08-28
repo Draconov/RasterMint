@@ -24,6 +24,10 @@ class LayerListModel(QAbstractListModel):
     IdRole = Qt.ItemDataRole.UserRole + 3
     EnabledRole = Qt.ItemDataRole.UserRole + 4
     SummaryRole = Qt.ItemDataRole.UserRole + 5
+    OpacityRole = Qt.ItemDataRole.UserRole + 6
+    BlendModeRole = Qt.ItemDataRole.UserRole + 7
+    MaskRole = Qt.ItemDataRole.UserRole + 8
+    GroupRole = Qt.ItemDataRole.UserRole + 9
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -36,6 +40,10 @@ class LayerListModel(QAbstractListModel):
             self.IdRole: b"layerId",
             self.EnabledRole: b"layerEnabled",
             self.SummaryRole: b"summary",
+            self.OpacityRole: b"layerOpacity",
+            self.BlendModeRole: b"blendMode",
+            self.MaskRole: b"layerMask",
+            self.GroupRole: b"groupId",
         }
 
     def rowCount(self, parent=QModelIndex()) -> int:
@@ -53,6 +61,14 @@ class LayerListModel(QAbstractListModel):
             return str(item.get("id", ""))
         if role == self.EnabledRole:
             return bool(item.get("enabled", True))
+        if role == self.OpacityRole:
+            return float(item.get("opacity", 1.0) or 0.0)
+        if role == self.BlendModeRole:
+            return str(item.get("blend_mode", "Normal") or "Normal")
+        if role == self.MaskRole:
+            return dict(item.get("mask") or {})
+        if role == self.GroupRole:
+            return str(item.get("group_id", "") or "")
         if role == self.SummaryRole:
             params = item.get("params") if isinstance(item.get("params"), dict) else {}
             kind = str(item.get("kind", ""))

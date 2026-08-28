@@ -43,6 +43,62 @@ Item {
                 smooth: root.effectiveScale < 5
             }
 
+            Item {
+                id: comparisonOverlay
+                anchors.fill: parent
+                visible: backend.comparisonEnabled
+                z: 5
+
+                Item {
+                    id: snapshotAClip
+                    x: 0; y: 0
+                    width: parent.width * backend.comparisonSplit
+                    height: parent.height
+                    clip: true
+                    Image {
+                        width: comparisonOverlay.width; height: comparisonOverlay.height
+                        cache: false; asynchronous: false; fillMode: Image.Stretch
+                        source: "image://rastermint/snapshot-a?r=" + backend.previewRevision
+                        smooth: root.effectiveScale < 5
+                    }
+                }
+                Item {
+                    id: snapshotBClip
+                    x: parent.width * backend.comparisonSplit; y: 0
+                    width: parent.width - x; height: parent.height
+                    clip: true
+                    Image {
+                        x: -snapshotBClip.x
+                        width: comparisonOverlay.width; height: comparisonOverlay.height
+                        cache: false; asynchronous: false; fillMode: Image.Stretch
+                        source: "image://rastermint/snapshot-b?r=" + backend.previewRevision
+                        smooth: root.effectiveScale < 5
+                    }
+                }
+                Rectangle {
+                    id: comparisonDivider
+                    width: 2; height: parent.height
+                    x: Math.round(parent.width * backend.comparisonSplit) - 1
+                    color: theme.accentColor
+                    Rectangle { width: 26; height: 26; radius: 13; anchors.centerIn: parent; color: theme.panelRaisedColor; border.color: theme.accentColor
+                        Text { anchors.centerIn: parent; text: "↔"; color: theme.accentColor; font.bold: true }
+                    }
+                    MouseArea {
+                        anchors.centerIn: parent
+                        width: 32; height: parent.height
+                        cursorShape: Qt.SizeHorCursor
+                        function update(mouse) {
+                            var point = mapToItem(comparisonOverlay, mouse.x, mouse.y)
+                            backend.setComparisonSplit(Math.max(0, Math.min(1, point.x / Math.max(1, comparisonOverlay.width))))
+                        }
+                        onPressed: function(mouse) { update(mouse) }
+                        onPositionChanged: function(mouse) { if (pressed) update(mouse) }
+                    }
+                }
+                Text { anchors.left: parent.left; anchors.top: parent.top; anchors.margins: 8; text: "A"; color: theme.textColor; font.bold: true }
+                Text { anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 8; text: "B"; color: theme.textColor; font.bold: true }
+            }
+
             Canvas {
                 id: grid
                 anchors.fill: parent
