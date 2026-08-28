@@ -696,7 +696,11 @@ def _crt_curvature(image: Image.Image, curvature: float, zoom: float, edge_fade:
             p10 = source_point(x1, y0)
             p11 = source_point(x1, y1)
             p01 = source_point(x0, y1)
-            mesh.append(((x0, y0, x1, y1), (*p00, *p10, *p11, *p01)))
+            # Pillow QUAD/MESH source points are ordered upper-left, lower-left,
+            # lower-right, upper-right. Using clockwise UL/UR/LR/LL folds each
+            # mesh cell across itself, which produces the repeated/mirrored
+            # tiles seen in CRT/VHS presets.
+            mesh.append(((x0, y0, x1, y1), (*p00, *p01, *p11, *p10)))
 
     curved = src.transform(src.size, Image.Transform.MESH, mesh, resample=Image.Resampling.BILINEAR)
     if edge_fade <= 1e-9:
