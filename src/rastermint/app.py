@@ -11,14 +11,96 @@ import sys
 import threading
 import traceback
 
-from PySide6.QtCore import QCoreApplication, QStandardPaths, QUrl, Qt
-from PySide6.QtGui import QFont, QGuiApplication, QIcon
+from PySide6.QtCore import QCoreApplication, QRect, QStandardPaths, QUrl, Qt
+from PySide6.QtGui import QColor, QFont, QGuiApplication, QIcon, QPainter, QPen, QRasterWindow
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
 
 from rastermint import __app_name__, __version__
 
 _CRASH_LOG_HANDLE = None
+
+
+class _StartupSplash(QRasterWindow):
+    """Lightweight native splash shown before the QML engine is ready."""
+
+    WIDTH = 460
+    HEIGHT = 180
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._progress = 0.0
+        self._message = "Starting…"
+        self.setFlags(
+            Qt.WindowType.SplashScreen
+            | Qt.WindowType.FramelessWindowHint
+            | Qt.WindowType.WindowStaysOnTopHint
+        )
+        self.resize(self.WIDTH, self.HEIGHT)
+        self.setTitle("RasterMint")
+
+    def center_on_primary_screen(self) -> None:
+        screen = QGuiApplication.primaryScreen()
+        if screen is None:
+            return
+        area = screen.availableGeometry()
+        x = area.x() + max(0, (area.width() - self.width()) // 2)
+        y = area.y() + max(0, (area.height() - self.height()) // 2)
+        self.setGeometry(x, y, self.width(), self.height())
+
+    def set_progress(self, value: float, message: str) -> None:
+        self._progress = max(0.0, min(1.0, float(value)))
+        self._message = str(message or "")
+        self.update()
+        QGuiApplication.processEvents()
+
+    def paintEvent(self, event) -> None:  # noqa: N802 - Qt virtual name
+        del event
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        painter.fillRect(QRect(0, 0, self.width(), self.height()), QColor("#171B21"))
+
+        painter.setPen(QColor("#F2F5F7"))
+        title_font = painter.font()
+        title_font.setPointSize(20)
+        title_font.setBold(True)
+        painter.setFont(title_font)
+        painter.drawText(
+            QRect(28, 28, self.width() - 56, 38),
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+            "RasterMint",
+        )
+
+        painter.setPen(QColor("#AAB3BE"))
+        body_font = painter.font()
+        body_font.setPointSize(9)
+        body_font.setBold(False)
+        painter.setFont(body_font)
+        painter.drawText(
+            QRect(28, 72, self.width() - 56, 24),
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+            self._message,
+        )
+
+        bar = QRect(28, 118, self.width() - 56, 12)
+        painter.setPen(QPen(QColor("#39414C"), 1))
+        painter.setBrush(QColor("#242A32"))
+        painter.drawRoundedRect(bar, 6, 6)
+
+        fill_width = round(bar.width() * self._progress)
+        if fill_width > 0:
+            fill = QRect(bar.x(), bar.y(), fill_width, bar.height())
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(QColor("#A8C62C"))
+            painter.drawRoundedRect(fill, 6, 6)
+
+        painter.setPen(QColor("#7F8996"))
+        painter.drawText(
+            QRect(28, 140, self.width() - 56, 20),
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+            f"{__version__}  ·  {round(self._progress * 100):d}%",
+        )
+        painter.end()
 
 
 def _load_app_icon() -> QIcon | None:
@@ -73,6 +155,11 @@ def main() -> int:
     QCoreApplication.setAttribute(Qt.ApplicationAttribute.AA_DontUseNativeMenuBar, True)
     QCoreApplication.setAttribute(Qt.ApplicationAttribute.AA_DontUseNativeMenuWindows, True)
     app = QGuiApplication(sys.argv)
+    splash = _StartupSplash()
+    splash.center_on_primary_screen()
+    splash.show()
+    splash.set_progress(0.08, "Starting RasterMint…")
+
     # Basic is intentionally neutral: RasterMint's QML components own the look,
     # while the theme JSON files control colors live at runtime. The style must
     # be selected before any Qt Quick Controls are loaded by the QML engine.
@@ -83,6 +170,8 @@ def main() -> int:
     icon = _load_app_icon()
     if icon is not None and not icon.isNull():
         app.setWindowIcon(icon)
+    splash.set_progress(0.22, "Loading application modules…")
+
     # Import RasterMint's QML/backend layer only after Qt itself is alive.
     # The backend is intentionally lightweight at import time: NumPy, Pillow,
     # FFmpeg and the rendering pipeline are loaded only when a source is opened
@@ -92,9 +181,14 @@ def main() -> int:
     from rastermint.qmlui.localization import LocalizationManager
     from rastermint.qmlui.theme import ThemeManager
 
+    splash.set_progress(0.42, "Creating interface engine…")
     engine = QQmlApplicationEngine()
     provider = RasterImageProvider()
+
+    splash.set_progress(0.58, "Initializing editor…")
     backend = RasterMintBackend(provider)
+
+    splash.set_progress(0.72, "Loading theme and language…")
     theme = ThemeManager()
     localization = LocalizationManager(engine)
     engine.addImageProvider("rastermint", provider)
@@ -102,8 +196,13 @@ def main() -> int:
     engine.rootContext().setContextProperty("theme", theme)
     engine.rootContext().setContextProperty("localization", localization)
     qml_path = resources.files("rastermint").joinpath("qml/Main.qml")
+    splash.set_progress(0.88, "Loading interface…")
     engine.load(QUrl.fromLocalFile(str(qml_path)))
     if not engine.rootObjects():
+        splash.close()
         return 1
+    splash.set_progress(1.0, "Ready")
+    splash.close()
+    splash.deleteLater()
     app.aboutToQuit.connect(backend.shutdown)
     return app.exec()

@@ -10,6 +10,7 @@ import math
 import random
 import re
 import traceback
+import time
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -288,6 +289,7 @@ class RasterMintBackend(QObject):
     layerSelectionChanged = Signal()
     layerWorkflowChanged = Signal()
     statusChanged = Signal()
+    renderProgressChanged = Signal()
     playbackChanged = Signal()
     renderedPreviewChanged = Signal()
     hardwareProfilesChanged = Signal()
@@ -353,6 +355,14 @@ class RasterMintBackend(QObject):
         self._preview_temporal_state: Any | None = None
         self._export_jobs: set[int] = set()
         self._status = ""
+        self._render_busy = False
+        self._render_progress = 0.0
+        self._render_eta_seconds = -1.0
+        self._render_stage = ""
+        self._render_started_at = 0.0
+        self._render_job_id = 0
+        self._render_estimate_key = ""
+        self._render_estimates: dict[str, float] = {}
         self._history = UndoHistory(limit=120)
         self._screen_eyedropper_windows: list[_ScreenEyedropperWindow] = []
         self._screen_eyedropper_loupe: _ScreenEyedropperLoupe | None = None
@@ -623,6 +633,22 @@ class RasterMintBackend(QObject):
     @Property(str, notify=statusChanged)
     def statusText(self) -> str:
         return self._status
+
+    @Property(bool, notify=renderProgressChanged)
+    def renderBusy(self) -> bool:
+        return self._render_busy
+
+    @Property(float, notify=renderProgressChanged)
+    def renderProgress(self) -> float:
+        return self._render_progress
+
+    @Property(float, notify=renderProgressChanged)
+    def renderEtaSeconds(self) -> float:
+        return self._render_eta_seconds
+
+    @Property(str, notify=renderProgressChanged)
+    def renderStage(self) -> str:
+        return self._render_stage
 
     @Property(bool, notify=showHotkeysChanged)
     def showHotkeys(self) -> bool:
@@ -3036,6 +3062,71 @@ class RasterMintBackend(QObject):
             except Exception:
                 pass
 
+    def _preview_estimate_key(self, max_side: int, settings: ProcessingSettings) -> str:
+        enabled_layers = sum(
+            1 for step in (settings.effect_stack or [])
+            if isinstance(step, dict) and bool(step.get("enabled", True))
+        )
+        side_bucket = max(64, int(round(max(1, int(max_side)) / 64.0) * 64))
+        return f"{self._preview_mode}:{side_bucket}:{enabled_layers}"
+
+    def _begin_preview_render(self, job_id: int, max_side: int, settings: ProcessingSettings) -> None:
+        key = self._preview_estimate_key(max_side, settings)
+        self._render_job_id = int(job_id)
+        self._render_estimate_key = key
+        self._render_started_at = time.perf_counter()
+        self._render_busy = True
+        self._render_progress = 0.0
+        self._render_eta_seconds = float(self._render_estimates.get(key, -1.0))
+        self._render_stage = _tr("Preparing preview")
+        self.renderProgressChanged.emit()
+
+    def _update_preview_render(self, job_id: int, current: int, total: int, label: str) -> None:
+        if int(job_id) != self._render_job_id or not self._render_busy:
+            return
+        fraction = max(0.0, min(1.0, float(current) / max(1.0, float(total))))
+        self._render_progress = fraction
+        if label:
+            self._render_stage = _tr(str(label))
+
+        elapsed = max(0.0, time.perf_counter() - self._render_started_at)
+        live_eta = -1.0
+        if fraction >= 0.03 and fraction < 0.999 and elapsed > 0.02:
+            live_eta = max(0.0, elapsed * (1.0 - fraction) / fraction)
+        prior_total = self._render_estimates.get(self._render_estimate_key)
+        prior_eta = -1.0
+        if prior_total is not None:
+            prior_eta = max(0.0, float(prior_total) - elapsed)
+
+        if live_eta >= 0.0 and prior_eta >= 0.0:
+            # Early in the render the previous empirical duration is steadier;
+            # as real progress accumulates, favor the live measurement.
+            live_weight = max(0.25, min(0.9, fraction))
+            self._render_eta_seconds = live_eta * live_weight + prior_eta * (1.0 - live_weight)
+        elif live_eta >= 0.0:
+            self._render_eta_seconds = live_eta
+        elif prior_eta >= 0.0:
+            self._render_eta_seconds = prior_eta
+        else:
+            self._render_eta_seconds = -1.0
+        self.renderProgressChanged.emit()
+
+    def _finish_preview_render(self, job_id: int, *, keep_busy: bool = False) -> None:
+        if int(job_id) != self._render_job_id:
+            return
+        elapsed = max(0.0, time.perf_counter() - self._render_started_at)
+        key = self._render_estimate_key
+        if key and elapsed > 0.0:
+            previous = self._render_estimates.get(key)
+            self._render_estimates[key] = elapsed if previous is None else (0.65 * float(previous) + 0.35 * elapsed)
+        self._render_progress = 1.0
+        self._render_eta_seconds = 0.0
+        self._render_stage = _tr("Complete")
+        self._render_busy = bool(keep_busy)
+        if not keep_busy:
+            self._render_job_id = 0
+        self.renderProgressChanged.emit()
+
     # ---------- preview pipeline ----------
     @Slot()
     def schedulePreview(self, force: bool = False) -> None:
@@ -3082,6 +3173,7 @@ class RasterMintBackend(QObject):
         preview_settings = make_preview_settings(settings, final_size, preview_source.size)
         job = self._next_job()
         self._latest_preview_job = job
+        self._begin_preview_render(job, int(max_side), preview_settings)
         context = {
             "source_revision": self._source_revision,
             "settings_revision": self._settings_revision,
@@ -3141,6 +3233,7 @@ class RasterMintBackend(QObject):
                 self._publish_preview(result)
             pending = self._pending_preview_side
             self._pending_preview_side = 0
+            self._finish_preview_render(job_id, keep_busy=bool(pending))
             if pending:
                 self._request_preview(pending)
             return
@@ -3199,6 +3292,7 @@ class RasterMintBackend(QObject):
             self._preview_running = False
             pending = self._pending_preview_side
             self._pending_preview_side = 0
+            self._finish_preview_render(job_id, keep_busy=bool(pending))
             if pending:
                 self._request_preview(pending)
         self._export_jobs.discard(job_id)
@@ -3207,6 +3301,9 @@ class RasterMintBackend(QObject):
 
     @Slot(int, str, int, int, str)
     def _worker_progress(self, job_id: int, purpose: str, current: int, total: int, label: str) -> None:
+        if purpose == "preview":
+            self._update_preview_render(job_id, current, total, label)
+            return
         if total > 0:
             self._set_status(f"{purpose.replace('-', ' ').title()}: {current}/{total} {label}")
 

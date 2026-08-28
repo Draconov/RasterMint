@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import math
+from typing import Callable
+
 import numpy as np
 from PIL import Image, ImageOps
 
@@ -454,9 +456,14 @@ def _apply_stack_tiled(
     tile_size: int,
     frame_time: float,
     frame_index: int,
+    progress_callback: Callable[[int, int, str], None] | None = None,
 ) -> Image.Image:
     tile_size = max(256, min(4096, int(tile_size)))
     output = Image.new(source.mode, source.size)
+    tiles_x = max(1, math.ceil(source.width / tile_size))
+    tiles_y = max(1, math.ceil(source.height / tile_size))
+    total_tiles = tiles_x * tiles_y
+    completed = 0
     for top in range(0, source.height, tile_size):
         bottom = min(source.height, top + tile_size)
         for left in range(0, source.width, tile_size):
@@ -476,6 +483,9 @@ def _apply_stack_tiled(
             if output.mode != rendered.mode:
                 output = output.convert(rendered.mode)
             output.paste(rendered, (left, top))
+            completed += 1
+            if progress_callback is not None:
+                progress_callback(completed, total_tiles, "Processing tiles")
     return output
 
 
@@ -493,9 +503,17 @@ def process_image(
     tiled_processing: bool = True,
     tile_size: int = 1024,
     tile_threshold_pixels: int = 12_000_000,
+    progress_callback: Callable[[int, int, str], None] | None = None,
 ) -> Image.Image:
-    source = prepare_raster_source(image, settings)
     stack = runtime_effect_stack(settings)
+    overall_total = max(2, len(stack) + 2)
+    if progress_callback is not None:
+        progress_callback(0, overall_total, "Preparing source")
+
+    source = prepare_raster_source(image, settings)
+    if progress_callback is not None:
+        progress_callback(1, overall_total, "Preparing source")
+
     display_stage_present = any(step.get("kind") == "Hardware Display" for step in stack)
     display_profiles = [
         dict(step.get("params") or {})
@@ -509,11 +527,20 @@ def process_image(
         and _stack_supports_exact_tiling(stack)
     )
     if use_tiles:
+        def tiled_progress(current: int, total: int, label: str) -> None:
+            if progress_callback is None:
+                return
+            span = max(1, overall_total - 2)
+            fraction = max(0.0, min(1.0, current / max(1, total)))
+            mapped = 1 + round(fraction * span)
+            progress_callback(mapped, overall_total, label)
+
         result = _apply_stack_tiled(
             source, stack, settings.palette,
             tile_size=tile_size,
             frame_time=frame_time,
             frame_index=frame_index,
+            progress_callback=tiled_progress if progress_callback is not None else None,
         )
     else:
         cache = render_cache
@@ -528,6 +555,12 @@ def process_image(
                     resolved_context = str(cache.source_signature(source))
                 except Exception:
                     cache = None
+
+        def layer_progress(current: int, total: int, label: str) -> None:
+            del total
+            if progress_callback is not None:
+                progress_callback(1 + current, overall_total, label)
+
         result = apply_normalized_effect_stack(
             source,
             stack,
@@ -537,7 +570,12 @@ def process_image(
             temporal_state=temporal_state,
             render_cache=cache,
             cache_context=resolved_context,
+            progress_callback=layer_progress if progress_callback is not None else None,
         )
+
+    if progress_callback is not None:
+        progress_callback(overall_total - 1, overall_total, "Finalizing display")
+
     if display_mode != "raw" or include_grid:
         alpha = result.getchannel("A") if "A" in result.getbands() else None
         result = render_display_view(
@@ -552,6 +590,9 @@ def process_image(
                 alpha = alpha.resize(result.size, Image.Resampling.NEAREST)
             result = result.convert("RGBA")
             result.putalpha(alpha)
+
+    if progress_callback is not None:
+        progress_callback(overall_total, overall_total, "Complete")
     return result
 
 

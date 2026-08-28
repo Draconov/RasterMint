@@ -62,6 +62,15 @@ class ProcessingWorker(QRunnable):
             # the QML backend during application startup must stay lightweight.
             from rastermint.core.processor import process_image
 
+            def progress(current: int, total: int, label: str) -> None:
+                self.signals.progress.emit(
+                    self.job_id,
+                    self.purpose,
+                    int(current),
+                    int(total),
+                    str(label or ""),
+                )
+
             result = process_image(
                 self.image,
                 self.settings,
@@ -74,6 +83,7 @@ class ProcessingWorker(QRunnable):
                 cache_context=self.cache_context,
                 tiled_processing=self.tiled_processing,
                 tile_size=self.tile_size,
+                progress_callback=progress,
             )
             self.signals.finished.emit(
                 self.job_id, self.purpose, result, self.context

@@ -36,6 +36,16 @@ ApplicationWindow {
         return typeName.indexOf("TextInput") < 0 && typeName.indexOf("TextEdit") < 0
     }
 
+    function renderEtaLabel() {
+        var eta = Number(backend.renderEtaSeconds)
+        if (!isFinite(eta) || eta < 0)
+            return qsTr("Estimating…")
+        if (eta < 0.1)
+            return qsTr("Finishing…")
+        var value = eta < 10 ? eta.toFixed(1) : String(Math.ceil(eta))
+        return qsTr("~%1 s remaining").arg(value)
+    }
+
     function openQuickExportImageDialog() {
         quickExportImageDialog.selectedFile = backend.suggestedExportFile("PNG")
         quickExportImageDialog.open()
@@ -241,6 +251,79 @@ ApplicationWindow {
                     }
                 }
             }
+            Rectangle {
+                id: renderProgressPanel
+                objectName: "renderProgressPanel"
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.bottom: parent.bottom
+                anchors.bottomMargin: 18
+                visible: backend.renderBusy
+                z: 110
+                width: Math.min(parent.width - 48, 520)
+                height: 62
+                radius: 7
+                color: theme.panelRaisedColor
+                border.color: theme.borderColor
+                border.width: 1
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: 10
+                    spacing: 7
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 10
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: backend.renderStage.length > 0 ? backend.renderStage : qsTr("Rendering preview")
+                            color: theme.textColor
+                            font.pixelSize: 11
+                            font.bold: true
+                            elide: Text.ElideRight
+                        }
+
+                        Text {
+                            text: window.renderEtaLabel()
+                            color: theme.mutedTextColor
+                            font.pixelSize: 10
+                            horizontalAlignment: Text.AlignRight
+                        }
+                    }
+
+                    ProgressBar {
+                        id: renderProgressBar
+                        objectName: "renderProgressBar"
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 8
+                        from: 0
+                        to: 1
+                        value: Math.max(0, Math.min(1, backend.renderProgress))
+                        padding: 0
+
+                        background: Rectangle {
+                            implicitHeight: 8
+                            radius: 4
+                            color: theme.panelColor
+                            border.color: theme.borderColor
+                            border.width: 1
+                        }
+
+                        contentItem: Item {
+                            implicitHeight: 8
+                            clip: true
+                            Rectangle {
+                                width: renderProgressBar.visualPosition * parent.width
+                                height: parent.height
+                                radius: 4
+                                color: theme.accentColor
+                            }
+                        }
+                    }
+                }
+            }
+
             Rectangle {
                 id: actionToast
                 objectName: "lastActionToast"

@@ -8,7 +8,7 @@ import math
 import os
 from io import BytesIO
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import numpy as np
 from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter, ImageFont, ImageOps
@@ -830,11 +830,7 @@ def _composite_noise(image: Image.Image, luma: float, chroma: float, seed: int, 
         grain = (grain + np.roll(grain, 1, axis=1) * 0.35) / 1.35
         arr[..., 0] += grain
     if chroma > 0.0:
-        # Use ceil division so widths that are not exact multiples of three
-        # still expand back to the full framebuffer width. Floor division
-        # produced one/two-column-short chroma noise arrays (for example
-        # 256 -> 255 and 160 -> 159), breaking NES/RF preset previews.
-        low_w = max(1, (w + 2) // 3)
+        low_w = max(1, w // 3)
         cnoise_small = rng.normal(0.0, 30.0 * chroma, size=(h, low_w, 2)).astype(np.float32)
         cnoise = np.repeat(cnoise_small, 3, axis=1)[:, :w]
         arr[..., 1:] += cnoise
@@ -2961,6 +2957,7 @@ def apply_normalized_effect_stack(
     temporal_state: TemporalEffectState | None = None,
     render_cache: Any | None = None,
     cache_context: str = "",
+    progress_callback: Callable[[int, int, str], None] | None = None,
 ) -> Image.Image:
     """Apply a stack that has already been normalized by effect_schema.
 
@@ -2970,6 +2967,12 @@ def apply_normalized_effect_stack(
     """
     img = image if image.mode == "RGB" else image.convert("RGB")
     palette_np = palette_array(palette)
+
+    total_steps = max(1, len(stack))
+
+    def report_progress(completed: int, label: str) -> None:
+        if progress_callback is not None:
+            progress_callback(max(0, min(total_steps, int(completed))), total_steps, str(label or ""))
 
     cache_signatures: list[str] | None = None
     start_index = 0
@@ -2985,6 +2988,9 @@ def apply_normalized_effect_stack(
             cache_signatures = None
             start_index = 0
 
+    if start_index > 0:
+        report_progress(start_index, "Using cached layers")
+
     for step_index, step in enumerate(stack):
         if step_index < start_index:
             continue
@@ -2994,6 +3000,7 @@ def apply_normalized_effect_stack(
                     render_cache.store(str(cache_context), cache_signatures[step_index], img)
                 except Exception:
                     pass
+            report_progress(step_index + 1, str(step.get("kind", "Layer")))
             continue
         kind = step["kind"]
         p = step["params"]
@@ -3147,6 +3154,7 @@ def apply_normalized_effect_stack(
         elif kind == "Dither":
             mix = max(0.0, min(1.0, float(p.get("mix", 1.0))))
             if mix <= 0.0:
+                report_progress(step_index + 1, kind)
                 continue
             before = img.convert("RGB")
             arr = np.asarray(before, dtype=np.float32)
@@ -3182,6 +3190,7 @@ def apply_normalized_effect_stack(
                 render_cache.store(str(cache_context), cache_signatures[step_index], img)
             except Exception:
                 pass
+        report_progress(step_index + 1, kind)
     return img
 
 def apply_effect_stack(
