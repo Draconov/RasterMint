@@ -199,3 +199,66 @@ def test_top_menu_button_releases_focus_when_popup_closes():
         assert not bool(button.property("focus"))
     finally:
         backend.shutdown()
+
+
+def test_custom_dither_designer_is_draft_only_until_apply():
+    _app()
+    provider = RasterImageProvider()
+    backend = RasterMintBackend(provider)
+    try:
+        dither_index = next(
+            i for i, step in enumerate(backend.settings.effect_stack)
+            if step.get("kind") == "Dither"
+        )
+        before = backend.settings.effect_stack[dither_index]["params"]["custom_matrix_json"]
+        before_algorithm = backend.settings.effect_stack[dither_index]["params"]["algorithm"]
+
+        backend.setCustomDitherMatrixCell(0, 0, 99.0)
+        assert backend.customDitherMatrix[0][0] == 99.0
+        assert backend.settings.effect_stack[dither_index]["params"]["custom_matrix_json"] == before
+        assert backend.settings.effect_stack[dither_index]["params"]["algorithm"] == before_algorithm
+
+        backend.setCustomDitherMatrixSize(99)
+        assert backend.customDitherMatrixSize == 12
+        backend.setCustomDitherMatrixSize(1)
+        assert backend.customDitherMatrixSize == 2
+
+        backend.setCustomDitherMatrixSize(4)
+        backend.setCustomDitherMatrixCell(0, 0, 99.0)
+        backend.applyCustomDitherMatrix()
+        dither_index = next(
+            i for i, step in enumerate(backend.settings.effect_stack)
+            if step.get("kind") == "Dither"
+        )
+        params = backend.settings.effect_stack[dither_index]["params"]
+        import json
+        applied = json.loads(params["custom_matrix_json"])
+        assert params["algorithm"] == "Custom Matrix"
+        assert backend.settings.effect_stack[dither_index]["enabled"] is True
+        assert applied[0][0] == 99.0
+    finally:
+        backend.shutdown()
+
+
+def test_rotate_image_refreshes_preset_thumbnails(monkeypatch):
+    _app()
+    provider = RasterImageProvider()
+    backend = RasterMintBackend(provider)
+    calls = []
+    try:
+        from PIL import Image
+
+        backend._source_image = Image.new("RGB", (8, 4), "white")
+        monkeypatch.setattr(RasterMintBackend, "refreshPresetThumbnails", lambda self: calls.append(self.settings.rotation))
+
+        backend.rotateImage(90)
+        assert backend.settings.rotation == 90
+        assert calls == [90]
+
+        # Undo is also a rotation change, so preset cards must return to the
+        # original source orientation instead of staying at 90 degrees.
+        backend.undo()
+        assert backend.settings.rotation == 0
+        assert calls == [90, 0]
+    finally:
+        backend.shutdown()

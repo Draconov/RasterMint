@@ -296,6 +296,7 @@ class RasterMintBackend(QObject):
     paletteLibraryChanged = Signal()
     paletteLabChanged = Signal()
     ditherMatrixLibraryChanged = Signal()
+    customDitherMatrixChanged = Signal()
     projectChanged = Signal()
     comparisonChanged = Signal()
     audioExportChanged = Signal()
@@ -344,6 +345,7 @@ class RasterMintBackend(QObject):
         if self._preview_mode not in {"Quick", "Stable", "Full"}:
             self._preview_mode = "Quick"
         self._preview_revision = 0
+        self._preset_thumbnail_revision = 0
         self._preview_width = 1
         self._preview_height = 1
         self._source_revision = 0
@@ -377,6 +379,8 @@ class RasterMintBackend(QObject):
         self._palette_lab_data: dict[str, Any] = {}
         self._palette_mapping_data: list[dict[str, Any]] = []
         self._dither_matrix_library = self._load_dither_matrix_library()
+        self._custom_dither_matrix_draft = self._default_custom_dither_matrix()
+        self._custom_dither_matrix_draft_dirty = False
         self._keyframe_clipboard: dict[str, Any] | None = None
         self._animation_clip_library = self._load_animation_clip_library()
         self._project_path: Path | None = None
@@ -962,6 +966,33 @@ class RasterMintBackend(QObject):
         self.paletteLabChanged.emit()
 
     _DITHER_MATRIX_SETTINGS_KEY = "customDitherMatricesV1"
+    _CUSTOM_DITHER_MATRIX_MAX_SIZE = 12
+
+    @staticmethod
+    def _default_custom_dither_matrix() -> list[list[float]]:
+        return [
+            [0.0, 8.0, 2.0, 10.0],
+            [12.0, 4.0, 14.0, 6.0],
+            [3.0, 11.0, 1.0, 9.0],
+            [15.0, 7.0, 13.0, 5.0],
+        ]
+
+    @classmethod
+    def _validated_custom_dither_matrix(cls, matrix: object) -> list[list[float]] | None:
+        if not isinstance(matrix, list):
+            return None
+        size = len(matrix)
+        if not (2 <= size <= cls._CUSTOM_DITHER_MATRIX_MAX_SIZE):
+            return None
+        if not all(isinstance(row, list) and len(row) == size for row in matrix):
+            return None
+        try:
+            cleaned = [[float(value) for value in row] for row in matrix]
+        except (TypeError, ValueError):
+            return None
+        if any(not math.isfinite(value) for row in cleaned for value in row):
+            return None
+        return cleaned
 
     def _load_dither_matrix_library(self) -> list[dict[str, Any]]:
         raw = self.app_settings.value(self._DITHER_MATRIX_SETTINGS_KEY, "[]")
@@ -974,8 +1005,8 @@ class RasterMintBackend(QObject):
             if not isinstance(item, dict):
                 continue
             name = str(item.get("name", "")).strip()
-            matrix = item.get("matrix")
-            if name and isinstance(matrix, list) and 2 <= len(matrix) <= 16 and all(isinstance(row, list) and len(row) == len(matrix) for row in matrix):
+            matrix = self._validated_custom_dither_matrix(item.get("matrix"))
+            if name and matrix is not None:
                 result.append({"name": name, "matrix": matrix})
         return result
 
@@ -987,69 +1018,110 @@ class RasterMintBackend(QObject):
         stack = normalize_effect_stack(self.settings.effect_stack, self.settings)
         return next((i for i, step in enumerate(stack) if str(step.get("kind")) == "Dither"), -1)
 
-    def _current_dither_matrix(self) -> list[list[float]]:
+    def _custom_dither_matrix_from_settings(self) -> list[list[float]]:
         index = self._dither_layer_index()
         if index < 0:
-            return [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]
+            return self._default_custom_dither_matrix()
         raw = self.settings.effect_stack[index].get("params", {}).get("custom_matrix_json", "")
         try:
-            matrix = json.loads(str(raw))
+            payload = json.loads(str(raw))
         except (TypeError, ValueError, json.JSONDecodeError):
-            matrix = None
-        if not isinstance(matrix, list) or not (2 <= len(matrix) <= 16) or not all(isinstance(row, list) and len(row) == len(matrix) for row in matrix):
-            return [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]
-        return [[float(value) for value in row] for row in matrix]
+            payload = None
+        return self._validated_custom_dither_matrix(payload) or self._default_custom_dither_matrix()
 
-    @Property("QVariantList", notify=settingsChanged)
+    def _set_custom_dither_matrix_draft(
+        self,
+        matrix: object,
+        status: str = "",
+        *,
+        dirty: bool = True,
+    ) -> bool:
+        cleaned = self._validated_custom_dither_matrix(matrix)
+        if cleaned is None:
+            return False
+        self._custom_dither_matrix_draft = cleaned
+        self._custom_dither_matrix_draft_dirty = bool(dirty)
+        self.customDitherMatrixChanged.emit()
+        if status:
+            self._set_status(status)
+        return True
+
+    @Property("QVariantList", notify=customDitherMatrixChanged)
     def customDitherMatrix(self) -> list[list[float]]:
-        return self._current_dither_matrix()
+        return deepcopy(self._custom_dither_matrix_draft)
 
-    @Property(int, notify=settingsChanged)
+    @Property(int, notify=customDitherMatrixChanged)
     def customDitherMatrixSize(self) -> int:
-        return len(self._current_dither_matrix())
+        return len(self._custom_dither_matrix_draft)
 
     @Property("QVariantList", notify=ditherMatrixLibraryChanged)
     def ditherMatrixLibrary(self) -> list[dict[str, Any]]:
         return deepcopy(self._dither_matrix_library)
 
-    def _set_custom_dither_matrix(self, matrix: list[list[float]], action: str) -> None:
-        index = self._dither_layer_index()
-        if index < 0:
-            return
-        stack = normalize_effect_stack(self.settings.effect_stack, self.settings)
-        stack[index]["params"]["custom_matrix_json"] = json.dumps(matrix, separators=(",", ":"))
-        data = self.settings.to_dict()
-        data["effect_stack"] = stack
-        self._replace_settings(ProcessingSettings.from_dict(data), action=action, selected_layer=self._selected_layer)
-
     @Slot(int)
     def setCustomDitherMatrixSize(self, size: int) -> None:
-        size = max(2, min(16, int(size)))
-        old = self._current_dither_matrix()
+        size = max(2, min(self._CUSTOM_DITHER_MATRIX_MAX_SIZE, int(size)))
+        old = deepcopy(self._custom_dither_matrix_draft)
         matrix = [[float((y * size + x) % (size * size)) for x in range(size)] for y in range(size)]
         for y in range(min(size, len(old))):
             for x in range(min(size, len(old[y]))):
                 matrix[y][x] = float(old[y][x])
-        self._set_custom_dither_matrix(matrix, f"Custom dither matrix: {size}×{size}")
+        self._set_custom_dither_matrix_draft(matrix)
 
     @Slot(int, int, float)
     def setCustomDitherMatrixCell(self, row: int, column: int, value: float) -> None:
-        matrix = self._current_dither_matrix()
+        matrix = deepcopy(self._custom_dither_matrix_draft)
         row, column = int(row), int(column)
         if not (0 <= row < len(matrix) and 0 <= column < len(matrix)):
             return
-        matrix[row][column] = float(value)
-        self._set_custom_dither_matrix(matrix, f"Dither matrix cell {row + 1},{column + 1}: {value:g}")
+        numeric = float(value)
+        if not math.isfinite(numeric):
+            return
+        matrix[row][column] = numeric
+        self._set_custom_dither_matrix_draft(matrix)
 
     @Slot()
     def resetCustomDitherMatrix(self) -> None:
-        matrix = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]
-        self._set_custom_dither_matrix(matrix, "Reset custom dither matrix")
+        self._set_custom_dither_matrix_draft(self._default_custom_dither_matrix())
+
+    @Slot()
+    def applyCustomDitherMatrix(self) -> None:
+        """Commit the editor matrix to the Dither layer and enable Custom Matrix.
+
+        Matrix editing is intentionally draft-only. The image does not re-render
+        until the user explicitly presses Apply custom in the Dither Matrix
+        Designer.
+        """
+        matrix = deepcopy(self._custom_dither_matrix_draft)
+        stack = normalize_effect_stack(self.settings.effect_stack, self.settings)
+        index = next((i for i, step in enumerate(stack) if str(step.get("kind")) == "Dither"), -1)
+        if index < 0:
+            insertion = next(
+                (i for i, step in enumerate(stack) if str(step.get("kind")) in FIXED_STAGE_KINDS),
+                len(stack),
+            )
+            stack.insert(insertion, new_effect("Dither"))
+            index = insertion
+
+        step = stack[index]
+        params = step.setdefault("params", {})
+        params["custom_matrix_json"] = json.dumps(matrix, separators=(",", ":"))
+        params["algorithm"] = "Custom Matrix"
+        step["enabled"] = True
+
+        data = self.settings.to_dict()
+        data["effect_stack"] = stack
+        self._replace_settings(
+            ProcessingSettings.from_dict(data),
+            action=f"Applied custom dither matrix: {len(matrix)}×{len(matrix)}",
+            selected_layer=index,
+        )
+        self._custom_dither_matrix_draft_dirty = False
 
     @Slot(str)
     def saveCustomDitherMatrix(self, name: str) -> None:
         clean = str(name or "").strip() or "Custom Matrix"
-        matrix = self._current_dither_matrix()
+        matrix = deepcopy(self._custom_dither_matrix_draft)
         existing = next((item for item in self._dither_matrix_library if str(item.get("name", "")).casefold() == clean.casefold()), None)
         if existing is None:
             self._dither_matrix_library.append({"name": clean, "matrix": matrix})
@@ -1063,7 +1135,10 @@ class RasterMintBackend(QObject):
     def loadCustomDitherMatrix(self, name: str) -> None:
         record = next((item for item in self._dither_matrix_library if str(item.get("name", "")) == str(name)), None)
         if record:
-            self._set_custom_dither_matrix(deepcopy(record["matrix"]), f"Dither matrix: {name}")
+            self._set_custom_dither_matrix_draft(
+                deepcopy(record["matrix"]),
+                f"Loaded dither matrix: {name} · press Apply custom to render",
+            )
 
     @Property("QStringList", constant=True)
     def paletteOptimizerNames(self) -> list[str]:
@@ -1436,6 +1511,7 @@ class RasterMintBackend(QObject):
     ) -> bool:
         settings.effect_stack = normalize_effect_stack(settings.effect_stack, settings)
         canonical = ProcessingSettings.from_dict(settings.to_dict())
+        rotation_changed = int(canonical.rotation) != int(self.settings.rotation)
         desired_layer = self._selected_layer if selected_layer is None else int(selected_layer)
         desired_layer = max(0, min(desired_layer, max(0, len(canonical.effect_stack) - 1)))
         if canonical.to_dict() == self.settings.to_dict() and desired_layer == self._selected_layer:
@@ -1444,6 +1520,11 @@ class RasterMintBackend(QObject):
             self._history.record(self._history_state(), action)
             self.historyChanged.emit()
         self.settings = canonical
+        if hasattr(self, "_custom_dither_matrix_draft") and not self._custom_dither_matrix_draft_dirty:
+            synced_matrix = self._custom_dither_matrix_from_settings()
+            if synced_matrix != self._custom_dither_matrix_draft:
+                self._custom_dither_matrix_draft = synced_matrix
+                self.customDitherMatrixChanged.emit()
         self._selected_layer = desired_layer
         self._selected_layers = {desired_layer} if canonical.effect_stack else set()
         self.layer_model.replace(self.settings.effect_stack)
@@ -1455,6 +1536,11 @@ class RasterMintBackend(QObject):
         self.layerWorkflowChanged.emit()
         if schedule and self.hasSource:
             self.schedulePreview()
+        if rotation_changed and self.hasSource:
+            # Preset cards are rendered from the current source-transform
+            # context. Refresh for every rotation change (including undo/redo,
+            # project load and transform reset), not only the rotate button.
+            self.refreshPresetThumbnails()
         if action:
             self._set_status(action)
         return True
@@ -3267,7 +3353,10 @@ class RasterMintBackend(QObject):
                 self.schedulePreview(force=True)
             return
         if purpose == "preset-thumbnail" and _is_pil_image(result) and isinstance(context, dict):
-            if context.get("source_revision") == self._source_revision:
+            if (
+                context.get("source_revision") == self._source_revision
+                and context.get("thumbnail_revision") == self._preset_thumbnail_revision
+            ):
                 key = f"preset/{context.get('preset_id')}"
                 self.provider.set_image(key, _pil_to_qimage(result))
                 self._preview_revision += 1
@@ -3342,7 +3431,9 @@ class RasterMintBackend(QObject):
         source = self._active_source()
         if source is None:
             return
+        self._preset_thumbnail_revision += 1
         source_revision = self._source_revision
+        thumbnail_revision = self._preset_thumbnail_revision
         base = ProcessingSettings.from_dict(self.settings.to_dict())
         for preset in BUILTIN_PRESETS:
             settings = build_builtin_preset(preset.id, base)
@@ -3355,7 +3446,7 @@ class RasterMintBackend(QObject):
                 "preset-thumbnail",
                 preview_source,
                 preview_settings,
-                {"preset_id": preset.id, "source_revision": source_revision},
+                {"preset_id": preset.id, "source_revision": source_revision, "thumbnail_revision": thumbnail_revision},
                 display_mode="display",
                 include_grid=False,
             )

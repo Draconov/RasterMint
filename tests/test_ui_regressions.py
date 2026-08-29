@@ -57,6 +57,34 @@ def test_gradient_presets_start_collapsed():
     assert "property bool gradientPresetsExpanded: false" in palette
 
 
+def test_palette_advanced_sections_start_collapsed_and_custom_dither_requires_apply():
+    palette = (QML / "pages" / "PalettePage.qml").read_text(encoding="utf-8")
+    backend = (ROOT / "src" / "rastermint" / "qmlui" / "backend.py").read_text(encoding="utf-8")
+
+    assert "property bool optimizerExpanded: false" in palette
+    assert "property bool paletteDitherLabExpanded: false" in palette
+    assert "visible: root.optimizerExpanded" in palette
+    assert "visible: root.paletteDitherLabExpanded" in palette
+    assert "from: 2; to: 12; value: backend.customDitherMatrixSize" in palette
+    assert 'text: qsTr("Apply custom")' in palette
+    assert "backend.applyCustomDitherMatrix()" in palette
+
+    # Editing the designer is draft-only; the settings stack is committed only
+    # through the explicit Apply custom slot.
+    assert "_CUSTOM_DITHER_MATRIX_MAX_SIZE = 12" in backend
+    cell_start = backend.index("def setCustomDitherMatrixCell")
+    apply_start = backend.index("def applyCustomDitherMatrix")
+    cell_block = backend[cell_start:apply_start]
+    assert "_replace_settings(" not in cell_block
+
+
+def test_apply_custom_translation_key_exists_in_every_bundled_language():
+    translations = ROOT / "src" / "rastermint" / "data" / "translations"
+    for path in translations.glob("*.json"):
+        payload = __import__("json").loads(path.read_text(encoding="utf-8"))
+        assert "Apply custom" in payload.get("messages", {}), path.name
+
+
 def test_gradient_presets_and_custom_generate_use_palette_backend():
     palette = (QML / "pages" / "PalettePage.qml").read_text(encoding="utf-8")
 

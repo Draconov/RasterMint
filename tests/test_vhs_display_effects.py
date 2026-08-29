@@ -28,6 +28,24 @@ def test_display_effects_category_contains_vhs_layers():
     assert EFFECT_DEFINITIONS["Tracking Error"]["params"]["band_height"]["pixel_scaled"] is True
 
 
+def test_display_effects_are_grouped_in_logical_workflow_order():
+    category = next(row for row in effect_categories() if row["name"] == "Display Effects")
+    effects = category["effects"]
+
+    # Scan/field effects should be adjacent instead of being scattered through
+    # the long display list.
+    scan = effects.index("Scanlines")
+    assert effects[scan:scan + 4] == ["Scanlines", "Scanline Variation", "Interlace", "Field Flicker"]
+
+    # CRT/phosphor response should remain a contiguous block, followed by the
+    # flat-panel artifact before analog signal/tape damage.
+    crt = effects.index("CRT Mask")
+    assert effects[crt:crt + 6] == [
+        "CRT Mask", "RGB Convergence", "Beam Width", "Phosphor Glow", "Horizontal Bloom", "Display Persistence",
+    ]
+    assert effects.index("LCD Inversion") < effects.index("Chroma Bleed") < effects.index("Tracking Error")
+
+
 def test_chroma_bleed_spreads_colour_horizontally_without_resizing():
     image = _test_pattern()
     effect = new_effect("Chroma Bleed")

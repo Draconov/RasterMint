@@ -15,6 +15,8 @@ Item {
     property bool gradientPresetsExpanded: false
     property var gradientPresets: backend.gradientPresets || []
     property bool gradientDirty: false
+    property bool optimizerExpanded: false
+    property bool paletteDitherLabExpanded: false
 
     function evenGradientPositions(count) {
         var positions = []
@@ -612,154 +614,239 @@ Item {
             }
 
             Rectangle { Layout.fillWidth: true; height: 1; color: theme.borderColor }
-            MintLabel { text: qsTr("Optimize from image"); font.bold: true }
-            RowLayout {
+
+            Rectangle {
                 Layout.fillWidth: true
-                MintSpinBox { id: colorCount; from: 2; to: 256; value: 8; editable: true; Layout.preferredWidth: 90 }
-                MintComboBox { id: optimizer; Layout.fillWidth: true; model: backend.paletteOptimizerNames }
-                MintButton {
-                    text: qsTr("Optimize")
-                    enabled: backend.hasSource
-                    onClicked: backend.optimizePalette(colorCount.value, optimizer.currentText)
+                Layout.preferredHeight: 38
+                radius: 7
+                color: optimizerHeaderMouse.containsMouse ? theme.panelHoverColor : theme.panelRaisedColor
+                border.color: theme.borderColor
+
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: 10
+                    anchors.rightMargin: 10
+                    spacing: 8
+                    Text {
+                        text: root.optimizerExpanded ? "▾" : "▸"
+                        color: theme.accentColor
+                        font.pixelSize: 14
+                    }
+                    Text {
+                        Layout.fillWidth: true
+                        text: qsTr("Optimize from image")
+                        color: theme.textColor
+                        font.bold: true
+                        font.pixelSize: 12
+                    }
+                }
+                MouseArea {
+                    id: optimizerHeaderMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.optimizerExpanded = !root.optimizerExpanded
+                }
+            }
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 6
+                visible: root.optimizerExpanded
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    MintSpinBox { id: colorCount; from: 2; to: 256; value: 8; editable: true; Layout.preferredWidth: 90 }
+                    MintComboBox { id: optimizer; Layout.fillWidth: true; model: backend.paletteOptimizerNames }
+                    MintButton {
+                        text: qsTr("Optimize")
+                        enabled: backend.hasSource
+                        onClicked: backend.optimizePalette(colorCount.value, optimizer.currentText)
+                    }
                 }
             }
 
             Rectangle { Layout.fillWidth: true; height: 1; color: theme.borderColor }
-            MintLabel { text: qsTr("Palette & Dither Lab"); font.bold: true }
-            MintLabel {
-                Layout.fillWidth: true
-                text: qsTr("Analyse palette usage, ramps, colour distance, duplicates and custom ordered-dither matrices.")
-                color: theme.mutedTextColor
-                wrapMode: Text.WordWrap
-            }
-            RowLayout {
-                Layout.fillWidth: true
-                MintButton { text: qsTr("Analyse"); onClicked: backend.refreshPaletteLab() }
-                MintButton { text: qsTr("Remove unused"); enabled: Number((backend.paletteLabData || {}).unused_count || 0) > 0; onClicked: backend.removeUnusedPaletteColors() }
-                MintButton { text: qsTr("Reduce suggestion"); enabled: Number((backend.paletteLabData || {}).suggested_count || 0) > 0; onClicked: backend.applyPaletteReductionSuggestion() }
-            }
-            MintLabel {
-                Layout.fillWidth: true
-                visible: Object.keys(backend.paletteLabData || {}).length > 0
-                text: qsTr("Sampled %1 pixels · %2 unused · suggested %3 colours")
-                    .arg(Number((backend.paletteLabData || {}).sample_count || 0))
-                    .arg(Number((backend.paletteLabData || {}).unused_count || 0))
-                    .arg(Number((backend.paletteLabData || {}).suggested_count || 0))
-                color: theme.mutedTextColor
-                wrapMode: Text.WordWrap
-            }
-            Flow {
-                Layout.fillWidth: true
-                spacing: 6
-                MintButton { text: qsTr("Sort luminance"); onClicked: backend.sortPalette("luminance") }
-                MintButton { text: qsTr("Sort hue"); onClicked: backend.sortPalette("hue") }
-                MintButton { text: qsTr("Sort saturation"); onClicked: backend.sortPalette("saturation") }
-                MintButton { text: qsTr("Sort value"); onClicked: backend.sortPalette("value") }
-            }
+
             Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredHeight: paletteUsageColumn.implicitHeight + 14
-                visible: ((backend.paletteLabData || {}).colors || []).length > 0
-                radius: 6
-                color: theme.panelRaisedColor
+                Layout.preferredHeight: 38
+                radius: 7
+                color: paletteLabHeaderMouse.containsMouse ? theme.panelHoverColor : theme.panelRaisedColor
                 border.color: theme.borderColor
-                ColumnLayout {
-                    id: paletteUsageColumn
-                    anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top
-                    anchors.margins: 7
-                    spacing: 3
-                    MintLabel { text: qsTr("Colour usage histogram"); font.bold: true }
-                    Repeater {
-                        model: ((backend.paletteLabData || {}).colors || []).slice(0, 32)
-                        delegate: RowLayout {
-                            Layout.fillWidth: true
-                            spacing: 5
-                            Rectangle { width: 16; height: 16; radius: 2; color: modelData.color; border.color: theme.borderColor }
-                            MintLabel { Layout.preferredWidth: 62; text: modelData.color; font.pixelSize: 9 }
-                            Rectangle {
-                                Layout.fillWidth: true; height: 8; radius: 4; color: theme.panelColor
-                                Rectangle {
-                                    width: parent.width * Math.min(1.0, Number(modelData.usage_percent || 0) / 100.0)
-                                    height: parent.height; radius: parent.radius; color: modelData.unused ? theme.mutedTextColor : theme.accentColor
-                                }
-                            }
-                            MintLabel { Layout.preferredWidth: 45; horizontalAlignment: Text.AlignRight; text: Number(modelData.usage_percent || 0).toFixed(1) + "%"; font.pixelSize: 9 }
-                        }
+
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: 10
+                    anchors.rightMargin: 10
+                    spacing: 8
+                    Text {
+                        text: root.paletteDitherLabExpanded ? "▾" : "▸"
+                        color: theme.accentColor
+                        font.pixelSize: 14
                     }
-                    MintLabel {
+                    Text {
                         Layout.fillWidth: true
-                        visible: ((backend.paletteLabData || {}).near_duplicates || []).length > 0
-                        text: qsTr("Near-duplicate pairs: %1").arg(((backend.paletteLabData || {}).near_duplicates || []).length)
-                        color: theme.mutedTextColor
+                        text: qsTr("Palette & Dither Lab")
+                        color: theme.textColor
+                        font.bold: true
+                        font.pixelSize: 12
                     }
-                    MintLabel {
-                        Layout.fillWidth: true
-                        visible: ((backend.paletteLabData || {}).ramps || []).length > 0
-                        text: qsTr("Detected ramps: %1").arg(((backend.paletteLabData || {}).ramps || []).length)
-                        color: theme.mutedTextColor
-                    }
+                }
+                MouseArea {
+                    id: paletteLabHeaderMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.paletteDitherLabExpanded = !root.paletteDitherLabExpanded
                 }
             }
 
-            MintLabel { text: qsTr("Dither Matrix Designer"); font.bold: true }
-            RowLayout {
+            ColumnLayout {
                 Layout.fillWidth: true
-                MintLabel { text: qsTr("Size"); color: theme.mutedTextColor }
-                MintSpinBox {
-                    from: 2; to: 16; value: backend.customDitherMatrixSize
-                    onValueModified: backend.setCustomDitherMatrixSize(value)
+                spacing: 7
+                visible: root.paletteDitherLabExpanded
+
+                MintLabel {
+                    Layout.fillWidth: true
+                    text: qsTr("Analyse palette usage, ramps, colour distance, duplicates and custom ordered-dither matrices.")
+                    color: theme.mutedTextColor
+                    wrapMode: Text.WordWrap
                 }
-                MintButton { text: qsTr("Reset Bayer 4×4"); onClicked: backend.resetCustomDitherMatrix() }
-            }
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.preferredHeight: Math.max(84, Math.min(360, matrixGrid.implicitHeight + 14))
-                radius: 6
-                color: theme.panelRaisedColor
-                border.color: theme.borderColor
-                clip: true
-                Flickable {
-                    anchors.fill: parent; anchors.margins: 7
-                    contentWidth: matrixGrid.implicitWidth; contentHeight: matrixGrid.implicitHeight
-                    clip: true
-                    GridLayout {
-                        id: matrixGrid
-                        columns: Math.max(2, backend.customDitherMatrixSize)
-                        rowSpacing: 3; columnSpacing: 3
+                RowLayout {
+                    Layout.fillWidth: true
+                    MintButton { text: qsTr("Analyse"); onClicked: backend.refreshPaletteLab() }
+                    MintButton { text: qsTr("Remove unused"); enabled: Number((backend.paletteLabData || {}).unused_count || 0) > 0; onClicked: backend.removeUnusedPaletteColors() }
+                    MintButton { text: qsTr("Reduce suggestion"); enabled: Number((backend.paletteLabData || {}).suggested_count || 0) > 0; onClicked: backend.applyPaletteReductionSuggestion() }
+                }
+                MintLabel {
+                    Layout.fillWidth: true
+                    visible: Object.keys(backend.paletteLabData || {}).length > 0
+                    text: qsTr("Sampled %1 pixels · %2 unused · suggested %3 colours")
+                        .arg(Number((backend.paletteLabData || {}).sample_count || 0))
+                        .arg(Number((backend.paletteLabData || {}).unused_count || 0))
+                        .arg(Number((backend.paletteLabData || {}).suggested_count || 0))
+                    color: theme.mutedTextColor
+                    wrapMode: Text.WordWrap
+                }
+                Flow {
+                    Layout.fillWidth: true
+                    spacing: 6
+                    MintButton { text: qsTr("Sort luminance"); onClicked: backend.sortPalette("luminance") }
+                    MintButton { text: qsTr("Sort hue"); onClicked: backend.sortPalette("hue") }
+                    MintButton { text: qsTr("Sort saturation"); onClicked: backend.sortPalette("saturation") }
+                    MintButton { text: qsTr("Sort value"); onClicked: backend.sortPalette("value") }
+                }
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: paletteUsageColumn.implicitHeight + 14
+                    visible: ((backend.paletteLabData || {}).colors || []).length > 0
+                    radius: 6
+                    color: theme.panelRaisedColor
+                    border.color: theme.borderColor
+                    ColumnLayout {
+                        id: paletteUsageColumn
+                        anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top
+                        anchors.margins: 7
+                        spacing: 3
+                        MintLabel { text: qsTr("Colour usage histogram"); font.bold: true }
                         Repeater {
-                            model: {
-                                var result = []
-                                var matrix = backend.customDitherMatrix || []
-                                for (var y = 0; y < matrix.length; ++y)
-                                    for (var x = 0; x < matrix[y].length; ++x)
-                                        result.push({"row": y, "column": x, "value": matrix[y][x]})
-                                return result
+                            model: ((backend.paletteLabData || {}).colors || []).slice(0, 32)
+                            delegate: RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 5
+                                Rectangle { width: 16; height: 16; radius: 2; color: modelData.color; border.color: theme.borderColor }
+                                MintLabel { Layout.preferredWidth: 62; text: modelData.color; font.pixelSize: 9 }
+                                Rectangle {
+                                    Layout.fillWidth: true; height: 8; radius: 4; color: theme.panelColor
+                                    Rectangle {
+                                        width: parent.width * Math.min(1.0, Number(modelData.usage_percent || 0) / 100.0)
+                                        height: parent.height; radius: parent.radius; color: modelData.unused ? theme.mutedTextColor : theme.accentColor
+                                    }
+                                }
+                                MintLabel { Layout.preferredWidth: 45; horizontalAlignment: Text.AlignRight; text: Number(modelData.usage_percent || 0).toFixed(1) + "%"; font.pixelSize: 9 }
                             }
-                            delegate: MintTextField {
-                                Layout.preferredWidth: 48
-                                Layout.preferredHeight: 30
-                                text: Number(modelData.value).toString()
-                                validator: DoubleValidator {}
-                                horizontalAlignment: Text.AlignHCenter
-                                onEditingFinished: backend.setCustomDitherMatrixCell(modelData.row, modelData.column, Number(text))
+                        }
+                        MintLabel {
+                            Layout.fillWidth: true
+                            visible: ((backend.paletteLabData || {}).near_duplicates || []).length > 0
+                            text: qsTr("Near-duplicate pairs: %1").arg(((backend.paletteLabData || {}).near_duplicates || []).length)
+                            color: theme.mutedTextColor
+                        }
+                        MintLabel {
+                            Layout.fillWidth: true
+                            visible: ((backend.paletteLabData || {}).ramps || []).length > 0
+                            text: qsTr("Detected ramps: %1").arg(((backend.paletteLabData || {}).ramps || []).length)
+                            color: theme.mutedTextColor
+                        }
+                    }
+                }
+
+                MintLabel { text: qsTr("Dither Matrix Designer"); font.bold: true }
+                RowLayout {
+                    Layout.fillWidth: true
+                    MintLabel { text: qsTr("Size"); color: theme.mutedTextColor }
+                    MintSpinBox {
+                        from: 2; to: 12; value: backend.customDitherMatrixSize
+                        onValueModified: backend.setCustomDitherMatrixSize(value)
+                    }
+                    MintButton { text: qsTr("Reset Bayer 4×4"); onClicked: backend.resetCustomDitherMatrix() }
+                    MintButton {
+                        text: qsTr("Apply custom")
+                        selected: true
+                        onClicked: backend.applyCustomDitherMatrix()
+                    }
+                }
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: Math.max(84, Math.min(360, matrixGrid.implicitHeight + 14))
+                    radius: 6
+                    color: theme.panelRaisedColor
+                    border.color: theme.borderColor
+                    clip: true
+                    Flickable {
+                        anchors.fill: parent; anchors.margins: 7
+                        contentWidth: matrixGrid.implicitWidth; contentHeight: matrixGrid.implicitHeight
+                        clip: true
+                        GridLayout {
+                            id: matrixGrid
+                            columns: Math.max(2, backend.customDitherMatrixSize)
+                            rowSpacing: 3; columnSpacing: 3
+                            Repeater {
+                                model: {
+                                    var result = []
+                                    var matrix = backend.customDitherMatrix || []
+                                    for (var y = 0; y < matrix.length; ++y)
+                                        for (var x = 0; x < matrix[y].length; ++x)
+                                            result.push({"row": y, "column": x, "value": matrix[y][x]})
+                                    return result
+                                }
+                                delegate: MintTextField {
+                                    Layout.preferredWidth: 48
+                                    Layout.preferredHeight: 30
+                                    text: Number(modelData.value).toString()
+                                    validator: DoubleValidator {}
+                                    horizontalAlignment: Text.AlignHCenter
+                                    onEditingFinished: backend.setCustomDitherMatrixCell(modelData.row, modelData.column, Number(text))
+                                }
                             }
                         }
                     }
                 }
-            }
-            RowLayout {
-                Layout.fillWidth: true
-                MintTextField { id: matrixNameField; Layout.fillWidth: true; placeholderText: qsTr("Matrix name") }
-                MintButton { text: qsTr("Save matrix"); onClicked: backend.saveCustomDitherMatrix(matrixNameField.text) }
-            }
-            RowLayout {
-                Layout.fillWidth: true
-                MintComboBox {
-                    id: savedMatrixCombo
+                RowLayout {
                     Layout.fillWidth: true
-                    model: (backend.ditherMatrixLibrary || []).map(function(item) { return item.name })
+                    MintTextField { id: matrixNameField; Layout.fillWidth: true; placeholderText: qsTr("Matrix name") }
+                    MintButton { text: qsTr("Save matrix"); onClicked: backend.saveCustomDitherMatrix(matrixNameField.text) }
                 }
-                MintButton { text: qsTr("Load matrix"); enabled: savedMatrixCombo.currentIndex >= 0; onClicked: backend.loadCustomDitherMatrix(savedMatrixCombo.currentText) }
+                RowLayout {
+                    Layout.fillWidth: true
+                    MintComboBox {
+                        id: savedMatrixCombo
+                        Layout.fillWidth: true
+                        model: (backend.ditherMatrixLibrary || []).map(function(item) { return item.name })
+                    }
+                    MintButton { text: qsTr("Load matrix"); enabled: savedMatrixCombo.currentIndex >= 0; onClicked: backend.loadCustomDitherMatrix(savedMatrixCombo.currentText) }
+                }
             }
 
             MintLabel { text: qsTr("Lospec"); font.bold: true }

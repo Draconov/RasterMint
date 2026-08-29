@@ -710,6 +710,7 @@
     "Rename": "Renommer",
     "Reset": "Réinitialiser",
     "Reset Bayer 4×4": "Réinitialiser Bayer 4×4",
+    "Apply custom": "Appliquer la matrice",
     "Reuses unchanged layers when editing a later layer.": "Réutilise les calques inchangés lors de la modification d’un calque ultérieur.",
     "RF Interference": "Interférences RF",
     "RGB Convergence": "Convergence RGB",

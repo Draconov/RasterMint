@@ -728,7 +728,11 @@ class RasterMintBackend(BaseRasterMintBackend):
             "preset-thumbnail",
             preview_source,
             preview_settings,
-            {"preset_id": preset_id, "source_revision": source_revision},
+            {
+                "preset_id": preset_id,
+                "source_revision": source_revision,
+                "thumbnail_revision": self._preset_thumbnail_revision,
+            },
             display_mode="display",
             include_grid=False,
         )

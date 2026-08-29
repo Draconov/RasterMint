@@ -456,28 +456,31 @@ EFFECT_DEFINITIONS: dict[str, dict[str, Any]] = {
 
 EFFECT_CATEGORIES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("Color & Tone", (
-        "Adjustments", "Levels", "Local Contrast", "Hue Rotate", "Grayscale", "Invert", "Posterize",
+        "Adjustments", "Levels", "Local Contrast", "Posterize", "Grayscale", "Hue Rotate", "Invert",
     )),
     ("Detail & Light", (
-        "Gaussian Blur", "Median Denoise", "Sharpen", "Glow", "Bloom",
+        "Median Denoise", "Gaussian Blur", "Sharpen", "Glow", "Bloom",
     )),
     ("Pixel & Dither", (
-        "Pixelate", "Dither", "Dither Glow", "Pixel Material",
+        "Pixelate", "Pixel Material", "Dither", "Dither Glow",
     )),
     ("Hardware Stages", (
         "Hardware Limits", "Hardware Display",
     )),
     ("Display Effects", (
-        "Pixel Aspect Ratio", "Scanlines", "Interlace", "Display Persistence",
-        "RGB Convergence", "CRT Mask", "Phosphor Glow", "Beam Width", "Horizontal Bloom",
-        "Scanline Variation", "CRT Curvature", "Edge Distortion", "Vertical Sync Roll",
-        "Field Flicker", "LCD Inversion", "Chroma Bleed", "Dot Crawl", "Composite Noise",
-        "RF Interference", "Tracking Error", "Tape Dropout", "Temporal Jitter",
-        "Head Switching Noise", "Horizontal Tear", "JPEG Compression",
+        # Geometry first, then scan/field structure, CRT/phosphor response,
+        # flat-panel artifacts, analog signal damage, tape damage, compression.
+        "Pixel Aspect Ratio", "CRT Curvature", "Edge Distortion",
+        "Scanlines", "Scanline Variation", "Interlace", "Field Flicker",
+        "CRT Mask", "RGB Convergence", "Beam Width", "Phosphor Glow", "Horizontal Bloom",
+        "Display Persistence", "LCD Inversion",
+        "Chroma Bleed", "Dot Crawl", "Composite Noise", "RF Interference", "Vertical Sync Roll",
+        "Tracking Error", "Tape Dropout", "Head Switching Noise", "Horizontal Tear", "Temporal Jitter",
+        "JPEG Compression",
     )),
     ("Glitch & Channels", (
-        "Chromatic Shift", "RGB Split", "Pixel Sort", "Screen Melt", "Block Shuffle",
-        "Pixel Scatter", "Data Shift", "Row Shift", "Column Shift", "Databend", "Channel Swap",
+        "Chromatic Shift", "RGB Split", "Channel Swap", "Row Shift", "Column Shift",
+        "Pixel Scatter", "Pixel Sort", "Block Shuffle", "Data Shift", "Databend", "Screen Melt",
     )),
     ("Noise & Motion", (
         "Noise", "Temporal Flicker", "Temporal Pattern", "Cellular Automata",
