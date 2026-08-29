@@ -1,0 +1,84 @@
+{
+  "id": "playstation-rgb",
+  "name": "Sony PlayStation (RGB CRT)",
+  "category": "Console",
+  "summary": "Cleaner 320×240 PlayStation RGB/SCART-style CRT profile. It keeps RGB555 output depth while avoiding the composite dot-crawl and chroma-noise treatment of the standard PlayStation profile.",
+  "raster": {
+    "width": 320,
+    "height": 240,
+    "pixel_aspect": [
+      1,
+      1
+    ],
+    "tile": [
+      0,
+      0
+    ],
+    "fit_mode": "fit"
+  },
+  "palette": {
+    "type": "native-depth",
+    "name": "PlayStation RGB555",
+    "description": "15-bit RGB display color with a cleaner RGB/SCART-oriented CRT presentation. Strict mode quantizes each RGB channel to 5 bits."
+  },
+  "recommended_dither": "Nearest Palette",
+  "visual": {
+    "display": {
+      "kind": "crt",
+      "gamma": 1.05,
+      "blur": 0.32,
+      "color_bleed": 0.12,
+      "scanlines": 0.16,
+      "lcd_grid": 0.0
+    },
+    "effects": [
+      {
+        "kind": "RGB Convergence",
+        "params": {
+          "red_x": 0.3,
+          "red_y": 0.0,
+          "blue_x": -0.3,
+          "blue_y": 0.0,
+          "strength": 0.2
+        }
+      },
+      {
+        "kind": "CRT Mask",
+        "params": {
+          "mask_type": "Aperture Grille",
+          "scale": 3,
+          "strength": 0.14,
+          "brightness": 0.05
+        }
+      },
+      {
+        "kind": "Horizontal Bloom",
+        "params": {
+          "threshold": 0.8,
+          "radius": 2.0,
+          "intensity": 0.1
+        }
+      },
+      {
+        "kind": "Display Persistence",
+        "params": {
+          "display_type": "CRT",
+          "persistence_time": 0.05,
+          "strength": 0.09,
+          "decay": 1.75
+        }
+      }
+    ]
+  },
+  "strict": {
+    "supported": true,
+    "constraints": {
+      "channel_bits": [
+        5,
+        5,
+        5
+      ]
+    }
+  },
+  "sources": []
+}

@@ -9,8 +9,7 @@ from typing import Iterable
 
 import numpy as np
 from PIL import Image
-
-from .color_utils import hex_to_rgb, rgb_to_hex
+from .gpu_accel import try_quantize_nearest
 
 BUILTIN_PALETTES: dict[str, list[str]] = {
     "Ink": ["#0B1020", "#F3F7FF"],
@@ -26,6 +25,18 @@ BUILTIN_PALETTES: dict[str, list[str]] = {
     ],
 }
 
+def hex_to_rgb(value: str) -> tuple[int, int, int]:
+    value = value.strip().lstrip("#")
+    if len(value) == 3:
+        value = "".join(ch * 2 for ch in value)
+    if len(value) != 6 or not re.fullmatch(r"[0-9A-Fa-f]{6}", value):
+        raise ValueError(f"Invalid hex color: {value!r}")
+    return tuple(int(value[i : i + 2], 16) for i in (0, 2, 4))
+
+
+def rgb_to_hex(rgb: Iterable[int]) -> str:
+    r, g, b = (max(0, min(255, int(v))) for v in rgb)
+    return f"#{r:02X}{g:02X}{b:02X}"
 
 def palette_array(colors: Iterable[str]) -> np.ndarray:
     arr = np.asarray([hex_to_rgb(c) for c in colors], dtype=np.float32)
@@ -38,18 +49,20 @@ def nearest_palette_index(pixel: np.ndarray, palette: np.ndarray) -> int:
     diff = palette - pixel
     return int(np.argmin(np.einsum("ij,ij->i", diff, diff)))
 
-
 def quantize_nearest(image: np.ndarray, palette: np.ndarray, chunk_pixels: int = 32768) -> np.ndarray:
-    """Nearest RGB palette mapping with bounded memory.
+    """Nearest RGB palette mapping with optional OpenCL acceleration.
 
-    Uses squared-distance matrix algebra instead of allocating a giant
-    [height,width,palette,rgb] temporary array. This matters for 64/128/256
-    color Lospec palettes.
+    GPU execution is opportunistic and lazy.  If no suitable OpenCL GPU/runtime
+    is available (or a GPU operation fails), the original bounded-memory NumPy
+    path is used unchanged.
     """
     source = np.asarray(image, dtype=np.float32)
+    pal = np.asarray(palette, dtype=np.float32)
+    accelerated = try_quantize_nearest(source, pal)
+    if accelerated is not None:
+        return accelerated
     h, w, _ = source.shape
     pixels = source.reshape(-1, 3)
-    pal = np.asarray(palette, dtype=np.float32)
     pal_sq = np.sum(pal * pal, axis=1)
     out = np.empty_like(pixels)
     for start in range(0, len(pixels), max(1024, int(chunk_pixels))):
@@ -60,7 +73,6 @@ def quantize_nearest(image: np.ndarray, palette: np.ndarray, chunk_pixels: int =
         out[start:end] = pal[np.argmin(distances, axis=1)]
     return out.reshape(h, w, 3)
 
-
 PALETTE_OPTIMIZERS = ["Median Cut", "K-Means", "Octree", "Wu Quantization"]
 
 
@@ -69,7 +81,6 @@ def _thumbnail_rgb(image: Image.Image) -> Image.Image:
     thumb = img.copy()
     thumb.thumbnail((512, 512), Image.Resampling.LANCZOS)
     return thumb
-
 
 def _palette_from_quantized(q: Image.Image, colors: int) -> list[str]:
     pal = q.getpalette() or []
@@ -84,42 +95,6 @@ def _palette_from_quantized(q: Image.Image, colors: int) -> list[str]:
                 result.append(c)
     return result[:colors]
 
-
-def _nearest_center_labels(pixels: np.ndarray, centers: np.ndarray, chunk_pixels: int = 4096) -> np.ndarray:
-    """Return nearest-center labels quickly with bounded memory.
-
-    Matrix distance algebra is much faster than constructing a
-    ``pixel × center × RGB`` temporary. Float32 cancellation can only change
-    legacy tie decisions when two centers are almost equally distant, so those
-    rare ambiguous rows are recomputed with the original subtract/square/sum
-    arithmetic to preserve pre-0.2.3 output exactly.
-    """
-    values = np.asarray(pixels, dtype=np.float32)
-    center_values = np.asarray(centers, dtype=np.float32)
-    labels = np.empty(len(values), dtype=np.int32)
-    center_sq = np.sum(center_values * center_values, axis=1)
-    chunk_size = max(512, int(chunk_pixels))
-    for start in range(0, len(values), chunk_size):
-        end = min(len(values), start + chunk_size)
-        chunk = values[start:end]
-        chunk_sq = np.sum(chunk * chunk, axis=1, keepdims=True)
-        distances = chunk_sq + center_sq[None, :] - 2.0 * (chunk @ center_values.T)
-        chunk_labels = np.argmin(distances, axis=1)
-
-        if len(center_values) > 1:
-            closest_two = np.partition(distances, 1, axis=1)[:, :2]
-            ambiguous = (closest_two[:, 1] - closest_two[:, 0]) <= 1.0
-            if np.any(ambiguous):
-                exact = np.sum(
-                    (chunk[ambiguous, None, :] - center_values[None, :, :]) ** 2,
-                    axis=2,
-                )
-                chunk_labels[ambiguous] = np.argmin(exact, axis=1)
-
-        labels[start:end] = chunk_labels
-    return labels
-
-
 def _kmeans_palette(image: Image.Image, colors: int) -> list[str]:
     arr = np.asarray(_thumbnail_rgb(image), dtype=np.float32).reshape(-1, 3)
     if len(arr) > 100_000:
@@ -128,28 +103,18 @@ def _kmeans_palette(image: Image.Image, colors: int) -> list[str]:
     unique = np.unique(arr.astype(np.uint8), axis=0).astype(np.float32)
     if len(unique) <= colors:
         return [rgb_to_hex(c) for c in unique]
-
-    # Deterministic farthest-point initialization. Maintain each colour's
-    # nearest selected-center distance incrementally instead of repeatedly
-    # allocating [unique_colors, selected_centers, 3] temporaries.
+    # Deterministic farthest-point initialization gives much more stable
+    # creative results than picking random centers.
     lum = unique @ np.array([0.2126, 0.7152, 0.0722], dtype=np.float32)
-    first = int(np.argmin(lum))
-    second = int(np.argmax(lum))
-    selected = [first, second]
-    d_first = np.sum((unique - unique[first]) ** 2, axis=1)
-    d_second = np.sum((unique - unique[second]) ** 2, axis=1)
-    min_distance = np.minimum(d_first, d_second)
-    while len(selected) < colors:
-        next_index = int(np.argmax(min_distance))
-        selected.append(next_index)
-        distance = np.sum((unique - unique[next_index]) ** 2, axis=1)
-        min_distance = np.minimum(min_distance, distance)
-    centers_np = unique[np.asarray(selected[:colors], dtype=np.int32)].astype(np.float32, copy=True)
-
-    # Keep only the compact label vector for all sampled pixels. The large
-    # pixel×center distance matrix is created one chunk at a time.
+    centers = [unique[int(np.argmin(lum))], unique[int(np.argmax(lum))]]
+    while len(centers) < colors:
+        c = np.asarray(centers, dtype=np.float32)
+        d = np.min(np.sum((unique[:, None, :] - c[None, :, :]) ** 2, axis=2), axis=1)
+        centers.append(unique[int(np.argmax(d))])
+    centers_np = np.asarray(centers[:colors], dtype=np.float32)
     for _ in range(16):
-        labels = _nearest_center_labels(arr, centers_np)
+        distances = np.sum((arr[:, None, :] - centers_np[None, :, :]) ** 2, axis=2)
+        labels = np.argmin(distances, axis=1)
         updated = centers_np.copy()
         for i in range(colors):
             members = arr[labels == i]
@@ -161,14 +126,12 @@ def _kmeans_palette(image: Image.Image, colors: int) -> list[str]:
         centers_np = updated
     return [rgb_to_hex(np.rint(c)) for c in centers_np]
 
-
 def _wu_volume(moment: np.ndarray, box: tuple[int, int, int, int, int, int]) -> float:
     r0, r1, g0, g1, b0, b1 = box
     return float(
         moment[r1, g1, b1] - moment[r1, g1, b0] - moment[r1, g0, b1] + moment[r1, g0, b0]
         - moment[r0, g1, b1] + moment[r0, g1, b0] + moment[r0, g0, b1] - moment[r0, g0, b0]
     )
-
 
 def _wu_variance(moments: tuple[np.ndarray, ...], box: tuple[int, int, int, int, int, int]) -> float:
     wt, mr, mg, mb, m2 = moments
@@ -177,7 +140,6 @@ def _wu_variance(moments: tuple[np.ndarray, ...], box: tuple[int, int, int, int,
         return 0.0
     r = _wu_volume(mr, box); g = _wu_volume(mg, box); b = _wu_volume(mb, box)
     return max(0.0, _wu_volume(m2, box) - (r * r + g * g + b * b) / weight)
-
 
 def _wu_best_split(moments: tuple[np.ndarray, ...], box: tuple[int, int, int, int, int, int]):
     r0, r1, g0, g1, b0, b1 = box
@@ -200,7 +162,6 @@ def _wu_best_split(moments: tuple[np.ndarray, ...], box: tuple[int, int, int, in
                 best = (a, c)
     return best
 
-
 def _wu_palette(image: Image.Image, colors: int) -> list[str]:
     arr = np.asarray(_thumbnail_rgb(image), dtype=np.uint8).reshape(-1, 3)
     # Wu's classic quantizer uses a 5-bit-per-channel histogram plus a zero
@@ -221,7 +182,6 @@ def _wu_palette(image: Image.Image, colors: int) -> list[str]:
     sq = np.sum(arr.astype(np.float64) ** 2, axis=1)
     np.add.at(m2, (r, g, b), sq)
     moments = tuple(np.cumsum(np.cumsum(np.cumsum(m, axis=0), axis=1), axis=2) for m in (wt, mr, mg, mb, m2))
-
     boxes: list[tuple[int, int, int, int, int, int]] = [(0, 32, 0, 32, 0, 32)]
     while len(boxes) < colors:
         candidate_index = max(range(len(boxes)), key=lambda i: _wu_variance(moments, boxes[i]))
@@ -230,7 +190,6 @@ def _wu_palette(image: Image.Image, colors: int) -> list[str]:
             break
         boxes[candidate_index] = split[0]
         boxes.append(split[1])
-
     result: list[str] = []
     for box in boxes:
         weight = _wu_volume(moments[0], box)
@@ -241,7 +200,6 @@ def _wu_palette(image: Image.Image, colors: int) -> list[str]:
         if value not in result:
             result.append(value)
     return result[:colors]
-
 
 def extract_palette(image: Image.Image, colors: int = 8, method: str = "Median Cut") -> list[str]:
     colors = max(2, min(256, int(colors)))
@@ -260,7 +218,6 @@ def extract_palette(image: Image.Image, colors: int = 8, method: str = "Median C
         return BUILTIN_PALETTES["Ink"].copy()
     return result[:colors]
 
-
 def sort_palette_by_luminance(colors: Iterable[str]) -> list[str]:
     def lum(value: str) -> float:
         r, g, b = hex_to_rgb(value)
@@ -273,7 +230,6 @@ def read_palette_file(path: str | Path) -> list[str]:
     text = source.read_text(encoding="utf-8", errors="replace")
     suffix = source.suffix.lower()
     colors: list[str] = []
-
     if suffix == ".gpl":
         for line in text.splitlines():
             match = re.match(r"\s*(\d+)\s+(\d+)\s+(\d+)(?:\s+.*)?$", line)
@@ -288,7 +244,6 @@ def read_palette_file(path: str | Path) -> list[str]:
     else:
         for match in re.finditer(r"#?([0-9A-Fa-f]{6})(?![0-9A-Fa-f])", text):
             colors.append(f"#{match.group(1).upper()}")
-
     deduped: list[str] = []
     for color in colors:
         if color not in deduped:

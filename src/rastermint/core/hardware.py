@@ -10,6 +10,7 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 
 from .color_utils import hex_to_rgb
+from .gpu_accel import try_quantize_channel_bits
 from .hardware_profiles import (
     HardwareProfile,
     apply_profile_to_settings,
@@ -21,7 +22,14 @@ from .hardware_profiles import (
 )
 from .palette import palette_array, quantize_nearest
 
+
 def _quantize_channel_bits(arr: np.ndarray, bits: list[int] | tuple[int, ...]) -> np.ndarray:
+    # Large RGB bit-depth passes (including strict RGB555 profiles) are an ideal
+    # embarrassingly-parallel GPU job.  OpenCL is optional; on unsupported
+    # systems this immediately falls back to the original NumPy implementation.
+    accelerated = try_quantize_channel_bits(arr, bits)
+    if accelerated is not None:
+        return accelerated
     out = arr.astype(np.float32, copy=True)
     for channel in range(3):
         b = int(bits[channel] if channel < len(bits) else bits[-1])
@@ -87,7 +95,6 @@ def _limit_region_colors(
     flat_codes = region_codes.reshape(-1)
     unique_codes, counts = np.unique(flat_codes, return_counts=True)
     colors = _decode_rgb_codes(unique_codes)
-
     if palette_groups:
         best_mapped: np.ndarray | None = None
         best_error = float("inf")
@@ -102,7 +109,6 @@ def _limit_region_colors(
                 best_error = error
                 best_mapped = mapped
         assert best_mapped is not None
-
         mapped_codes = _encode_rgb_codes(best_mapped)
         candidate_codes, inverse = np.unique(mapped_codes, return_inverse=True)
         candidate_counts = np.bincount(inverse, weights=counts, minlength=len(candidate_codes))
@@ -114,7 +120,6 @@ def _limit_region_colors(
         if len(candidate_codes) > limit:
             order = np.argsort(counts)[::-1][:limit]
             candidate_codes = candidate_codes[order]
-
     chosen = _decode_rgb_codes(candidate_codes)
     flat = region.reshape(-1, 3).astype(np.float32)
     indices = _nearest_palette_indices(flat, chosen)
@@ -135,7 +140,6 @@ def _tile_color_limit(
     out = arr.copy()
     codes = _encode_rgb_codes(out)
     groups_np = [palette_array(group) for group in (palette_groups or []) if group]
-
     for y in range(0, h, th):
         y1 = min(h, y + th)
         for x in range(0, w, tw):
@@ -150,7 +154,6 @@ def apply_hardware_constraints(image: Image.Image, constraints: dict[str, Any]) 
         return image.convert("RGB")
     img = image.convert("RGB")
     arr = np.asarray(img, dtype=np.uint8)
-
     fixed_palette = constraints.get("fixed_palette")
     if isinstance(fixed_palette, list) and fixed_palette:
         mapped = quantize_nearest(arr.astype(np.float32), palette_array(fixed_palette))
@@ -159,12 +162,10 @@ def apply_hardware_constraints(image: Image.Image, constraints: dict[str, Any]) 
     channel_bits = constraints.get("channel_bits")
     if isinstance(channel_bits, (list, tuple)) and channel_bits:
         arr = _quantize_channel_bits(arr, list(channel_bits))
-
     max_global = int(constraints.get("max_colors_global") or 0)
     if max_global > 0 and not fixed_palette:
         img = _limit_global_colors(Image.fromarray(arr, "RGB"), max_global)
         arr = np.asarray(img, dtype=np.uint8)
-
     tile_limit = int(constraints.get("tile_max_colors") or 0)
     if tile_limit > 0:
         tile_width = int(constraints.get("tile_width") or 8)
@@ -182,7 +183,6 @@ def apply_hardware_limits_layer(
     active_palette: list[str],
 ) -> Image.Image:
     """Apply an editable Hardware Limits layer using the live palette.
-
     Fixed-palette hardware profiles default to Active Palette after the profile
     applies its palette, so later swatch edits immediately change the strict
     remap instead of being silently overridden by a hidden profile snapshot.
@@ -195,7 +195,6 @@ def apply_hardware_limits_layer(
             profile_palette = [str(color) for color in raw_palette if str(color).strip()]
     except (TypeError, ValueError, json.JSONDecodeError):
         profile_palette = []
-
     if not profile_palette:
         # Native-depth / channel-limit profiles have no hardware palette to
         # enforce. Palette selection is therefore not part of this stage.
@@ -204,7 +203,6 @@ def apply_hardware_limits_layer(
         enforced_palette = profile_palette
     else:  # Active Palette
         enforced_palette = [str(color) for color in active_palette]
-
     constraints: dict[str, Any] = {}
     if enforced_palette:
         constraints["fixed_palette"] = enforced_palette
@@ -216,7 +214,6 @@ def apply_hardware_limits_layer(
     ]
     if bits != [8, 8, 8]:
         constraints["channel_bits"] = bits
-
     max_global = max(0, min(256, int(params.get("max_colors_global", 0))))
     if max_global > 0:
         constraints["max_colors_global"] = max_global
@@ -226,7 +223,6 @@ def apply_hardware_limits_layer(
         constraints["tile_max_colors"] = tile_limit
         constraints["tile_width"] = max(1, int(params.get("tile_width", 8)))
         constraints["tile_height"] = max(1, int(params.get("tile_height", 8)))
-
         if bool(params.get("use_profile_groups", False)):
             try:
                 raw_groups = json.loads(str(params.get("profile_group_indices_json", "[]") or "[]"))
@@ -247,7 +243,6 @@ def apply_hardware_limits_layer(
                         groups.append(colors)
             if groups:
                 constraints["tile_palette_groups"] = groups
-
     return apply_hardware_constraints(image, constraints)
 
 
@@ -304,7 +299,6 @@ def apply_display_simulation(image: Image.Image, profile: dict[str, Any]) -> Ima
     blur = float(profile.get("blur", 0.0))
     if blur > 0:
         img = img.filter(ImageFilter.GaussianBlur(radius=blur))
-
     arr = np.asarray(img, dtype=np.float32).copy()
     scanlines = max(0.0, min(1.0, float(profile.get("scanlines", 0.0))))
     if scanlines > 0 and arr.shape[0] > 1:
@@ -331,7 +325,6 @@ def apply_grid_overlay(
     opacity = max(0.0, min(1.0, float(opacity)))
     if opacity <= 0:
         return image.convert("RGB")
-
     img = image.convert("RGBA")
     overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(overlay)
@@ -342,7 +335,6 @@ def apply_grid_overlay(
     # shown only when there is at least one pixel between lines.
     if sx < 2 and sy < 2:
         return image.convert("RGB")
-
     minor_alpha = round(255 * opacity * 0.55)
     major_alpha = round(255 * opacity)
     for x in range(0, img.width, sx):

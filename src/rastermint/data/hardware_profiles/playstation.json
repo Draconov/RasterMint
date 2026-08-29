@@ -2,7 +2,7 @@
   "id": "playstation",
   "name": "Sony PlayStation",
   "category": "Console",
-  "summary": "Common 320×240 CRT-oriented PlayStation profile with RGB555 color depth. The console supports several framebuffer and texture modes, so this is a practical still-image profile rather than GPU emulation.",
+  "summary": "Common 320×240 composite-CRT PlayStation profile with RGB555 output depth and restrained analogue-video artifacts. The console supports several framebuffer, texture, and output modes, so this is a practical still-image profile rather than GPU emulation.",
   "raster": {
     "width": 320,
     "height": 240,
@@ -19,35 +19,51 @@
   "palette": {
     "type": "native-depth",
     "name": "PlayStation RGB555",
-    "description": "15-bit RGB display color; games and textures choose their own palettes."
+    "description": "15-bit RGB display color; games and textures choose their own palettes. Strict mode quantizes each RGB channel to 5 bits."
   },
   "recommended_dither": "Nearest Palette",
   "visual": {
     "display": {
       "kind": "crt",
-      "gamma": 1.05,
-      "blur": 0.5,
-      "color_bleed": 0.9,
-      "scanlines": 0.12,
+      "gamma": 1.08,
+      "blur": 0.55,
+      "color_bleed": 1.0,
+      "scanlines": 0.14,
       "lcd_grid": 0.0
     },
     "effects": [
       {
         "kind": "RGB Convergence",
         "params": {
-          "red_x": 0.45,
+          "red_x": 0.4,
           "red_y": 0.0,
-          "blue_x": -0.45,
+          "blue_x": -0.4,
           "blue_y": 0.0,
-          "strength": 0.35
+          "strength": 0.28
         }
       },
       {
         "kind": "Chroma Bleed",
         "params": {
-          "bleed": 0.85,
+          "bleed": 0.9,
           "delay": 1,
-          "strength": 0.38
+          "strength": 0.32
+        }
+      },
+      {
+        "kind": "Dot Crawl",
+        "params": {
+          "amount": 0.08,
+          "scale": 2.0,
+          "speed": 3.58
+        }
+      },
+      {
+        "kind": "Composite Noise",
+        "params": {
+          "luma": 0.02,
+          "chroma": 0.035,
+          "seed": 1994
         }
       },
       {
@@ -55,17 +71,25 @@
         "params": {
           "mask_type": "Aperture Grille",
           "scale": 3,
-          "strength": 0.13,
-          "brightness": 0.05
+          "strength": 0.11,
+          "brightness": 0.04
+        }
+      },
+      {
+        "kind": "Horizontal Bloom",
+        "params": {
+          "threshold": 0.78,
+          "radius": 2.5,
+          "intensity": 0.12
         }
       },
       {
         "kind": "Display Persistence",
         "params": {
           "display_type": "CRT",
-          "persistence_time": 0.06,
-          "strength": 0.13,
-          "decay": 1.65
+          "persistence_time": 0.05,
+          "strength": 0.1,
+          "decay": 1.7
         }
       }
     ]
