@@ -95,6 +95,33 @@ def _palette_from_quantized(q: Image.Image, colors: int) -> list[str]:
                 result.append(c)
     return result[:colors]
 
+
+def _nearest_center_labels(
+    pixels: np.ndarray,
+    centers: np.ndarray,
+    chunk_pixels: int = 32768,
+) -> np.ndarray:
+    """Return nearest K-Means center indices using bounded-memory chunks.
+
+    The result matches the legacy broadcast distance formula while avoiding a
+    potentially huge ``pixels x centers x RGB`` temporary allocation.
+    """
+    source = np.asarray(pixels, dtype=np.float32)
+    palette = np.asarray(centers, dtype=np.float32)
+    if source.ndim != 2 or source.shape[1] != 3:
+        raise ValueError("pixels must have shape (N, 3)")
+    if palette.ndim != 2 or palette.shape[1] != 3 or len(palette) == 0:
+        raise ValueError("centers must have shape (K, 3) with K >= 1")
+
+    labels = np.empty(len(source), dtype=np.intp)
+    step = max(1, int(chunk_pixels))
+    for start in range(0, len(source), step):
+        end = min(len(source), start + step)
+        diff = source[start:end, None, :] - palette[None, :, :]
+        distances = np.sum(diff * diff, axis=2)
+        labels[start:end] = np.argmin(distances, axis=1)
+    return labels
+
 def _kmeans_palette(image: Image.Image, colors: int) -> list[str]:
     arr = np.asarray(_thumbnail_rgb(image), dtype=np.float32).reshape(-1, 3)
     if len(arr) > 100_000:
@@ -113,8 +140,7 @@ def _kmeans_palette(image: Image.Image, colors: int) -> list[str]:
         centers.append(unique[int(np.argmax(d))])
     centers_np = np.asarray(centers[:colors], dtype=np.float32)
     for _ in range(16):
-        distances = np.sum((arr[:, None, :] - centers_np[None, :, :]) ** 2, axis=2)
-        labels = np.argmin(distances, axis=1)
+        labels = _nearest_center_labels(arr, centers_np)
         updated = centers_np.copy()
         for i in range(colors):
             members = arr[labels == i]
