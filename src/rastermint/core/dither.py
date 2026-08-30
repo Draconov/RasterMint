@@ -9,7 +9,7 @@ import json
 import math
 import numpy as np
 
-from .dither_metadata import ALGORITHM_GROUPS, ALGORITHMS, ERROR_DIFFUSION_KERNELS, Kernel
+from .dither_metadata import ALGORITHM_GROUPS, ALGORITHMS, ERROR_DIFFUSION_KERNELS, MODULATION_MODES, Kernel
 from .palette import quantize_nearest
 
 def expand_bayer(matrix: np.ndarray) -> np.ndarray:
@@ -160,20 +160,204 @@ def blue_noise_dither(image: np.ndarray, palette: np.ndarray, strength: float) -
     return quantize_nearest(adjusted, palette)
 
 
-def modulation_dither(image: np.ndarray, palette: np.ndarray, strength: float = 1.0) -> np.ndarray:
-    """Palette-aware sinusoidal screen with luminance-modulated phase.
+def _smooth_luminance(values: np.ndarray, passes: int = 1) -> np.ndarray:
+    """Small dependency-free edge-safe blur for modulation control fields."""
+    out = np.asarray(values, dtype=np.float32)
+    for _ in range(max(0, int(passes))):
+        p = np.pad(out, ((1, 1), (1, 1)), mode="edge")
+        out = (
+            p[:-2, :-2] + 2.0 * p[:-2, 1:-1] + p[:-2, 2:]
+            + 2.0 * p[1:-1, :-2] + 4.0 * p[1:-1, 1:-1] + 2.0 * p[1:-1, 2:]
+            + p[2:, :-2] + 2.0 * p[2:, 1:-1] + p[2:, 2:]
+        ) / 16.0
+    return out.astype(np.float32, copy=False)
 
-    The carrier remains position-stable (useful for animation) while the image
-    luminance changes the local phase/weight, producing the flowing stripe
-    texture associated with modulation-style halftoning.
+
+def _triangle_wave(value: np.ndarray) -> np.ndarray:
+    phase = np.mod(value, 1.0)
+    return (1.0 - 4.0 * np.abs(phase - 0.5)).astype(np.float32)
+
+
+def _modulation_field(
+    luminance: np.ndarray,
+    mode: str,
+    scale: float,
+    phase_degrees: float,
+    bias: float,
+    detail: float,
+    seed: int,
+) -> np.ndarray:
+    """Build a deterministic -1..1 threshold/error modulation field.
+
+    The modes intentionally share one field engine so Modulation stays one
+    compact Dither algorithm in the UI while each mode changes the actual
+    diffusion topology rather than applying a post-process texture.
     """
-    h, w = image.shape[:2]
-    yy, xx = np.mgrid[0:h, 0:w]
-    luminance = (0.2126 * image[..., 0] + 0.7152 * image[..., 1] + 0.0722 * image[..., 2]) / 255.0
-    phase = (xx * (2.0 * np.pi / 7.0)) + (yy * (2.0 * np.pi / 19.0)) + luminance * np.pi * 1.5
-    carrier = np.sin(phase) * (0.55 + 0.45 * np.cos(yy * (2.0 * np.pi / 13.0)))
-    adjusted = np.clip(image + carrier[..., None] * (72.0 * max(0.0, float(strength))), 0, 255)
-    return quantize_nearest(adjusted, palette)
+    h, w = luminance.shape
+    yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
+    scale = max(2.0, float(scale))
+    detail = max(0.0, min(1.0, float(detail)))
+    tau = float(2.0 * np.pi)
+    # Seed 1 is the neutral/default field. Other seeds use a golden-ratio
+    # phase jump so adjacent integers produce visibly different, repeatable
+    # structures rather than nearly identical sub-pixel shifts.
+    seed_phase = (((int(seed) - 1) * 0.6180339887498949) % 1.0) * tau
+    theta = math.radians(float(phase_degrees)) + seed_phase
+
+    # Keep broad tone contours stable while still allowing detail to steer the
+    # field. This is the core of Smooth Diffuse / contour-aware variants.
+    smooth = _smooth_luminance(luminance, 2 if detail < 0.55 else 1)
+    gy = np.gradient(smooth, axis=0).astype(np.float32) if h > 1 else np.zeros_like(smooth, dtype=np.float32)
+    gx = np.gradient(smooth, axis=1).astype(np.float32) if w > 1 else np.zeros_like(smooth, dtype=np.float32)
+    contrast = np.sqrt(gx * gx + gy * gy).astype(np.float32)
+    peak = float(np.percentile(contrast, 96.0)) if contrast.size else 0.0
+    if peak > 1e-6:
+        contrast = np.clip(contrast / peak, 0.0, 1.0)
+    else:
+        contrast = np.zeros_like(smooth, dtype=np.float32)
+
+    px = xx / scale
+    py = yy / scale
+    tone_phase = smooth * (2.0 + 3.0 * detail) * tau
+
+    if mode == "Smooth Diffuse":
+        # Iso-luminance contours with a very gentle directional drift. This
+        # produces the long flowing line character expected from smooth
+        # diffusion without requiring a separate contour-tracing pass.
+        field = np.sin(tone_phase + py * tau * 0.35 + theta)
+        field *= 0.55 + 0.45 * (1.0 - contrast)
+    elif mode == "Modulated Diffuse X":
+        field = np.sin((px + smooth * (1.2 + detail * 1.8)) * tau + theta)
+    elif mode == "Modulated Diffuse Y":
+        field = np.sin((py + smooth * (1.2 + detail * 1.8)) * tau + theta)
+    elif mode == "Uniform Modulation X":
+        field = _triangle_wave(px + theta / tau)
+    elif mode == "Uniform Modulation Y":
+        field = _triangle_wave(py + theta / tau)
+    elif mode == "Waveform":
+        bend = np.sin(py * tau * 0.58 + theta) * (0.45 + detail * 0.9)
+        field = np.sin(px * tau + bend + tone_phase * 0.22)
+    elif mode == "Waveform Alt":
+        bend = np.sin(px * tau * 0.46 + theta) * (0.55 + detail)
+        field = _triangle_wave(py + bend / tau + smooth * (0.6 + detail * 0.8) + theta / tau)
+    elif mode == "Ordered Modulation":
+        matrix = BAYER_MATRICES["Bayer 4x4"]
+        ordered = ((matrix + 0.5) / 16.0 - 0.5) * 2.0
+        tiled = np.tile(ordered, (math.ceil(h / 4), math.ceil(w / 4)))[:h, :w]
+        field = np.clip(tiled * 0.72 + np.sin((px + py * 0.5) * tau + theta) * 0.28, -1.0, 1.0)
+    elif mode == "Stucki Diffusion Lines":
+        field = np.sin((py * 2.0 + smooth * (1.5 + detail * 2.0)) * tau + theta)
+        field = np.sign(field) * np.sqrt(np.abs(field))
+    elif mode == "Atkinson Modulation":
+        field = np.sin((px * 0.82 + py * 0.55) * tau + tone_phase * 0.28 + theta)
+    elif mode == "Contrast Aware X":
+        carrier = np.sin((px + smooth * (0.5 + detail)) * tau + theta)
+        field = carrier * (0.18 + contrast * 0.82)
+    elif mode == "Contrast Aware Y":
+        carrier = np.sin((py + smooth * (0.5 + detail)) * tau + theta)
+        field = carrier * (0.18 + contrast * 0.82)
+    elif mode == "Displace Contour":
+        # Image gradients push the phase orthogonally to local contours so the
+        # generated diffusion lines appear to bend around forms.
+        displacement = (gx * py - gy * px) * scale * (2.0 + detail * 6.0)
+        field = np.sin((px * 0.62 + py * 0.38) * tau + tone_phase * 0.30 + displacement + theta)
+    else:  # Sine Wave Modulation; also the safe fallback for old files.
+        secondary = max(3.0, scale * 2.7)
+        field = np.sin(xx * (tau / scale) + yy * (tau / secondary) + smooth * np.pi * (1.1 + detail) + theta)
+        field *= 0.62 + 0.38 * np.cos(yy * (tau / max(4.0, scale * 1.85)) + theta * 0.37)
+
+    return np.clip(np.asarray(field, dtype=np.float32) + float(bias), -1.0, 1.0)
+
+
+def modulation_dither(
+    image: np.ndarray,
+    palette: np.ndarray,
+    strength: float = 1.0,
+    *,
+    mode: str = "Smooth Diffuse",
+    scale: float = 12.0,
+    phase: float = 0.0,
+    bias: float = 0.0,
+    detail: float = 0.55,
+    seed: int = 1,
+    serpentine: bool = True,
+) -> np.ndarray:
+    """Modulation-aware palette error diffusion with fourteen visual modes.
+
+    Unlike the older sinusoidal pre-quantization effect, these modes bias the
+    palette decision *inside* error diffusion and can also vary diffusion
+    transport, producing coherent line/contour structures while preserving the
+    active RasterMint palette exactly.
+    """
+    h, w, _ = image.shape
+    if h == 0 or w == 0:
+        return image.astype(np.float32, copy=True)
+
+    mode = str(mode)
+    if mode not in MODULATION_MODES:
+        mode = "Smooth Diffuse"
+    strength = max(0.0, min(2.0, float(strength)))
+    detail = max(0.0, min(1.0, float(detail)))
+
+    palette_values = _palette_tuples(palette)
+    if not palette_values:
+        raise ValueError("Palette must contain at least one color")
+
+    rgb = np.asarray(image, dtype=np.float32)
+    luminance = (0.2126 * rgb[..., 0] + 0.7152 * rgb[..., 1] + 0.0722 * rgb[..., 2]) / 255.0
+    field = _modulation_field(luminance, mode, scale, phase, bias, detail, seed)
+
+    if mode == "Stucki Diffusion Lines":
+        kernel, divisor = ERROR_DIFFUSION_KERNELS["Stucki"]
+    elif mode == "Atkinson Modulation":
+        kernel, divisor = ERROR_DIFFUSION_KERNELS["Atkinson"]
+    else:
+        kernel, divisor = ERROR_DIFFUSION_KERNELS["Floyd-Steinberg"]
+    normalized_kernel = tuple((dx, dy, float(weight) / float(divisor)) for dx, dy, weight in kernel)
+
+    data = array("f", rgb.reshape(-1))
+    # Strength controls both error transport and the modulation's threshold
+    # pressure. The cap keeps high strengths expressive without forcing broad
+    # regions to the palette extrema.
+    threshold_amplitude = 46.0 * strength
+    error_strength = strength
+
+    for y in range(h):
+        reverse = bool(serpentine and (y & 1))
+        xs = range(w - 1, -1, -1) if reverse else range(w)
+        direction = -1 if reverse else 1
+        for x in xs:
+            base = (y * w + x) * 3
+            source0 = min(255.0, max(0.0, data[base]))
+            source1 = min(255.0, max(0.0, data[base + 1]))
+            source2 = min(255.0, max(0.0, data[base + 2]))
+            shift = float(field[y, x]) * threshold_amplitude
+            sample0 = min(255.0, max(0.0, source0 + shift))
+            sample1 = min(255.0, max(0.0, source1 + shift))
+            sample2 = min(255.0, max(0.0, source2 + shift))
+
+            best_index = _nearest_color_index_rgb(sample0, sample1, sample2, palette_values)
+            new0, new1, new2 = palette_values[best_index]
+            data[base], data[base + 1], data[base + 2] = new0, new1, new2
+            error0 = (source0 - new0) * error_strength
+            error1 = (source1 - new1) * error_strength
+            error2 = (source2 - new2) * error_strength
+
+            # Let the field gently steer how much error escapes each pixel.
+            # Contrast-aware modes need a stronger change; other modes remain
+            # close to their base kernels to avoid unstable texture breakup.
+            steer = 1.0 + float(field[y, x]) * (0.28 if mode.startswith("Contrast Aware") else 0.16) * detail
+            steer = max(0.55, min(1.45, steer))
+            for dx, dy, factor in normalized_kernel:
+                nx, ny = x + dx * direction, y + dy
+                if 0 <= nx < w and 0 <= ny < h:
+                    target = (ny * w + nx) * 3
+                    f = factor * steer
+                    data[target] += error0 * f
+                    data[target + 1] += error1 * f
+                    data[target + 2] += error2 * f
+
+    return np.frombuffer(data, dtype=np.float32).reshape(h, w, 3).copy()
 
 
 def threshold_dither(image: np.ndarray, palette: np.ndarray, threshold: float = 0.5) -> np.ndarray:
@@ -679,6 +863,12 @@ def apply_dither(
     color_mix_distance: str = "OKLab",
     color_mix_phase: int = 0,
     custom_matrix: object | None = None,
+    modulation_mode: str = "Smooth Diffuse",
+    modulation_scale: float = 12.0,
+    modulation_phase: float = 0.0,
+    modulation_bias: float = 0.0,
+    modulation_detail: float = 0.55,
+    modulation_seed: int = 1,
 ) -> np.ndarray:
     if algorithm == "Nearest Palette":
         return quantize_nearest(image, palette)
@@ -704,7 +894,11 @@ def apply_dither(
     if algorithm == "Custom Matrix":
         return ordered_dither(image, palette, normalize_custom_matrix(custom_matrix), strength)
     if algorithm == "Modulation":
-        return modulation_dither(image, palette, strength)
+        return modulation_dither(
+            image, palette, strength, mode=modulation_mode, scale=modulation_scale,
+            phase=modulation_phase, bias=modulation_bias, detail=modulation_detail,
+            seed=modulation_seed, serpentine=serpentine,
+        )
     if algorithm == "Halftone":
         return halftone_dither(image, palette)
     if algorithm in ERROR_DIFFUSION_KERNELS:

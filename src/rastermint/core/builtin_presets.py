@@ -108,6 +108,12 @@ BUILTIN_PRESETS: tuple[BuiltinPreset, ...] = (
     BuiltinPreset("vector", "Vector", "Posterized clean-line render inspired by vectorised retro poster art."),
     BuiltinPreset("accurate-1to1", "Accurate 1:1 Colour", "50/50 palette-colour mixing for perceived intermediate colours while keeping the active palette."),
     BuiltinPreset("isolated-dither-glow", "Isolated Dither Glow", "Highlight-only glow pass made to sit cleanly on top of dithered pixels."),
+    BuiltinPreset("mod-smooth-bloom", "Smooth Diffuse Bloom", "Flowing smooth-diffusion contours with a restrained source-colour bloom."),
+    BuiltinPreset("mod-circuit-cyan", "Circuit Cyan Lines", "Cyan-on-black modulated diffusion lines with dither glow and phosphor bloom."),
+    BuiltinPreset("mod-stucki-wire", "Stucki Wire Glow", "Dense Stucki diffusion lines with crisp highlight glow and narrow bloom."),
+    BuiltinPreset("mod-contour-bend", "Contour Bend Glow", "Contour-displaced modulation that bends around image structure with neon glow."),
+    BuiltinPreset("mod-waveform-bloom", "Waveform Scan Bloom", "Graphic waveform modulation with broad bloom and scan-like temporal movement."),
+    BuiltinPreset("particle-star-field", "Particle / Star Field", "Animated sparse star-like particles recreated from RasterMint noise, threshold, temporal motion and glow layers."),
 )
 
 
@@ -175,6 +181,68 @@ PRESET_CONFIGS: dict[str, dict[str, Any]] = {
     "print-misregistered": {"dither": {"algorithm": "Nearest Palette", "mix": 0.0}, "effects": [_effect("Print Lab", mode="CMYK", cell_size=9, dot_shape="Round", registration_error=4.0, phase_offsets=True, ink1_phase_x=0.15, ink2_phase_y=-0.18, ink3_phase_x=-0.12, dot_gain=8.0, paper_color="#F2EBD8")]},
     "print-cheap-tshirt": {"dither": {"algorithm": "Nearest Palette", "mix": 0.0}, "effects": [_effect("Print Lab", mode="Spot Colors", ink_count=3, cell_size=14, dot_shape="Ellipse", dot_gain=18.0, registration_error=2.0, roughness=0.32, missing_ink=0.20, ink_spread=0.22, squeegee=0.32, paper_color="#EDE5D4", ink1_color="#C92A2A", ink2_color="#163A5F", ink3_color="#E5B73B")]},
     "print-heavy-dot-gain": {"dither": {"algorithm": "Nearest Palette", "mix": 0.0}, "effects": [_effect("Print Lab", mode="CMYK", cell_size=8, dot_shape="Round", dot_gain=48.0, black_mix=100.0, ink_spread=0.20, paper_color="#EFE7D6")]},
+    "mod-smooth-bloom": {
+        "dither": {"algorithm": "Modulation", "strength": 0.92, "serpentine": True, "modulation_mode": "Smooth Diffuse", "modulation_scale": 13.0, "modulation_detail": 0.72},
+        "effects": [
+            _effect("Local Contrast", index=1, amount=118, radius=1.5),
+            _effect("Dither Glow", threshold=0.70, softness=0.12, radius=3.5, spread=1, intensity=0.95, blend="Screen", glow_color_mode="Source"),
+            _effect("Bloom", threshold=0.70, radius=6.0, intensity=0.28),
+        ],
+    },
+    "mod-circuit-cyan": {
+        "palette_colors": ["#02080A", "#0B3038", "#167A8D", "#48D9E8", "#D7FFFF"],
+        "palette_name": "Circuit Cyan 5", "palette_author": "RasterMint", "palette_source": "builtin",
+        "dither": {"algorithm": "Modulation", "strength": 1.08, "serpentine": False, "modulation_mode": "Modulated Diffuse Y", "modulation_scale": 10.0, "modulation_bias": -0.06, "modulation_detail": 0.82},
+        "effects": [
+            _effect("Local Contrast", index=1, amount=145, radius=1.25),
+            _effect("Dither Glow", threshold=0.58, softness=0.14, radius=4.5, spread=1, intensity=1.45, blend="Screen", glow_color_mode="Custom Tint", glow_color="#71F4FF"),
+            _effect("Phosphor Glow", threshold=0.52, radius=2.4, intensity=0.42),
+            _effect("Bloom", threshold=0.62, radius=8.0, intensity=0.38),
+        ],
+    },
+    "mod-stucki-wire": {
+        "palette_colors": ["#050505", "#303030", "#8B8B8B", "#F5F5F5"],
+        "palette_name": "Wire Mono 4", "palette_author": "RasterMint", "palette_source": "builtin",
+        "dither": {"algorithm": "Modulation", "strength": 0.90, "serpentine": True, "modulation_mode": "Stucki Diffusion Lines", "modulation_scale": 7.0, "modulation_detail": 0.64},
+        "effects": [
+            _effect("Sharpen", index=5, amount=1.25),
+            _effect("Dither Glow", threshold=0.74, softness=0.08, radius=2.5, spread=0, intensity=1.15, blend="Add", glow_color_mode="Source"),
+            _effect("Bloom", threshold=0.80, radius=4.0, intensity=0.22),
+        ],
+    },
+    "mod-contour-bend": {
+        "palette_colors": ["#090515", "#271454", "#7B2CBF", "#00BFD8", "#B8FFF9"],
+        "palette_name": "Contour Neon 5", "palette_author": "RasterMint", "palette_source": "builtin",
+        "dither": {"algorithm": "Modulation", "strength": 1.05, "serpentine": True, "modulation_mode": "Displace Contour", "modulation_scale": 15.0, "modulation_phase": 28.0, "modulation_detail": 0.88, "modulation_seed": 37},
+        "effects": [
+            _effect("Dither Glow", threshold=0.62, softness=0.17, radius=5.5, spread=1, intensity=1.35, blend="Screen", glow_color_mode="Source"),
+            _effect("Bloom", threshold=0.65, radius=10.0, intensity=0.34),
+            _effect("RGB Split", x=1, y=0),
+        ],
+    },
+    "mod-waveform-bloom": {
+        "palette_colors": ["#090705", "#3B2608", "#A46512", "#F0B83B", "#FFF3B0"],
+        "palette_name": "Wave Amber 5", "palette_author": "RasterMint", "palette_source": "builtin",
+        "dither": {"algorithm": "Modulation", "strength": 0.96, "serpentine": False, "modulation_mode": "Waveform Alt", "modulation_scale": 18.0, "modulation_phase": 12.0, "modulation_detail": 0.58},
+        "effects": [
+            _effect("Temporal Pattern", pattern="Wave X", amount=0.08, speed=0.65, scale=80.0, phase=0.0, seed=41),
+            _effect("Dither Glow", threshold=0.64, softness=0.18, radius=4.0, spread=1, intensity=1.20, blend="Screen", glow_color_mode="Custom Tint", glow_color="#FFD66B"),
+            _effect("Horizontal Bloom", threshold=0.58, radius=9.0, intensity=0.36),
+        ],
+    },
+    "particle-star-field": {
+        "palette_colors": ["#000205", "#07111F", "#D9F5FF", "#FFFFFF"],
+        "palette_name": "Star Field 4", "palette_author": "RasterMint", "palette_source": "builtin",
+        "dither": {"algorithm": "Threshold", "threshold": 0.86, "strength": 1.0, "serpentine": False},
+        "effects": [
+            _effect("Adjustments", index=0, brightness=-58, contrast=48, saturation=-100, gamma=1.18),
+            _effect("Noise", index=6, amount=72.0, seed=613, temporal=True),
+            _effect("Temporal Pattern", pattern="Noise Drift", amount=0.18, speed=0.55, scale=54.0, phase=0.0, seed=617),
+            _effect("Dither Glow", threshold=0.72, softness=0.08, radius=2.8, spread=1, intensity=1.45, blend="Screen", glow_color_mode="Custom Tint", glow_color="#CFF7FF"),
+            _effect("Bloom", threshold=0.76, radius=5.0, intensity=0.34),
+            _effect("Temporal Flicker", amount=0.035, speed=4.0),
+        ],
+    },
     "clean-quantize": _palette_config("Arcade 8"),
     "game-boy": _profile_config("game-boy", mode="visual", constraints=False, dither="Bayer 4x4"),
     "game-boy-pocket": _palette_config("Game Boy Pocket", dither="Bayer 4x4", target=(160, 144), pixelate=2),
@@ -503,6 +571,20 @@ def _set_dither(settings: ProcessingSettings, spec: dict[str, Any]) -> None:
             params["color_mix_distance"] = str(spec["color_mix_distance"])
         if spec.get("color_mix_phase") is not None:
             params["color_mix_phase"] = int(spec["color_mix_phase"])
+        if spec.get("threshold") is not None:
+            params["threshold"] = float(spec["threshold"])
+        if spec.get("modulation_mode") is not None:
+            params["modulation_mode"] = str(spec["modulation_mode"])
+        if spec.get("modulation_scale") is not None:
+            params["modulation_scale"] = float(spec["modulation_scale"])
+        if spec.get("modulation_phase") is not None:
+            params["modulation_phase"] = float(spec["modulation_phase"])
+        if spec.get("modulation_bias") is not None:
+            params["modulation_bias"] = float(spec["modulation_bias"])
+        if spec.get("modulation_detail") is not None:
+            params["modulation_detail"] = float(spec["modulation_detail"])
+        if spec.get("modulation_seed") is not None:
+            params["modulation_seed"] = int(spec["modulation_seed"])
         return
 
 
@@ -641,6 +723,7 @@ def build_builtin_preset(preset_id: str, base: ProcessingSettings | None = None)
         "consumer-crt", "pvm-crt", "arcade-crt", "cheap-rf-tv",
         "vhs-sp", "vhs-ep", "early-lcd", "oled-ghosting",
         "security-camera", "camcorder", "crt-vhs",
+        "mod-smooth-bloom",
     } and base is not None:
         settings.palette = list(base.palette)
         settings.palette_name = str(base.palette_name)

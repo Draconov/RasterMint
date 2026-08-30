@@ -5,6 +5,24 @@ from __future__ import annotations
 
 Kernel = list[tuple[int, int, float]]
 
+
+MODULATION_MODES: tuple[str, ...] = (
+    "Smooth Diffuse",
+    "Modulated Diffuse X",
+    "Modulated Diffuse Y",
+    "Uniform Modulation X",
+    "Uniform Modulation Y",
+    "Waveform",
+    "Waveform Alt",
+    "Ordered Modulation",
+    "Stucki Diffusion Lines",
+    "Atkinson Modulation",
+    "Contrast Aware X",
+    "Contrast Aware Y",
+    "Displace Contour",
+    "Sine Wave Modulation",
+)
+
 ERROR_DIFFUSION_KERNELS: dict[str, tuple[Kernel, float]] = {
     "Floyd-Steinberg": ([(1, 0, 7), (-1, 1, 3), (0, 1, 5), (1, 1, 1)], 16),
     "False Floyd-Steinberg": ([(1, 0, 3), (-1, 1, 2), (0, 1, 3)], 8),

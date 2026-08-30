@@ -2,7 +2,7 @@
 
 Notable user-facing and engineering changes are recorded here. RasterMint is still in active alpha development, so entries focus on behavior that affects releases, compatibility, or contributor expectations.
 
-## 0.6.0 - 2026-08-30 — Print Lab
+## 0.6.0 - 2026-08-30 — Print Lab + Modulated Diffusion
 
 ### Print Lab / AM halftone
 
@@ -19,6 +19,15 @@ Notable user-facing and engineering changes are recorded here. RasterMint is sti
 - Added **Pop Tone** with scale, density, and variation controls for manga/pop-art clustered-dot rendering that remains bounded to the active palette.
 - Added the polygon family **Hexa-Poly, Penta-Poly, Tri-Poly,** and **Low-Poly**, rebuilding the image from actual filled polygon cells instead of placing a polygon texture over pixelation.
 - Added **Beehive**, an actual honeycomb-cell renderer with scale, luminance-threshold, and cell-size controls for monochrome or colored palettes.
+
+### Modulated Diffusion Update
+
+- Expanded the existing single **Modulation** dither into a full 14-mode modulation-aware diffusion family without adding 14 separate entries to the algorithm chooser: **Smooth Diffuse, Modulated Diffuse X/Y, Uniform Modulation X/Y, Waveform, Waveform Alt, Ordered Modulation, Stucki Diffusion Lines, Atkinson Modulation, Contrast Aware X/Y, Displace Contour,** and **Sine Wave Modulation**.
+- Added shared modulation controls for scale, phase, bias, contour detail, deterministic seed, strength, and serpentine traversal. The new implementation biases palette decisions inside error diffusion rather than warping an already-dithered image, and every mode remains strictly bounded to the active palette.
+- Preserved older Modulation projects/presets by mapping mode-less legacy layers to **Sine Wave Modulation**, the closest match to RasterMint's previous sinusoidal Modulation renderer.
+- Added five editable modulation presets with different line structures and glow/bloom treatments: **Smooth Diffuse Bloom, Circuit Cyan Lines, Stucki Wire Glow, Contour Bend Glow,** and **Waveform Scan Bloom**.
+- Added an animated **Particle / Star Field** preset built only from existing RasterMint primitives—darkening, temporal Noise, Threshold dithering, Noise Drift, Dither Glow, Bloom, and Temporal Flicker—so the look stays fully editable in the normal layer stack and does not introduce a separate particle subsystem.
+- Marked Modulation as an expensive interactive-preview algorithm so the existing adaptive preview budget protects responsiveness on large sources.
 
 ### Interaction and performance
 

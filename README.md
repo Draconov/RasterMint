@@ -19,12 +19,14 @@ RasterMint is built around a single processing pipeline: the live preview, still
 
 > **Status:** RasterMint is under active development. Project files, presets, and behavior may continue to evolve between releases.
 
-## RasterMint 0.6.0 — Print Lab
+## RasterMint 0.6.0 — Print Lab + Modulated Diffusion
 
-RasterMint 0.6.0 expands the composable workstation with an actual print-separation workflow:
+RasterMint 0.6.0 expands the composable workstation with print separation, structural raster tools, and a full modulation-aware diffusion family:
 
 - **Print Lab:** non-destructive Monochrome, CMYK, RGB, and 1–8 Spot Color AM halftone screening with independent ink angles/registration/phase/opacity, dot gain, black generation, print imperfections, paper/overprint controls, individual separation preview, real vector SVG separations, raster proofs, and composite export.
 - **New raster styles:** Pop Tone, Hexa-Poly, Penta-Poly, Tri-Poly, Low-Poly, and Beehive.
+- **Modulated Diffusion:** the existing single **Modulation** dither now exposes 14 compact modes—Smooth Diffuse, directional/uniform modulation, Waveform variants, Ordered Modulation, Stucki/Atkinson variants, contrast-aware X/Y, Displace Contour, and Sine Wave Modulation—without cluttering the main algorithm list.
+- **Modulation looks:** new Smooth Diffuse Bloom, Circuit Cyan Lines, Stucki Wire Glow, Contour Bend Glow, Waveform Scan Bloom, and animated **Particle / Star Field** presets. The star-field look is deliberately composed from RasterMint's existing Noise, Threshold, Temporal Pattern, glow/bloom, and flicker layers instead of adding a separate particle engine.
 - **Display Lab:** CRT/LCD/OLED/composite/RF/VHS effects and reusable display/tape presets.
 - **Layer System 2.0:** opacity, blend modes, masks, groups, solo, duplicate/reset, copy/paste and multi-selection.
 - **Palette & Dither Lab:** usage analysis, sorting, ramps, near-duplicates, reduction suggestions and custom dither matrices.
@@ -60,6 +62,7 @@ The Windows release intentionally remains a **single executable**. The build use
 - Custom gradient generation using **RGB, Linear RGB, OKLab, HSV, and HSL** interpolation.
 - Built-in gradient presets that can be applied directly as the active image palette.
 - **Pop Tone**, polygon-cell (**Hexa/Penta/Tri/Low-Poly**), and **Beehive** structural raster effects for palette-bounded stylization beyond ordinary ordered/error-diffusion dithering.
+- A single **Modulation** algorithm with 14 modulation-aware diffusion modes and shared Strength, Scale, Phase, Bias, Contour Detail, Seed, and Serpentine controls. Modulation stays palette-bounded and its numeric controls can be animated through Motion Studio.
 
 ### Layer-based image processing
 

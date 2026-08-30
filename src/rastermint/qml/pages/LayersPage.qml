@@ -154,9 +154,23 @@ Item {
         if (backend.selectedLayerName === "Dither") {
             var algorithm = String(selectedParamValue("algorithm", "Floyd-Steinberg"))
             var colourMix = algorithm === "1:1 Colour Mix"
+            var modulation = algorithm === "Modulation"
             if (String(param.key).indexOf("color_mix_") === 0)
                 return colourMix
+            if (String(param.key).indexOf("modulation_") === 0) {
+                if (!modulation)
+                    return false
+                var modulationMode = String(selectedParamValue("modulation_mode", "Smooth Diffuse"))
+                if (param.key === "modulation_detail"
+                        && (modulationMode === "Uniform Modulation X"
+                            || modulationMode === "Uniform Modulation Y"
+                            || modulationMode === "Ordered Modulation"))
+                    return false
+                return true
+            }
             if (colourMix && (param.key === "strength" || param.key === "threshold" || param.key === "serpentine"))
+                return false
+            if (modulation && param.key === "threshold")
                 return false
         }
         if (backend.selectedLayerName === "Dither Glow" && param.key === "glow_color")

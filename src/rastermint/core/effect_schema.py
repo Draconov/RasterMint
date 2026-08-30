@@ -8,7 +8,7 @@ from typing import Any
 from uuid import uuid4
 
 from .color_utils import hex_to_rgb
-from .dither_metadata import ALGORITHMS
+from .dither_metadata import ALGORITHMS, MODULATION_MODES
 
 # The UI consumes this schema directly. Keeping effect metadata in the core means
 # adding a new effect does not require hard-coding another form in the QML UI.
@@ -539,6 +539,12 @@ EFFECT_DEFINITIONS: dict[str, dict[str, Any]] = {
         "color_mix_pattern": {"type": "choice", "label": "1:1 pattern", "default": "Checker", "options": ["Checker", "Horizontal", "Vertical", "Bayer 2x2"]},
         "color_mix_distance": {"type": "choice", "label": "1:1 matching", "default": "OKLab", "options": ["OKLab", "RGB"]},
         "color_mix_phase": {"type": "int", "label": "1:1 phase", "default": 0, "min": 0, "max": 1, "step": 1, "animatable": True},
+        "modulation_mode": {"type": "choice", "label": "Modulation mode", "default": "Smooth Diffuse", "options": list(MODULATION_MODES)},
+        "modulation_scale": {"type": "float", "label": "Modulation scale", "default": 12.0, "min": 2.0, "max": 128.0, "step": 0.5, "decimals": 1, "suffix": " px", "animatable": True, "pixel_scaled": True},
+        "modulation_phase": {"type": "float", "label": "Modulation phase", "default": 0.0, "min": 0.0, "max": 360.0, "step": 1.0, "decimals": 1, "suffix": "°", "animatable": True},
+        "modulation_bias": {"type": "float", "label": "Modulation bias", "default": 0.0, "min": -1.0, "max": 1.0, "step": 0.01, "decimals": 2, "animatable": True},
+        "modulation_detail": {"type": "float", "label": "Contour detail", "default": 0.55, "min": 0.0, "max": 1.0, "step": 0.01, "decimals": 2, "animatable": True},
+        "modulation_seed": {"type": "int", "label": "Modulation seed", "default": 1, "min": 0, "max": 999999, "step": 1, "animatable": False},
         "custom_matrix_json": {"type": "text", "label": "Custom threshold matrix", "default": "[[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]", "hidden": True},
     }},
 }
@@ -665,6 +671,11 @@ def default_effect_stack(settings: Any | None = None) -> list[dict[str, Any]]:
             strength=float(getattr(settings, "dither_strength", 1.0)),
             serpentine=bool(getattr(settings, "serpentine", True)),
         )
+        # The pre-family Modulation algorithm was a sine-based screen. Legacy
+        # scalar settings therefore map to the closest new mode instead of
+        # silently changing appearance to Smooth Diffuse.
+        if dither["params"]["algorithm"] == "Modulation":
+            dither["params"]["modulation_mode"] = "Sine Wave Modulation"
     return [adjustments, grayscale, invert, blur, sharpen, pixelate, dither]
 
 
@@ -710,6 +721,11 @@ def normalize_effect_stack(stack: list[dict[str, Any]] | None, settings: Any | N
         }
         step["group_id"] = str(raw.get("group_id", "") or "")
         raw_params = raw.get("params", {}) if isinstance(raw.get("params"), dict) else {}
+        # Existing 0.6.0-and-earlier Modulation layers had no mode selector and
+        # used a sine carrier. Preserve that look when opening old projects or
+        # presets while new Modulation layers default to Smooth Diffuse.
+        if kind == "Dither" and str(raw_params.get("algorithm", "")) == "Modulation" and "modulation_mode" not in raw_params:
+            step["params"]["modulation_mode"] = "Sine Wave Modulation"
         for key, spec in EFFECT_DEFINITIONS[kind]["params"].items():
             if key not in raw_params:
                 continue

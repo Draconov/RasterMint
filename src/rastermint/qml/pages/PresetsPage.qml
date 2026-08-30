@@ -78,6 +78,13 @@ Item {
             ]
         },
         {
+            "name": "Modulated Diffusion",
+            "ids": [
+                "mod-smooth-bloom", "mod-circuit-cyan", "mod-stucki-wire",
+                "mod-contour-bend", "mod-waveform-bloom", "particle-star-field"
+            ]
+        },
+        {
             "name": "Stylized & Print",
             "ids": ["halftone-print", "print-clean-cmyk", "print-vintage-screen", "print-2color-poster", "print-3color-riso", "print-newspaper-cmyk", "print-misregistered", "print-cheap-tshirt", "print-heavy-dot-gain", "vector", "accurate-1to1", "isolated-dither-glow"]
         },

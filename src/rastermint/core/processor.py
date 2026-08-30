@@ -74,7 +74,7 @@ def adaptive_preview_max_side(settings: ProcessingSettings, requested: int) -> i
             material = str(step.get("params", {}).get("style", ""))
         if step.get("kind") == "ASCII / Glyph":
             ascii_mapping = str(step.get("params", {}).get("mapping", "Density"))
-    expensive = algorithm in {"Dot Diffusion", "Riemersma"}
+    expensive = algorithm in {"Dot Diffusion", "Riemersma", "Modulation"}
     expensive_material = material in {"ASCII Tile", "Cross Stitch", "Brick", "Mosaic"}
     expensive_ascii = ascii_mapping == "Structure Match"
     large_palette_diffusion = len(settings.palette) > 64 and algorithm not in {

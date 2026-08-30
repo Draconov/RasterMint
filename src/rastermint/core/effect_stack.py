@@ -3190,6 +3190,12 @@ def apply_normalized_effect_stack(
                 color_mix_distance=str(p.get("color_mix_distance", "OKLab")),
                 color_mix_phase=int(p.get("color_mix_phase", 0)),
                 custom_matrix=p.get("custom_matrix_json"),
+                modulation_mode=str(p.get("modulation_mode", "Smooth Diffuse")),
+                modulation_scale=float(p.get("modulation_scale", 12.0)),
+                modulation_phase=float(p.get("modulation_phase", 0.0)),
+                modulation_bias=float(p.get("modulation_bias", 0.0)),
+                modulation_detail=float(p.get("modulation_detail", 0.55)),
+                modulation_seed=int(p.get("modulation_seed", 1)),
             )
             dithered = Image.fromarray(np.clip(result, 0, 255).astype(np.uint8), "RGB")
             img = dithered if mix >= 1.0 else Image.blend(before, dithered, mix)
