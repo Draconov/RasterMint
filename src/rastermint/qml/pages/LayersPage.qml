@@ -302,9 +302,20 @@ Item {
                         }
                         Text {
                             Layout.fillWidth: true
-                            text: (String(blendMode || "Normal") !== "Normal" || Number(layerOpacity) < 0.999
-                                  ? (qsTr(String(blendMode || "Normal")) + " · " + Math.round(Number(layerOpacity) * 100) + "%" + (String(summary) !== "" ? " · " : ""))
-                                  : "") + qsTr(summary)
+                            readonly property string maskType: String((layerMask && layerMask.type) || "None")
+                            readonly property string compositingSummary: {
+                                var parts = []
+                                if (String(blendMode || "Normal") !== "Normal" || Number(layerOpacity) < 0.999) {
+                                    parts.push(qsTr(String(blendMode || "Normal")))
+                                    parts.push(Math.round(Number(layerOpacity) * 100) + "%")
+                                }
+                                if (maskType !== "None")
+                                    parts.push(qsTr(maskType))
+                                return parts.join(" · ")
+                            }
+                            text: compositingSummary
+                                  + (compositingSummary !== "" && String(summary) !== "" ? " · " : "")
+                                  + qsTr(summary)
                             color: theme.mutedTextColor
                             font.pixelSize: 10
                             elide: Text.ElideRight
@@ -438,7 +449,7 @@ Item {
                         Layout.fillWidth: true
                         model: backend.layerBlendModes
                         translateModel: true
-                        Component.onCompleted: currentIndex = Math.max(0, backend.layerBlendModes.indexOf(backend.selectedLayerBlendMode))
+                        currentIndex: Math.max(0, backend.layerBlendModes.indexOf(backend.selectedLayerBlendMode))
                         onActivated: backend.setLayerBlendMode(currentText)
                     }
                 }
@@ -450,7 +461,7 @@ Item {
                         Layout.fillWidth: true
                         model: backend.layerMaskTypes
                         translateModel: true
-                        Component.onCompleted: currentIndex = Math.max(0, backend.layerMaskTypes.indexOf(String(backend.selectedLayerMask.type || "None")))
+                        currentIndex: Math.max(0, backend.layerMaskTypes.indexOf(String(backend.selectedLayerMask.type || "None")))
                         onActivated: backend.setLayerMaskType(currentText)
                     }
                 }

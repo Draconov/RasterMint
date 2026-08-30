@@ -30,6 +30,24 @@ def test_layers_keep_slider_gesture_model_and_effect_categories():
     assert "signal userMoved(real newValue)" in slider
 
 
+
+def test_layer_compositing_controls_follow_selected_layer_and_cards_show_masks():
+    layers = (QML / "pages" / "LayersPage.qml").read_text(encoding="utf-8")
+
+    # Blend/mask selectors must remain bindings to backend selection state.
+    # Component.onCompleted only initialized them once and left stale values
+    # visible after selecting another layer.
+    assert 'currentIndex: Math.max(0, backend.layerBlendModes.indexOf(backend.selectedLayerBlendMode))' in layers
+    assert 'currentIndex: Math.max(0, backend.layerMaskTypes.indexOf(String(backend.selectedLayerMask.type || "None")))' in layers
+    assert 'Component.onCompleted: currentIndex = Math.max(0, backend.layerBlendModes.indexOf(backend.selectedLayerBlendMode))' not in layers
+    assert 'Component.onCompleted: currentIndex = Math.max(0, backend.layerMaskTypes.indexOf(String(backend.selectedLayerMask.type || "None")))' not in layers
+
+    # Layer cards expose non-default mask state alongside blend/opacity so
+    # different compositing setups are visible without opening each layer.
+    assert 'readonly property string maskType: String((layerMask && layerMask.type) || "None")' in layers
+    assert 'if (maskType !== "None")' in layers
+    assert 'parts.push(qsTr(maskType))' in layers
+
 def test_presets_page_keeps_library_grid_and_custom_preset_controls():
     presets = (QML / "pages" / "PresetsPage.qml").read_text(encoding="utf-8")
 
