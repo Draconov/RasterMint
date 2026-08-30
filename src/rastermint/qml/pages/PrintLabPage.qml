@@ -182,7 +182,14 @@ Item {
                             implicitHeight: inkColumn.implicitHeight + 14
                             radius: 6; color: theme.panelRaisedColor; border.color: theme.borderColor
                             ColumnLayout {
-                                id: inkColumn; anchors { left: parent.left; right: parent.right; top: parent.top; margins: 7 }; spacing: 5
+                                id: inkColumn
+                                anchors {
+                                    left: parent.left
+                                    right: parent.right
+                                    top: parent.top
+                                    margins: 7
+                                }
+                                spacing: 5
                                 RowLayout {
                                     Layout.fillWidth: true
                                     MintLabel { text: localization.translateRuntime(localization.effectiveLanguageId, root.inkName(index)); font.bold: true; Layout.fillWidth: true }
