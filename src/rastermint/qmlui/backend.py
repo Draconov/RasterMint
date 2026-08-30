@@ -47,6 +47,7 @@ from .workers import (
     RenderedPreviewWorker,
     SequenceExportWorker,
     VideoFrameWorker,
+    PrintSeparationExportWorker,
 )
 
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".bmp", ".webp", ".tif", ".tiff"}
@@ -687,6 +688,138 @@ class RasterMintBackend(QObject):
     @Property("QVariantMap", notify=settingsChanged)
     def settingsMap(self) -> dict[str, Any]:
         return self.settings.to_dict()
+
+    def _print_lab_index(self) -> int:
+        stack = normalize_effect_stack(self.settings.effect_stack, self.settings)
+        return next((i for i, step in enumerate(stack) if str(step.get("kind")) == "Print Lab"), -1)
+
+    @staticmethod
+    def _apply_print_mode_defaults(params: dict[str, Any], mode: str) -> None:
+        """Give each print mode useful ink defaults when the mode changes.
+
+        This is intentionally UI/settings logic rather than a render-time rule:
+        once the defaults are written, users remain free to edit every ink.
+        """
+        mode = str(mode or "CMYK")
+        if mode == "Monochrome":
+            params["ink_count"] = 1
+            params["ink1_color"] = "#111111"
+            params["ink1_angle"] = 45.0
+        elif mode == "RGB":
+            params["ink_count"] = 3
+            for index, (color, angle) in enumerate((("#F23B3B", 15.0), ("#35B85A", 75.0), ("#3978F6", 45.0)), start=1):
+                params[f"ink{index}_color"] = color
+                params[f"ink{index}_angle"] = angle
+        elif mode == "CMYK":
+            params["ink_count"] = 4
+            for index, (color, angle) in enumerate((("#00AEEF", 15.0), ("#EC008C", 75.0), ("#FFF200", 0.0), ("#111111", 45.0)), start=1):
+                params[f"ink{index}_color"] = color
+                params[f"ink{index}_angle"] = angle
+        else:
+            params["ink_count"] = max(1, min(8, int(params.get("ink_count", 4) or 4)))
+
+    @Property("QVariantMap", notify=settingsChanged)
+    def printLabState(self) -> dict[str, Any]:
+        stack = normalize_effect_stack(self.settings.effect_stack, self.settings)
+        index = next((i for i, step in enumerate(stack) if str(step.get("kind")) == "Print Lab"), -1)
+        if index < 0:
+            defaults = dict(new_effect("Print Lab").get("params") or {})
+            defaults.update({"active": False, "enabled": False, "layerIndex": -1})
+            return defaults
+        step = stack[index]
+        state = dict(step.get("params") or {})
+        state.update({"active": True, "enabled": bool(step.get("enabled", True)), "layerIndex": index})
+        return state
+
+    @Slot()
+    def ensurePrintLab(self) -> None:
+        stack = normalize_effect_stack(self.settings.effect_stack, self.settings)
+        index = next((i for i, step in enumerate(stack) if str(step.get("kind")) == "Print Lab"), -1)
+        if index >= 0:
+            self._selected_layer = index
+            self._selected_layers = {index}
+            self.layerSelectionChanged.emit()
+            return
+        stack.append(new_effect("Print Lab"))
+        data = self.settings.to_dict()
+        data["effect_stack"] = stack
+        self._replace_settings(ProcessingSettings.from_dict(data), action="Added Print Lab", selected_layer=len(stack) - 1)
+
+    @Slot(str, "QVariant")
+    def setPrintLabParam(self, key: str, value: Any) -> None:
+        key = str(key or "")
+        if key not in EFFECT_DEFINITIONS.get("Print Lab", {}).get("params", {}):
+            return
+        stack = normalize_effect_stack(self.settings.effect_stack, self.settings)
+        index = next((i for i, step in enumerate(stack) if str(step.get("kind")) == "Print Lab"), -1)
+        if index < 0:
+            stack.append(new_effect("Print Lab"))
+            index = len(stack) - 1
+        params = stack[index].setdefault("params", {})
+        params[key] = value
+        if key == "mode":
+            self._apply_print_mode_defaults(params, str(value))
+        data = self.settings.to_dict()
+        data["effect_stack"] = stack
+        label = str(EFFECT_DEFINITIONS["Print Lab"]["params"][key].get("label", key))
+        self._replace_settings(ProcessingSettings.from_dict(data), action=f"Print Lab · {label}", selected_layer=index)
+
+    @Slot()
+    def usePaletteForSpotInks(self) -> None:
+        stack = normalize_effect_stack(self.settings.effect_stack, self.settings)
+        index = next((i for i, step in enumerate(stack) if str(step.get("kind")) == "Print Lab"), -1)
+        if index < 0:
+            stack.append(new_effect("Print Lab")); index = len(stack) - 1
+        params = stack[index].setdefault("params", {})
+        colors = list(self.settings.palette or [])[:8]
+        if not colors:
+            return
+        params["mode"] = "Spot Colors"
+        params["ink_count"] = max(1, min(8, len(colors)))
+        for color_index, color in enumerate(colors):
+            params[f"ink{color_index + 1}_color"] = str(color)
+        data = self.settings.to_dict(); data["effect_stack"] = stack
+        self._replace_settings(ProcessingSettings.from_dict(data), action="Print Lab · Used active palette", selected_layer=index)
+
+    @Slot(bool)
+    def setPrintLabEnabled(self, enabled: bool) -> None:
+        stack = normalize_effect_stack(self.settings.effect_stack, self.settings)
+        index = next((i for i, step in enumerate(stack) if str(step.get("kind")) == "Print Lab"), -1)
+        if index < 0:
+            if not enabled:
+                return
+            stack.append(new_effect("Print Lab"))
+            index = len(stack) - 1
+        stack[index]["enabled"] = bool(enabled)
+        data = self.settings.to_dict(); data["effect_stack"] = stack
+        self._replace_settings(ProcessingSettings.from_dict(data), action=f"Print Lab: {'Enabled' if enabled else 'Disabled'}", selected_layer=index)
+
+    @Slot(str)
+    def exportPrintSeparations(self, value: str) -> None:
+        source = self._active_source()
+        if source is None:
+            return
+        if self._print_lab_index() < 0:
+            self.errorOccurred.emit(_tr("Print Lab"), _tr("Add or enable a Print Lab layer before exporting separations."))
+            return
+        folder = Path(_local_path(value))
+        if not str(folder):
+            return
+        stem = self._current_file.stem if self._current_file is not None else "rastermint_print"
+        job = self._next_job()
+        self._export_jobs.add(job)
+        worker = PrintSeparationExportWorker(job, source.copy(), self.settings, str(folder), stem)
+        self._connect_worker(worker)
+        self._render_busy = True
+        self._render_progress = 0.0
+        self._render_eta_seconds = -1.0
+        self._render_stage = _tr("Preparing print separations")
+        self._render_progress_visible = False
+        self._render_started_at = time.monotonic()
+        self._render_job_id = job
+        self.renderProgressChanged.emit()
+        self.thread_pool.start(worker)
+        self._set_status(_tr("Exporting print separations…"))
 
     @Property("QStringList", constant=True)
     def layerKinds(self) -> list[str]:
@@ -2224,6 +2357,8 @@ class RasterMintBackend(QObject):
         key = str(key)
         params = step.setdefault("params", {})
         params[key] = value
+        if kind == "Print Lab" and key == "mode":
+            self._apply_print_mode_defaults(params, str(value))
         if kind == "ASCII / Glyph" and key in {"character_set", "custom_chars", "inject_chars", "font", "cell_size", "font_scale", "depth"}:
             from rastermint.core.effect_stack import ascii_depth_max
             character_set = str(params.get("character_set", "Classic ASCII"))
@@ -3393,6 +3528,19 @@ class RasterMintBackend(QObject):
                 self.renderedPreviewChanged.emit()
                 self._set_status(f"Rendered {len(self._rendered_frames)} preview frames")
             return
+        if purpose == "print-separations":
+            self._export_jobs.discard(job_id)
+            if self._render_job_id == job_id:
+                self._render_busy = False
+                self._render_progress = 1.0
+                self._render_eta_seconds = 0.0
+                self._render_stage = _tr("Complete")
+                self._render_progress_visible = False
+                self._render_job_id = 0
+                self.renderProgressChanged.emit()
+            count = len(result) if isinstance(result, list) else 0
+            self._set_status(_tr("Exported %1 print-separation files").replace("%1", str(count)))
+            return
         if purpose in {"media-export", "png-sequence", "batch"}:
             self._export_jobs.discard(job_id)
             self._set_status("Export complete")
@@ -3407,6 +3555,11 @@ class RasterMintBackend(QObject):
             if pending:
                 self._request_preview(pending)
         self._export_jobs.discard(job_id)
+        if purpose == "print-separations" and self._render_job_id == job_id:
+            self._render_busy = False
+            self._render_progress_visible = False
+            self._render_job_id = 0
+            self.renderProgressChanged.emit()
         last = trace.strip().splitlines()[-1] if trace.strip() else "Unknown error"
         self.errorOccurred.emit("RasterMint error", last)
 
@@ -3415,6 +3568,19 @@ class RasterMintBackend(QObject):
         if purpose == "preview":
             self._update_preview_render(job_id, current, total, label)
             return
+        if purpose == "print-separations" and self._render_job_id == job_id:
+            elapsed = max(0.0, time.monotonic() - self._render_started_at)
+            fraction = max(0.0, min(1.0, float(current) / max(1, int(total))))
+            self._render_progress = fraction
+            self._render_stage = _tr(str(label or "Print separations"))
+            if current > 0 and fraction > 0.0:
+                estimate = elapsed / fraction
+                self._render_eta_seconds = max(0.0, estimate - elapsed)
+                if estimate >= 5.0:
+                    self._render_progress_visible = True
+            if elapsed >= 5.0:
+                self._render_progress_visible = True
+            self.renderProgressChanged.emit()
         if total > 0:
             self._set_status(f"{purpose.replace('-', ' ').title()}: {current}/{total} {label}")
 

@@ -290,6 +290,43 @@ Dialog {
                 }
             }
 
+            Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: theme.borderColor }
+            MintLabel { text: qsTr("Slider Interaction"); font.bold: true }
+
+            RowLayout {
+                Layout.fillWidth: true
+                MintCheckBox {
+                    checked: backend.sliderWheelControl
+                    onToggled: backend.setSliderWheelControl(checked)
+                }
+                ColumnLayout {
+                    Layout.fillWidth: true; spacing: 1
+                    MintLabel { text: qsTr("Scroll Wheel Control") }
+                    MintLabel {
+                        Layout.fillWidth: true
+                        text: qsTr("When enabled, scrolling while the pointer is over a slider changes it by one smart step.")
+                        color: theme.mutedTextColor; font.pixelSize: 10; wrapMode: Text.WordWrap
+                    }
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                MintCheckBox {
+                    checked: backend.debounceSliderUpdates
+                    onToggled: backend.setDebounceSliderUpdates(checked)
+                }
+                ColumnLayout {
+                    Layout.fillWidth: true; spacing: 1
+                    MintLabel { text: qsTr("Debounce Slider Updates") }
+                    MintLabel {
+                        Layout.fillWidth: true
+                        text: qsTr("Wait briefly while dragging expensive controls, then render when movement pauses or stops.")
+                        color: theme.mutedTextColor; font.pixelSize: 10; wrapMode: Text.WordWrap
+                    }
+                }
+            }
+
             RowLayout {
                 Layout.fillWidth: true
                 MintButton { text: qsTr("Clear Layer Cache"); enabled: backend.layerCacheEnabled; onClicked: backend.clearLayerCache() }

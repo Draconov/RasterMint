@@ -32,13 +32,14 @@ Linux desktop environments use the runtime PNG unless a distribution package sup
 
 ## Sidebar icons
 
-RasterMint also packages ten `sidebar-*.png` files. The inspector currently uses nine monochrome PNGs directly as shape masks:
+RasterMint also packages eleven `sidebar-*.png` files. The inspector currently uses ten monochrome PNGs directly as shape masks:
 
 ```text
 sidebar-random.png
 sidebar-presets.png
 sidebar-hardware.png
 sidebar-layers.png
+sidebar-print-lab.png
 sidebar-source.png
 sidebar-preview.png
 sidebar-raster.png
@@ -80,6 +81,6 @@ When replacing a sidebar icon:
 3. preserve the existing `sidebar-*.png` filename or update the corresponding `Main.qml` `iconSource`;
 4. keep the human-readable button text because it is used for localization/accessibility and the hover tooltip;
 5. verify both light and dark themes, including the active `theme.accentColor` state;
-6. run the QML/runtime tests. `tests/test_ui_regressions.py` currently protects the nine static sidebar asset references and the Canvas tinting contract.
+6. run the QML/runtime tests. `tests/test_ui_regressions.py` protects the static sidebar asset references and the Canvas tinting contract.
 
 If the Palette button behavior changes, remember that it is currently a generated theme-swatch icon rather than a static image.

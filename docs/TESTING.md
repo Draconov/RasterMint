@@ -35,6 +35,7 @@ Run a specific area:
 ```bash
 python -m pytest tests/test_palette.py
 python -m pytest tests/test_qml_runtime.py
+python -m pytest tests/test_print_lab_060.py
 ```
 
 ## Test layers
@@ -50,6 +51,7 @@ Most tests exercise pure Python processing under `src/rastermint/core/`:
 - hardware constraints;
 - presets/history;
 - animation/media/batch/export behavior.
+- Print Lab separation math, structural dither families, real-vector separation export, transparent-source behavior, presets/projects, and print-mode edge cases.
 
 These should remain Qt-independent whenever possible.
 

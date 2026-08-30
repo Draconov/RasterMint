@@ -207,6 +207,172 @@ def halftone_dither(image: np.ndarray, palette: np.ndarray, cell: int = 8) -> np
     return out
 
 
+
+def pop_tone_dither(
+    image: np.ndarray,
+    palette: np.ndarray,
+    scale: int = 8,
+    density: float = 0.7,
+    variation: float = 0.25,
+) -> np.ndarray:
+    """Manga/pop-art clustered tone with palette-aware colour retention."""
+    h, w = image.shape[:2]
+    cell = max(2, min(64, int(scale)))
+    density = max(0.0, min(1.0, float(density)))
+    variation = max(0.0, min(1.0, float(variation)))
+    yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
+    u = np.mod(xx + cell * 0.5, cell) / cell - 0.5
+    v = np.mod(yy + cell * 0.5, cell) / cell - 0.5
+    rank = np.clip(np.pi * (u * u + v * v), 0.0, 1.0)
+    lum = (0.2126 * image[..., 0] + 0.7152 * image[..., 1] + 0.0722 * image[..., 2]) / 255.0
+    wave = 0.5 + 0.5 * np.sin((xx + yy * 0.63) * (2.0 * np.pi / max(3.0, cell * 2.5)))
+    coverage = np.clip((1.0 - lum) * density * 1.25 + (wave - 0.5) * variation * 0.28, 0.0, 1.0)
+    # Dots retain local source hue while the paper between dots is pushed
+    # toward the brightest palette swatch. This is visibly different from the
+    # ordinary two-colour Halftone dither.
+    quantized = quantize_nearest(image, palette)
+    pl = 0.2126 * palette[:, 0] + 0.7152 * palette[:, 1] + 0.0722 * palette[:, 2]
+    paper = palette[int(np.argmax(pl))]
+    return np.where((coverage >= rank)[..., None], quantized, paper).astype(np.float32)
+
+
+def _sample_palette_color(block: np.ndarray, palette: np.ndarray) -> np.ndarray:
+    if block.size == 0:
+        return palette[0]
+    mean = block.reshape(-1, 3).mean(axis=0)
+    diff = palette - mean[None, :]
+    return palette[int(np.argmin(np.sum(diff * diff, axis=1)))]
+
+
+def polygon_dither(
+    image: np.ndarray,
+    palette: np.ndarray,
+    variant: str = "Hexa-Poly",
+    cell_size: int = 12,
+) -> np.ndarray:
+    """Rebuild the image from actual polygonal cells rather than an overlay."""
+    from PIL import Image as _Image, ImageDraw as _ImageDraw
+
+    arr = np.asarray(image, dtype=np.float32)
+    h, w = arr.shape[:2]
+    cell = max(3, min(128, int(cell_size)))
+    canvas = _Image.new("RGB", (w, h), tuple(int(x) for x in palette[0]))
+    draw = _ImageDraw.Draw(canvas)
+
+    def colour_at(cx: float, cy: float, radius: float) -> tuple[int, int, int]:
+        x0 = max(0, int(cx - radius)); x1 = min(w, int(cx + radius) + 1)
+        y0 = max(0, int(cy - radius)); y1 = min(h, int(cy + radius) + 1)
+        c = _sample_palette_color(arr[y0:y1, x0:x1], palette)
+        return tuple(int(round(float(v))) for v in c)
+
+    if variant == "Tri-Poly":
+        for y in range(0, h + cell, cell):
+            for x in range(0, w + cell, cell):
+                c1 = colour_at(x + cell / 3, y + cell / 3, cell * 0.55)
+                c2 = colour_at(x + cell * 2 / 3, y + cell * 2 / 3, cell * 0.55)
+                draw.polygon([(x, y), (x + cell, y), (x, y + cell)], fill=c1)
+                draw.polygon([(x + cell, y), (x + cell, y + cell), (x, y + cell)], fill=c2)
+    elif variant == "Penta-Poly":
+        radius = cell * 0.58
+        step_x = cell * 1.12
+        step_y = cell * 0.95
+        row = 0
+        cy = 0.0
+        while cy < h + cell:
+            offset = (row & 1) * step_x * 0.5
+            cx = -cell + offset
+            while cx < w + cell:
+                pts = []
+                for i in range(5):
+                    a = -math.pi / 2 + i * 2 * math.pi / 5
+                    pts.append((cx + radius * math.cos(a), cy + radius * math.sin(a)))
+                draw.polygon(pts, fill=colour_at(cx, cy, radius))
+                cx += step_x
+            cy += step_y
+            row += 1
+    elif variant == "Low-Poly":
+        # Deterministic jittered triangular mesh: actual flat polygon regions,
+        # not a pixelation followed by polygon outlines.
+        rng = np.random.default_rng(0x4C4F5750 + cell)
+        rows = int(math.ceil(h / cell)) + 2
+        cols = int(math.ceil(w / cell)) + 2
+        points = np.zeros((rows, cols, 2), dtype=np.float32)
+        for gy in range(rows):
+            for gx in range(cols):
+                px = (gx - 1) * cell
+                py = (gy - 1) * cell
+                if 0 < gx < cols - 1: px += rng.uniform(-0.28, 0.28) * cell
+                if 0 < gy < rows - 1: py += rng.uniform(-0.28, 0.28) * cell
+                points[gy, gx] = (px, py)
+        for gy in range(rows - 1):
+            for gx in range(cols - 1):
+                a, b = points[gy, gx], points[gy, gx + 1]
+                c, d = points[gy + 1, gx], points[gy + 1, gx + 1]
+                tris = ((a, b, d), (a, d, c)) if ((gx + gy) & 1) == 0 else ((a, b, c), (b, d, c))
+                for tri in tris:
+                    cx = float(sum(p[0] for p in tri) / 3.0); cy = float(sum(p[1] for p in tri) / 3.0)
+                    draw.polygon([(float(p[0]), float(p[1])) for p in tri], fill=colour_at(cx, cy, cell * 0.6))
+    else:  # Hexa-Poly
+        radius = cell * 0.58
+        step_x = radius * 1.5
+        step_y = math.sqrt(3.0) * radius
+        col = 0
+        cx = 0.0
+        while cx < w + cell:
+            offset_y = (col & 1) * step_y * 0.5
+            cy = -cell + offset_y
+            while cy < h + cell:
+                pts = [(cx + radius * math.cos(i * math.pi / 3), cy + radius * math.sin(i * math.pi / 3)) for i in range(6)]
+                draw.polygon(pts, fill=colour_at(cx, cy, radius))
+                cy += step_y
+            cx += step_x
+            col += 1
+    return np.asarray(canvas, dtype=np.float32)
+
+
+def beehive_dither(
+    image: np.ndarray,
+    palette: np.ndarray,
+    scale: int = 10,
+    luminance_threshold: float = 0.5,
+    cell_size: int = 10,
+) -> np.ndarray:
+    """Honeycomb raster whose hexagonal cells are the rendered image geometry."""
+    from PIL import Image as _Image, ImageDraw as _ImageDraw
+
+    arr = np.asarray(image, dtype=np.float32)
+    h, w = arr.shape[:2]
+    radius = max(2.0, min(96.0, float(cell_size) * max(0.25, float(scale) / 10.0) * 0.58))
+    step_x = radius * 1.5
+    step_y = math.sqrt(3.0) * radius
+    threshold = max(0.0, min(1.0, float(luminance_threshold)))
+    pl = 0.2126 * palette[:, 0] + 0.7152 * palette[:, 1] + 0.0722 * palette[:, 2]
+    dark = palette[int(np.argmin(pl))]
+    canvas = _Image.new("RGB", (w, h), tuple(int(v) for v in palette[int(np.argmax(pl))]))
+    draw = _ImageDraw.Draw(canvas)
+    col = 0
+    cx = 0.0
+    while cx < w + radius:
+        cy = -radius + (col & 1) * step_y * 0.5
+        while cy < h + radius:
+            x0=max(0,int(cx-radius)); x1=min(w,int(cx+radius)+1)
+            y0=max(0,int(cy-radius)); y1=min(h,int(cy+radius)+1)
+            block=arr[y0:y1,x0:x1]
+            if block.size:
+                mean=block.reshape(-1,3).mean(axis=0)
+                lum=float(0.2126*mean[0]+0.7152*mean[1]+0.0722*mean[2])/255.0
+                if lum < threshold:
+                    color=dark
+                else:
+                    color=_sample_palette_color(block,palette)
+                pts=[(cx+radius*math.cos(i*math.pi/3),cy+radius*math.sin(i*math.pi/3)) for i in range(6)]
+                draw.polygon(pts, fill=tuple(int(round(float(v))) for v in color))
+            cy += step_y
+        cx += step_x
+        col += 1
+    return np.asarray(canvas, dtype=np.float32)
+
+
 def error_diffusion(
     image: np.ndarray,
     palette: np.ndarray,

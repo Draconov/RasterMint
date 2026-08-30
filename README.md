@@ -19,10 +19,12 @@ RasterMint is built around a single processing pipeline: the live preview, still
 
 > **Status:** RasterMint is under active development. Project files, presets, and behavior may continue to evolve between releases.
 
-## Singular Lab update
+## RasterMint 0.6.0 — Print Lab
 
-RasterMint's current development build expands beyond still-image dithering into a composable visual workstation:
+RasterMint 0.6.0 expands the composable workstation with an actual print-separation workflow:
 
+- **Print Lab:** non-destructive Monochrome, CMYK, RGB, and 1–8 Spot Color AM halftone screening with independent ink angles/registration/phase/opacity, dot gain, black generation, print imperfections, paper/overprint controls, individual separation preview, real vector SVG separations, raster proofs, and composite export.
+- **New raster styles:** Pop Tone, Hexa-Poly, Penta-Poly, Tri-Poly, Low-Poly, and Beehive.
 - **Display Lab:** CRT/LCD/OLED/composite/RF/VHS effects and reusable display/tape presets.
 - **Layer System 2.0:** opacity, blend modes, masks, groups, solo, duplicate/reset, copy/paste and multi-selection.
 - **Palette & Dither Lab:** usage analysis, sorting, ramps, near-duplicates, reduction suggestions and custom dither matrices.
@@ -57,12 +59,27 @@ The Windows release intentionally remains a **single executable**. The build use
 - Lospec palette import by slug or URL using the documented palette JSON endpoint.
 - Custom gradient generation using **RGB, Linear RGB, OKLab, HSV, and HSL** interpolation.
 - Built-in gradient presets that can be applied directly as the active image palette.
+- **Pop Tone**, polygon-cell (**Hexa/Penta/Tri/Low-Poly**), and **Beehive** structural raster effects for palette-bounded stylization beyond ordinary ordered/error-diffusion dithering.
 
 ### Layer-based image processing
 
 RasterMint uses a reorderable effect stack. Layers can be enabled, bypassed, duplicated, reordered, grouped, soloed, or removed. Each layer can use opacity, a blend mode, and a procedural mask.
 
 Available processing includes color adjustments, local contrast, blur, sharpen, glow, bloom, chromatic effects, posterization, dithering, text/pixel effects, and a dedicated **Display Effects** lab for CRT/LCD/OLED/composite/RF/VHS simulation including temporal persistence.
+
+### Print Lab
+
+RasterMint's ordinary Halftone algorithm remains available for fast aesthetic dithering. **Print Lab** is a separate editable layer/workflow for real color-separation screening.
+
+- Monochrome, CMYK, RGB, and 1–8 Spot Color modes.
+- Independent ink color, screen angle, X/Y registration, phase, and opacity.
+- Round, ellipse, square, diamond, and line screen geometry.
+- Dot gain, black generation, registration error, roughness, weak ink, spread, paper grain, and squeegee artifacts.
+- Paper color plus subtractive overprint/ink mixing.
+- Composite or individual-separation inspection.
+- Dedicated export of actual vector SVG screens, grayscale raster proofs, and a composite PNG.
+
+See [`docs/PRINT_LAB.md`](docs/PRINT_LAB.md) for the workflow and export details.
 
 ### Raster and retro-hardware workflows
 
@@ -90,6 +107,7 @@ Hardware profiles are creative image-processing models, **not hardware emulators
 - Quick, Stable, and Full preview modes.
 - Background rendering with stale-result protection.
 - Undo/redo with grouped slider and drag interactions.
+- Optional mouse-wheel slider control and render-debounced slider updates for expensive stacks.
 - Batch export with format, scaling, overwrite, and per-source sizing controls.
 - Direct **Export to Clipboard** for pasting the processed image into another application without a temporary file.
 - Compact icon-based inspector navigation with grouped sections and translated hover labels.
@@ -105,6 +123,8 @@ RasterMint relies on Pillow for still-image formats and FFmpeg for media formats
 
 **Still export:** PNG, JPEG, WebP, BMP, TIFF, and SVG.
 
+**Print Lab separation export:** vector SVG per ink, grayscale PNG proof per ink, plus composite PNG.
+
 **Motion export:** MP4, animated GIF, and numbered PNG sequences where supported by the source/workflow.
 
 Exact codec support can vary by platform build. Official Windows releases validate the bundled FFmpeg against RasterMint's required H.264, AAC, RGB-pipe, PNG, and GIF workflows during CI.
@@ -115,8 +135,8 @@ Exact codec support can vary by platform build. Official Windows releases valida
 2. Open RasterMint.
 3. Drop an image, GIF, or video onto the canvas, or use **File → Open**.
 4. Choose a palette and dithering algorithm.
-5. Add/reorder effects, set a raster or hardware profile, and adjust the preview.
-6. Export from the **File** menu.
+5. Add/reorder effects, set a raster or hardware profile, open Print Lab when making separations, and adjust the preview.
+6. Export normal media from the **File** menu, or use **Print Lab → Output → Export Separations…** for individual ink screens.
 
 RasterMint does not require an online account. Network access is only needed for features that explicitly fetch remote content, such as Lospec palette import.
 
@@ -205,6 +225,7 @@ The GUI startup path is intentionally lightweight. NumPy, Pillow, the render pip
 | Document | Purpose |
 | --- | --- |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Runtime architecture, processing pipeline, UI boundary, workers, packaging |
+| [`docs/PRINT_LAB.md`](docs/PRINT_LAB.md) | AM-halftone modes, ink controls, separation preview/export, and implementation boundaries |
 | [`docs/EXTENDING_RASTERMINT.md`](docs/EXTENDING_RASTERMINT.md) | How to add effects, dithering, palettes, profiles, animation, and UI features |
 | [`docs/HARDWARE_PROFILES.md`](docs/HARDWARE_PROFILES.md) | Hardware-profile format and Visual/Strict behavior |
 | [`docs/TESTING.md`](docs/TESTING.md) | Test strategy, QML smoke tests, regression-test policy |

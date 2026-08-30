@@ -6,7 +6,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from PySide6.QtCore import Property, QStandardPaths, QUrl, Signal, Slot
+from PySide6.QtCore import Property, QStandardPaths, QTimer, QUrl, Signal, Slot
 
 from rastermint.core import builtin_presets, palette_library
 from rastermint.core.extensions import asset_files
@@ -27,6 +27,8 @@ MIN_LAYER_CACHE_MEGABYTES = 64
 MAX_LAYER_CACHE_MEGABYTES = 2048
 DEFAULT_TILED_PROCESSING_ENABLED = True
 DEFAULT_PROCESSING_TILE_SIZE = 1024
+DEFAULT_SLIDER_WHEEL_CONTROL = False
+DEFAULT_DEBOUNCE_SLIDER_UPDATES = False
 
 
 def _processor_call(name: str, *args, **kwargs):
@@ -100,6 +102,13 @@ class RasterMintBackend(BaseRasterMintBackend):
             raw_tile = DEFAULT_PROCESSING_TILE_SIZE
         choices = (256, 512, 1024, 2048, 4096)
         self._processing_tile_size = min(choices, key=lambda value: abs(value - raw_tile))
+        self._slider_wheel_control = str(self.app_settings.value("interaction/sliderWheelControl", "false")).lower() in {"1", "true", "yes", "on"}
+        self._debounce_slider_updates = str(self.app_settings.value("interaction/debounceSliderUpdates", "false")).lower() in {"1", "true", "yes", "on"}
+        self._slider_interaction_active = False
+
+        self._debounce_full_timer = QTimer(self)
+        self._debounce_full_timer.setSingleShot(True)
+        self._debounce_full_timer.timeout.connect(lambda: self._request_preview(self._safe_full_side()))
 
         self._user_palettes: dict[str, dict[str, object]] = {}
         self._user_presets: dict[str, dict[str, object]] = {}
@@ -193,6 +202,81 @@ class RasterMintBackend(BaseRasterMintBackend):
         self.performanceSettingsChanged.emit()
         self._set_status(f"Processing tile: {value} px")
 
+    @Property(bool, notify=performanceSettingsChanged)
+    def sliderWheelControl(self) -> bool:
+        return bool(self._slider_wheel_control)
+
+    @Slot(bool)
+    def setSliderWheelControl(self, enabled: bool) -> None:
+        enabled = bool(enabled)
+        if enabled == self._slider_wheel_control:
+            return
+        self._slider_wheel_control = enabled
+        self.app_settings.setValue("interaction/sliderWheelControl", enabled)
+        self.performanceSettingsChanged.emit()
+        self._set_status(f"Slider wheel control: {'On' if enabled else 'Off'}")
+
+    @Property(bool, notify=performanceSettingsChanged)
+    def debounceSliderUpdates(self) -> bool:
+        return bool(self._debounce_slider_updates)
+
+    @Slot(bool)
+    def setDebounceSliderUpdates(self, enabled: bool) -> None:
+        enabled = bool(enabled)
+        if enabled == self._debounce_slider_updates:
+            return
+        self._debounce_slider_updates = enabled
+        if not enabled:
+            self._slider_interaction_active = False
+            self._debounce_full_timer.stop()
+        self.app_settings.setValue("interaction/debounceSliderUpdates", enabled)
+        self.performanceSettingsChanged.emit()
+        self._set_status(f"Slider render debounce: {'On' if enabled else 'Off'}")
+
+    @Slot()
+    def beginDebouncedSliderInteraction(self) -> None:
+        if self._debounce_slider_updates:
+            self._slider_interaction_active = True
+
+    @Slot()
+    def endDebouncedSliderInteraction(self) -> None:
+        if not self._slider_interaction_active:
+            return
+        self._slider_interaction_active = False
+        self.flushDebouncedPreview()
+
+    @Slot()
+    def flushDebouncedPreview(self) -> None:
+        if not self._debounce_slider_updates or not self.hasSource:
+            return
+        self._quick_timer.stop(); self._stable_timer.stop(); self._debounce_full_timer.stop()
+        if self._preview_mode == "Quick":
+            self._quick_timer.start(0)
+            self._stable_timer.start(330)
+        elif self._preview_mode == "Stable":
+            self._stable_timer.start(0)
+        else:
+            self._request_preview(self._safe_full_side())
+
+    @Slot()
+    @Slot(bool)
+    def schedulePreview(self, force: bool = False) -> None:
+        if force or not self._debounce_slider_updates or not self._slider_interaction_active:
+            super().schedulePreview(force)
+            return
+        if not self.hasSource:
+            return
+        self._quick_timer.stop(); self._stable_timer.stop(); self._debounce_full_timer.stop()
+        if self._preview_mode == "Quick":
+            self._quick_timer.start(220)
+            self._stable_timer.start(520)
+        elif self._preview_mode == "Stable":
+            self._stable_timer.start(320)
+        else:
+            # Full mode has no proxy tier, so use a dedicated debounce timer.
+            self._debounce_full_timer.stop()
+            self._debounce_full_timer.start(280)
+
     @Slot()
     def clearLayerCache(self) -> None:
         self._clear_layer_render_cache()
@@ -212,18 +296,30 @@ class RasterMintBackend(BaseRasterMintBackend):
             or self._layer_cache_megabytes != DEFAULT_LAYER_CACHE_MEGABYTES
             or self._tiled_processing_enabled != DEFAULT_TILED_PROCESSING_ENABLED
             or self._processing_tile_size != DEFAULT_PROCESSING_TILE_SIZE
+            or self._slider_wheel_control != DEFAULT_SLIDER_WHEEL_CONTROL
+            or self._debounce_slider_updates != DEFAULT_DEBOUNCE_SLIDER_UPDATES
         )
         self._layer_cache_enabled = DEFAULT_LAYER_CACHE_ENABLED
         self._layer_cache_megabytes = DEFAULT_LAYER_CACHE_MEGABYTES
         self._tiled_processing_enabled = DEFAULT_TILED_PROCESSING_ENABLED
         self._processing_tile_size = DEFAULT_PROCESSING_TILE_SIZE
+        self._slider_wheel_control = DEFAULT_SLIDER_WHEEL_CONTROL
+        self._debounce_slider_updates = DEFAULT_DEBOUNCE_SLIDER_UPDATES
+        self._slider_interaction_active = False
         self.app_settings.setValue("performance/layerCacheEnabled", DEFAULT_LAYER_CACHE_ENABLED)
         self.app_settings.setValue("performance/layerCacheMegabytes", DEFAULT_LAYER_CACHE_MEGABYTES)
         self.app_settings.setValue("performance/tiledProcessingEnabled", DEFAULT_TILED_PROCESSING_ENABLED)
         self.app_settings.setValue("performance/tileSize", DEFAULT_PROCESSING_TILE_SIZE)
+        self.app_settings.setValue("interaction/sliderWheelControl", DEFAULT_SLIDER_WHEEL_CONTROL)
+        self.app_settings.setValue("interaction/debounceSliderUpdates", DEFAULT_DEBOUNCE_SLIDER_UPDATES)
         self._clear_layer_render_cache()
         if performance_changed:
             self.performanceSettingsChanged.emit()
+
+    @Slot()
+    def shutdown(self) -> None:
+        self._debounce_full_timer.stop()
+        super().shutdown()
 
     # ---------- persistent user palette library ----------
     @staticmethod

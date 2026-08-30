@@ -151,6 +151,7 @@ Slider {
 
         onPressed: function(mouse) {
             control.forceActiveFocus(Qt.MouseFocusReason)
+            backend.beginDebouncedSliderInteraction()
             control.dragValue = control.smartRound(control.value)
 
             var handleCenter = control.handle.x + control.handle.width / 2
@@ -171,7 +172,26 @@ Slider {
                 control.updateFromPointer(mouse.x - dragOffsetX)
         }
 
-        onReleased: dragOffsetX = 0
-        onCanceled: dragOffsetX = 0
+        onReleased: {
+            dragOffsetX = 0
+            backend.endDebouncedSliderInteraction()
+        }
+        onCanceled: {
+            dragOffsetX = 0
+            backend.endDebouncedSliderInteraction()
+        }
+        onWheel: function(wheel) {
+            if (!backend.sliderWheelControl) {
+                wheel.accepted = false
+                return
+            }
+            var direction = wheel.angleDelta.y !== 0 ? (wheel.angleDelta.y > 0 ? 1 : -1)
+                                                        : (wheel.pixelDelta.y > 0 ? 1 : -1)
+            var increment = stepSize > 0 ? stepSize : Math.max(0.000001, Math.abs(to - from) / 100.0)
+            var nextValue = control.smartRound(control.value + direction * increment)
+            control.dragValue = nextValue
+            control.userMoved(nextValue)
+            wheel.accepted = true
+        }
     }
 }

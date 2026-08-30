@@ -108,7 +108,8 @@ The main responsibilities under `src/rastermint/core/` are:
 | `media.py` | FFmpeg-backed media probing/decoding/export |
 | `gif_export.py` | GIF-specific export helpers |
 | `batch.py` | Sequential batch processing |
-| `svg_export.py` | Vectorization of processed raster output |
+| `svg_export.py` | Vectorization of normal processed raster output |
+| `print_lab.py` | AM-halftone separation generation, print compositing, individual-screen preview, and true-vector separation SVG export |
 | `history.py` | Undo/redo state history |
 | `lospec.py` | Lospec slug/URL parsing and palette fetch |
 
@@ -162,6 +163,14 @@ Preview jobs carry source/settings revisions. A result created for an older revi
 
 Expensive dithering modes and very large palettes may receive smaller interactive proxy budgets. These budgets are preview policy only; they must not silently reduce final export quality.
 
+## Print Lab boundary
+
+`core/print_lab.py` owns print mathematics and file-independent separation generation. A Print Lab layer is normalized through the normal effect schema and rendered by the shared effect stack, so stills, animation frames, decoded media frames, presets, projects, compositing, undo/redo, and cache signatures continue to use the same settings contract.
+
+Dedicated separation export is different from ordinary image SVG export: `PrintSeparationExportWorker` first renders the stack prefix before the active Print Lab layer, then asks `core/print_lab.py` for the actual ink screens. Each separation SVG is built from vector dot/cell geometry rather than embedding a raster image. Raster proofs and the composite PNG are emitted alongside those vector screens.
+
+The Print Lab page is a presentation/control surface only. It must not contain screening mathematics. Long separation exports run in the existing thread pool and report through the same render-progress state as other expensive jobs.
+
 ## QML/UI boundary
 
 The desktop interface lives under `src/rastermint/qml/`.
@@ -192,7 +201,7 @@ QML should call the backend through explicit slots/properties and avoid importin
 
 ### Sidebar icon rendering
 
-The narrow inspector rail is icon-based. Nine static 32×32 PNGs under `data/icons/` are loaded by `InspectorNavButton.qml` as alpha/shape masks and recolored with a QtQuick `Canvas`:
+The narrow inspector rail is icon-based. Ten static 32×32 PNGs under `data/icons/` are loaded by `InspectorNavButton.qml` as alpha/shape masks and recolored with a QtQuick `Canvas`:
 
 - inactive icon: `theme.textColor`;
 - active icon: `theme.accentColor`;

@@ -11,6 +11,7 @@ Identify which layer owns the feature:
 | Image processing | `src/rastermint/core/` |
 | Dithering metadata | `core/dither_metadata.py` |
 | Dithering implementation | `core/dither.py` |
+| Print/separation rendering | `core/print_lab.py` |
 | Effect schema | `core/effect_schema.py` |
 | Effect rendering | `core/effect_stack.py` |
 | Palette logic | `core/palette*.py` |
@@ -85,6 +86,21 @@ Reusable threshold matrices should live with the ordered-dither implementation r
 ### New algorithm families
 
 A fundamentally different algorithm can have its own function, but it should still accept the same normalized palette/settings inputs and return the same image contract.
+
+## Extending Print Lab
+
+Print Lab is deliberately separate from RasterMint's ordinary Halftone dither. New ink/separation math belongs in `core/print_lab.py`; user-editable controls belong in the `Print Lab` effect schema and `qml/pages/PrintLabPage.qml`.
+
+When adding a print mode or dot geometry:
+
+1. keep the mode/separation names serialized in language-independent English identifiers;
+2. normalize every new parameter and provide safe defaults for older projects/presets;
+3. make the raster composite and individual-separation preview agree with the exported screen geometry;
+4. keep separation SVG output as real vector primitives/paths rather than a base64/raster wrapper;
+5. preserve transparent input as unprinted paper;
+6. run expensive export work through the worker pool rather than QML/the UI thread.
+
+Built-in Print Lab presets should configure a normal editable `Print Lab` layer. Do not hide special processing in a preset ID branch.
 
 ## Adding a built-in palette
 

@@ -483,3 +483,38 @@ class BatchWorker(QRunnable):
                 traceback.format_exc(),
                 self.output_dir,
             )
+
+class PrintSeparationExportWorker(QRunnable):
+    """Render the Print Lab input and write vector/raster separations off the UI thread."""
+
+    def __init__(self, job_id: int, image: Any, settings: ProcessingSettings, output_folder: str, stem: str) -> None:
+        super().__init__()
+        self.job_id = int(job_id)
+        self.image = image
+        self.settings = ProcessingSettings.from_dict(settings.to_dict())
+        self.output_folder = str(output_folder)
+        self.stem = str(stem or "image")
+        self.signals = WorkerSignals()
+
+    @Slot()
+    def run(self) -> None:
+        try:
+            from rastermint.core.effect_schema import normalize_effect_stack
+            from rastermint.core.processor import process_image
+            from rastermint.core.print_lab import export_print_separations
+
+            stack = normalize_effect_stack(self.settings.effect_stack, self.settings)
+            print_index = next((i for i, step in enumerate(stack) if step.get("kind") == "Print Lab" and step.get("enabled", True)), -1)
+            if print_index < 0:
+                raise ValueError("No enabled Print Lab layer is present.")
+            print_params = dict(stack[print_index].get("params") or {})
+            pre = self.settings.clone()
+            pre.effect_stack = stack[:print_index]
+            self.signals.progress.emit(self.job_id, "print-separations", 0, 3, "Preparing Print Lab input")
+            prepared = process_image(self.image, pre, display_mode="raw", include_grid=False)
+            self.signals.progress.emit(self.job_id, "print-separations", 1, 3, "Generating separations")
+            paths = export_print_separations(prepared, print_params, self.output_folder, stem=self.stem, raster_separations=True)
+            self.signals.progress.emit(self.job_id, "print-separations", 3, 3, "Writing separation files")
+            self.signals.finished.emit(self.job_id, "print-separations", [str(path) for path in paths], self.output_folder)
+        except Exception:
+            self.signals.failed.emit(self.job_id, "print-separations", traceback.format_exc(), self.output_folder)

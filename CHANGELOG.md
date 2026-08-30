@@ -2,7 +2,37 @@
 
 Notable user-facing and engineering changes are recorded here. RasterMint is still in active alpha development, so entries focus on behavior that affects releases, compatibility, or contributor expectations.
 
-## Unreleased - Singular Lab Update
+## 0.6.0 - 2026-08-30 — Print Lab
+
+### Print Lab / AM halftone
+
+- Added a dedicated, non-destructive **Print Lab** with independent **Monochrome, CMYK, RGB, and 1–8 Spot Color** separation workflows while keeping the existing ordinary Halftone dither separate.
+- Added true AM screen geometry with editable cell size, Round/Ellipse/Square/Diamond/Line dots, per-ink angles, per-ink X/Y registration, phase offsets, opacity, paper color, and subtractive overprint mixing.
+- Added CMYK under-color removal / **Black Generation**, conventional editable 15°/75°/0°/45° defaults, and individual separation inspection in the live layer pipeline.
+- Added print imperfections including dot gain, automatic registration error, screen roughness, missing/weak ink, irregular ink spread, paper-grain interaction, and squeegee/coverage artifacts; clean output remains available by leaving these at zero.
+- Added palette-assisted Spot Color setup so the active RasterMint palette can seed up to eight editable spot inks.
+- Added dedicated separation export that writes **real vector SVG screen geometry**, raster separation proofs, and a composite PNG. Transparent source regions correctly remain unprinted in generated separations.
+- Added eight editable Print Lab presets: **Clean CMYK Print, Vintage Screen Print, 2-Color Poster, 3-Color Risograph, Newspaper CMYK, Misregistered Print, Cheap T-Shirt Print,** and **Heavy Dot Gain**.
+
+### New dithering / structural raster effects
+
+- Added **Pop Tone** with scale, density, and variation controls for manga/pop-art clustered-dot rendering that remains bounded to the active palette.
+- Added the polygon family **Hexa-Poly, Penta-Poly, Tri-Poly,** and **Low-Poly**, rebuilding the image from actual filled polygon cells instead of placing a polygon texture over pixelation.
+- Added **Beehive**, an actual honeycomb-cell renderer with scale, luminance-threshold, and cell-size controls for monochrome or colored palettes.
+
+### Interaction and performance
+
+- Added optional global **Scroll Wheel Control** for sliders using each control's existing smart step/rounding behavior.
+- Added optional **Debounce Slider Updates** so expensive controls can wait briefly while dragging and flush immediately when the interaction ends.
+- Routed Print Lab separation export through the existing background-worker and render-progress system; the progress overlay retains RasterMint's existing rule of staying hidden for operations predicted to finish in under five seconds.
+- Kept Print Lab/new effects on the shared still/animation/video processing stack, existing layer compositing, undo/redo, preset/project serialization, render cache, and safe full-frame fallback for effects that are not mathematically tile-safe.
+
+### Scope
+
+- The existing **Quick / Stable / Full** preview system is unchanged in 0.6.0. No new preview-quality/forced-100% mode was added.
+- Animated-preset mode switching and new sRGB/Adobe RGB/Display P3/ICC color-management features are intentionally outside this release.
+
+## 0.5.0 - 2026-08-29 — Singular Lab Update
 
 ### Display Lab
 

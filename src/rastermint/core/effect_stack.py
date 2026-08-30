@@ -14,8 +14,9 @@ import numpy as np
 from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter, ImageFont, ImageOps
 
 from .color_utils import hex_to_rgb
-from .dither import apply_dither
+from .dither import apply_dither, beehive_dither, polygon_dither, pop_tone_dither
 from .hardware import apply_hardware_limits_layer
+from .print_lab import render_print_lab
 from .effect_schema import (
     EFFECT_DEFINITIONS,
     animatable_targets,
@@ -3136,6 +3137,20 @@ def apply_normalized_effect_stack(
                 int(p["rgb_offset"]), int(p["slice_shift"]), int(p["slice_height"]), int(p.get("vertical_jitter", 0)),
                 float(p.get("dropout", 0.0)), float(p.get("opacity", 1.0)), bool(p.get("temporal", False)), int(p["seed"]), frame_index,
             )
+        elif kind == "Pop Tone":
+            arr = np.asarray(img.convert("RGB"), dtype=np.float32)
+            result = pop_tone_dither(arr, palette_np, int(p.get("scale", 8)), float(p.get("density", 0.72)), float(p.get("variation", 0.25)))
+            img = Image.fromarray(np.clip(result, 0, 255).astype(np.uint8), "RGB")
+        elif kind == "Polygon Dither":
+            arr = np.asarray(img.convert("RGB"), dtype=np.float32)
+            result = polygon_dither(arr, palette_np, str(p.get("variant", "Hexa-Poly")), int(p.get("cell_size", 12)))
+            img = Image.fromarray(np.clip(result, 0, 255).astype(np.uint8), "RGB")
+        elif kind == "Beehive":
+            arr = np.asarray(img.convert("RGB"), dtype=np.float32)
+            result = beehive_dither(arr, palette_np, int(p.get("scale", 10)), float(p.get("luminance_threshold", 0.5)), int(p.get("cell_size", 10)))
+            img = Image.fromarray(np.clip(result, 0, 255).astype(np.uint8), "RGB")
+        elif kind == "Print Lab":
+            img = render_print_lab(img, p)
         elif kind == "Dither Glow":
             img = _dither_glow(
                 img,

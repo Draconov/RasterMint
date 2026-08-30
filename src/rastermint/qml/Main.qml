@@ -414,6 +414,13 @@ ApplicationWindow {
                             selected: window.inspectorIndex === 7
                             onClicked: window.inspectorIndex = 7
                         }
+                        InspectorNavButton {
+                            Layout.fillWidth: true
+                            text: qsTr("Print Lab")
+                            iconSource: Qt.resolvedUrl("../data/icons/sidebar-print-lab.png")
+                            selected: window.inspectorIndex === 10
+                            onClicked: window.inspectorIndex = 10
+                        }
 
                         Item {
                             Layout.fillWidth: true
@@ -507,6 +514,7 @@ ApplicationWindow {
                             Pages.LayersPage { }
                             Pages.AnimationPage { }
                             Pages.MediaPage { }
+                            Pages.PrintLabPage { }
                         }
                     }
                 }
