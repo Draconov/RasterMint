@@ -793,6 +793,8 @@
     "Click a variation to apply it; the complete editable stack is preserved.": "Noklikšķiniet uz varianta, lai to lietotu; pilna rediģējamā slāņu kopa tiek saglabāta.",
     "Mutate": "Mutēt",
     "Generate controlled variations of this preset": "Ģenerēt kontrolētus šī preseta variantus",
-    "Mutation amount": "Mutācijas apjoms"
+    "Mutation amount": "Mutācijas apjoms",
+    "Mutations": "Mutācijas",
+    "Select a preset first": "Vispirms atlasiet presetu"
   }
 }

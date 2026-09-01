@@ -128,7 +128,7 @@ Hardware profiles are creative image-processing models, **not hardware emulators
 - Compact icon-based inspector navigation with grouped sections and translated hover labels.
 - `.rastermint` project files, A/B snapshots/split comparison, searchable preset library, themes, translations, and data-driven hardware profiles.
 - **14 built-in application themes**, including Studio Gray, Midnight, Violet, Amber, and Hacker.
-- Runtime localization for **12 languages** (English plus Ukrainian, French, German, Spanish, Portuguese, Italian, Hebrew, Arabic, Polish, Irish, and Latvian) with live switching. First run/reset follows the supported system language and otherwise falls back to English.
+- Runtime localization for **22 languages** (English plus Ukrainian, French, German, Spanish, Portuguese, Italian, Hebrew, Arabic, Polish, Irish, Latvian, Simplified Chinese, Hindi, Bengali, Indonesian, Urdu, Punjabi, Japanese, Vietnamese, Turkish, and Korean) with live switching. First run/reset follows the supported system language and otherwise falls back to English.
 
 ## Supported formats
 

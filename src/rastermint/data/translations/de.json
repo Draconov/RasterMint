@@ -793,6 +793,8 @@
     "Click a variation to apply it; the complete editable stack is preserved.": "Eine Variante anklicken, um sie anzuwenden; der vollständige bearbeitbare Stapel bleibt erhalten.",
     "Mutate": "Mutieren",
     "Generate controlled variations of this preset": "Kontrollierte Varianten dieses Presets erzeugen",
-    "Mutation amount": "Mutationsstärke"
+    "Mutation amount": "Mutationsstärke",
+    "Mutations": "Mutationen",
+    "Select a preset first": "Zuerst ein Preset auswählen"
   }
 }

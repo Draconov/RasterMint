@@ -16,10 +16,15 @@ Notable user-facing and engineering changes are recorded here. RasterMint is sti
 ### Preset Mutation
 
 - Added **Preset Mutation** to the Presets page. Any built-in, user, or extension preset can generate **6–12 controlled nearby variations**.
-- Added adjustable mutation amount and current-image mutation thumbnails so variations can be compared before applying them.
+- Added adjustable mutation amount and current-image mutation thumbnails so variations can be compared before applying them. Mutation now runs from one dedicated **Preset Mutation** panel for the currently selected preset instead of placing a Mutate button on every preset card.
 - Mutation preserves the complete editable structure of the source look: layer IDs/order/types, enable state, masks, blend modes, animation tracks, target raster, and locked palette colours remain intact.
 - Numeric effect parameters, layer opacity, and unlocked palette colours receive bounded deterministic perturbations; algorithm choices, seeds, fonts, text, JSON payloads, profile identifiers, and custom matrices are intentionally left alone.
-- Generated mutations apply as ordinary RasterMint settings and can immediately be edited, reordered, animated, saved to the preset library, or stored in a project.
+- Generated mutations are collected in a dynamic **Mutations** category after the normal preset categories; they apply as ordinary RasterMint settings and can immediately be edited, reordered, animated, saved to the preset library, or stored in a project.
+
+### Localization
+
+- Added 10 new complete bundled translations: **Simplified Chinese, Hindi, Bengali, Indonesian, Urdu, Punjabi, Japanese, Vietnamese, Turkish, and Korean**, bringing RasterMint to **22 runtime languages** including English.
+- Added coverage and placeholder validation for the new dictionaries and kept automatic system-language selection compatible with their standard locale IDs.
 
 ### Documentation and release
 

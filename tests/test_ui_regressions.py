@@ -282,9 +282,72 @@ def test_runtime_localization_is_packaged_and_exposed_to_qml():
     assert 'separatorToken: "__language_separator__"' in settings
     assert 'qsTr("System default")' not in settings
     assert 'DEFAULT_LANGUAGE_ID = "en"' in localization
-    assert 'LANGUAGE_ORDER = ("en", "uk", "fr", "de", "es", "pt", "it", "he", "ar", "pl", "ga", "lv")' in localization
+    for language_id in ("en", "uk", "fr", "de", "es", "pt", "it", "he", "ar", "pl", "ga", "lv",
+                        "zh", "hi", "bn", "id", "ur", "pa", "ja", "vi", "tr", "ko"):
+        assert f'"{language_id}"' in localization
+    assert '"ru"' not in localization
     assert 'data/translations/*.json' in pyproject
     assert '"data/translations/*.json"' in spec
     assert ukrainian.is_file()
     assert "QCoreApplication.installTranslator" in localization
     assert "self._engine.retranslate()" in localization
+
+
+def test_preset_mutation_uses_selected_preset_and_dynamic_last_category():
+    presets = (QML / "pages" / "PresetsPage.qml").read_text(encoding="utf-8")
+
+    # Preset cards only select/apply. Mutation is initiated once from the
+    # dedicated Preset Mutation controls using the selected preset id.
+    delegate_start = presets.index("Component {\n        id: presetCardDelegate")
+    controls_start = presets.index('text: qsTr("Preset Mutation")')
+    delegate = presets[delegate_start:controls_start]
+    assert 'text: qsTr("Mutate")' not in delegate
+    assert "root.selectPreset(modelData.id, presetCard.displayName)" in delegate
+    assert 'border.color: (!Boolean(modelData.mutation) && root.selectedPresetId === String(modelData.id)) ? theme.accentColor : theme.borderColor' in delegate
+
+    mutation_controls = presets[controls_start:presets.index("        ScrollView {", controls_start)]
+    assert 'text: qsTr("Variants")' in mutation_controls
+    assert 'text: qsTr("Mutation amount")' in mutation_controls
+    assert 'text: qsTr("Mutate")' in mutation_controls
+    assert "root.selectedPresetId" in mutation_controls
+    assert 'root.setPresetCategoryExpanded("Mutations", true)' in mutation_controls
+
+    # Mutations are no longer a special top grid; they are a dynamic category
+    # after the normal category repeater, so the library ordering stays tidy.
+    repeater_pos = presets.index("model: root.presetCategories")
+    mutation_category_pos = presets.index("id: mutationCategorySection")
+    assert mutation_category_pos > repeater_pos
+    assert 'localization.translateRuntime(localization.effectiveLanguageId, "Mutations")' in presets
+    assert 'presetModel: backend.presetMutations || []' in presets[mutation_category_pos:]
+
+
+def test_mutations_translation_key_exists_in_every_bundled_language():
+    translations = ROOT / "src" / "rastermint" / "data" / "translations"
+    for path in translations.glob("*.json"):
+        payload = __import__("json").loads(path.read_text(encoding="utf-8"))
+        messages = payload.get("messages", {})
+        assert "Mutations" in messages, path.name
+        assert "Select a preset first" in messages, path.name
+
+
+def test_new_widespread_translation_dictionaries_are_complete_and_preserve_placeholders():
+    import json
+    import re
+
+    translations = ROOT / "src" / "rastermint" / "data" / "translations"
+    reference = json.loads((translations / "uk.json").read_text(encoding="utf-8"))["messages"]
+    placeholder = re.compile(r"%[12](?!\d)")
+    expected = {"zh", "hi", "bn", "id", "ur", "pa", "ja", "vi", "tr", "ko"}
+
+    for language_id in expected:
+        path = translations / f"{language_id}.json"
+        assert path.is_file(), language_id
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        assert payload["language"] == language_id
+        messages = payload["messages"]
+        assert set(messages) == set(reference), language_id
+        assert all(str(value).strip() for value in messages.values()), language_id
+        for source, translated in messages.items():
+            assert sorted(placeholder.findall(source)) == sorted(placeholder.findall(translated)), (language_id, source)
+
+    assert not (translations / "ru.json").exists()

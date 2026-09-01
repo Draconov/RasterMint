@@ -793,6 +793,8 @@
     "Click a variation to apply it; the complete editable stack is preserved.": "انقر على نسخة لتطبيقها؛ يتم الحفاظ على المكدس القابل للتحرير بالكامل.",
     "Mutate": "حوّر",
     "Generate controlled variations of this preset": "إنشاء نسخ متحكم بها من هذا الإعداد المسبق",
-    "Mutation amount": "مقدار التحوير"
+    "Mutation amount": "مقدار التحوير",
+    "Mutations": "التحويرات",
+    "Select a preset first": "حدد إعدادًا مسبقًا أولاً"
   }
 }

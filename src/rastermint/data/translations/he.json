@@ -793,6 +793,8 @@
     "Click a variation to apply it; the complete editable stack is preserved.": "לחצו על וריאציה כדי להחיל אותה; כל מחסנית העריכה נשמרת.",
     "Mutate": "צור מוטציה",
     "Generate controlled variations of this preset": "צור וריאציות מבוקרות של ערכה זו",
-    "Mutation amount": "עוצמת מוטציה"
+    "Mutation amount": "עוצמת מוטציה",
+    "Mutations": "מוטציות",
+    "Select a preset first": "בחרו תחילה ערכה"
   }
 }

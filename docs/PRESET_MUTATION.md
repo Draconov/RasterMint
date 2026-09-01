@@ -2,7 +2,7 @@
 
 RasterMint 0.7.0 adds controlled **Preset Mutation** to the Presets inspector.
 
-Press **Mutate** on any built-in, user, or extension preset. RasterMint generates **6–12 nearby variations** and renders normal current-image preset thumbnails for them. Mutation Amount controls how far the generated looks may move from the source preset.
+Select any built-in, user, or extension preset, then use the **Preset Mutation** panel to choose the number of variants and Mutation Amount and press **Mutate**. RasterMint generates **6–12 nearby variations** and renders normal current-image preset thumbnails for them. The generated looks appear in a dynamic **Mutations** category placed after the normal preset categories.
 
 ## What is preserved
 

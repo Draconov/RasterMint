@@ -15,7 +15,10 @@ from rastermint.core.extensions import asset_files
 
 
 DEFAULT_LANGUAGE_ID = "en"
-LANGUAGE_ORDER = ("en", "uk", "fr", "de", "es", "pt", "it", "he", "ar", "pl", "ga", "lv")
+LANGUAGE_ORDER = (
+    "en", "uk", "fr", "de", "es", "pt", "it", "he", "ar", "pl", "ga", "lv",
+    "zh", "hi", "bn", "id", "ur", "pa", "ja", "vi", "tr", "ko",
+)
 LANGUAGE_NAMES = {
     "en": "English",
     "uk": "Українська",
@@ -29,6 +32,16 @@ LANGUAGE_NAMES = {
     "pl": "Polski",
     "ga": "Gaeilge",
     "lv": "Latviešu",
+    "zh": "简体中文",
+    "hi": "हिन्दी",
+    "bn": "বাংলা",
+    "id": "Bahasa Indonesia",
+    "ur": "اردو",
+    "pa": "ਪੰਜਾਬੀ",
+    "ja": "日本語",
+    "vi": "Tiếng Việt",
+    "tr": "Türkçe",
+    "ko": "한국어",
 }
 _LEGACY_SYSTEM_LANGUAGE_ID = "system"
 

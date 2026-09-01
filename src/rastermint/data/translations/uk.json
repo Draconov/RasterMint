@@ -896,6 +896,8 @@
     "Click a variation to apply it; the complete editable stack is preserved.": "Натисніть варіант, щоб застосувати його; повний редагований стек зберігається.",
     "Mutate": "Мутувати",
     "Generate controlled variations of this preset": "Створити контрольовані варіанти цього пресета",
-    "Mutation amount": "Сила мутації"
+    "Mutation amount": "Сила мутації",
+    "Mutations": "Мутації",
+    "Select a preset first": "Спочатку виберіть пресет"
   }
 }

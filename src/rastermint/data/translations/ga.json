@@ -793,6 +793,8 @@
     "Click a variation to apply it; the complete editable stack is preserved.": "Cliceáil leagan chun é a chur i bhfeidhm; coinnítear an chruach iomlán ineagarthóireachta.",
     "Mutate": "Sócháin",
     "Generate controlled variations of this preset": "Gin leaganacha rialaithe den réamhshocrú seo",
-    "Mutation amount": "Méid sócháin"
+    "Mutation amount": "Méid sócháin",
+    "Mutations": "Sócháin",
+    "Select a preset first": "Roghnaigh réamhshocrú ar dtús"
   }
 }

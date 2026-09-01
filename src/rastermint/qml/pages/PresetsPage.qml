@@ -16,6 +16,8 @@ Item {
     property string managePresetName: ""
     property int mutationCount: 8
     property int mutationAmountPercent: 35
+    property string selectedPresetId: ""
+    property string selectedPresetName: ""
 
     function presetCategoryExpanded(name) {
         return Boolean(expandedPresetCategories[name])
@@ -27,6 +29,19 @@ Item {
             next[key] = expandedPresetCategories[key]
         next[name] = !Boolean(next[name])
         expandedPresetCategories = next
+    }
+
+    function setPresetCategoryExpanded(name, expanded) {
+        var next = {}
+        for (var key in expandedPresetCategories)
+            next[key] = expandedPresetCategories[key]
+        next[name] = Boolean(expanded)
+        expandedPresetCategories = next
+    }
+
+    function selectPreset(presetId, presetName) {
+        selectedPresetId = String(presetId || "")
+        selectedPresetName = String(presetName || "")
     }
 
     property var presetCategories: [
@@ -166,7 +181,7 @@ Item {
             radius: 8
             clip: true
             color: presetMouse.containsMouse ? theme.panelHoverColor : theme.panelRaisedColor
-            border.color: theme.borderColor
+            border.color: (!Boolean(modelData.mutation) && root.selectedPresetId === String(modelData.id)) ? theme.accentColor : theme.borderColor
 
             property bool isUserPreset: Boolean(modelData.user)
             property bool isMutation: Boolean(modelData.mutation)
@@ -241,10 +256,12 @@ Item {
                 anchors.fill: parent
                 hoverEnabled: true
                 onClicked: {
-                    if (presetCard.isMutation)
+                    if (presetCard.isMutation) {
                         backend.applyPresetMutation(modelData.id)
-                    else
+                    } else {
+                        root.selectPreset(modelData.id, presetCard.displayName)
                         backend.applyPreset(modelData.id)
+                    }
                 }
             }
 
@@ -259,22 +276,6 @@ Item {
                 onClicked: backend.togglePresetFavorite(modelData.id)
                 ToolTip.visible: hovered
                 ToolTip.text: Boolean(modelData.favorite) ? qsTr("Remove from favourites") : qsTr("Add to favourites")
-            }
-
-            MintButton {
-                visible: !presetCard.isMutation
-                z: 3
-                anchors.left: parent.left
-                anchors.top: parent.top
-                anchors.margins: 7
-                height: 28
-                width: Math.max(62, implicitWidth)
-                text: qsTr("Mutate")
-                onClicked: backend.generatePresetMutations(
-                    String(modelData.id), root.mutationCount, root.mutationAmountPercent / 100.0
-                )
-                ToolTip.visible: hovered
-                ToolTip.text: qsTr("Generate controlled variations of this preset")
             }
 
             MintButton {
@@ -305,7 +306,11 @@ Item {
                 width: 30
                 height: 28
                 text: "×"
-                onClicked: backend.deletePresetFromLibrary(modelData.id)
+                onClicked: {
+                    if (root.selectedPresetId === String(modelData.id))
+                        root.selectPreset("", "")
+                    backend.deletePresetFromLibrary(modelData.id)
+                }
 
                 ToolTip.visible: hovered
                 ToolTip.text: qsTr("Remove custom preset from library")
@@ -402,10 +407,13 @@ Item {
                     Layout.fillWidth: true
                     MintLabel { text: qsTr("Preset Mutation"); font.bold: true }
                     Item { Layout.fillWidth: true }
-                    MintButton {
-                        visible: backend.presetMutations && backend.presetMutations.length > 0
-                        text: qsTr("Clear variations")
-                        onClicked: backend.clearPresetMutations()
+                    MintLabel {
+                        visible: root.selectedPresetName !== ""
+                        text: root.selectedPresetName
+                        color: theme.accentColor
+                        font.pixelSize: 10
+                        elide: Text.ElideRight
+                        Layout.maximumWidth: Math.max(120, parent.width * 0.42)
                     }
                 }
 
@@ -426,6 +434,22 @@ Item {
                         Layout.preferredWidth: 82
                     }
                     MintLabel { text: "%"; color: theme.mutedTextColor }
+                    MintButton {
+                        text: qsTr("Mutate")
+                        enabled: root.selectedPresetId !== ""
+                        onClicked: {
+                            backend.generatePresetMutations(
+                                root.selectedPresetId,
+                                root.mutationCount,
+                                root.mutationAmountPercent / 100.0
+                            )
+                            root.setPresetCategoryExpanded("Mutations", true)
+                        }
+                        ToolTip.visible: hovered
+                        ToolTip.text: enabled
+                            ? qsTr("Generate controlled variations of this preset")
+                            : qsTr("Select a preset first")
+                    }
                 }
             }
         }
@@ -441,24 +465,6 @@ Item {
             ColumnLayout {
                 width: presetScroll.availableWidth
                 spacing: 8
-
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 6
-                    visible: backend.presetMutations && backend.presetMutations.length > 0
-
-                    RowLayout {
-                        Layout.fillWidth: true
-                        MintLabel { text: qsTr("Generated mutations"); font.bold: true; color: theme.accentColor }
-                        Item { Layout.fillWidth: true }
-                        MintLabel { text: qsTr("Click a variation to apply it; the complete editable stack is preserved."); color: theme.mutedTextColor; font.pixelSize: 10 }
-                    }
-                    PresetGrid {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: implicitHeight
-                        presetModel: backend.presetMutations || []
-                    }
-                }
 
                 PresetGrid {
                     id: ungroupedGrid
@@ -530,6 +536,63 @@ Item {
                             visible: root.presetCategoryExpanded(categorySection.categoryData.name)
                             presetModel: categorySection.categoryPresets
                         }
+                    }
+                }
+
+                ColumnLayout {
+                    id: mutationCategorySection
+                    Layout.fillWidth: true
+                    spacing: 6
+                    visible: backend.presetMutations && backend.presetMutations.length > 0
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 38
+                        radius: 7
+                        color: mutationCategoryMouse.containsMouse ? theme.panelHoverColor : theme.panelRaisedColor
+                        border.color: theme.borderColor
+
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.leftMargin: 10
+                            anchors.rightMargin: 10
+                            spacing: 8
+
+                            Text {
+                                text: root.presetCategoryExpanded("Mutations") ? "▾" : "▸"
+                                color: theme.accentColor
+                                font.pixelSize: 14
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                text: localization.translateRuntime(localization.effectiveLanguageId, "Mutations")
+                                color: theme.textColor
+                                font.bold: true
+                                font.pixelSize: 12
+                                elide: Text.ElideRight
+                            }
+
+                            Text {
+                                text: String((backend.presetMutations || []).length)
+                                color: theme.mutedTextColor
+                                font.pixelSize: 10
+                            }
+                        }
+
+                        MouseArea {
+                            id: mutationCategoryMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            onClicked: root.togglePresetCategory("Mutations")
+                        }
+                    }
+
+                    PresetGrid {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: root.presetCategoryExpanded("Mutations") ? implicitHeight : 0
+                        visible: root.presetCategoryExpanded("Mutations")
+                        presetModel: backend.presetMutations || []
                     }
                 }
 
