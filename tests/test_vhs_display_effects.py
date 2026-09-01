@@ -13,37 +13,68 @@ def _test_pattern() -> Image.Image:
     return Image.fromarray(arr, "RGB")
 
 
-def test_display_effects_category_contains_vhs_layers():
-    category = next(row for row in effect_categories() if row["name"] == "Display Effects")
-    expected = {
-        "Display Persistence",
-        "Chroma Bleed",
+def _categories_by_name():
+    return {row["name"]: row["effects"] for row in effect_categories()}
+
+
+def test_display_effect_categories_contain_vhs_layers():
+    categories = _categories_by_name()
+
+    assert "Display Persistence" in categories["Display Geometry & Response"]
+    assert "Chroma Bleed" in categories["Analog Signal"]
+    assert {
         "Tracking Error",
         "Tape Dropout",
         "Temporal Jitter",
         "Head Switching Noise",
-    }
-    assert expected <= set(category["effects"])
+    } <= set(categories["Tape & Compression"])
+
     assert EFFECT_DEFINITIONS["Chroma Bleed"]["params"]["bleed"]["pixel_scaled"] is True
     assert EFFECT_DEFINITIONS["Tracking Error"]["params"]["band_height"]["pixel_scaled"] is True
 
 
 def test_display_effects_are_grouped_in_logical_workflow_order():
-    category = next(row for row in effect_categories() if row["name"] == "Display Effects")
-    effects = category["effects"]
+    categories = effect_categories()
+    category_names = [row["name"] for row in categories]
+    grouped = {row["name"]: row["effects"] for row in categories}
 
-    # Scan/field effects should be adjacent instead of being scattered through
-    # the long display list.
-    scan = effects.index("Scanlines")
-    assert effects[scan:scan + 4] == ["Scanlines", "Scanline Variation", "Interlace", "Field Flicker"]
+    assert category_names.index("Display Geometry & Response") < category_names.index("CRT & Scan")
+    assert category_names.index("CRT & Scan") < category_names.index("Analog Signal")
+    assert category_names.index("Analog Signal") < category_names.index("Tape & Compression")
 
-    # CRT/phosphor response should remain a contiguous block, followed by the
-    # flat-panel artifact before analog signal/tape damage.
-    crt = effects.index("CRT Mask")
-    assert effects[crt:crt + 6] == [
-        "CRT Mask", "RGB Convergence", "Beam Width", "Phosphor Glow", "Horizontal Bloom", "Display Persistence",
+    assert grouped["Display Geometry & Response"] == [
+        "Pixel Aspect Ratio",
+        "CRT Curvature",
+        "Edge Distortion",
+        "Display Persistence",
+        "LCD Inversion",
     ]
-    assert effects.index("LCD Inversion") < effects.index("Chroma Bleed") < effects.index("Tracking Error")
+    assert grouped["CRT & Scan"] == [
+        "Scanlines",
+        "Scanline Variation",
+        "Interlace",
+        "Field Flicker",
+        "CRT Mask",
+        "RGB Convergence",
+        "Beam Width",
+        "Phosphor Glow",
+        "Horizontal Bloom",
+    ]
+    assert grouped["Analog Signal"] == [
+        "Chroma Bleed",
+        "Dot Crawl",
+        "Composite Noise",
+        "RF Interference",
+        "Vertical Sync Roll",
+    ]
+    assert grouped["Tape & Compression"] == [
+        "Tracking Error",
+        "Tape Dropout",
+        "Head Switching Noise",
+        "Horizontal Tear",
+        "Temporal Jitter",
+        "JPEG Compression",
+    ]
 
 
 def test_chroma_bleed_spreads_colour_horizontally_without_resizing():
@@ -64,7 +95,6 @@ def test_temporal_jitter_changes_with_time_and_tracking_error_preserves_size():
     frame_0 = np.asarray(apply_effect_stack(image, [jitter], ["#000000", "#FFFFFF"], frame_time=0.0, frame_index=0))
     frame_1 = np.asarray(apply_effect_stack(image, [jitter], ["#000000", "#FFFFFF"], frame_time=1 / 15, frame_index=2))
     assert not np.array_equal(frame_0, frame_1)
-
     tracking = new_effect("Tracking Error")
     tracking["params"].update(amount=6, band_height=3, instability=0.9, speed=4.0, seed=4)
     tracked = apply_effect_stack(image, [tracking], ["#000000", "#FFFFFF"], frame_time=1 / 30, frame_index=1)
@@ -73,12 +103,10 @@ def test_temporal_jitter_changes_with_time_and_tracking_error_preserves_size():
 
 def test_tape_dropout_and_head_switching_noise_modify_expected_regions():
     image = Image.new("RGB", (48, 36), (120, 120, 120))
-
     dropout = new_effect("Tape Dropout")
     dropout["params"].update(amount=1.0, length=20, thickness=3, strength=1.0, seed=9)
     dropped = np.asarray(apply_effect_stack(image, [dropout], ["#000000", "#FFFFFF"], frame_time=0.0, frame_index=0))
     assert not np.array_equal(dropped, np.asarray(image))
-
     head = new_effect("Head Switching Noise")
     head["params"].update(height=10, shift=16, noise=1.0, strength=1.0, seed=3)
     headed = np.asarray(apply_effect_stack(image, [head], ["#000000", "#FFFFFF"], frame_time=1 / 30, frame_index=1))

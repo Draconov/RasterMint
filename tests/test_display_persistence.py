@@ -31,7 +31,6 @@ def test_display_persistence_schema_supports_long_typed_duration_and_category():
     assert spec["persistence_time"]["slider_max"] == 60.0
     assert spec["persistence_time"]["max"] == 300.0
     assert spec["display_type"]["options"] == ["Generic", "CRT", "LCD", "OLED"]
-
     normalized = normalize_effect_stack([
         {
             "id": "long",
@@ -42,7 +41,7 @@ def test_display_persistence_schema_supports_long_typed_duration_and_category():
     ])
     assert normalized[0]["params"]["persistence_time"] == 240.0
     assert any(
-        row["name"] == "Display Effects" and "Display Persistence" in row["effects"]
+        row["name"] == "Display Geometry & Response" and "Display Persistence" in row["effects"]
         for row in effect_categories()
     )
 
@@ -52,7 +51,6 @@ def test_zero_seconds_is_true_bypass_and_clears_history():
     state = TemporalEffectState()
     effect = _effect(duration=1.0)
     apply_effect_stack(first, [effect], ["#000000", "#FFFFFF"], frame_time=0.0, frame_index=0, temporal_state=state)
-
     effect["params"]["persistence_time"] = 0.0
     bypass = apply_effect_stack(second, [effect], ["#000000", "#FFFFFF"], frame_time=1 / 30, frame_index=1, temporal_state=state)
     assert np.array_equal(np.asarray(bypass), np.asarray(second))
@@ -71,7 +69,6 @@ def test_generic_persistence_keeps_current_frame_and_shows_dimmed_previous_frame
     result = np.asarray(
         apply_effect_stack(second, [effect], ["#000000", "#FFFFFF"], frame_time=1 / 30, frame_index=1, temporal_state=state)
     )
-
     # Current bright pixel remains fully present.
     assert result[2, 3, 0] == 255
     # Previous bright pixel remains as a dimmer ghost.
@@ -88,7 +85,6 @@ def test_display_models_are_distinct_and_crt_preserves_green_longest():
         outputs[mode] = np.asarray(
             apply_effect_stack(second, [effect], ["#000000", "#FFFFFF"], frame_time=1 / 30, frame_index=1, temporal_state=state)
         )
-
     assert not np.array_equal(outputs["CRT"], outputs["LCD"])
     assert not np.array_equal(outputs["LCD"], outputs["OLED"])
 
@@ -101,7 +97,6 @@ def test_rewind_resets_temporal_history_instead_of_leaking_future_frames():
     first, second = _moving_dot_frames()
     state = TemporalEffectState()
     effect = _effect(mode="CRT", duration=2.0, strength=1.0)
-
     apply_effect_stack(first, [effect], ["#000000", "#FFFFFF"], frame_time=0.0, frame_index=0, temporal_state=state)
     apply_effect_stack(second, [effect], ["#000000", "#FFFFFF"], frame_time=1 / 30, frame_index=1, temporal_state=state)
 
