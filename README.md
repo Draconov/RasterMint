@@ -19,9 +19,14 @@ RasterMint is built around a single processing pipeline: the live preview, still
 
 > **Status:** RasterMint is under active development. Project files, presets, and behavior may continue to evolve between releases.
 
-## RasterMint 0.6.0 — Print Lab + Modulated Diffusion
+## RasterMint 0.7.0 — Pixel Art Cleanup + Preset Mutation
 
-RasterMint 0.6.0 expands the composable workstation with print separation, structural raster tools, and a full modulation-aware diffusion family:
+RasterMint 0.7.0 adds two workflow-focused systems on top of the existing Print Lab, Modulated Diffusion, animation, palette, hardware, and display toolset:
+
+- **Pixel Art Cleanup Lab:** a non-destructive cleanup layer with orphan-pixel removal, cluster cleanup, line repair, staircase correction, exact tiny-island removal, edge preservation, selectable 4/8-neighbour connectivity, and Clean Result / Issue Overlay / Cluster Map inspection modes. Clean output only reuses colours already present in the processed image.
+- **Preset Mutation:** generate 6–12 controlled variations from any built-in, user, or extension preset, with adjustable mutation amount and current-image thumbnails. Mutations preserve the full editable layer structure, masks, blend modes, animation tracks, raster settings, and locked palette colours.
+
+RasterMint 0.6.0 features remain part of the current release:
 
 - **Print Lab:** non-destructive Monochrome, CMYK, RGB, and 1–8 Spot Color AM halftone screening with independent ink angles/registration/phase/opacity, dot gain, black generation, print imperfections, paper/overprint controls, individual separation preview, real vector SVG separations, raster proofs, and composite export.
 - **New raster styles:** Pop Tone, Hexa-Poly, Penta-Poly, Tri-Poly, Low-Poly, and Beehive.
@@ -63,6 +68,13 @@ The Windows release intentionally remains a **single executable**. The build use
 - Built-in gradient presets that can be applied directly as the active image palette.
 - **Pop Tone**, polygon-cell (**Hexa/Penta/Tri/Low-Poly**), and **Beehive** structural raster effects for palette-bounded stylization beyond ordinary ordered/error-diffusion dithering.
 - A single **Modulation** algorithm with 14 modulation-aware diffusion modes and shared Strength, Scale, Phase, Bias, Contour Detail, Seed, and Serpentine controls. Modulation stays palette-bounded and its numeric controls can be animated through Motion Studio.
+- **Pixel Art Cleanup** for orphan pixels, weak clusters, broken lines, stair-step burrs, tiny connected islands, and edge-preserving cleanup, plus diagnostic issue/cluster visualization.
+
+### Preset exploration
+
+**Preset Mutation** can generate 6–12 nearby editable variations from any preset. It keeps the source stack structure intact while making bounded changes to suitable numeric parameters, layer opacity, and unlocked palette colours. Generated variants use the current source image for thumbnails and can be applied, edited, animated, or saved like any normal RasterMint settings.
+
+See [`docs/PIXEL_ART_CLEANUP.md`](docs/PIXEL_ART_CLEANUP.md) and [`docs/PRESET_MUTATION.md`](docs/PRESET_MUTATION.md) for the detailed workflows.
 
 ### Layer-based image processing
 

@@ -65,6 +65,7 @@ def adaptive_preview_max_side(settings: ProcessingSettings, requested: int) -> i
     algorithm = ""
     material = ""
     ascii_mapping = ""
+    cleanup_active = False
     for step in stack:
         if not step.get("enabled", True):
             continue
@@ -74,6 +75,8 @@ def adaptive_preview_max_side(settings: ProcessingSettings, requested: int) -> i
             material = str(step.get("params", {}).get("style", ""))
         if step.get("kind") == "ASCII / Glyph":
             ascii_mapping = str(step.get("params", {}).get("mapping", "Density"))
+        if step.get("kind") == "Pixel Art Cleanup":
+            cleanup_active = True
     expensive = algorithm in {"Dot Diffusion", "Riemersma", "Modulation"}
     expensive_material = material in {"ASCII Tile", "Cross Stitch", "Brick", "Mosaic"}
     expensive_ascii = ascii_mapping == "Structure Match"
@@ -81,7 +84,7 @@ def adaptive_preview_max_side(settings: ProcessingSettings, requested: int) -> i
         "Nearest Palette", "Threshold", "Random", "Interleaved Gradient Noise",
         "Blue Noise", "Halftone",
     }
-    if expensive or large_palette_diffusion or expensive_material or expensive_ascii:
+    if expensive or large_palette_diffusion or expensive_material or expensive_ascii or cleanup_active:
         return min(requested, 180 if requested <= FAST_PREVIEW_MAX_SIDE else 360)
     return requested
 

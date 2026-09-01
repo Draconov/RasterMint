@@ -110,6 +110,8 @@ The main responsibilities under `src/rastermint/core/` are:
 | `batch.py` | Sequential batch processing |
 | `svg_export.py` | Vectorization of normal processed raster output |
 | `print_lab.py` | AM-halftone separation generation, print compositing, individual-screen preview, and true-vector separation SVG export |
+| `pixel_cleanup.py` | Palette-safe pixel-art cleanup, connected-island analysis, issue overlays, and cluster visualization |
+| `preset_mutation.py` | Deterministic controlled preset variation while preserving serialized stack structure |
 | `history.py` | Undo/redo state history |
 | `lospec.py` | Lospec slug/URL parsing and palette fetch |
 

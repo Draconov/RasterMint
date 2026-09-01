@@ -235,6 +235,17 @@ EFFECT_DEFINITIONS: dict[str, dict[str, Any]] = {
     "Pixelate": {"params": {
         "size": {"type": "int", "label": "Pixel size", "default": 2, "min": 1, "max": 64, "step": 1, "animatable": True, "pixel_scaled": True},
     }},
+    "Pixel Art Cleanup": {"params": {
+        "orphan_removal": {"type": "int", "label": "Orphan-pixel removal", "default": 75, "min": 0, "max": 100, "step": 1, "suffix": "%"},
+        "cluster_cleanup": {"type": "int", "label": "Cluster cleanup", "default": 35, "min": 0, "max": 100, "step": 1, "suffix": "%"},
+        "line_cleanup": {"type": "int", "label": "Line cleanup", "default": 50, "min": 0, "max": 100, "step": 1, "suffix": "%"},
+        "staircase_correction": {"type": "int", "label": "Staircase correction", "default": 45, "min": 0, "max": 100, "step": 1, "suffix": "%"},
+        "tiny_island_size": {"type": "int", "label": "Tiny-island maximum", "default": 4, "min": 0, "max": 64, "step": 1, "suffix": " px"},
+        "edge_preservation": {"type": "int", "label": "Edge preservation", "default": 80, "min": 0, "max": 100, "step": 1, "suffix": "%"},
+        "passes": {"type": "int", "label": "Cleanup passes", "default": 2, "min": 1, "max": 4, "step": 1},
+        "connectivity": {"type": "choice", "label": "Cluster connectivity", "default": "8-neighbour", "options": ["4-neighbour", "8-neighbour"]},
+        "analysis_view": {"type": "choice", "label": "Visualization", "default": "Clean Result", "options": ["Clean Result", "Issue Overlay", "Cluster Map"]},
+    }},
     "Pixel Sort": {"params": {
         "threshold": {"type": "float", "label": "Threshold", "default": 0.45, "min": 0.0, "max": 1.0, "step": 0.01, "decimals": 2, "animatable": True},
         "direction": {"type": "choice", "label": "Direction", "default": "Horizontal", "options": ["Horizontal", "Vertical"]},
@@ -557,7 +568,7 @@ EFFECT_CATEGORIES: tuple[tuple[str, tuple[str, ...]], ...] = (
         "Median Denoise", "Gaussian Blur", "Sharpen", "Glow", "Bloom",
     )),
     ("Pixel & Dither", (
-        "Pixelate", "Pixel Material", "Dither", "Pop Tone", "Polygon Dither", "Beehive", "Dither Glow",
+        "Pixelate", "Pixel Art Cleanup", "Pixel Material", "Dither", "Pop Tone", "Polygon Dither", "Beehive", "Dither Glow",
     )),
     ("Print Lab", (
         "Print Lab",

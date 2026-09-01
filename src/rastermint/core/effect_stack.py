@@ -27,6 +27,7 @@ from .effect_schema import (
     scale_stack_for_preview,
 )
 from .palette import palette_array
+from .pixel_cleanup import cleanup_pixel_art
 from .temporal import TemporalEffectState
 
 def _temporal_pattern(
@@ -3076,6 +3077,19 @@ def apply_normalized_effect_stack(
         elif kind == "Temporal Pattern": img = _temporal_pattern(img, str(p["pattern"]), float(p["amount"]), float(p["speed"]), float(p["scale"]), float(p["phase"]), frame_time, int(p["seed"]))
         elif kind == "Pixel Aspect Ratio": img = _pixel_aspect_ratio(img, float(p["x"]), float(p["y"]), str(p["resample"]))
         elif kind == "Pixelate": img = _pixelate(img, int(round(float(p["size"]))))
+        elif kind == "Pixel Art Cleanup":
+            img = cleanup_pixel_art(
+                img,
+                orphan_removal=float(p.get("orphan_removal", 75)),
+                cluster_cleanup=float(p.get("cluster_cleanup", 35)),
+                line_cleanup=float(p.get("line_cleanup", 50)),
+                staircase_correction=float(p.get("staircase_correction", 45)),
+                tiny_island_size=int(p.get("tiny_island_size", 4)),
+                edge_preservation=float(p.get("edge_preservation", 80)),
+                passes=int(p.get("passes", 2)),
+                connectivity=str(p.get("connectivity", "8-neighbour")),
+                analysis_view=str(p.get("analysis_view", "Clean Result")),
+            )
         elif kind == "Pixel Sort": img = _pixel_sort(img, float(p["threshold"]), str(p["direction"]), bool(p["reverse"]))
         elif kind == "Screen Melt": img = _screen_melt(img, int(p["amount"]), int(p["column_width"]), _seed(p, frame_index))
         elif kind == "Block Shuffle": img = _block_shuffle(img, int(p["block"]), float(p["amount"]), _seed(p, frame_index))

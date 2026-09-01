@@ -2,6 +2,30 @@
 
 Notable user-facing and engineering changes are recorded here. RasterMint is still in active alpha development, so entries focus on behavior that affects releases, compatibility, or contributor expectations.
 
+## 0.7.0 - 2026-09-01 — Pixel Art Cleanup + Preset Mutation
+
+### Pixel Art Cleanup Lab
+
+- Added a non-destructive **Pixel Art Cleanup** layer under **Pixel & Dither** for cleaning machine-dithered and generated pixel art while preserving the existing editable layer workflow.
+- Added **orphan-pixel removal**, **cluster cleanup**, **line cleanup**, **staircase correction**, and exact **tiny-island removal** with selectable 4-neighbour or 8-neighbour connectivity.
+- Added adjustable **Edge Preservation** so cleanup can avoid meaningful contours while still repairing isolated noise and explicitly targeted tiny components.
+- Added **Clean Result**, **Issue Overlay**, and **Cluster Map** visualization modes for inspecting weak clusters and connected pixel regions before finalizing a look.
+- Clean Result is palette-safe: replacements are selected from colours already present in the processed image, so cleanup placed after a palette-limited dither does not invent new colours.
+- Added bounded run-length connected-component analysis to avoid allocating a Python object per fragmented pixel/run on large dithered images, and routed cleanup through RasterMint's adaptive preview budget.
+
+### Preset Mutation
+
+- Added **Preset Mutation** to the Presets page. Any built-in, user, or extension preset can generate **6–12 controlled nearby variations**.
+- Added adjustable mutation amount and current-image mutation thumbnails so variations can be compared before applying them.
+- Mutation preserves the complete editable structure of the source look: layer IDs/order/types, enable state, masks, blend modes, animation tracks, target raster, and locked palette colours remain intact.
+- Numeric effect parameters, layer opacity, and unlocked palette colours receive bounded deterministic perturbations; algorithm choices, seeds, fonts, text, JSON payloads, profile identifiers, and custom matrices are intentionally left alone.
+- Generated mutations apply as ordinary RasterMint settings and can immediately be edited, reordered, animated, saved to the preset library, or stored in a project.
+
+### Documentation and release
+
+- Added dedicated **Pixel Art Cleanup** and **Preset Mutation** workflow documentation and updated architecture/extension guidance for the new systems.
+- Updated the application version to **0.7.0**.
+
 ## 0.6.0 - 2026-08-30 — Print Lab + Modulated Diffusion
 
 ### Print Lab / AM halftone

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import random
 from pathlib import Path
 
 from PySide6.QtCore import Property, QStandardPaths, QTimer, QUrl, Signal, Slot
@@ -13,6 +14,7 @@ from rastermint.core.extensions import asset_files
 from rastermint.core.history import UndoHistory
 from rastermint.core.palette_json import load_palette_json, slugify_palette_name, write_palette_json
 from rastermint.core.presets import load_preset, load_preset_payload, save_preset, slugify_preset_name
+from rastermint.core.preset_mutation import generate_preset_mutations
 from rastermint.core.settings import ProcessingSettings
 from rastermint.qmlui.backend import RasterMintBackend as BaseRasterMintBackend
 from rastermint.qmlui.workers import ProcessingWorker
@@ -78,6 +80,7 @@ class RasterMintBackend(BaseRasterMintBackend):
     performanceSettingsChanged = Signal()
     userPaletteLibraryChanged = Signal()
     presetLibraryChanged = Signal()
+    presetMutationsChanged = Signal()
 
     def __init__(self, image_provider, parent=None) -> None:
         super().__init__(image_provider, parent)
@@ -113,6 +116,9 @@ class RasterMintBackend(BaseRasterMintBackend):
         self._user_palettes: dict[str, dict[str, object]] = {}
         self._user_presets: dict[str, dict[str, object]] = {}
         self._extension_presets: dict[str, dict[str, object]] = {}
+        self._preset_mutations: dict[str, ProcessingSettings] = {}
+        self._preset_mutation_items: list[dict[str, object]] = []
+        self._preset_mutation_generation = 0
         self._load_user_palettes()
         self._load_user_presets()
         self._load_extension_presets()
@@ -673,6 +679,79 @@ class RasterMintBackend(BaseRasterMintBackend):
             self._touch_recent_preset(preset_key)
         except Exception as exc:
             self.errorOccurred.emit("Could not apply preset", str(exc))
+
+    @Property("QVariantList", notify=presetMutationsChanged)
+    def presetMutations(self) -> list[dict[str, object]]:
+        return [dict(item) for item in self._preset_mutation_items]
+
+    def _settings_for_preset_mutation(self, preset_id: str) -> tuple[ProcessingSettings, str]:
+        key = str(preset_id)
+        record = self._user_presets.get(key) or self._extension_presets.get(key)
+        if record is not None:
+            path = Path(str(record.get("file", "")))
+            return load_preset(path), str(record.get("name") or path.stem)
+        preset = next((item for item in builtin_presets.BUILTIN_PRESETS if item.id == key), None)
+        if preset is None:
+            raise KeyError(f"Unknown preset: {key}")
+        return builtin_presets.build_builtin_preset(key, self.settings), preset.name
+
+    @Slot(str, int, float)
+    def generatePresetMutations(self, preset_id: str, count: int = 8, amount: float = 0.35) -> None:
+        try:
+            source_settings, source_name = self._settings_for_preset_mutation(str(preset_id))
+            count = max(6, min(12, int(count)))
+            amount = max(0.05, min(1.0, float(amount)))
+            seed = random.SystemRandom().randrange(1, 2**31 - 1)
+            generated = generate_preset_mutations(
+                source_settings.to_dict(), count=count, amount=amount, seed=seed
+            )
+            self._preset_mutation_generation += 1
+            generation = self._preset_mutation_generation
+            self._preset_mutations.clear()
+            self._preset_mutation_items.clear()
+            self._preset_thumbnail_revision += 1
+
+            for item in generated:
+                number = int(item.get("variant", len(self._preset_mutation_items) + 1))
+                mutation_id = f"mutation-{generation}-{number}"
+                settings = ProcessingSettings.from_dict(dict(item.get("settings") or {}))
+                summary = str(item.get("summary") or "Controlled variation")
+                self._preset_mutations[mutation_id] = settings
+                self._preset_mutation_items.append({
+                    "id": mutation_id,
+                    "name": f"{source_name} · {number}",
+                    "description": summary,
+                    "mutation": True,
+                    "user": False,
+                    "favorite": False,
+                    "recentRank": -1,
+                    "userCategory": "",
+                    "sourcePresetId": str(preset_id),
+                })
+                if self.hasSource:
+                    self._queue_preset_thumbnail(mutation_id, settings)
+
+            self.presetMutationsChanged.emit()
+            self._set_status(f"Generated {len(self._preset_mutation_items)} mutations from {source_name}")
+        except Exception as exc:
+            self.errorOccurred.emit("Could not mutate preset", str(exc))
+
+    @Slot(str)
+    def applyPresetMutation(self, mutation_id: str) -> None:
+        settings = self._preset_mutations.get(str(mutation_id))
+        if settings is None:
+            return
+        label = next((str(item.get("name")) for item in self._preset_mutation_items if str(item.get("id")) == str(mutation_id)), "Preset mutation")
+        self._replace_settings(ProcessingSettings.from_dict(settings.to_dict()), action=f"Applied mutation: {label}")
+
+    @Slot()
+    def clearPresetMutations(self) -> None:
+        if not self._preset_mutation_items:
+            return
+        self._preset_mutations.clear()
+        self._preset_mutation_items.clear()
+        self.presetMutationsChanged.emit()
+        self._set_status("Cleared preset mutations")
 
     @Slot(str, str)
     def savePresetToLibrary(self, name: str, description: str) -> None:

@@ -14,6 +14,8 @@ Item {
     property var expandedPresetCategories: ({})
     property string managePresetId: ""
     property string managePresetName: ""
+    property int mutationCount: 8
+    property int mutationAmountPercent: 35
 
     function presetCategoryExpanded(name) {
         return Boolean(expandedPresetCategories[name])
@@ -167,6 +169,7 @@ Item {
             border.color: theme.borderColor
 
             property bool isUserPreset: Boolean(modelData.user)
+            property bool isMutation: Boolean(modelData.mutation)
             property string displayName: isUserPreset
                 ? String(modelData.name || "")
                 : localization.translateRuntime(localization.effectiveLanguageId, String(modelData.name || ""))
@@ -237,10 +240,16 @@ Item {
                 id: presetMouse
                 anchors.fill: parent
                 hoverEnabled: true
-                onClicked: backend.applyPreset(modelData.id)
+                onClicked: {
+                    if (presetCard.isMutation)
+                        backend.applyPresetMutation(modelData.id)
+                    else
+                        backend.applyPreset(modelData.id)
+                }
             }
 
             MintButton {
+                visible: !presetCard.isMutation
                 z: 3
                 anchors.right: parent.right
                 anchors.top: parent.top
@@ -250,6 +259,22 @@ Item {
                 onClicked: backend.togglePresetFavorite(modelData.id)
                 ToolTip.visible: hovered
                 ToolTip.text: Boolean(modelData.favorite) ? qsTr("Remove from favourites") : qsTr("Add to favourites")
+            }
+
+            MintButton {
+                visible: !presetCard.isMutation
+                z: 3
+                anchors.left: parent.left
+                anchors.top: parent.top
+                anchors.margins: 7
+                height: 28
+                width: Math.max(62, implicitWidth)
+                text: qsTr("Mutate")
+                onClicked: backend.generatePresetMutations(
+                    String(modelData.id), root.mutationCount, root.mutationAmountPercent / 100.0
+                )
+                ToolTip.visible: hovered
+                ToolTip.text: qsTr("Generate controlled variations of this preset")
             }
 
             MintButton {
@@ -361,6 +386,50 @@ Item {
             MintButton { text: qsTr("Export pack"); onClicked: exportPresetPackDialog.open() }
         }
 
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 76
+            radius: 7
+            color: theme.panelRaisedColor
+            border.color: theme.borderColor
+
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: 9
+                spacing: 5
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    MintLabel { text: qsTr("Preset Mutation"); font.bold: true }
+                    Item { Layout.fillWidth: true }
+                    MintButton {
+                        visible: backend.presetMutations && backend.presetMutations.length > 0
+                        text: qsTr("Clear variations")
+                        onClicked: backend.clearPresetMutations()
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 7
+                    MintLabel { text: qsTr("Variants"); color: theme.mutedTextColor }
+                    MintSpinBox {
+                        from: 6; to: 12; value: root.mutationCount
+                        onValueModified: root.mutationCount = value
+                        Layout.preferredWidth: 72
+                    }
+                    Item { Layout.fillWidth: true }
+                    MintLabel { text: qsTr("Mutation amount"); color: theme.mutedTextColor }
+                    MintSpinBox {
+                        from: 10; to: 100; stepSize: 5; value: root.mutationAmountPercent
+                        onValueModified: root.mutationAmountPercent = value
+                        Layout.preferredWidth: 82
+                    }
+                    MintLabel { text: "%"; color: theme.mutedTextColor }
+                }
+            }
+        }
+
         ScrollView {
             id: presetScroll
             Layout.fillWidth: true
@@ -372,6 +441,24 @@ Item {
             ColumnLayout {
                 width: presetScroll.availableWidth
                 spacing: 8
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 6
+                    visible: backend.presetMutations && backend.presetMutations.length > 0
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        MintLabel { text: qsTr("Generated mutations"); font.bold: true; color: theme.accentColor }
+                        Item { Layout.fillWidth: true }
+                        MintLabel { text: qsTr("Click a variation to apply it; the complete editable stack is preserved."); color: theme.mutedTextColor; font.pixelSize: 10 }
+                    }
+                    PresetGrid {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: implicitHeight
+                        presetModel: backend.presetMutations || []
+                    }
+                }
 
                 PresetGrid {
                     id: ungroupedGrid

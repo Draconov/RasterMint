@@ -67,6 +67,12 @@ Prefer functions that:
 
 Add a focused core test for the behavior itself. If QML is generated from schema metadata, do not add a source-text UI test merely to prove the label exists.
 
+## Pixel cleanup and preset mutation
+
+`core/pixel_cleanup.py` is a normal effect implementation. Keep **Clean Result** palette-safe by choosing replacement colours from existing neighbours; diagnostic visualization modes may use synthetic colours because they are explicitly analysis views. Expensive cleanup should continue to use the adaptive preview budget and must not be added to exact-safe tiled processing unless tile-boundary equivalence is proven.
+
+`core/preset_mutation.py` operates on serialized settings dictionaries. Mutation must preserve stack structure (layer IDs/order/kinds, masks, blend modes, animation/raster state, and locked colours) and make bounded changes only to parameters that remain ordinary editable RasterMint state. Do not flatten a mutation into a rendered image or hide mutation-specific processing behind a preset ID.
+
 ## Adding a dithering algorithm
 
 ### Error diffusion
