@@ -562,8 +562,8 @@ ApplicationWindow {
     FileDialog { id: loadPresetDialog; title: qsTr("Load preset"); nameFilters: ["JSON preset (*.json)"]; onAccepted: backend.loadPreset(window.urlString(selectedFile)) }
     FileDialog { id: savePresetDialog; title: qsTr("Save preset"); fileMode: FileDialog.SaveFile; defaultSuffix: "json"; nameFilters: ["JSON preset (*.json)"]; onAccepted: backend.savePreset(window.urlString(selectedFile)) }
 
-    MessageDialog { id: errorDialog; title: "RasterMint"; buttons: MessageDialog.Ok }
-    MessageDialog { id: infoDialog; title: "RasterMint"; buttons: MessageDialog.Ok }
+    MintMessageDialog { id: errorDialog; title: "RasterMint" }
+    MintMessageDialog { id: infoDialog; title: "RasterMint" }
     Connections {
         target: backend
         function onErrorOccurred(title, message) { errorDialog.title = title; errorDialog.text = message; errorDialog.open() }

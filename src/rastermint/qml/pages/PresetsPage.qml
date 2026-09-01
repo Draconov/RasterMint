@@ -111,6 +111,56 @@ Item {
         }
     ]
 
+    function resolvedPresetCategories() {
+        // Built-in categories keep their curated order. User-created categories
+        // are appended afterwards, while the separate Mutations category stays
+        // last in the page below the repeater. If a user deliberately uses the
+        // exact name of a built-in category, merge those presets into that
+        // section instead of rendering a duplicate heading.
+        var result = []
+        var byName = {}
+        for (var i = 0; i < presetCategories.length; ++i) {
+            var source = presetCategories[i]
+            var copy = {
+                "name": String(source.name || ""),
+                "ids": (source.ids || []).slice(0),
+                "userCategory": false
+            }
+            byName[copy.name.toLowerCase()] = result.length
+            result.push(copy)
+        }
+
+        var userCategories = backend.presetUserCategories || []
+        var presets = allPresetItems()
+        for (var j = 0; j < userCategories.length; ++j) {
+            var categoryName = String(userCategories[j] || "").trim()
+            if (categoryName.length === 0)
+                continue
+            var ids = []
+            for (var k = 0; k < presets.length; ++k) {
+                var preset = presets[k]
+                if (Boolean(preset.user) && String(preset.userCategory || "") === categoryName)
+                    ids.push(String(preset.id))
+            }
+            if (ids.length === 0)
+                continue
+
+            var key = categoryName.toLowerCase()
+            if (byName[key] !== undefined) {
+                var existing = result[byName[key]]
+                existing.ids = existing.ids.concat(ids)
+            } else {
+                result.push({
+                    "name": categoryName,
+                    "ids": ids,
+                    "userCategory": true
+                })
+                byName[key] = result.length - 1
+            }
+        }
+        return result
+    }
+
     function allPresetItems() {
         var source = backend.allPresets ? backend.allPresets : []
         var result = []
@@ -149,8 +199,9 @@ Item {
 
     function categorizedIds() {
         var result = {}
-        for (var i = 0; i < presetCategories.length; ++i) {
-            var ids = presetCategories[i].ids
+        var categories = resolvedPresetCategories()
+        for (var i = 0; i < categories.length; ++i) {
+            var ids = categories[i].ids
             for (var j = 0; j < ids.length; ++j)
                 result[ids[j]] = true
         }
@@ -163,9 +214,10 @@ Item {
         var presets = allPresetItems()
         for (var i = 0; i < presets.length; ++i) {
             var preset = presets[i]
-            // Clean, custom/user presets, and any future preset without an
-            // assigned category remain directly accessible above the groups.
-            if (Boolean(preset.user) || !grouped[String(preset.id)])
+            // Presets without a category stay directly accessible above the
+            // grouped sections. Categorized user presets are rendered in their
+            // user-created category after all built-in categories.
+            if (!grouped[String(preset.id)])
                 result.push(preset)
         }
         return result
@@ -290,6 +342,7 @@ Item {
                     root.managePresetId = String(modelData.id)
                     root.managePresetName = String(modelData.name)
                     managePresetNameField.text = root.managePresetName
+                    managePresetDescriptionField.text = String(modelData.description || "")
                     managePresetCategoryField.text = String(modelData.userCategory || "")
                     managePresetDialog.open()
                 }
@@ -475,7 +528,7 @@ Item {
                 }
 
                 Repeater {
-                    model: root.presetCategories
+                    model: root.resolvedPresetCategories()
 
                     delegate: ColumnLayout {
                         id: categorySection
@@ -508,7 +561,9 @@ Item {
 
                                 Text {
                                     Layout.fillWidth: true
-                                    text: localization.translateRuntime(localization.effectiveLanguageId, String(categorySection.categoryData.name))
+                                    text: Boolean(categorySection.categoryData.userCategory)
+                                        ? String(categorySection.categoryData.name)
+                                        : localization.translateRuntime(localization.effectiveLanguageId, String(categorySection.categoryData.name))
                                     color: theme.textColor
                                     font.bold: true
                                     font.pixelSize: 12
@@ -604,14 +659,10 @@ Item {
         }
     }
 
-    Dialog {
+    MintDialog {
         id: saveLibraryDialog
         title: qsTr("Save preset to library")
-        modal: true
-        width: Math.min(380, root.width - 24)
-        x: Math.round((root.width - width) / 2)
-        y: Math.max(12, Math.round((root.height - height) / 2))
-        standardButtons: Dialog.Save | Dialog.Cancel
+        width: Math.min(380, Overlay.overlay ? Overlay.overlay.width - 24 : root.width - 24)
 
         onOpened: {
             presetNameField.text = "Custom Preset"
@@ -619,7 +670,6 @@ Item {
             presetNameField.forceActiveFocus()
             presetNameField.selectAll()
         }
-        onAccepted: backend.savePresetToLibrary(presetNameField.text, presetDescriptionField.text)
 
         contentItem: ColumnLayout {
             spacing: 8
@@ -636,25 +686,104 @@ Item {
                 placeholderText: qsTr("Optional description")
             }
         }
+
+        footer: Rectangle {
+            implicitHeight: 56
+            color: theme.panelRaisedColor
+            border.color: theme.borderColor
+            border.width: 1
+
+            RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 12
+                anchors.rightMargin: 12
+                spacing: 8
+                Item { Layout.fillWidth: true }
+                MintButton {
+                    text: qsTr("Save")
+                    enabled: presetNameField.text.trim().length > 0
+                    onClicked: {
+                        backend.savePresetToLibrary(presetNameField.text, presetDescriptionField.text)
+                        saveLibraryDialog.close()
+                    }
+                }
+                MintButton { text: qsTr("Close"); onClicked: saveLibraryDialog.close() }
+            }
+        }
     }
 
-    Dialog {
+    MintDialog {
         id: managePresetDialog
         title: qsTr("Manage custom preset")
-        modal: true
-        width: Math.min(420, root.width - 24)
-        standardButtons: Dialog.Close
+        width: Math.min(440, Overlay.overlay ? Overlay.overlay.width - 24 : root.width - 24)
+
         contentItem: ColumnLayout {
             spacing: 8
             MintLabel { text: qsTr("Name") }
-            MintTextField { id: managePresetNameField; Layout.fillWidth: true }
+            MintTextField {
+                id: managePresetNameField
+                Layout.fillWidth: true
+                placeholderText: qsTr("Preset name")
+            }
+            MintLabel { text: qsTr("Description") }
+            MintTextField {
+                id: managePresetDescriptionField
+                Layout.fillWidth: true
+                placeholderText: qsTr("Optional description")
+            }
             MintLabel { text: qsTr("Category") }
-            MintTextField { id: managePresetCategoryField; Layout.fillWidth: true; placeholderText: qsTr("Optional user category") }
+            MintTextField {
+                id: managePresetCategoryField
+                Layout.fillWidth: true
+                placeholderText: qsTr("Optional user category")
+            }
             RowLayout {
                 Layout.fillWidth: true
-                MintButton { text: qsTr("Rename"); onClicked: { backend.renamePresetInLibrary(root.managePresetId, managePresetNameField.text); managePresetDialog.close() } }
-                MintButton { text: qsTr("Duplicate"); onClicked: { backend.duplicatePresetInLibrary(root.managePresetId, managePresetNameField.text + " Copy"); managePresetDialog.close() } }
-                MintButton { text: qsTr("Set category"); onClicked: backend.setPresetCategory(root.managePresetId, managePresetCategoryField.text) }
+                MintButton {
+                    text: qsTr("Duplicate")
+                    onClicked: {
+                        backend.duplicatePresetInLibrary(root.managePresetId, managePresetNameField.text + " Copy")
+                        managePresetDialog.close()
+                    }
+                }
+                MintButton {
+                    text: qsTr("Set category")
+                    onClicked: backend.setPresetCategory(root.managePresetId, managePresetCategoryField.text)
+                }
+                Item { Layout.fillWidth: true }
+            }
+        }
+
+        footer: Rectangle {
+            implicitHeight: 56
+            color: theme.panelRaisedColor
+            border.color: theme.borderColor
+            border.width: 1
+
+            RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 12
+                anchors.rightMargin: 12
+                spacing: 8
+                Item { Layout.fillWidth: true }
+                MintButton {
+                    text: qsTr("Save")
+                    enabled: managePresetNameField.text.trim().length > 0
+                    onClicked: {
+                        var updatedId = backend.updatePresetInLibrary(
+                            root.managePresetId,
+                            managePresetNameField.text,
+                            managePresetDescriptionField.text,
+                            managePresetCategoryField.text
+                        )
+                        if (updatedId && updatedId.length > 0) {
+                            root.managePresetId = updatedId
+                            root.selectPreset(updatedId, managePresetNameField.text.trim())
+                            managePresetDialog.close()
+                        }
+                    }
+                }
+                MintButton { text: qsTr("Close"); onClicked: managePresetDialog.close() }
             }
         }
     }

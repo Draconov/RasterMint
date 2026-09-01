@@ -314,7 +314,7 @@ def test_preset_mutation_uses_selected_preset_and_dynamic_last_category():
 
     # Mutations are no longer a special top grid; they are a dynamic category
     # after the normal category repeater, so the library ordering stays tidy.
-    repeater_pos = presets.index("model: root.presetCategories")
+    repeater_pos = presets.index("model: root.resolvedPresetCategories()")
     mutation_category_pos = presets.index("id: mutationCategorySection")
     assert mutation_category_pos > repeater_pos
     assert 'localization.translateRuntime(localization.effectiveLanguageId, "Mutations")' in presets
@@ -351,3 +351,89 @@ def test_new_widespread_translation_dictionaries_are_complete_and_preserve_place
             assert sorted(placeholder.findall(source)) == sorted(placeholder.findall(translated)), (language_id, source)
 
     assert not (translations / "ru.json").exists()
+
+
+def test_custom_preset_management_uses_atomic_save_and_themed_dialogs():
+    presets = (QML / "pages" / "PresetsPage.qml").read_text(encoding="utf-8")
+    dialog = (QML / "components" / "MintDialog.qml").read_text(encoding="utf-8")
+    backend = (ROOT / "src" / "rastermint" / "qmlui" / "preferences_backend.py").read_text(encoding="utf-8")
+
+    # Both preset-library dialogs use RasterMint's theme instead of the
+    # platform/default Qt Dialog chrome.
+    assert "MintDialog {\n        id: saveLibraryDialog" in presets
+    assert "MintDialog {\n        id: managePresetDialog" in presets
+    assert "color: theme.panelColor" in dialog
+    assert "color: theme.panelRaisedColor" in dialog
+    assert "border.color: theme.borderColor" in dialog
+    assert "color: theme.textColor" in dialog
+    assert "popupType: Popup.Item" in dialog
+
+    manage_start = presets.index("id: managePresetDialog")
+    manage_block = presets[manage_start:presets.index("    FileDialog {", manage_start)]
+    assert 'id: managePresetDescriptionField' in manage_block
+    assert 'text: qsTr("Rename")' not in manage_block
+    assert 'text: qsTr("Save")' in manage_block
+    assert 'text: qsTr("Close")' in manage_block
+    assert 'text: qsTr("Set category")' in manage_block
+    assert "backend.updatePresetInLibrary(" in manage_block
+    assert "managePresetDescriptionField.text" in manage_block
+    assert "managePresetCategoryField.text" in manage_block
+
+    # Saving all editable metadata is one backend transaction. This matters
+    # because changing a preset name changes its id/file slug; a later category
+    # update must not accidentally target the stale pre-rename id.
+    assert "def updatePresetInLibrary(" in backend
+    assert "description=clean_description" in backend
+    assert 'categories.pop(old_id, None)' in backend
+    assert 'categories[new_id] = clean_category' in backend
+    assert 'self._save_preset_meta()' in backend
+
+
+def test_set_preset_category_persists_and_refreshes_library():
+    backend = (ROOT / "src" / "rastermint" / "qmlui" / "preferences_backend.py").read_text(encoding="utf-8")
+    start = backend.index("    def setPresetCategory(")
+    end = backend.index("    @Property(\"QVariantList\", notify=presetLibraryChanged)", start)
+    block = backend[start:end]
+
+    assert 'preset_key not in self._user_presets' in block
+    assert 'categories[preset_key] = clean' in block
+    assert 'categories.pop(preset_key, None)' in block
+    assert 'self._preset_meta["categories"] = categories' in block
+    assert 'self._save_preset_meta()' in block
+    assert 'self.presetLibraryChanged.emit()' in block
+
+
+def test_user_preset_categories_render_after_builtins_and_before_mutations():
+    presets = (QML / "pages" / "PresetsPage.qml").read_text(encoding="utf-8")
+
+    assert "function resolvedPresetCategories()" in presets
+    assert "var userCategories = backend.presetUserCategories || []" in presets
+    assert '"userCategory": true' in presets
+    assert "model: root.resolvedPresetCategories()" in presets
+    assert "var categories = resolvedPresetCategories()" in presets
+    # Categorized user presets must not remain duplicated in the ungrouped grid.
+    assert "if (!grouped[String(preset.id)])" in presets
+    assert "if (Boolean(preset.user) || !grouped[String(preset.id)])" not in presets
+
+    category_repeater = presets.index("model: root.resolvedPresetCategories()")
+    mutation_category = presets.index("id: mutationCategorySection")
+    assert category_repeater < mutation_category
+    # User category names are user data, not localization keys.
+    assert "Boolean(categorySection.categoryData.userCategory)" in presets
+
+
+def test_backend_messages_use_themed_rastermint_dialogs():
+    main = (QML / "Main.qml").read_text(encoding="utf-8")
+    message_dialog = (QML / "components" / "MintMessageDialog.qml").read_text(encoding="utf-8")
+
+    assert '\n    MessageDialog { id: errorDialog' not in main
+    assert '\n    MessageDialog { id: infoDialog' not in main
+    assert 'MintMessageDialog { id: errorDialog; title: "RasterMint" }' in main
+    assert 'MintMessageDialog { id: infoDialog; title: "RasterMint" }' in main
+    assert 'errorDialog.text = message' in main
+    assert 'infoDialog.text = message' in main
+    assert "MintDialog {" in message_dialog
+    assert "color: theme.textColor" in message_dialog
+    assert "color: theme.panelRaisedColor" in message_dialog
+    assert "border.color: theme.borderColor" in message_dialog
+    assert 'text: qsTr("Close")' in message_dialog

@@ -608,15 +608,19 @@ class RasterMintBackend(BaseRasterMintBackend):
 
     @Slot(str, str)
     def setPresetCategory(self, preset_id: str, category: str) -> None:
+        preset_key = str(preset_id)
+        if preset_key not in self._user_presets:
+            return
         categories = dict(self._preset_meta.get("categories", {}))
         clean = str(category or "").strip()
         if clean:
-            categories[str(preset_id)] = clean
+            categories[preset_key] = clean
         else:
-            categories.pop(str(preset_id), None)
+            categories.pop(preset_key, None)
         self._preset_meta["categories"] = categories
         self._save_preset_meta()
         self.presetLibraryChanged.emit()
+        self._set_status(f"Preset category: {clean or 'Uncategorized'}")
 
     @Property("QVariantList", notify=presetLibraryChanged)
     def allPresets(self) -> list[dict[str, object]]:
@@ -804,33 +808,86 @@ class RasterMintBackend(BaseRasterMintBackend):
         except Exception as exc:
             self.errorOccurred.emit("Could not duplicate preset", str(exc))
 
-    @Slot(str, str)
-    def renamePresetInLibrary(self, preset_id: str, new_name: str) -> None:
-        source = self._user_presets.get(str(preset_id))
-        clean = str(new_name or "").strip()
-        if source is None or not clean:
-            return
+    @Slot(str, str, str, str, result=str)
+    def updatePresetInLibrary(
+        self,
+        preset_id: str,
+        new_name: str,
+        description: str,
+        category: str,
+    ) -> str:
+        old_id = str(preset_id)
+        source = self._user_presets.get(old_id)
+        clean_name = str(new_name or "").strip()
+        if source is None or not clean_name:
+            return ""
+
+        clean_description = str(description or "").strip()
+        clean_category = str(category or "").strip()
         try:
             settings = load_preset(Path(str(source.get("file", ""))))
             old_file = Path(str(source.get("file", "")))
-            slug = slugify_preset_name(clean)
+            slug = slugify_preset_name(clean_name)
             new_id = f"user-{slug}"
-            new_file = self._user_preset_folder() / f"{slug}.json"
-            save_preset(new_file, settings, preset_id=new_id, name=clean, description=str(source.get("description", "")))
-            if old_file != new_file and old_file.is_file(): old_file.unlink()
-            payload = load_preset_payload(new_file); payload.update(file=str(new_file), user=True, id=new_id)
-            del self._user_presets[str(preset_id)]; self._user_presets[new_id] = payload
+            existing = self._user_presets.get(new_id)
+            if new_id != old_id and existing is not None:
+                raise ValueError(f"A custom preset named '{clean_name}' already exists.")
+
+            folder = self._user_preset_folder()
+            folder.mkdir(parents=True, exist_ok=True)
+            new_file = folder / f"{slug}.json"
+            save_preset(
+                new_file,
+                settings,
+                preset_id=new_id,
+                name=clean_name,
+                description=clean_description,
+            )
+            if old_file != new_file and old_file.is_file():
+                old_file.unlink()
+
+            payload = load_preset_payload(new_file)
+            payload.update(file=str(new_file), user=True, id=new_id)
+            if new_id != old_id:
+                del self._user_presets[old_id]
+            self._user_presets[new_id] = payload
+
             for meta_key in ("favorites", "recent"):
-                values = [new_id if str(v) == str(preset_id) else str(v) for v in self._preset_meta.get(meta_key, [])]
+                values = [
+                    new_id if str(value) == old_id else str(value)
+                    for value in self._preset_meta.get(meta_key, [])
+                ]
                 self._preset_meta[meta_key] = values
+
             categories = dict(self._preset_meta.get("categories", {}))
-            category = categories.pop(str(preset_id), "")
-            if category: categories[new_id] = category
-            self._preset_meta["categories"] = categories; self._save_preset_meta()
-            self.presetLibraryChanged.emit(); self._refresh_user_preset_thumbnail(new_id)
-            self._set_status(f"Renamed preset: {clean}")
+            categories.pop(old_id, None)
+            if clean_category:
+                categories[new_id] = clean_category
+            else:
+                categories.pop(new_id, None)
+            self._preset_meta["categories"] = categories
+            self._save_preset_meta()
+
+            self.presetLibraryChanged.emit()
+            self._refresh_user_preset_thumbnail(new_id)
+            self._set_status(f"Saved preset: {clean_name}")
+            return new_id
         except Exception as exc:
-            self.errorOccurred.emit("Could not rename preset", str(exc))
+            self.errorOccurred.emit("Could not update preset", str(exc))
+            return ""
+
+    @Slot(str, str)
+    def renamePresetInLibrary(self, preset_id: str, new_name: str) -> None:
+        source = self._user_presets.get(str(preset_id))
+        if source is None:
+            return
+        category = str(dict(self._preset_meta.get("categories", {})).get(str(preset_id), ""))
+        self.updatePresetInLibrary(
+            str(preset_id),
+            str(new_name or ""),
+            str(source.get("description", "")),
+            category,
+        )
 
     @Slot(str)
     def exportPresetPack(self, value: str) -> None:
