@@ -560,6 +560,80 @@ EFFECT_DEFINITIONS: dict[str, dict[str, Any]] = {
     }},
 }
 
+EFFECT_DESCRIPTIONS: dict[str, str] = {
+    "Adjustments": "Adjust brightness, contrast, saturation, and gamma.",
+    "Levels": "Remap black, midpoint, and white levels for precise tonal control.",
+    "Local Contrast": "Boost local edge contrast to add clarity without globally sharpening the image.",
+    "Hue Rotate": "Rotate image hues around the colour wheel.",
+    "Grayscale": "Convert the image to luminance-based grayscale.",
+    "Invert": "Invert RGB colours for a photographic-negative look.",
+    "Gaussian Blur": "Soften image detail with a smooth Gaussian blur.",
+    "Median Denoise": "Remove speckle and impulse noise while preserving hard edges.",
+    "Sharpen": "Increase local edge contrast to make image detail crisper.",
+    "Glow": "Add a soft luminous halo around bright image detail.",
+    "Bloom": "Spread bright highlights into a thresholded Screen or Add bloom.",
+    "JPEG Compression": "Simulate lossy JPEG blocking, ringing, and compression damage.",
+    "Chromatic Shift": "Offset colour channels to create chromatic misregistration.",
+    "RGB Split": "Separate red, green, and blue channels into visible colour fringes.",
+    "Posterize": "Reduce tonal precision into a smaller number of discrete colour levels.",
+    "Scanlines": "Darken repeating horizontal rows to mimic scanned display lines.",
+    "Interlace": "Emulate alternating video fields with configurable line treatment.",
+    "Display Persistence": "Blend previous frames to emulate CRT, LCD, OLED, or generic display persistence.",
+    "Chroma Bleed": "Smear colour horizontally like low-bandwidth composite video.",
+    "Tracking Error": "Introduce VHS-style horizontal tracking displacement.",
+    "Tape Dropout": "Create brief missing or damaged tape streaks and gaps.",
+    "Temporal Jitter": "Shift frames over time to mimic unstable analog playback.",
+    "Head Switching Noise": "Add noisy lower-frame distortion like VHS head-switching interference.",
+    "RGB Convergence": "Misalign RGB phosphor channels to simulate imperfect CRT convergence.",
+    "CRT Mask": "Overlay aperture-grille, shadow-mask, or slot-mask phosphor structure.",
+    "Phosphor Glow": "Simulate light spreading from bright CRT phosphors.",
+    "Beam Width": "Change CRT beam thickness to soften or broaden scanned lines.",
+    "Horizontal Bloom": "Stretch bright areas horizontally like overloaded CRT electronics.",
+    "Scanline Variation": "Vary scanline intensity across the frame for less uniform CRT texture.",
+    "CRT Curvature": "Warp the image toward the curved surface of a CRT tube.",
+    "Edge Distortion": "Distort image geometry more strongly near the screen edges.",
+    "Vertical Sync Roll": "Roll or offset the frame vertically like lost vertical synchronization.",
+    "Field Flicker": "Alternate field brightness over time to simulate interlaced flicker.",
+    "LCD Inversion": "Add LCD polarity and inversion patterns for early flat-panel artifacts.",
+    "Dot Crawl": "Create moving edge patterns from composite luma/chroma interference.",
+    "Composite Noise": "Add analog composite-video noise and signal texture.",
+    "RF Interference": "Add broad-band RF/static interference and signal waviness.",
+    "Horizontal Tear": "Split horizontal bands sideways to simulate sync or tape tearing.",
+    "Noise": "Add configurable monochrome or coloured random noise.",
+    "Temporal Flicker": "Animate frame brightness for irregular or periodic flicker.",
+    "Temporal Pattern": "Generate animated waves, pulses, sweeps, and drifting temporal patterns.",
+    "Pixel Aspect Ratio": "Rescale presentation geometry for non-square display pixels.",
+    "Pixelate": "Reduce spatial resolution into enlarged block pixels.",
+    "Pixel Art Cleanup": "Clean isolated pixels, tiny clusters, stair-steps, and line artifacts while preserving edges.",
+    "Pixel Sort": "Sort pixels by brightness or colour to create stretched glitch streaks.",
+    "Screen Melt": "Pull image regions into long melting streaks.",
+    "Block Shuffle": "Rearrange rectangular image blocks for scrambled mosaic glitches.",
+    "Pixel Scatter": "Displace individual pixels randomly for fragmented digital noise.",
+    "Data Shift": "Shift image data in chunks to create digital displacement bands.",
+    "Row Shift": "Offset individual image rows horizontally.",
+    "Column Shift": "Offset individual image columns vertically.",
+    "Cellular Automata": "Evolve a cellular pattern from image structure for generative pixel textures.",
+    "Databend": "Simulate corrupted image-data decoding with displaced and broken regions.",
+    "Channel Swap": "Reorder RGB channels for alternate colour mappings.",
+    "Pixel Material": "Render pixels as stylized cells such as dots, CRT phosphors, LEDs, beads, or tiles.",
+    "Text Overlay": "Render a legacy editable text overlay retained for older projects and presets.",
+    "ASCII / Glyph": "Rebuild image detail using character glyphs selected by brightness or structure.",
+    "Pixel Text": "Place editable pixel-aligned text with font, outline, shadow, and layout controls.",
+    "Text Pattern": "Repeat text across the image as a configurable pattern.",
+    "Text Mask": "Use rendered text as a mask to reveal or suppress image regions.",
+    "Wave / Jitter Text": "Distort rendered text positions with waves and jitter.",
+    "Typewriter Text": "Animate text appearing progressively like a typewriter.",
+    "Text Glitch": "Corrupt and displace rendered text for digital glitch effects.",
+    "Dither Glow": "Add configurable glow to the structure of a dithered image.",
+    "Hardware Limits": "Apply strict image-space limits from a selected hardware profile.",
+    "Hardware Display": "Apply the display or presentation treatment from a selected hardware profile.",
+    "Pop Tone": "Create manga and pop-art dot screening with controllable density and variation.",
+    "Polygon Dither": "Rebuild image regions as triangle, pentagon, hexagon, or low-poly cells.",
+    "Beehive": "Quantize the image through an integral honeycomb or hex-cell raster.",
+    "Print Lab": "Build independent mono, CMYK, RGB, or spot-colour AM halftone separations.",
+    "Dither": "Map colours to the active palette using quantization, ordered, diffusion, or modulation algorithms.",
+}
+
 EFFECT_CATEGORIES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("Color & Tone", (
         "Adjustments", "Levels", "Local Contrast", "Posterize", "Grayscale", "Hue Rotate", "Invert",
@@ -573,32 +647,35 @@ EFFECT_CATEGORIES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("Print Lab", (
         "Print Lab",
     )),
-    ("Hardware Stages", (
-        "Hardware Limits", "Hardware Display",
-    )),
-    ("Display Effects", (
-        # Geometry first, then scan/field structure, CRT/phosphor response,
-        # flat-panel artifacts, analog signal damage, tape damage, compression.
-        "Pixel Aspect Ratio", "CRT Curvature", "Edge Distortion",
-        "Scanlines", "Scanline Variation", "Interlace", "Field Flicker",
-        "CRT Mask", "RGB Convergence", "Beam Width", "Phosphor Glow", "Horizontal Bloom",
-        "Display Persistence", "LCD Inversion",
-        "Chroma Bleed", "Dot Crawl", "Composite Noise", "RF Interference", "Vertical Sync Roll",
-        "Tracking Error", "Tape Dropout", "Head Switching Noise", "Horizontal Tear", "Temporal Jitter",
-        "JPEG Compression",
-    )),
-    ("Glitch & Channels", (
-        "Chromatic Shift", "RGB Split", "Channel Swap", "Row Shift", "Column Shift",
-        "Pixel Scatter", "Pixel Sort", "Block Shuffle", "Data Shift", "Databend", "Screen Melt",
+    ("Text & Overlay", (
+        "Pixel Text", "Text Pattern", "Text Mask", "Wave / Jitter Text", "Typewriter Text", "Text Glitch", "ASCII / Glyph",
     )),
     ("Noise & Motion", (
         "Noise", "Temporal Flicker", "Temporal Pattern", "Cellular Automata",
     )),
-    ("Text & Overlay", (
-        "Pixel Text", "Text Pattern", "Text Mask",
-        "Wave / Jitter Text", "Typewriter Text", "Text Glitch", "ASCII / Glyph",
+    ("Channels & Color Glitch", (
+        "Chromatic Shift", "RGB Split", "Channel Swap",
+    )),
+    ("Pixel & Data Glitch", (
+        "Row Shift", "Column Shift", "Pixel Scatter", "Pixel Sort", "Block Shuffle", "Data Shift", "Databend", "Screen Melt",
+    )),
+    ("Display Geometry & Response", (
+        "Pixel Aspect Ratio", "CRT Curvature", "Edge Distortion", "Display Persistence", "LCD Inversion",
+    )),
+    ("CRT & Scan", (
+        "Scanlines", "Scanline Variation", "Interlace", "Field Flicker", "CRT Mask", "RGB Convergence", "Beam Width", "Phosphor Glow", "Horizontal Bloom",
+    )),
+    ("Analog Signal", (
+        "Chroma Bleed", "Dot Crawl", "Composite Noise", "RF Interference", "Vertical Sync Roll",
+    )),
+    ("Tape & Compression", (
+        "Tracking Error", "Tape Dropout", "Head Switching Noise", "Horizontal Tear", "Temporal Jitter", "JPEG Compression",
+    )),
+    ("Hardware Stages", (
+        "Hardware Limits", "Hardware Display",
     )),
 )
+
 
 FIXED_STAGE_KINDS = frozenset({"Hardware Limits", "Hardware Display"})
 _FIXED_STAGE_ORDER = {"Hardware Limits": 0, "Hardware Display": 1}
@@ -621,11 +698,19 @@ def effect_categories() -> list[dict[str, object]]:
     for name, kinds in EFFECT_CATEGORIES:
         available = [kind for kind in kinds if kind in EFFECT_DEFINITIONS and kind not in _HIDDEN_EFFECT_KINDS]
         if available:
-            grouped.append({"name": name, "effects": available})
+            grouped.append({
+                "name": name,
+                "effects": available,
+                "descriptions": {kind: EFFECT_DESCRIPTIONS.get(kind, "") for kind in available},
+            })
             seen.update(available)
     uncategorized = [kind for kind in EFFECT_DEFINITIONS if kind not in seen]
     if uncategorized:
-        grouped.append({"name": "Other", "effects": uncategorized})
+        grouped.append({
+            "name": "Other",
+            "effects": uncategorized,
+            "descriptions": {kind: EFFECT_DESCRIPTIONS.get(kind, "") for kind in uncategorized},
+        })
     return grouped
 
 

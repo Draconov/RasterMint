@@ -898,6 +898,12 @@
     "Generate controlled variations of this preset": "このプリセットの制御されたバリエーションを生成",
     "Mutation amount": "変異量",
     "Mutations": "変異",
-    "Select a preset first": "先にプリセットを選択してください"
+    "Select a preset first": "先にプリセットを選択してください",
+    "Channels & Color Glitch": "チャンネル＆カラーグリッチ",
+    "Pixel & Data Glitch": "ピクセル＆データグリッチ",
+    "Display Geometry & Response": "画面ジオメトリ＆応答",
+    "CRT & Scan": "CRT＆スキャン",
+    "Analog Signal": "アナログ信号",
+    "Tape & Compression": "テープ＆圧縮"
   }
 }

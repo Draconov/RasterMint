@@ -795,6 +795,12 @@
     "Generate controlled variations of this preset": "Ģenerēt kontrolētus šī preseta variantus",
     "Mutation amount": "Mutācijas apjoms",
     "Mutations": "Mutācijas",
-    "Select a preset first": "Vispirms atlasiet presetu"
+    "Select a preset first": "Vispirms atlasiet presetu",
+    "Channels & Color Glitch": "Kanāli un krāsu kļūmes",
+    "Pixel & Data Glitch": "Pikseļu un datu kļūmes",
+    "Display Geometry & Response": "Displeja ģeometrija un reakcija",
+    "CRT & Scan": "CRT un skenēšana",
+    "Analog Signal": "Analogais signāls",
+    "Tape & Compression": "Lente un saspiešana"
   }
 }

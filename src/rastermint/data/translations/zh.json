@@ -898,6 +898,12 @@
     "Generate controlled variations of this preset": "生成此预设的受控变体",
     "Mutation amount": "变异量",
     "Mutations": "变异结果",
-    "Select a preset first": "请先选择一个预设"
+    "Select a preset first": "请先选择一个预设",
+    "Channels & Color Glitch": "通道与色彩故障",
+    "Pixel & Data Glitch": "像素与数据故障",
+    "Display Geometry & Response": "显示几何与响应",
+    "CRT & Scan": "CRT 与扫描",
+    "Analog Signal": "模拟信号",
+    "Tape & Compression": "磁带与压缩"
   }
 }

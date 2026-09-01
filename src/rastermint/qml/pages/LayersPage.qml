@@ -381,9 +381,14 @@ Item {
 
                 ToolTip.visible: layerHover.hovered && !cardDrag.active
                 ToolTip.delay: 500
-                ToolTip.text: layerDelegate.fixedStage
-                    ? qsTr("Hardware pipeline stage · fixed after normal layers")
-                    : qsTr("Drag anywhere on the layer card to reorder")
+                ToolTip.timeout: 10000
+                ToolTip.text: {
+                    var description = root.effectDescription(kind)
+                    var hint = layerDelegate.fixedStage
+                               ? qsTr("Hardware pipeline stage · fixed after normal layers")
+                               : qsTr("Drag anywhere on the layer card to reorder")
+                    return description !== "" ? (description + "\n\n" + hint) : hint
+                }
             }
         }
 
@@ -581,6 +586,18 @@ Item {
         expandedEffectCategories = next
     }
 
+    function effectDescription(kind) {
+        var target = String(kind || "")
+        var categories = backend.layerCategories || []
+        for (var i = 0; i < categories.length; ++i) {
+            var descriptions = categories[i].descriptions || {}
+            var raw = String(descriptions[target] || "")
+            if (raw !== "")
+                return localization.translateRuntime(localization.effectiveLanguageId, raw)
+        }
+        return ""
+    }
+
     Popup {
         id: addPopup
         popupType: Popup.Item
@@ -653,20 +670,26 @@ Item {
                             Repeater {
                                 model: categoryDelegate.modelData.effects
                                 delegate: ItemDelegate {
+                                    id: effectDelegate
                                     required property var modelData
+                                    readonly property string effectDescription: root.effectDescription(modelData)
                                     Layout.fillWidth: true
                                     implicitHeight: 32
                                     leftPadding: 28
                                     contentItem: Text {
-                                        text: localization.translateRuntime(localization.effectiveLanguageId, String(parent.modelData))
+                                        text: localization.translateRuntime(localization.effectiveLanguageId, String(effectDelegate.modelData))
                                         color: theme.textColor
                                         verticalAlignment: Text.AlignVCenter
                                         elide: Text.ElideRight
                                     }
                                     background: Rectangle {
                                         radius: 5
-                                        color: parent.hovered ? theme.selectionColor : "transparent"
+                                        color: effectDelegate.hovered ? theme.selectionColor : "transparent"
                                     }
+                                    ToolTip.visible: effectDelegate.hovered && effectDelegate.effectDescription !== ""
+                                    ToolTip.delay: 450
+                                    ToolTip.timeout: 10000
+                                    ToolTip.text: effectDelegate.effectDescription
                                     onClicked: {
                                         backend.addLayer(modelData)
                                         addPopup.close()

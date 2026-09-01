@@ -795,6 +795,12 @@
     "Generate controlled variations of this preset": "צור וריאציות מבוקרות של ערכה זו",
     "Mutation amount": "עוצמת מוטציה",
     "Mutations": "מוטציות",
-    "Select a preset first": "בחרו תחילה ערכה"
+    "Select a preset first": "בחרו תחילה ערכה",
+    "Channels & Color Glitch": "ערוצים וגליץ׳ צבע",
+    "Pixel & Data Glitch": "גליץ׳ פיקסלים ונתונים",
+    "Display Geometry & Response": "גאומטריית תצוגה ותגובה",
+    "CRT & Scan": "CRT וסריקה",
+    "Analog Signal": "אות אנלוגי",
+    "Tape & Compression": "קלטת ודחיסה"
   }
 }

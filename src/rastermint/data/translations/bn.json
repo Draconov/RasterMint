@@ -898,6 +898,12 @@
     "Generate controlled variations of this preset": "এই প্রিসেটের নিয়ন্ত্রিত ভ্যারিয়েশন তৈরি করুন",
     "Mutation amount": "মিউটেশন পরিমাণ",
     "Mutations": "মিউটেশন",
-    "Select a preset first": "প্রথমে একটি প্রিসেট বেছে নিন"
+    "Select a preset first": "প্রথমে একটি প্রিসেট বেছে নিন",
+    "Channels & Color Glitch": "চ্যানেল ও রঙ গ্লিচ",
+    "Pixel & Data Glitch": "পিক্সেল ও ডেটা গ্লিচ",
+    "Display Geometry & Response": "ডিসপ্লে জ্যামিতি ও প্রতিক্রিয়া",
+    "CRT & Scan": "CRT ও স্ক্যান",
+    "Analog Signal": "অ্যানালগ সিগন্যাল",
+    "Tape & Compression": "টেপ ও কম্প্রেশন"
   }
 }

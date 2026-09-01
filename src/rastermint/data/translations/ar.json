@@ -795,6 +795,12 @@
     "Generate controlled variations of this preset": "إنشاء نسخ متحكم بها من هذا الإعداد المسبق",
     "Mutation amount": "مقدار التحوير",
     "Mutations": "التحويرات",
-    "Select a preset first": "حدد إعدادًا مسبقًا أولاً"
+    "Select a preset first": "حدد إعدادًا مسبقًا أولاً",
+    "Channels & Color Glitch": "القنوات وتشويش الألوان",
+    "Pixel & Data Glitch": "تشويش البكسل والبيانات",
+    "Display Geometry & Response": "هندسة العرض والاستجابة",
+    "CRT & Scan": "CRT والمسح",
+    "Analog Signal": "الإشارة التناظرية",
+    "Tape & Compression": "الشريط والضغط"
   }
 }

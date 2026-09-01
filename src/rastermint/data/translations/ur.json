@@ -898,6 +898,12 @@
     "Generate controlled variations of this preset": "اس پری سیٹ کی کنٹرول شدہ تبدیلیاں بنائیں",
     "Mutation amount": "میوٹیشن مقدار",
     "Mutations": "میوٹیشنز",
-    "Select a preset first": "پہلے ایک پری سیٹ منتخب کریں"
+    "Select a preset first": "پہلے ایک پری سیٹ منتخب کریں",
+    "Channels & Color Glitch": "چینلز اور کلر گِلچ",
+    "Pixel & Data Glitch": "پکسل اور ڈیٹا گِلچ",
+    "Display Geometry & Response": "ڈسپلے جیومیٹری اور رسپانس",
+    "CRT & Scan": "CRT اور اسکین",
+    "Analog Signal": "اینالاگ سگنل",
+    "Tape & Compression": "ٹیپ اور کمپریشن"
   }
 }

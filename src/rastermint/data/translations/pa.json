@@ -898,6 +898,12 @@
     "Generate controlled variations of this preset": "ਇਸ ਪ੍ਰੀਸੈਟ ਦੀਆਂ ਨਿਯੰਤਰਿਤ ਵੈਰੀਏਸ਼ਨ ਬਣਾਓ",
     "Mutation amount": "ਮਿਊਟੇਸ਼ਨ ਮਾਤਰਾ",
     "Mutations": "ਮਿਊਟੇਸ਼ਨ",
-    "Select a preset first": "ਪਹਿਲਾਂ ਇੱਕ ਪ੍ਰੀਸੈਟ ਚੁਣੋ"
+    "Select a preset first": "ਪਹਿਲਾਂ ਇੱਕ ਪ੍ਰੀਸੈਟ ਚੁਣੋ",
+    "Channels & Color Glitch": "ਚੈਨਲ ਅਤੇ ਰੰਗ ਗਲਿਚ",
+    "Pixel & Data Glitch": "ਪਿਕਸਲ ਅਤੇ ਡਾਟਾ ਗਲਿਚ",
+    "Display Geometry & Response": "ਡਿਸਪਲੇ ਜਿਓਮੈਟਰੀ ਅਤੇ ਰਿਸਪਾਂਸ",
+    "CRT & Scan": "CRT ਅਤੇ ਸਕੈਨ",
+    "Analog Signal": "ਐਨਾਲੌਗ ਸਿਗਨਲ",
+    "Tape & Compression": "ਟੇਪ ਅਤੇ ਕੰਪ੍ਰੈਸ਼ਨ"
   }
 }

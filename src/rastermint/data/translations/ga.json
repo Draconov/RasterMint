@@ -795,6 +795,12 @@
     "Generate controlled variations of this preset": "Gin leaganacha rialaithe den réamhshocrú seo",
     "Mutation amount": "Méid sócháin",
     "Mutations": "Sócháin",
-    "Select a preset first": "Roghnaigh réamhshocrú ar dtús"
+    "Select a preset first": "Roghnaigh réamhshocrú ar dtús",
+    "Channels & Color Glitch": "Cainéil & Glitch Datha",
+    "Pixel & Data Glitch": "Glitch Picteil & Sonraí",
+    "Display Geometry & Response": "Céimseata & Freagairt Taispeána",
+    "CRT & Scan": "CRT & Scanadh",
+    "Analog Signal": "Comhartha Analógach",
+    "Tape & Compression": "Téip & Comhbhrú"
   }
 }

@@ -898,6 +898,12 @@
     "Generate controlled variations of this preset": "Bu ön ayarın kontrollü varyasyonlarını oluştur",
     "Mutation amount": "Mutasyon miktarı",
     "Mutations": "Mutasyonlar",
-    "Select a preset first": "Önce bir ön ayar seçin"
+    "Select a preset first": "Önce bir ön ayar seçin",
+    "Channels & Color Glitch": "Kanallar ve Renk Glitch",
+    "Pixel & Data Glitch": "Piksel ve Veri Glitch",
+    "Display Geometry & Response": "Ekran Geometrisi ve Tepki",
+    "CRT & Scan": "CRT ve Tarama",
+    "Analog Signal": "Analog Sinyal",
+    "Tape & Compression": "Bant ve Sıkıştırma"
   }
 }

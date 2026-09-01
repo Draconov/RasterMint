@@ -898,6 +898,12 @@
     "Generate controlled variations of this preset": "Tạo biến thể có kiểm soát của preset này",
     "Mutation amount": "Mức biến đổi",
     "Mutations": "Biến thể",
-    "Select a preset first": "Hãy chọn preset trước"
+    "Select a preset first": "Hãy chọn preset trước",
+    "Channels & Color Glitch": "Kênh & lỗi màu",
+    "Pixel & Data Glitch": "Lỗi pixel & dữ liệu",
+    "Display Geometry & Response": "Hình học & phản hồi màn hình",
+    "CRT & Scan": "CRT & quét",
+    "Analog Signal": "Tín hiệu tương tự",
+    "Tape & Compression": "Băng & nén"
   }
 }

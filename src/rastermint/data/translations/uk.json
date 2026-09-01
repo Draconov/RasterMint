@@ -898,6 +898,12 @@
     "Generate controlled variations of this preset": "Створити контрольовані варіанти цього пресета",
     "Mutation amount": "Сила мутації",
     "Mutations": "Мутації",
-    "Select a preset first": "Спочатку виберіть пресет"
+    "Select a preset first": "Спочатку виберіть пресет",
+    "Channels & Color Glitch": "Канали й колірні глітчі",
+    "Pixel & Data Glitch": "Піксельні й цифрові глітчі",
+    "Display Geometry & Response": "Геометрія та відгук дисплея",
+    "CRT & Scan": "CRT і розгортка",
+    "Analog Signal": "Аналоговий сигнал",
+    "Tape & Compression": "Стрічка та стиснення"
   }
 }

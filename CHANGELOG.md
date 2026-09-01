@@ -26,6 +26,11 @@ Notable user-facing and engineering changes are recorded here. RasterMint is sti
 - Added 10 new complete bundled translations: **Simplified Chinese, Hindi, Bengali, Indonesian, Urdu, Punjabi, Japanese, Vietnamese, Turkish, and Korean**, bringing RasterMint to **22 runtime languages** including English.
 - Added coverage and placeholder validation for the new dictionaries and kept automatic system-language selection compatible with their standard locale IDs.
 
+### Layer browser UX
+
+- Reorganized the add-layer catalogue into smaller workflow-focused groups so CRT, analog-signal, tape/compression, and glitch effects no longer sit inside oversized 20+ item categories.
+- Added a concise hover description for every visible layer effect in both the add-layer menu and active layer cards, matching the discoverability already used by hardware profiles and presets.
+
 ### Documentation and release
 
 - Added dedicated **Pixel Art Cleanup** and **Preset Mutation** workflow documentation and updated architecture/extension guidance for the new systems.

@@ -795,6 +795,12 @@
     "Generate controlled variations of this preset": "Generar variantes controladas de este preset",
     "Mutation amount": "Cantidad de mutación",
     "Mutations": "Mutaciones",
-    "Select a preset first": "Selecciona primero un preset"
+    "Select a preset first": "Selecciona primero un preset",
+    "Channels & Color Glitch": "Canales y glitch de color",
+    "Pixel & Data Glitch": "Glitch de píxeles y datos",
+    "Display Geometry & Response": "Geometría y respuesta de pantalla",
+    "CRT & Scan": "CRT y barrido",
+    "Analog Signal": "Señal analógica",
+    "Tape & Compression": "Cinta y compresión"
   }
 }

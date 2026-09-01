@@ -898,6 +898,12 @@
     "Generate controlled variations of this preset": "Buat variasi terkontrol dari preset ini",
     "Mutation amount": "Jumlah mutasi",
     "Mutations": "Mutasi",
-    "Select a preset first": "Pilih preset terlebih dahulu"
+    "Select a preset first": "Pilih preset terlebih dahulu",
+    "Channels & Color Glitch": "Kanal & Glitch Warna",
+    "Pixel & Data Glitch": "Glitch Piksel & Data",
+    "Display Geometry & Response": "Geometri & Respons Layar",
+    "CRT & Scan": "CRT & Pemindaian",
+    "Analog Signal": "Sinyal Analog",
+    "Tape & Compression": "Pita & Kompresi"
   }
 }
