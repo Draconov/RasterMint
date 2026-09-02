@@ -12,6 +12,7 @@ from PIL import Image, ImageOps
 from .effect_stack import apply_normalized_effect_stack, effect_stack_output_size, normalize_effect_stack
 from .effect_schema import scale_normalized_stack_for_preview
 from .hardware import render_display_view
+from .layer_groups import group_is_effectively_enabled
 from .palette import hex_to_rgb
 from .settings import ProcessingSettings
 from .temporal import TemporalEffectState
@@ -28,11 +29,7 @@ def runtime_effect_stack(settings: ProcessingSettings) -> list[dict[str, object]
     flag, so runtime visibility is derived on a shallow copy only when needed.
     """
     stack = normalize_effect_stack(settings.effect_stack, settings)
-    groups = {
-        str(group.get("id", "")): bool(group.get("enabled", True))
-        for group in getattr(settings, "layer_groups", [])
-        if isinstance(group, dict) and str(group.get("id", ""))
-    }
+    groups = list(getattr(settings, "layer_groups", []) or [])
     solo_id = str(getattr(settings, "solo_layer_id", "") or "")
     if not groups and not solo_id:
         return stack
@@ -41,7 +38,7 @@ def runtime_effect_stack(settings: ProcessingSettings) -> list[dict[str, object]
     for step in stack:
         visible = bool(step.get("enabled", True))
         group_id = str(step.get("group_id", "") or "")
-        if group_id and not groups.get(group_id, True):
+        if group_id and not group_is_effectively_enabled(group_id, groups):
             visible = False
         if solo_id and str(step.get("id", "")) != solo_id:
             visible = False

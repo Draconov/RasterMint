@@ -79,6 +79,7 @@ ScrollView {
             textRole: "name"
 
             delegate: ItemDelegate {
+                id: hardwareDelegate
                 required property int index
                 required property var modelData
                 width: hwCombo.width - 8
@@ -98,12 +99,14 @@ ScrollView {
                     color: parent.highlighted || parent.hovered ? theme.selectionColor : "transparent"
                 }
 
-                ToolTip.visible: hovered && hwCombo.popup.visible
-                ToolTip.delay: 250
-                ToolTip.timeout: 10000
-                ToolTip.text: String(modelData.id) === "custom"
-                    ? modelData.visualTooltip
-                    : (modeCombo.currentIndex === 1 ? modelData.strictTooltip : modelData.visualTooltip)
+                MintToolTip {
+                    visible: hardwareDelegate.hovered && hwCombo.popup.visible
+                    delay: 250
+                    timeout: 10000
+                    text: String(modelData.id) === "custom"
+                        ? modelData.visualTooltip
+                        : (modeCombo.currentIndex === 1 ? modelData.strictTooltip : modelData.visualTooltip)
+                }
             }
         }
 

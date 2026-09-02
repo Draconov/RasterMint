@@ -7,6 +7,8 @@ from copy import copy, deepcopy
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
+from .layer_groups import canonicalize_layer_groups
+
 DEFAULT_PALETTE = ["#0B1020", "#F3F7FF"]
 
 
@@ -126,25 +128,8 @@ class ProcessingSettings:
             self.random_locks = merged
         if not isinstance(self.display_profile, dict):
             self.display_profile = {}
-        if not isinstance(self.layer_groups, list):
-            self.layer_groups = []
+        self.layer_groups = canonicalize_layer_groups(self.layer_groups)
         self.solo_layer_id = str(self.solo_layer_id or "")
-        normalized_groups: list[dict[str, Any]] = []
-        seen_group_ids: set[str] = set()
-        for raw in self.layer_groups:
-            if not isinstance(raw, dict):
-                continue
-            group_id = str(raw.get("id", "") or "").strip()
-            if not group_id or group_id in seen_group_ids:
-                continue
-            seen_group_ids.add(group_id)
-            normalized_groups.append({
-                "id": group_id,
-                "name": str(raw.get("name", "Layer Group") or "Layer Group"),
-                "collapsed": bool(raw.get("collapsed", False)),
-                "enabled": bool(raw.get("enabled", True)),
-            })
-        self.layer_groups = normalized_groups
         if not isinstance(self.audio_envelope, list):
             self.audio_envelope = []
         cleaned_envelope: list[float] = []
@@ -277,25 +262,8 @@ class ProcessingSettings:
         obj.palette_source = str(obj.palette_source or "")
         if not isinstance(obj.effect_stack, list):
             obj.effect_stack = []
-        if not isinstance(obj.layer_groups, list):
-            obj.layer_groups = []
+        obj.layer_groups = canonicalize_layer_groups(obj.layer_groups)
         obj.solo_layer_id = str(obj.solo_layer_id or "")
-        normalized_groups: list[dict[str, Any]] = []
-        seen_group_ids: set[str] = set()
-        for raw in obj.layer_groups:
-            if not isinstance(raw, dict):
-                continue
-            group_id = str(raw.get("id", "") or "").strip()
-            if not group_id or group_id in seen_group_ids:
-                continue
-            seen_group_ids.add(group_id)
-            normalized_groups.append({
-                "id": group_id,
-                "name": str(raw.get("name", "Layer Group") or "Layer Group"),
-                "collapsed": bool(raw.get("collapsed", False)),
-                "enabled": bool(raw.get("enabled", True)),
-            })
-        obj.layer_groups = normalized_groups
         if not isinstance(obj.animation_tracks, list):
             obj.animation_tracks = []
         if not isinstance(obj.audio_envelope, list):

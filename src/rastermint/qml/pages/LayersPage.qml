@@ -7,13 +7,19 @@ Item {
     id: root
     property int addIndex: 0
 
-    // Layer-card drag state. The model itself is committed only on release;
-    // delegates are translated live so the user sees the final order while dragging.
+    // Layer/group drag state. Drops on the centre of a layer card group the
+    // layers; edge drops keep reorder semantics and can pull a layer out one level.
     property int dragSourceIndex: -1
     property int dragTargetIndex: -1
+    property string dragDropMode: "before"
+    property real dragDeltaX: 0
     property real dragDeltaY: 0
+    property string groupDragId: ""
+    property int groupDragTargetIndex: -1
+    property string editingGroupId: ""
     readonly property int layerRowHeight: 48
     readonly property int layerRowSpacing: 4
+    readonly property int groupHeaderHeight: 34
 
     // Keep one stable parameter-editor model while a slider is held.
     // The backend emits layerSelectionChanged for every live parameter update;
@@ -71,35 +77,112 @@ Item {
         {"name": "Custom", "sets": [{"name": "Custom", "preview": "Your characters"}]}
     ]
 
+    function nearestVisibleLayerIndex(y) {
+        var bestIndex = -1
+        var bestDistance = Number.MAX_VALUE
+        for (var i = 0; i < layerList.count; ++i) {
+            var item = layerList.itemAtIndex(i)
+            if (!item || item.height <= 0)
+                continue
+            var center = item.y + (item.layerContentShown
+                                   ? item.layerCardY + root.layerRowHeight / 2
+                                   : item.height / 2)
+            var distance = Math.abs(center - y)
+            if (distance < bestDistance) {
+                bestDistance = distance
+                bestIndex = i
+            }
+        }
+        return bestIndex
+    }
+
     function beginLayerDrag(index) {
         dragSourceIndex = index
         dragTargetIndex = index
+        dragDropMode = "before"
+        dragDeltaX = 0
         dragDeltaY = 0
         backend.selectLayer(index)
     }
 
-    function updateLayerDrag(deltaY) {
+    function updateLayerDrag(deltaX, deltaY) {
         if (dragSourceIndex < 0 || layerList.count <= 0)
             return
-
-        var stride = layerRowHeight + layerRowSpacing
-        var minimum = -dragSourceIndex * stride
-        var maximum = (layerList.count - 1 - dragSourceIndex) * stride
-        dragDeltaY = Math.max(minimum, Math.min(maximum, deltaY))
-        dragTargetIndex = Math.max(
-            0,
-            Math.min(layerList.count - 1, dragSourceIndex + Math.round(dragDeltaY / stride))
-        )
+        var sourceItem = layerList.itemAtIndex(dragSourceIndex)
+        if (!sourceItem)
+            return
+        dragDeltaX = deltaX
+        dragDeltaY = deltaY
+        if (deltaX < -28 && backend.layerDirectGroupId(dragSourceIndex) !== "") {
+            dragTargetIndex = dragSourceIndex
+            dragDropMode = "ungroup"
+            return
+        }
+        var centerY = sourceItem.y + sourceItem.layerCardY + root.layerRowHeight / 2 + deltaY
+        var target = nearestVisibleLayerIndex(centerY)
+        if (target < 0)
+            return
+        dragTargetIndex = target
+        if (target === dragSourceIndex) {
+            dragDropMode = "before"
+            return
+        }
+        var targetItem = layerList.itemAtIndex(target)
+        if (!targetItem || !targetItem.layerContentShown) {
+            dragDropMode = "into"
+            return
+        }
+        var localY = centerY - (targetItem.y + targetItem.layerCardY)
+        if (localY >= root.layerRowHeight * 0.25 && localY <= root.layerRowHeight * 0.75)
+            dragDropMode = "into"
+        else
+            dragDropMode = localY < root.layerRowHeight * 0.5 ? "before" : "after"
     }
 
     function finishLayerDrag() {
         var source = dragSourceIndex
         var target = dragTargetIndex
+        var mode = dragDropMode
         dragSourceIndex = -1
         dragTargetIndex = -1
+        dragDropMode = "before"
+        dragDeltaX = 0
         dragDeltaY = 0
-        if (source >= 0 && target >= 0 && source !== target)
-            backend.moveLayer(source, target)
+        if (source >= 0 && target >= 0 && (source !== target || mode === "ungroup"))
+            backend.dropLayer(source, target, mode)
+    }
+
+    function beginGroupDrag(groupId) {
+        groupDragId = String(groupId || "")
+        groupDragTargetIndex = -1
+    }
+
+    function updateGroupDragAt(y) {
+        if (groupDragId === "")
+            return
+        groupDragTargetIndex = nearestVisibleLayerIndex(y)
+    }
+
+    function finishGroupDrag() {
+        var groupId = groupDragId
+        var target = groupDragTargetIndex
+        groupDragId = ""
+        groupDragTargetIndex = -1
+        if (groupId !== "" && target >= 0)
+            backend.dropLayerGroup(groupId, target)
+    }
+
+    function beginGroupRename(groupId, name) {
+        editingGroupId = String(groupId || "")
+    }
+
+    function finishGroupRename(groupId, name) {
+        if (editingGroupId !== String(groupId || ""))
+            return
+        var clean = String(name || "").trim()
+        editingGroupId = ""
+        if (clean !== "")
+            backend.renameLayerGroup(String(groupId), clean)
     }
 
     function syncEditorLayerParams() {
@@ -236,158 +319,268 @@ Item {
         ListView {
             id: layerList
             Layout.fillWidth: true
-            Layout.preferredHeight: Math.min(contentHeight, 260)
+            Layout.preferredHeight: Math.min(contentHeight, 300)
             model: backend.layerModel
             spacing: root.layerRowSpacing
             clip: true
             currentIndex: backend.selectedLayerIndex
             ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
 
-            delegate: Rectangle {
+            delegate: Item {
                 id: layerDelegate
                 width: layerList.width
-                radius: 7
 
                 property bool fixedStage: kind === "Hardware Limits" || kind === "Hardware Display"
                 property bool isDragging: root.dragSourceIndex === index
                 property bool multiSelected: backend.selectedLayerIndices.indexOf(index) >= 0
-                property bool firstInGroup: String(groupId || "") !== "" && backend.isFirstLayerInGroup(index)
-                property string groupName: String(groupId || "") !== "" ? backend.layerGroupName(groupId) : ""
-                visible: String(groupId || "") === "" || !backend.layerGroupCollapsed(groupId) || firstInGroup
-                height: visible ? root.layerRowHeight : 0
-                property real liveReorderOffset: {
-                    if (root.dragSourceIndex < 0 || root.dragTargetIndex === root.dragSourceIndex)
-                        return 0
+                property var headerData: groupHeaders || []
+                property bool layerContentShown: Boolean(layerContentVisible)
+                property real headerAreaHeight: headerData.length > 0
+                                                ? headerData.length * (root.groupHeaderHeight + 2)
+                                                : 0
+                property real layerCardY: headerAreaHeight
+                property real layerIndent: Math.max(0, Number(groupDepth || 0)) * 12
 
-                    var stride = root.layerRowHeight + root.layerRowSpacing
-                    if (root.dragSourceIndex < root.dragTargetIndex
-                            && index > root.dragSourceIndex
-                            && index <= root.dragTargetIndex)
-                        return -stride
-                    if (root.dragSourceIndex > root.dragTargetIndex
-                            && index >= root.dragTargetIndex
-                            && index < root.dragSourceIndex)
-                        return stride
-                    return 0
-                }
+                visible: height > 0
+                height: headerAreaHeight + (layerContentShown ? root.layerRowHeight : 0)
+                z: isDragging ? 30 : 0
 
-                z: isDragging ? 20 : 0
-                color: multiSelected
-                       ? theme.selectionColor
-                       : (layerHover.hovered ? theme.panelHoverColor : theme.panelRaisedColor)
-                border.color: isDragging ? theme.accentColor : theme.borderColor
-                border.width: isDragging ? 2 : 1
-                opacity: isDragging ? 0.88 : 1.0
+                Column {
+                    id: groupHeaderColumn
+                    width: parent.width
+                    spacing: 2
 
-                transform: Translate {
-                    y: layerDelegate.isDragging ? root.dragDeltaY : layerDelegate.liveReorderOffset
-                }
+                    Repeater {
+                        model: layerDelegate.headerData
 
-                RowLayout {
-                    anchors.fill: parent
-                    anchors.margins: 7
-                    spacing: 7
+                        delegate: Rectangle {
+                            id: groupHeader
+                            required property var modelData
+                            property bool groupIsDragging: root.groupDragId === String(modelData.id)
+                            x: Math.max(0, (Number(modelData.depth || 1) - 1) * 12)
+                            width: Math.max(80, groupHeaderColumn.width - x)
+                            height: root.groupHeaderHeight
+                            radius: 6
+                            color: groupIsDragging
+                                   ? theme.selectionColor
+                                   : (groupHeaderHover.hovered ? theme.panelHoverColor : theme.panelColor)
+                            border.color: groupIsDragging ? theme.accentColor : theme.borderColor
+                            border.width: groupIsDragging ? 2 : 1
 
-                    MintButton {
-                        visible: layerDelegate.firstInGroup
-                        Layout.preferredWidth: 28
-                        text: backend.layerGroupCollapsed(groupId) ? "▸" : "▾"
-                        onClicked: backend.setLayerGroupCollapsed(groupId, !backend.layerGroupCollapsed(groupId))
-                        ToolTip.visible: hovered
-                        ToolTip.text: qsTr("Collapse / expand layer group")
-                    }
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.leftMargin: 5
+                                anchors.rightMargin: 6
+                                spacing: 5
 
-                    MintCheckBox {
-                        checked: layerEnabled
-                        onToggled: backend.setLayerEnabled(index, checked)
-                    }
-
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: 1
-                        Text {
-                            Layout.fillWidth: true
-                            text: layerDelegate.firstInGroup && layerDelegate.groupName !== ""
-                                  ? (layerDelegate.groupName + " · " + qsTr(kind))
-                                  : qsTr(kind)
-                            color: theme.textColor
-                            font.bold: true
-                            elide: Text.ElideRight
-                        }
-                        Text {
-                            Layout.fillWidth: true
-                            readonly property string maskType: String((layerMask && layerMask.type) || "None")
-                            readonly property string compositingSummary: {
-                                var parts = []
-                                if (String(blendMode || "Normal") !== "Normal" || Number(layerOpacity) < 0.999) {
-                                    parts.push(qsTr(String(blendMode || "Normal")))
-                                    parts.push(Math.round(Number(layerOpacity) * 100) + "%")
+                                MintButton {
+                                    id: collapseGroupButton
+                                    Layout.preferredWidth: 27
+                                    Layout.preferredHeight: 25
+                                    text: Boolean(groupHeader.modelData.collapsed) ? "▸" : "▾"
+                                    onClicked: backend.setLayerGroupCollapsed(
+                                                   String(groupHeader.modelData.id),
+                                                   !Boolean(groupHeader.modelData.collapsed))
+                                    MintToolTip {
+                                        visible: collapseGroupButton.hovered
+                                        text: qsTr("Collapse / expand layer group")
+                                    }
                                 }
-                                if (maskType !== "None")
-                                    parts.push(qsTr(maskType))
-                                return parts.join(" · ")
+
+                                MintCheckBox {
+                                    checked: Boolean(groupHeader.modelData.enabled)
+                                    onToggled: backend.setLayerGroupEnabled(String(groupHeader.modelData.id), checked)
+                                }
+
+                                Item {
+                                    Layout.fillWidth: true
+                                    Layout.fillHeight: true
+
+                                    Text {
+                                        anchors.fill: parent
+                                        verticalAlignment: Text.AlignVCenter
+                                        text: String(groupHeader.modelData.name || "")
+                                        color: theme.textColor
+                                        font.bold: true
+                                        elide: Text.ElideRight
+                                        visible: root.editingGroupId !== String(groupHeader.modelData.id)
+                                    }
+
+                                    MintTextField {
+                                        id: groupNameEditor
+                                        anchors.fill: parent
+                                        visible: root.editingGroupId === String(groupHeader.modelData.id)
+                                        onVisibleChanged: {
+                                            if (visible) {
+                                                text = String(groupHeader.modelData.name || "")
+                                                forceActiveFocus()
+                                                selectAll()
+                                            }
+                                        }
+                                        Keys.onReturnPressed: root.finishGroupRename(groupHeader.modelData.id, text)
+                                        Keys.onEnterPressed: root.finishGroupRename(groupHeader.modelData.id, text)
+                                        Keys.onEscapePressed: root.editingGroupId = ""
+                                        onEditingFinished: {
+                                            if (root.editingGroupId === String(groupHeader.modelData.id))
+                                                root.finishGroupRename(groupHeader.modelData.id, text)
+                                        }
+                                    }
+
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        enabled: root.editingGroupId !== String(groupHeader.modelData.id)
+                                        acceptedButtons: Qt.LeftButton
+                                        onDoubleClicked: root.beginGroupRename(groupHeader.modelData.id, groupHeader.modelData.name)
+                                    }
+                                }
                             }
-                            text: compositingSummary
-                                  + (compositingSummary !== "" && String(summary) !== "" ? " · " : "")
-                                  + qsTr(summary)
-                            color: theme.mutedTextColor
-                            font.pixelSize: 10
-                            elide: Text.ElideRight
+
+                            HoverHandler { id: groupHeaderHover }
+
+                            DragHandler {
+                                id: groupDrag
+                                enabled: root.editingGroupId !== String(groupHeader.modelData.id)
+                                target: null
+                                acceptedButtons: Qt.LeftButton
+                                xAxis.enabled: false
+                                yAxis.enabled: true
+                                onActiveChanged: {
+                                    if (active) {
+                                        root.beginGroupDrag(groupHeader.modelData.id)
+                                    } else if (root.groupDragId === String(groupHeader.modelData.id)) {
+                                        root.finishGroupDrag()
+                                    }
+                                }
+                                onTranslationChanged: {
+                                    if (!active)
+                                        return
+                                    var point = groupHeader.mapToItem(
+                                                layerList,
+                                                groupHeader.width / 2,
+                                                groupHeader.height / 2 + translation.y)
+                                    root.updateGroupDragAt(point.y)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Rectangle {
+                    id: layerCard
+                    x: layerDelegate.layerIndent
+                    y: layerDelegate.layerCardY
+                    width: Math.max(90, layerDelegate.width - x)
+                    height: layerDelegate.layerContentShown ? root.layerRowHeight : 0
+                    visible: layerDelegate.layerContentShown
+                    radius: 7
+                    z: layerDelegate.isDragging ? 20 : 0
+                    color: layerDelegate.multiSelected
+                           ? theme.selectionColor
+                           : (layerHover.hovered ? theme.panelHoverColor : theme.panelRaisedColor)
+                    border.color: layerDelegate.isDragging
+                                  || (root.dragSourceIndex >= 0 && root.dragTargetIndex === index)
+                                  || (root.groupDragId !== "" && root.groupDragTargetIndex === index)
+                                  ? theme.accentColor
+                                  : theme.borderColor
+                    border.width: layerDelegate.isDragging
+                                  || (root.dragSourceIndex >= 0 && root.dragTargetIndex === index)
+                                  || (root.groupDragId !== "" && root.groupDragTargetIndex === index)
+                                  ? 2 : 1
+                    opacity: layerDelegate.isDragging ? 0.88 : 1.0
+
+                    transform: Translate {
+                        x: layerDelegate.isDragging ? root.dragDeltaX : 0
+                        y: layerDelegate.isDragging ? root.dragDeltaY : 0
+                    }
+
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.margins: 7
+                        spacing: 7
+
+                        MintCheckBox {
+                            checked: layerEnabled
+                            onToggled: backend.setLayerEnabled(index, checked)
+                        }
+
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 1
+                            Text {
+                                Layout.fillWidth: true
+                                text: qsTr(kind)
+                                color: theme.textColor
+                                font.bold: true
+                                elide: Text.ElideRight
+                            }
+                            Text {
+                                Layout.fillWidth: true
+                                readonly property string maskType: String((layerMask && layerMask.type) || "None")
+                                readonly property string compositingSummary: {
+                                    var parts = []
+                                    if (String(blendMode || "Normal") !== "Normal" || Number(layerOpacity) < 0.999) {
+                                        parts.push(qsTr(String(blendMode || "Normal")))
+                                        parts.push(Math.round(Number(layerOpacity) * 100) + "%")
+                                    }
+                                    if (maskType !== "None")
+                                        parts.push(qsTr(maskType))
+                                    return parts.join(" · ")
+                                }
+                                text: compositingSummary
+                                      + (compositingSummary !== "" && String(summary) !== "" ? " · " : "")
+                                      + qsTr(summary)
+                                color: theme.mutedTextColor
+                                font.pixelSize: 10
+                                elide: Text.ElideRight
+                            }
+                        }
+
+                        MintButton { text: "↑"; enabled: !layerDelegate.fixedStage && index > 0; onClicked: backend.moveLayer(index, index - 1) }
+                        MintButton { text: "↓"; enabled: !layerDelegate.fixedStage && index < layerList.count - 1; onClicked: backend.moveLayer(index, index + 1) }
+                    }
+
+                    HoverHandler {
+                        id: layerHover
+                        cursorShape: cardDrag.active ? Qt.ClosedHandCursor : Qt.OpenHandCursor
+                    }
+
+                    TapHandler {
+                        acceptedModifiers: Qt.NoModifier
+                        onTapped: backend.selectLayer(index)
+                    }
+                    TapHandler {
+                        acceptedModifiers: Qt.ControlModifier
+                        onTapped: backend.toggleLayerSelection(index)
+                    }
+
+                    DragHandler {
+                        id: cardDrag
+                        enabled: !layerDelegate.fixedStage
+                        target: null
+                        acceptedButtons: Qt.LeftButton
+                        xAxis.enabled: true
+                        yAxis.enabled: true
+
+                        onActiveChanged: {
+                            if (active) {
+                                root.beginLayerDrag(index)
+                            } else if (root.dragSourceIndex === index) {
+                                root.finishLayerDrag()
+                            }
+                        }
+
+                        onTranslationChanged: {
+                            if (active)
+                                root.updateLayerDrag(translation.x, translation.y)
                         }
                     }
 
-                    MintButton { text: "↑"; enabled: !layerDelegate.fixedStage && index > 0; onClicked: backend.moveLayer(index, index - 1) }
-                    MintButton { text: "↓"; enabled: !layerDelegate.fixedStage && index < layerList.count - 1; onClicked: backend.moveLayer(index, index + 1) }
-                }
-
-                HoverHandler {
-                    id: layerHover
-                    cursorShape: cardDrag.active ? Qt.ClosedHandCursor : Qt.OpenHandCursor
-                }
-
-                TapHandler {
-                    acceptedModifiers: Qt.NoModifier
-                    onTapped: backend.selectLayer(index)
-                }
-                TapHandler {
-                    acceptedModifiers: Qt.ControlModifier
-                    onTapped: backend.toggleLayerSelection(index)
-                }
-
-                // Dragging works from the whole layer card. Child buttons still
-                // receive ordinary clicks; moving beyond the drag threshold turns
-                // the same press into a card reorder gesture.
-                DragHandler {
-                    id: cardDrag
-                    enabled: !layerDelegate.fixedStage
-                    target: null
-                    acceptedButtons: Qt.LeftButton
-                    xAxis.enabled: false
-                    yAxis.enabled: true
-
-                    onActiveChanged: {
-                        if (active) {
-                            root.beginLayerDrag(index)
-                        } else if (root.dragSourceIndex === index) {
-                            root.finishLayerDrag()
-                        }
+                    MintToolTip {
+                        visible: layerHover.hovered && !cardDrag.active && root.effectDescription(kind) !== ""
+                        delay: 500
+                        timeout: 10000
+                        text: root.effectDescription(kind)
                     }
-
-                    onTranslationChanged: {
-                        if (active)
-                            root.updateLayerDrag(translation.y)
-                    }
-                }
-
-                ToolTip.visible: layerHover.hovered && !cardDrag.active
-                ToolTip.delay: 500
-                ToolTip.timeout: 10000
-                ToolTip.text: {
-                    var description = root.effectDescription(kind)
-                    var hint = layerDelegate.fixedStage
-                               ? qsTr("Hardware pipeline stage · fixed after normal layers")
-                               : qsTr("Drag anywhere on the layer card to reorder")
-                    return description !== "" ? (description + "\n\n" + hint) : hint
                 }
             }
         }
@@ -409,7 +602,7 @@ Item {
             Layout.fillWidth: true
             spacing: 4
             MintButton { Layout.fillWidth: true; text: backend.selectedLayerSolo ? qsTr("Unsolo") : qsTr("Solo"); onClicked: backend.toggleSoloSelectedLayer() }
-            MintButton { Layout.fillWidth: true; text: qsTr("Group"); onClicked: groupDialog.open() }
+            MintButton { Layout.fillWidth: true; text: qsTr("Group"); onClicked: backend.groupSelectedLayers() }
             MintButton { Layout.fillWidth: true; text: qsTr("Ungroup"); onClicked: backend.ungroupSelectedLayers() }
             MintButton {
                 Layout.fillWidth: true
@@ -543,20 +736,6 @@ Item {
         }
     }
 
-    Dialog {
-        id: groupDialog
-        title: qsTr("Create Layer Group")
-        modal: true
-        standardButtons: Dialog.Ok | Dialog.Cancel
-        anchors.centerIn: Overlay.overlay
-        onOpened: { groupNameField.text = qsTr("Layer Group"); groupNameField.forceActiveFocus() }
-        onAccepted: backend.groupSelectedLayers(groupNameField.text)
-        contentItem: ColumnLayout {
-            spacing: 8
-            MintLabel { text: qsTr("Group name"); color: theme.mutedTextColor }
-            MintTextField { id: groupNameField; Layout.preferredWidth: 260 }
-        }
-    }
 
     property var expandedGlyphCategories: ({})
 
@@ -686,10 +865,12 @@ Item {
                                         radius: 5
                                         color: effectDelegate.hovered ? theme.selectionColor : "transparent"
                                     }
-                                    ToolTip.visible: effectDelegate.hovered && effectDelegate.effectDescription !== ""
-                                    ToolTip.delay: 450
-                                    ToolTip.timeout: 10000
-                                    ToolTip.text: effectDelegate.effectDescription
+                                    MintToolTip {
+                                        visible: effectDelegate.hovered && effectDelegate.effectDescription !== ""
+                                        delay: 450
+                                        timeout: 10000
+                                        text: effectDelegate.effectDescription
+                                    }
                                     onClicked: {
                                         backend.addLayer(modelData)
                                         addPopup.close()

@@ -318,6 +318,7 @@ Item {
             }
 
             MintButton {
+                id: favoritePresetButton
                 visible: !presetCard.isMutation
                 z: 3
                 anchors.right: parent.right
@@ -326,11 +327,14 @@ Item {
                 width: 30; height: 28
                 text: Boolean(modelData.favorite) ? "★" : "☆"
                 onClicked: backend.togglePresetFavorite(modelData.id)
-                ToolTip.visible: hovered
-                ToolTip.text: Boolean(modelData.favorite) ? qsTr("Remove from favourites") : qsTr("Add to favourites")
+                MintToolTip {
+                    visible: favoritePresetButton.hovered
+                    text: Boolean(modelData.favorite) ? qsTr("Remove from favourites") : qsTr("Add to favourites")
+                }
             }
 
             MintButton {
+                id: managePresetButton
                 visible: presetCard.isUserPreset
                 z: 2
                 anchors.left: parent.left
@@ -346,11 +350,14 @@ Item {
                     managePresetCategoryField.text = String(modelData.userCategory || "")
                     managePresetDialog.open()
                 }
-                ToolTip.visible: hovered
-                ToolTip.text: qsTr("Manage custom preset")
+                MintToolTip {
+                    visible: managePresetButton.hovered
+                    text: qsTr("Manage custom preset")
+                }
             }
 
             MintButton {
+                id: deletePresetButton
                 visible: presetCard.isUserPreset
                 z: 2
                 anchors.right: parent.right
@@ -365,15 +372,19 @@ Item {
                     backend.deletePresetFromLibrary(modelData.id)
                 }
 
-                ToolTip.visible: hovered
-                ToolTip.text: qsTr("Remove custom preset from library")
+                MintToolTip {
+                    visible: deletePresetButton.hovered
+                    text: qsTr("Remove custom preset from library")
+                }
             }
 
-            ToolTip.visible: presetMouse.containsMouse
-            ToolTip.text: presetCard.hardwareText !== ""
-                ? (presetCard.descriptionText + "\n" + presetCard.hardwareText
-                   + (presetCard.hardwareMode !== "" ? (" · " + presetCard.hardwareMode) : ""))
-                : presetCard.descriptionText
+            MintToolTip {
+                visible: presetMouse.containsMouse
+                text: presetCard.hardwareText !== ""
+                    ? (presetCard.descriptionText + "\n" + presetCard.hardwareText
+                       + (presetCard.hardwareMode !== "" ? (" · " + presetCard.hardwareMode) : ""))
+                    : presetCard.descriptionText
+            }
         }
     }
 
@@ -425,14 +436,17 @@ Item {
             }
 
             MintButton {
+                id: refreshPresetThumbnailsButton
                 text: "↻"
                 Layout.minimumWidth: 34
                 Layout.preferredWidth: 34
                 Layout.maximumWidth: 34
                 onClicked: backend.refreshPresetThumbnails()
 
-                ToolTip.visible: hovered
-                ToolTip.text: qsTr("Refresh preset thumbnails")
+                MintToolTip {
+                    visible: refreshPresetThumbnailsButton.hovered
+                    text: qsTr("Refresh preset thumbnails")
+                }
             }
         }
 
@@ -488,6 +502,7 @@ Item {
                     }
                     MintLabel { text: "%"; color: theme.mutedTextColor }
                     MintButton {
+                        id: mutatePresetButton
                         text: qsTr("Mutate")
                         enabled: root.selectedPresetId !== ""
                         onClicked: {
@@ -498,10 +513,12 @@ Item {
                             )
                             root.setPresetCategoryExpanded("Mutations", true)
                         }
-                        ToolTip.visible: hovered
-                        ToolTip.text: enabled
-                            ? qsTr("Generate controlled variations of this preset")
-                            : qsTr("Select a preset first")
+                        MintToolTip {
+                            visible: mutatePresetButton.hovered
+                            text: mutatePresetButton.enabled
+                                ? qsTr("Generate controlled variations of this preset")
+                                : qsTr("Select a preset first")
+                        }
                     }
                 }
             }

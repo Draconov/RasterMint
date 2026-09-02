@@ -372,11 +372,13 @@ Item {
                                 }
                             }
 
-                            ToolTip.visible: swatchMouse.containsMouse
-                            ToolTip.text: (index + 1) + ": " + modelData
-                                          + (locked
-                                             ? " · locked · right-click to unlock"
-                                             : " · right-click to lock · middle-click to delete")
+                            MintToolTip {
+                                visible: swatchMouse.containsMouse
+                                text: (index + 1) + ": " + modelData
+                                      + (locked
+                                         ? " · locked · right-click to unlock"
+                                         : " · right-click to lock · middle-click to delete")
+                            }
                         }
                     }
                 }
@@ -582,10 +584,12 @@ Item {
                                                     }
                                                 }
 
-                                                ToolTip.visible: paletteMouse.containsMouse
-                                                ToolTip.text: modelData.optimized && !backend.hasSource
-                                                              ? qsTr("Load an image to extract this optimized palette.")
-                                                              : modelData.description
+                                                MintToolTip {
+                                                    visible: paletteMouse.containsMouse
+                                                    text: modelData.optimized && !backend.hasSource
+                                                          ? qsTr("Load an image to extract this optimized palette.")
+                                                          : modelData.description
+                                                }
                                             }
                                         }
                                     }
@@ -964,8 +968,10 @@ Item {
                                     onClicked: root.applyGradientPreset(presetCard.modelData)
                                 }
 
-                                ToolTip.visible: presetMouse.containsMouse
-                                ToolTip.text: presetCard.modelData.name
+                                MintToolTip {
+                                    visible: presetMouse.containsMouse
+                                    text: presetCard.modelData.name
+                                }
                             }
                         }
                     }

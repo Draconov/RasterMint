@@ -190,8 +190,10 @@ ScrollView {
                                 backend.updateAnimationKeyframe(root.selectedTrack, index, time, Number(key.value), String(key.easing), key.bezier || [0.25,0.1,0.25,1.0])
                         }
                     }
-                    ToolTip.visible: keyMouseHover.hovered
-                    ToolTip.text: Number(modelData.time).toFixed(2) + " s · " + Number(modelData.value).toFixed(2)
+                    MintToolTip {
+                        visible: keyMouseHover.hovered
+                        text: Number(modelData.time).toFixed(2) + " s · " + Number(modelData.value).toFixed(2)
+                    }
                     HoverHandler { id: keyMouseHover }
                 }
             }

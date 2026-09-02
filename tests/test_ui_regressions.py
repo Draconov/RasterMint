@@ -259,8 +259,9 @@ def test_inspector_navigation_uses_sidebar_icons_and_hover_tooltips():
     assert "control.selected ? theme.accentColor : theme.textColor" in button
 
     # Labels remain on the buttons for accessibility and are shown only as hover tooltips.
-    assert "ToolTip.visible: control.hovered" in button
-    assert "ToolTip.text: control.text" in button
+    assert "MintToolTip" in button
+    assert "visible: control.hovered" in button
+    assert "text: control.text" in button
     assert "visible: control.selected" not in button
     assert "contentItem: Item" in button
     assert "width: 32" in button
@@ -437,3 +438,29 @@ def test_backend_messages_use_themed_rastermint_dialogs():
     assert "color: theme.panelRaisedColor" in message_dialog
     assert "border.color: theme.borderColor" in message_dialog
     assert 'text: qsTr("Close")' in message_dialog
+
+
+def test_hover_tooltips_use_themed_mint_tooltip_component():
+    from importlib import resources
+
+    qml_root = resources.files("rastermint").joinpath("qml")
+    tooltip_component = qml_root.joinpath("components/MintToolTip.qml").read_text(encoding="utf-8")
+    assert "ToolTip" in tooltip_component
+    assert "theme.panelRaisedColor" in tooltip_component
+    assert "theme.textColor" in tooltip_component
+    assert "theme.borderColor" in tooltip_component or "theme.accentColor" in tooltip_component
+
+    for relative in [
+        "SettingsDialog.qml",
+        "pages/PalettePage.qml",
+        "pages/PresetsPage.qml",
+        "pages/LayersPage.qml",
+        "pages/AnimationPage.qml",
+        "pages/HardwarePage.qml",
+        "components/InspectorNavButton.qml",
+        "components/MintColorPicker.qml",
+    ]:
+        text = qml_root.joinpath(relative).read_text(encoding="utf-8")
+        assert "ToolTip.visible:" not in text, f"{relative} still uses the unthemed attached ToolTip"
+        assert "MintToolTip" in text
+        assert "visible: parent.hovered" not in text, f"{relative} tooltip hover binding must use a stable control id"

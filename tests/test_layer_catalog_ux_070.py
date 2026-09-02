@@ -52,5 +52,6 @@ def test_layers_page_uses_effect_descriptions_for_hover_tooltips():
 
     qml = resources.files("rastermint").joinpath("qml/pages/LayersPage.qml").read_text(encoding="utf-8")
     assert "function effectDescription(kind)" in qml
-    assert "ToolTip.visible: effectDelegate.hovered" in qml
-    assert "var description = root.effectDescription(kind)" in qml
+    assert "MintToolTip" in qml
+    assert "visible: effectDelegate.hovered" in qml
+    assert "readonly property string effectDescription: root.effectDescription(modelData)" in qml

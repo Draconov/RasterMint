@@ -7,6 +7,8 @@ from typing import Any
 
 from PySide6.QtCore import QAbstractListModel, QModelIndex, Qt, Signal
 
+from rastermint.core.layer_groups import build_layer_group_view
+
 
 def _format_summary_value(value: Any) -> str:
     """Format compact layer-summary values without binary float artifacts."""
@@ -28,6 +30,10 @@ class LayerListModel(QAbstractListModel):
     BlendModeRole = Qt.ItemDataRole.UserRole + 7
     MaskRole = Qt.ItemDataRole.UserRole + 8
     GroupRole = Qt.ItemDataRole.UserRole + 9
+    GroupPathRole = Qt.ItemDataRole.UserRole + 10
+    GroupDepthRole = Qt.ItemDataRole.UserRole + 11
+    GroupHeadersRole = Qt.ItemDataRole.UserRole + 12
+    LayerContentVisibleRole = Qt.ItemDataRole.UserRole + 13
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -44,6 +50,10 @@ class LayerListModel(QAbstractListModel):
             self.BlendModeRole: b"blendMode",
             self.MaskRole: b"layerMask",
             self.GroupRole: b"groupId",
+            self.GroupPathRole: b"groupPath",
+            self.GroupDepthRole: b"groupDepth",
+            self.GroupHeadersRole: b"groupHeaders",
+            self.LayerContentVisibleRole: b"layerContentVisible",
         }
 
     def rowCount(self, parent=QModelIndex()) -> int:
@@ -69,6 +79,14 @@ class LayerListModel(QAbstractListModel):
             return dict(item.get("mask") or {})
         if role == self.GroupRole:
             return str(item.get("group_id", "") or "")
+        if role == self.GroupPathRole:
+            return list(item.get("_group_path") or [])
+        if role == self.GroupDepthRole:
+            return int(item.get("_group_depth", 0) or 0)
+        if role == self.GroupHeadersRole:
+            return [dict(header) for header in (item.get("_group_headers") or [])]
+        if role == self.LayerContentVisibleRole:
+            return bool(item.get("_layer_content_visible", True))
         if role == self.SummaryRole:
             params = item.get("params") if isinstance(item.get("params"), dict) else {}
             kind = str(item.get("kind", ""))
@@ -85,9 +103,19 @@ class LayerListModel(QAbstractListModel):
             return " · ".join(pieces)
         return None
 
-    def replace(self, items: list[dict[str, Any]]) -> None:
+    def replace(self, items: list[dict[str, Any]], groups: list[dict[str, Any]] | None = None) -> None:
+        view = build_layer_group_view(items, groups or [])
+        prepared: list[dict[str, Any]] = []
+        for index, item in enumerate(items):
+            row = dict(item)
+            metadata = view[index] if index < len(view) else {}
+            row["_group_path"] = list(metadata.get("group_path") or [])
+            row["_group_depth"] = int(metadata.get("group_depth", 0) or 0)
+            row["_group_headers"] = [dict(header) for header in (metadata.get("group_headers") or [])]
+            row["_layer_content_visible"] = bool(metadata.get("content_visible", True))
+            prepared.append(row)
         self.beginResetModel()
-        self._items = items
+        self._items = prepared
         self.endResetModel()
         self.changed.emit()
 

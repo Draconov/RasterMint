@@ -31,6 +31,14 @@ from rastermint.core.effect_schema import (
 from rastermint.core.gradient_presets import GRADIENT_PRESETS
 from rastermint.core.hardware_profiles import apply_profile_to_settings, load_builtin_profiles, load_profile_file, profile_summary
 from rastermint.core.history import UndoHistory
+from rastermint.core.layer_groups import (
+    create_layer_group,
+    drop_group_on_layer,
+    drop_layer,
+    next_group_name,
+    prune_layer_groups,
+    ungroup_layers,
+)
 from rastermint.core.lospec import fetch_lospec_palette
 from rastermint.core.palette_library import PALETTE_LIBRARY, find_palette, interpolate_palette, interpolate_palette_stops
 from rastermint.core.presets import load_preset, save_preset
@@ -322,7 +330,7 @@ class RasterMintBackend(QObject):
         self.settings = ProcessingSettings()
         self.settings.effect_stack = default_effect_stack(self.settings)
         self.layer_model = LayerListModel(self)
-        self.layer_model.replace(self.settings.effect_stack)
+        self.layer_model.replace(self.settings.effect_stack, self.settings.layer_groups)
         self._selected_layer = min(len(self.settings.effect_stack) - 1, 0)
         self._selected_layers: set[int] = {self._selected_layer} if self._selected_layer >= 0 else set()
         self._layer_clipboard: dict[str, Any] | None = None
@@ -1660,7 +1668,7 @@ class RasterMintBackend(QObject):
                 self.customDitherMatrixChanged.emit()
         self._selected_layer = desired_layer
         self._selected_layers = {desired_layer} if canonical.effect_stack else set()
-        self.layer_model.replace(self.settings.effect_stack)
+        self.layer_model.replace(self.settings.effect_stack, self.settings.layer_groups)
         self._settings_revision += 1
         self._reset_preview_temporal_state()
         self._invalidate_rendered()
@@ -2032,10 +2040,9 @@ class RasterMintBackend(QObject):
         kind = str(stack[index].get("kind", "Layer"))
         removed_id = str(stack[index].get("id", ""))
         del stack[index]
-        used_groups = {str(step.get("group_id", "")) for step in stack if str(step.get("group_id", ""))}
         data = self.settings.to_dict()
         data["effect_stack"] = stack
-        data["layer_groups"] = [dict(group) for group in self.settings.layer_groups if str(group.get("id", "")) in used_groups]
+        data["layer_groups"] = prune_layer_groups(self.settings.layer_groups, stack)
         if str(data.get("solo_layer_id", "")) == removed_id:
             data["solo_layer_id"] = ""
         self._replace_settings(
@@ -2231,8 +2238,7 @@ class RasterMintBackend(QObject):
         removed_ids = {str(stack[i].get("id", "")) for i in selected}
         removed_names = [str(stack[i].get("kind", "Layer")) for i in selected]
         stack = [step for i, step in enumerate(stack) if i not in set(selected)]
-        used_groups = {str(step.get("group_id", "")) for step in stack if str(step.get("group_id", ""))}
-        groups = [dict(group) for group in self.settings.layer_groups if str(group.get("id", "")) in used_groups]
+        groups = prune_layer_groups(self.settings.layer_groups, stack)
         data = self.settings.to_dict()
         data["effect_stack"] = stack
         data["layer_groups"] = groups
@@ -2244,24 +2250,36 @@ class RasterMintBackend(QObject):
             selected_layer=max(0, min(selected[0], len(stack) - 1)),
         )
 
-    @Slot(str)
-    def groupSelectedLayers(self, name: str) -> None:
-        selected = sorted(i for i in self._selected_layers if 0 <= i < len(self.settings.effect_stack))
+    @Slot()
+    def groupSelectedLayers(self) -> None:
+        selected = sorted(
+            i for i in self._selected_layers
+            if 0 <= i < len(self.settings.effect_stack)
+            and str(self.settings.effect_stack[i].get("kind", "")) not in FIXED_STAGE_KINDS
+        )
         if not selected:
             return
-        group_id = f"group-{uuid4().hex[:10]}"
-        clean_name = str(name or "").strip() or "Layer Group"
         stack = normalize_effect_stack(self.settings.effect_stack, self.settings)
-        for index in selected:
-            stack[index]["group_id"] = group_id
         groups = [dict(group) for group in self.settings.layer_groups]
-        groups.append({"id": group_id, "name": clean_name, "collapsed": False, "enabled": True})
+        group_id = f"group-{uuid4().hex[:10]}"
+        group_name = next_group_name(groups)
+        try:
+            stack, groups = create_layer_group(
+                stack,
+                groups,
+                selected,
+                group_id=group_id,
+                group_name=group_name,
+            )
+        except ValueError as exc:
+            self._set_status(str(exc))
+            return
         data = self.settings.to_dict()
         data["effect_stack"] = stack
         data["layer_groups"] = groups
         self._replace_settings(
             ProcessingSettings.from_dict(data),
-            action=f"Grouped {len(selected)} layers: {clean_name}",
+            action=f"Created {group_name}",
             selected_layer=selected[-1],
         )
 
@@ -2271,11 +2289,7 @@ class RasterMintBackend(QObject):
         if not selected:
             return
         stack = normalize_effect_stack(self.settings.effect_stack, self.settings)
-        touched = {str(stack[index].get("group_id", "")) for index in selected if str(stack[index].get("group_id", ""))}
-        for index in selected:
-            stack[index]["group_id"] = ""
-        used = {str(step.get("group_id", "")) for step in stack if str(step.get("group_id", ""))}
-        groups = [dict(group) for group in self.settings.layer_groups if str(group.get("id", "")) in used]
+        stack, groups = ungroup_layers(stack, self.settings.layer_groups, selected)
         data = self.settings.to_dict()
         data["effect_stack"] = stack
         data["layer_groups"] = groups
@@ -2285,9 +2299,98 @@ class RasterMintBackend(QObject):
             selected_layer=selected[-1],
         )
 
+    @Slot(int, int, str)
+    def dropLayer(self, source: int, target: int, mode: str) -> None:
+        stack = normalize_effect_stack(self.settings.effect_stack, self.settings)
+        source = int(source)
+        target = int(target)
+        if not (0 <= source < len(stack) and 0 <= target < len(stack)):
+            return
+        if source == target and str(mode).lower() != "ungroup":
+            return
+        if str(stack[source].get("kind", "")) in FIXED_STAGE_KINDS:
+            return
+        if str(stack[target].get("kind", "")) in FIXED_STAGE_KINDS:
+            first_fixed = next((i for i, step in enumerate(stack) if str(step.get("kind", "")) in FIXED_STAGE_KINDS), len(stack))
+            if first_fixed <= 0:
+                return
+            target = first_fixed - 1
+            mode = "after"
+            if target == source:
+                return
+
+        source_id = str(stack[source].get("id", ""))
+        group_id = f"group-{uuid4().hex[:10]}"
+        group_name = next_group_name(self.settings.layer_groups)
+        try:
+            stack, groups = drop_layer(
+                stack,
+                self.settings.layer_groups,
+                source,
+                target,
+                mode,
+                new_group_id=group_id,
+                new_group_name=group_name,
+            )
+        except ValueError as exc:
+            self._set_status(str(exc))
+            return
+        selected = next((i for i, step in enumerate(stack) if str(step.get("id", "")) == source_id), source)
+        data = self.settings.to_dict()
+        data["effect_stack"] = stack
+        data["layer_groups"] = groups
+        self._replace_settings(
+            ProcessingSettings.from_dict(data),
+            action=(
+                "Grouped layers" if str(mode).lower() == "into"
+                else "Ungrouped layer" if str(mode).lower() == "ungroup"
+                else "Moved layer"
+            ),
+            selected_layer=selected,
+        )
+
+    @Slot(str, int)
+    def dropLayerGroup(self, group_id: str, target_index: int) -> None:
+        stack = normalize_effect_stack(self.settings.effect_stack, self.settings)
+        target_index = int(target_index)
+        group_id = str(group_id or "")
+        if not group_id or not (0 <= target_index < len(stack)):
+            return
+        if str(stack[target_index].get("kind", "")) in FIXED_STAGE_KINDS:
+            return
+        new_group_id = f"group-{uuid4().hex[:10]}"
+        new_group_name = next_group_name(self.settings.layer_groups)
+        try:
+            stack, groups = drop_group_on_layer(
+                stack,
+                self.settings.layer_groups,
+                group_id,
+                target_index,
+                new_group_id=new_group_id,
+                new_group_name=new_group_name,
+            )
+        except ValueError as exc:
+            self._set_status(str(exc))
+            return
+        data = self.settings.to_dict()
+        data["effect_stack"] = stack
+        data["layer_groups"] = groups
+        self._replace_settings(
+            ProcessingSettings.from_dict(data),
+            action="Nested layer group",
+            selected_layer=self._selected_layer,
+        )
+
     def _group_by_id(self, group_id: str) -> dict[str, Any] | None:
         key = str(group_id or "")
         return next((group for group in self.settings.layer_groups if str(group.get("id", "")) == key), None)
+
+    @Slot(int, result=str)
+    def layerDirectGroupId(self, index: int) -> str:
+        index = int(index)
+        if not (0 <= index < len(self.settings.effect_stack)):
+            return ""
+        return str(self.settings.effect_stack[index].get("group_id", "") or "")
 
     @Slot(str, result=str)
     def layerGroupName(self, group_id: str) -> str:
@@ -2307,7 +2410,11 @@ class RasterMintBackend(QObject):
     @Slot(str, result=int)
     def layerGroupCount(self, group_id: str) -> int:
         key = str(group_id or "")
-        return sum(1 for step in self.settings.effect_stack if str(step.get("group_id", "")) == key)
+        return sum(1 for step in self.settings.effect_stack if key in self._layer_group_path_for_step(step))
+
+    def _layer_group_path_for_step(self, step: dict[str, Any]) -> list[str]:
+        from rastermint.core.layer_groups import group_path
+        return group_path(str(step.get("group_id", "") or ""), self.settings.layer_groups)
 
     @Slot(int, result=bool)
     def isFirstLayerInGroup(self, index: int) -> bool:
@@ -2317,7 +2424,7 @@ class RasterMintBackend(QObject):
         group_id = str(self.settings.effect_stack[index].get("group_id", "") or "")
         if not group_id:
             return False
-        return not any(str(step.get("group_id", "") or "") == group_id for step in self.settings.effect_stack[:index])
+        return not any(group_id in self._layer_group_path_for_step(step) for step in self.settings.effect_stack[:index])
 
     def _update_group(self, group_id: str, key: str, value: Any, action: str) -> None:
         groups = [dict(group) for group in self.settings.layer_groups]

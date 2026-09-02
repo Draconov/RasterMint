@@ -13,10 +13,12 @@ Button {
     implicitHeight: 36
     flat: true
 
-    ToolTip.visible: control.hovered
-    ToolTip.text: control.text
-    ToolTip.delay: 350
-    ToolTip.timeout: 3000
+    MintToolTip {
+        visible: control.hovered
+        text: control.text
+        delay: 350
+        timeout: 3000
+    }
 
     contentItem: Item {
         Canvas {

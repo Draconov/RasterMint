@@ -67,6 +67,15 @@ EFFECT_DEFINITIONS: dict[str, dict[str, Any]] = {
         "intensity": {"type": "float", "label": "Intensity", "default": 0.80, "min": 0.0, "max": 4.0, "step": 0.05, "decimals": 2, "animatable": True},
         "blend": {"type": "choice", "label": "Blend", "default": "Screen", "options": ["Screen", "Add"]},
     }},
+    "Vignette": {"params": {
+        "strength": {"type": "float", "label": "Strength", "default": 0.45, "min": 0.0, "max": 1.0, "step": 0.01, "decimals": 2, "animatable": True},
+        "size": {"type": "float", "label": "Size", "default": 0.62, "min": 0.05, "max": 1.5, "step": 0.01, "decimals": 2, "animatable": True},
+        "softness": {"type": "float", "label": "Softness", "default": 0.45, "min": 0.01, "max": 1.0, "step": 0.01, "decimals": 2, "animatable": True},
+        "roundness": {"type": "float", "label": "Roundness", "default": 1.0, "min": 0.0, "max": 1.0, "step": 0.01, "decimals": 2, "animatable": True},
+        "center_x": {"type": "float", "label": "Center X", "default": 0.0, "min": -1.0, "max": 1.0, "step": 0.01, "decimals": 2, "animatable": True},
+        "center_y": {"type": "float", "label": "Center Y", "default": 0.0, "min": -1.0, "max": 1.0, "step": 0.01, "decimals": 2, "animatable": True},
+        "color": {"type": "color", "label": "Color", "default": "#000000"},
+    }},
     "JPEG Compression": {"params": {
         "quality": {"type": "int", "label": "Quality", "default": 35, "min": 5, "max": 95, "step": 1, "animatable": True},
     }},
@@ -212,6 +221,7 @@ EFFECT_DEFINITIONS: dict[str, dict[str, Any]] = {
     }},
     "Noise": {"params": {
         "amount": {"type": "float", "label": "Amount", "default": 12.0, "min": 0.0, "max": 100.0, "step": 1.0, "decimals": 1, "animatable": True},
+        "chroma": {"type": "bool", "label": "Chroma noise", "default": False},
         "seed": {"type": "int", "label": "Seed", "default": 1, "min": 0, "max": 999999, "step": 1},
         "temporal": {"type": "bool", "label": "Animate seed", "default": False},
     }},
@@ -572,6 +582,7 @@ EFFECT_DESCRIPTIONS: dict[str, str] = {
     "Sharpen": "Increase local edge contrast to make image detail crisper.",
     "Glow": "Add a soft luminous halo around bright image detail.",
     "Bloom": "Spread bright highlights into a thresholded Screen or Add bloom.",
+    "Vignette": "Darken or tint image edges with adjustable size, softness, roundness, centre, and colour.",
     "JPEG Compression": "Simulate lossy JPEG blocking, ringing, and compression damage.",
     "Chromatic Shift": "Offset colour channels to create chromatic misregistration.",
     "RGB Split": "Separate red, green, and blue channels into visible colour fringes.",
@@ -639,7 +650,7 @@ EFFECT_CATEGORIES: tuple[tuple[str, tuple[str, ...]], ...] = (
         "Adjustments", "Levels", "Local Contrast", "Posterize", "Grayscale", "Hue Rotate", "Invert",
     )),
     ("Detail & Light", (
-        "Median Denoise", "Gaussian Blur", "Sharpen", "Glow", "Bloom",
+        "Median Denoise", "Gaussian Blur", "Sharpen", "Glow", "Bloom", "Vignette",
     )),
     ("Pixel & Dither", (
         "Pixelate", "Pixel Art Cleanup", "Pixel Material", "Dither", "Pop Tone", "Polygon Dither", "Beehive", "Dither Glow",

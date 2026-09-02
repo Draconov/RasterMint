@@ -928,13 +928,55 @@ def _interlace(image: Image.Image, offset: int, darken: float) -> Image.Image:
     return Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8), "RGB")
 
 
-def _noise(image: Image.Image, amount: float, seed: int) -> Image.Image:
+def _vignette(
+    image: Image.Image,
+    strength: float,
+    size: float,
+    softness: float,
+    roundness: float,
+    center_x: float,
+    center_y: float,
+    color: str,
+) -> Image.Image:
+    strength = max(0.0, min(1.0, float(strength)))
+    if strength <= 0.0:
+        return image
+    size = max(0.05, min(1.5, float(size)))
+    softness = max(0.01, min(1.0, float(softness)))
+    roundness = max(0.0, min(1.0, float(roundness)))
+    center_x = max(-1.0, min(1.0, float(center_x)))
+    center_y = max(-1.0, min(1.0, float(center_y)))
+
+    arr = np.asarray(image.convert("RGB"), dtype=np.float32)
+    height, width = arr.shape[:2]
+    yy, xx = np.mgrid[0:height, 0:width].astype(np.float32)
+    half_w = max(1.0, (width - 1) * 0.5)
+    half_h = max(1.0, (height - 1) * 0.5)
+    cx = (width - 1) * (0.5 + 0.5 * center_x)
+    cy = (height - 1) * (0.5 + 0.5 * center_y)
+    nx = np.abs((xx - cx) / half_w)
+    ny = np.abs((yy - cy) / half_h)
+
+    # 1.0 is round/elliptical; lower values become progressively squarer.
+    exponent = 8.0 - 6.0 * roundness
+    distance = np.power(np.power(nx, exponent) + np.power(ny, exponent), 1.0 / exponent)
+    transition = np.clip((distance - size) / softness, 0.0, 1.0)
+    transition = transition * transition * (3.0 - 2.0 * transition)
+    mask = (transition * strength)[:, :, None]
+
+    tint = np.asarray(hex_to_rgb(str(color)), dtype=np.float32).reshape((1, 1, 3))
+    out = arr * (1.0 - mask) + tint * mask
+    return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), "RGB")
+
+
+def _noise(image: Image.Image, amount: float, seed: int, chroma: bool = False) -> Image.Image:
     amount = max(0.0, float(amount))
     if amount <= 0.0:
         return image
     rng = np.random.default_rng(int(seed) & 0xFFFFFFFF)
     arr = np.asarray(image.convert("RGB"), dtype=np.float32)
-    noise = rng.normal(0.0, amount, size=arr.shape[:2])[:, :, None]
+    shape = arr.shape if bool(chroma) else (*arr.shape[:2], 1)
+    noise = rng.normal(0.0, amount, size=shape)
     return Image.fromarray(np.clip(arr + noise, 0, 255).astype(np.uint8), "RGB")
 
 
@@ -3037,6 +3079,7 @@ def apply_normalized_effect_stack(
         elif kind == "Sharpen": img = ImageEnhance.Sharpness(img).enhance(float(p["amount"]))
         elif kind == "Glow": img = _glow(img, float(p["radius"]), float(p["intensity"]))
         elif kind == "Bloom": img = _bloom(img, float(p["threshold"]), float(p["soft_knee"]), float(p["radius"]), float(p["intensity"]), str(p["blend"]))
+        elif kind == "Vignette": img = _vignette(img, float(p["strength"]), float(p["size"]), float(p["softness"]), float(p["roundness"]), float(p["center_x"]), float(p["center_y"]), str(p["color"]))
         elif kind == "JPEG Compression": img = _jpeg_compression(img, int(p["quality"]))
         elif kind == "Chromatic Shift": img = _chromatic_shift(img, int(p["amount"]))
         elif kind == "RGB Split": img = _rgb_split(img, int(p["x"]), int(p["y"]))
@@ -3072,7 +3115,7 @@ def apply_normalized_effect_stack(
         elif kind == "Composite Noise": img = _composite_noise(img, float(p["luma"]), float(p["chroma"]), int(p["seed"]), frame_time, frame_index)
         elif kind == "RF Interference": img = _rf_interference(img, float(p["amount"]), int(p["bands"]), float(p["speed"]), int(p["seed"]), frame_time, frame_index)
         elif kind == "Horizontal Tear": img = _horizontal_tear(img, int(p["amount"]), int(p["bands"]), int(p["height"]), float(p["speed"]), int(p["seed"]), frame_time, frame_index)
-        elif kind == "Noise": img = _noise(img, float(p["amount"]), _seed(p, frame_index))
+        elif kind == "Noise": img = _noise(img, float(p["amount"]), _seed(p, frame_index), bool(p.get("chroma", False)))
         elif kind == "Temporal Flicker": img = _flicker(img, float(p["amount"]), float(p["speed"]), frame_time)
         elif kind == "Temporal Pattern": img = _temporal_pattern(img, str(p["pattern"]), float(p["amount"]), float(p["speed"]), float(p["scale"]), float(p["phase"]), frame_time, int(p["seed"]))
         elif kind == "Pixel Aspect Ratio": img = _pixel_aspect_ratio(img, float(p["x"]), float(p["y"]), str(p["resample"]))

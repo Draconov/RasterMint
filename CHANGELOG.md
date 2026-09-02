@@ -2,6 +2,24 @@
 
 Notable user-facing and engineering changes are recorded here. RasterMint is still in active alpha development, so entries focus on behavior that affects releases, compatibility, or contributor expectations.
 
+## 0.7.1 - 2026-09-02 — Group Fix/Update
+
+### Layer groups
+
+- Group creation now immediately assigns the first unused **Group N** name instead of opening a naming dialog.
+- Added drag-to-group behavior for layers and groups, including automatic grouping when one layer is dropped onto another.
+- Added nested groups up to **five levels**, one-level ungrouping by dragging a layer out, collapse/enabled state per group, and inline group-name editing by double-click.
+
+### Effects and interface
+
+- Added **Vignette** as a layer effect with strength, size, softness, roundness, centre X/Y, and colour controls.
+- Added a **Chroma noise** toggle to Noise for independent RGB noise while preserving monochrome shared-channel noise when disabled.
+- Replaced default hover tooltips with theme-aware RasterMint tooltips and removed drag-and-drop instruction text from active-layer hover descriptions.
+
+### Release
+
+- Updated the application version to **0.7.1**.
+
 ## 0.7.0 - 2026-09-01 — Pixel Art Cleanup + Preset Mutation
 
 ### Pixel Art Cleanup Lab

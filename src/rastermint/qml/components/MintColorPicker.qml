@@ -610,6 +610,7 @@ Item {
                     Repeater {
                         model: root.recentColors
                         delegate: Button {
+                            id: recentColorButton
                             required property string modelData
                             implicitWidth: 46
                             implicitHeight: 30
@@ -632,8 +633,10 @@ Item {
                                 border.color: theme.borderColor
                             }
 
-                            ToolTip.visible: hovered
-                            ToolTip.text: modelData
+                            MintToolTip {
+                                visible: recentColorButton.hovered
+                                text: modelData
+                            }
                         }
                     }
                 }

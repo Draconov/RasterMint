@@ -364,15 +364,21 @@ Dialog {
             MintButton { text: qsTr("Close"); onClicked: root.close() }
             Item { Layout.fillWidth: true }
             MintButton {
+                id: resetSettingsButton
                 text: qsTr("Reset Settings")
-                ToolTip.visible: hovered
-                ToolTip.text: qsTr("Reset only the options shown in this Settings window")
+                MintToolTip {
+                    visible: resetSettingsButton.hovered
+                    text: qsTr("Reset only the options shown in this Settings window")
+                }
                 onClicked: root.resetWindowSettings()
             }
             MintButton {
+                id: fullResetButton
                 text: qsTr("Full Reset")
-                ToolTip.visible: hovered
-                ToolTip.text: qsTr("Reset RasterMint processing and app settings to defaults")
+                MintToolTip {
+                    visible: fullResetButton.hovered
+                    text: qsTr("Reset RasterMint processing and app settings to defaults")
+                }
                 onClicked: {
                     root.resetWindowSettings()
                     backend.resetSettings()
