@@ -45,39 +45,50 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      - name: Install Linux Qt test runtime
+      - name: Install Linux test dependencies
         if: runner.os == 'Linux'
         shell: bash
         run: |
           set -euo pipefail
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            xvfb \
-            xauth \
             libegl1 \
             libgl1 \
             libopengl0 \
             libxkbcommon0 \
             libxkbcommon-x11-0 \
-            libxcb-cursor0 \
-            libxcb-xinerama0
+            libxcb-cursor0
           python -m pip install -e ".[dev]"
 
-      # Keep the original single-suite behavior. The complete test suite runs
-      # in one pytest process under a virtual X server with software rendering.
+      # Linux owns the normal suite, but not the QtQuick runtime smoke test.
+      # QtQuick repeatedly terminates the GitHub headless Ubuntu process with
+      # native SIGSEGV/SIGABRT signals rather than producing pytest failures.
       - name: Run tests
         if: runner.os == 'Linux'
         shell: bash
         env:
-          QT_QPA_PLATFORM: xcb
-          QT_QUICK_BACKEND: software
+          QT_QPA_PLATFORM: offscreen
           QSG_RHI_BACKEND: software
-          QT_OPENGL: software
-          LIBGL_ALWAYS_SOFTWARE: "1"
           PYTHONFAULTHANDLER: "1"
         run: |
           set -euo pipefail
-          xvfb-run -a -s "-screen 0 1280x1024x24" python -m pytest
+          python -m pytest --ignore=tests/test_qml_runtime.py
+
+      # Keep real QML runtime coverage, but run it on Windows where QtQuick
+      # does not depend on the unstable headless Linux graphics teardown path.
+      - name: Install Windows QML test dependencies
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: python -m pip install -e ".[dev]"
+
+      - name: Run QML runtime tests
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          QT_QPA_PLATFORM: offscreen
+          QSG_RHI_BACKEND: software
+          PYTHONFAULTHANDLER: "1"
+        run: python -m pytest tests/test_qml_runtime.py
 
       - name: Build Windows
         if: runner.os == 'Windows'
