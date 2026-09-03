@@ -582,6 +582,91 @@ def drop_layer(
     return copied_stack, prune_layer_groups(copied_groups, copied_stack)
 
 
+def move_layer_group(
+    stack: Iterable[dict[str, Any]],
+    groups: Iterable[dict[str, Any]],
+    source_group_id: str,
+    target_index: int,
+    mode: str = "before",
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Move an entire group subtree as one contiguous block.
+
+    A normal group drag is a reorder operation, not a grouping gesture. The
+    source group's child layers/nested groups keep their internal structure,
+    while the source group itself moves into the target layer's container so
+    the flat stack remains visually contiguous.
+    """
+    copied_stack = _copy_stack(stack)
+    copied_groups = canonicalize_layer_groups(list(groups))
+    source_group_id = str(source_group_id or "")
+    target_index = int(target_index)
+    mode = str(mode or "before").lower()
+    if mode not in {"before", "after"}:
+        mode = "before"
+
+    by_id = _group_map(copied_groups)
+    if source_group_id not in by_id or not (0 <= target_index < len(copied_stack)):
+        return copied_stack, copied_groups
+
+    source_indices = layer_indices_for_group(copied_stack, copied_groups, source_group_id)
+    if not source_indices or target_index in set(source_indices):
+        return copied_stack, copied_groups
+
+    target_step = copied_stack[target_index]
+    target_id = str(target_step.get("id", "") or "")
+    target_group_id = str(target_step.get("group_id", "") or "")
+
+    # The group becomes a sibling of the target layer. If that layer is inside
+    # another group this means moving the source group into that same container;
+    # dropping onto a group header is handled separately by reparent_layer_group.
+    if target_group_id != group_parent_id(source_group_id, copied_groups):
+        if not can_reparent_group(source_group_id, target_group_id, copied_groups):
+            raise ValueError("Layer groups can be nested up to 5 levels")
+        for group in copied_groups:
+            if str(group.get("id", "") or "") == source_group_id:
+                group["parent_id"] = target_group_id
+                break
+
+    source_set = set(source_indices)
+    moved_steps = [copied_stack[index] for index in source_indices]
+    remaining = [step for index, step in enumerate(copied_stack) if index not in source_set]
+    remaining_target = next(
+        (index for index, step in enumerate(remaining) if str(step.get("id", "") or "") == target_id),
+        -1,
+    )
+    if remaining_target < 0:
+        return copied_stack, copied_groups
+
+    insert_at = remaining_target if mode == "before" else remaining_target + 1
+    updated_stack = remaining[:insert_at] + moved_steps + remaining[insert_at:]
+    return updated_stack, prune_layer_groups(copied_groups, updated_stack)
+
+
+def reparent_layer_group(
+    stack: Iterable[dict[str, Any]],
+    groups: Iterable[dict[str, Any]],
+    source_group_id: str,
+    target_group_id: str,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Nest one existing group directly inside another without creating a group."""
+    copied_stack = _copy_stack(stack)
+    copied_groups = canonicalize_layer_groups(list(groups))
+    source_group_id = str(source_group_id or "")
+    target_group_id = str(target_group_id or "")
+    by_id = _group_map(copied_groups)
+    if source_group_id not in by_id or target_group_id not in by_id:
+        return copied_stack, copied_groups
+    if source_group_id == target_group_id or group_parent_id(source_group_id, copied_groups) == target_group_id:
+        return copied_stack, copied_groups
+    if not can_reparent_group(source_group_id, target_group_id, copied_groups):
+        raise ValueError("Layer groups can be nested up to 5 levels")
+    for group in copied_groups:
+        if str(group.get("id", "") or "") == source_group_id:
+            group["parent_id"] = target_group_id
+            break
+    return copied_stack, prune_layer_groups(copied_groups, copied_stack)
+
+
 def drop_group_on_layer(
     stack: Iterable[dict[str, Any]],
     groups: Iterable[dict[str, Any]],

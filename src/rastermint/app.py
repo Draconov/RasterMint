@@ -11,7 +11,7 @@ import sys
 import threading
 import traceback
 
-from PySide6.QtCore import QCoreApplication, QRect, QStandardPaths, QUrl, Qt
+from PySide6.QtCore import QCoreApplication, QEvent, QRect, QStandardPaths, QUrl, Qt
 from PySide6.QtGui import QColor, QFont, QGuiApplication, QIcon, QPainter, QPen, QRasterWindow
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
@@ -143,6 +143,43 @@ def _install_crash_logging() -> Path | None:
         return None
 
 
+def _destroy_qml_engine(engine: QQmlApplicationEngine) -> None:
+    """Destroy QML roots before the engine releases context properties.
+
+    ``setContextProperty`` does not transfer ownership of the Python QObjects.
+    If Python tears down local variables after ``app.exec()`` returns, the
+    context can disappear while QML objects are still being destroyed, causing
+    a flood of ``Cannot read property ... of null`` messages.  Delete the root
+    object tree first while backend/theme/localization are still strongly held
+    by ``main()``, then delete the engine itself.
+    """
+    try:
+        roots = tuple(engine.rootObjects())
+    except RuntimeError:
+        roots = ()
+
+    for root in roots:
+        try:
+            root.deleteLater()
+        except RuntimeError:
+            pass
+
+    # The main event loop has already returned, so explicitly flush deferred
+    # deletes.  This keeps QML bindings alive only while their context objects
+    # are still valid.
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+
+    try:
+        engine.collectGarbage()
+    except RuntimeError:
+        pass
+    try:
+        engine.deleteLater()
+    except RuntimeError:
+        return
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+
+
 def main() -> int:
     QCoreApplication.setOrganizationName("RasterMint")
     QCoreApplication.setApplicationName(__app_name__)
@@ -200,9 +237,17 @@ def main() -> int:
     engine.load(QUrl.fromLocalFile(str(qml_path)))
     if not engine.rootObjects():
         splash.close()
+        backend.shutdown()
+        _destroy_qml_engine(engine)
         return 1
     splash.set_progress(1.0, "Ready")
     splash.close()
     splash.deleteLater()
+
+    # Stop workers as soon as Qt begins quitting, but keep the backend object
+    # itself alive until after the QML root tree has been explicitly destroyed.
     app.aboutToQuit.connect(backend.shutdown)
-    return app.exec()
+    exit_code = app.exec()
+    backend.shutdown()
+    _destroy_qml_engine(engine)
+    return exit_code

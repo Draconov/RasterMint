@@ -18,7 +18,6 @@ from uuid import uuid4
 from PySide6.QtCore import QCoreApplication, QObject, Property, QRect, QSettings, QThreadPool, QTimer, QUrl, Qt, Signal, Slot
 from PySide6.QtGui import QColor, QCursor, QGuiApplication, QImage, QPainter, QPen, QRasterWindow
 from PySide6.QtQuick import QQuickWindow
-from PySide6.QtQml import QQmlEngine
 
 from rastermint import __version__
 from rastermint.core.animation import EASINGS, MODULATORS, normalize_tracks, settings_at_time
@@ -34,13 +33,14 @@ from rastermint.core.hardware_profiles import apply_profile_to_settings, load_bu
 from rastermint.core.history import UndoHistory
 from rastermint.core.layer_groups import (
     create_layer_group,
-    drop_group_on_layer,
     drop_layer,
     duplicate_layer_group,
     group_effective_enabled_for_solo,
     layer_indices_for_group,
     move_layer_by_index,
+    move_layer_group,
     next_group_name,
+    reparent_layer_group,
     prune_layer_groups,
     step_effective_enabled_for_solo,
     ungroup_layer_group,
@@ -71,38 +71,6 @@ PALETTE_OPTIMIZERS = ["Median Cut", "K-Means", "Octree", "Wu Quantization"]
 PREVIEW_MAX_SIDE = 640
 FAST_PREVIEW_MAX_SIDE = 320
 MAX_FULL_PREVIEW_PIXELS = 12_000_000
-
-# Context properties are Python-owned QObjects.  Keep them alive for the short
-# interval between QGuiApplication::aboutToQuit and QQmlApplicationEngine
-# destruction so QML bindings do not briefly see e.g. `theme === null` while
-# the object tree is being torn down.
-_shutdown_qml_context_refs: list[QObject] = []
-
-
-def _retain_qml_context_objects_for_shutdown() -> None:
-    app = QGuiApplication.instance()
-    if app is None:
-        return
-    for window in app.topLevelWindows():
-        try:
-            context = QQmlEngine.contextForObject(window)
-        except RuntimeError:
-            continue
-        if context is None:
-            continue
-        found = False
-        for name in ("theme", "localization", "backend"):
-            try:
-                obj = context.contextProperty(name)
-            except RuntimeError:
-                obj = None
-            if isinstance(obj, QObject):
-                found = True
-                if not any(existing is obj for existing in _shutdown_qml_context_refs):
-                    _shutdown_qml_context_refs.append(obj)
-        if found:
-            break
-
 
 def adaptive_preview_max_side(settings: ProcessingSettings, requested: int) -> int:
     from rastermint.core.processor import adaptive_preview_max_side as impl
@@ -357,6 +325,7 @@ class RasterMintBackend(QObject):
 
     def __init__(self, image_provider: RasterImageProvider, parent: QObject | None = None) -> None:
         super().__init__(parent)
+        self._shutdown_complete = False
         self.provider = image_provider
         self.app_settings = QSettings("RasterMint", "RasterMint")
         raw_show_hotkeys = self.app_settings.value("showHotkeysQml", True)
@@ -2447,26 +2416,35 @@ class RasterMintBackend(QObject):
             selected_layer=selected,
         )
 
-    @Slot(str, int)
-    def dropLayerGroup(self, group_id: str, target_index: int) -> None:
+    @Slot(str, int, str, str)
+    def dropLayerGroup(self, group_id: str, target_index: int, mode: str = "before", target_group_id: str = "") -> None:
         stack = normalize_effect_stack(self.settings.effect_stack, self.settings)
         target_index = int(target_index)
         group_id = str(group_id or "")
+        mode = str(mode or "before").lower()
+        target_group_id = str(target_group_id or "")
         if not group_id or not (0 <= target_index < len(stack)):
             return
         if str(stack[target_index].get("kind", "")) in FIXED_STAGE_KINDS:
             return
-        new_group_id = f"group-{uuid4().hex[:10]}"
-        new_group_name = next_group_name(self.settings.layer_groups)
         try:
-            stack, groups = drop_group_on_layer(
-                stack,
-                self.settings.layer_groups,
-                group_id,
-                target_index,
-                new_group_id=new_group_id,
-                new_group_name=new_group_name,
-            )
+            if mode == "into" and target_group_id:
+                stack, groups = reparent_layer_group(
+                    stack,
+                    self.settings.layer_groups,
+                    group_id,
+                    target_group_id,
+                )
+                action = "Nested layer group"
+            else:
+                stack, groups = move_layer_group(
+                    stack,
+                    self.settings.layer_groups,
+                    group_id,
+                    target_index,
+                    mode,
+                )
+                action = "Moved layer group"
         except ValueError as exc:
             self._set_status(str(exc))
             return
@@ -2478,7 +2456,7 @@ class RasterMintBackend(QObject):
             data["solo_group_id"] = ""
         self._replace_settings(
             ProcessingSettings.from_dict(data),
-            action="Nested layer group",
+            action=action,
             selected_layer=self._selected_layer,
         )
 
@@ -3953,7 +3931,9 @@ class RasterMintBackend(QObject):
 
     @Slot()
     def shutdown(self) -> None:
-        _retain_qml_context_objects_for_shutdown()
+        if self._shutdown_complete:
+            return
+        self._shutdown_complete = True
         self._close_screen_eyedropper()
         self._quick_timer.stop(); self._stable_timer.stop(); self._play_timer.stop()
         self.thread_pool.clear()

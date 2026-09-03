@@ -17,6 +17,8 @@ Item {
     property real dragDeltaY: 0
     property string groupDragId: ""
     property int groupDragTargetIndex: -1
+    property string groupDragTargetGroupId: ""
+    property string groupDragDropMode: "before"
     property string editingGroupId: ""
     property string selectedGroupId: ""
     property var groupColorOptions: [
@@ -281,6 +283,8 @@ Item {
     function beginGroupDrag(groupId) {
         groupDragId = String(groupId || "")
         groupDragTargetIndex = -1
+        groupDragTargetGroupId = ""
+        groupDragDropMode = "before"
         clearGroupDragIndicator()
     }
 
@@ -289,29 +293,59 @@ Item {
             return
         var target = nearestVisibleLayerIndex(y)
         groupDragTargetIndex = target
+        groupDragTargetGroupId = ""
+        groupDragDropMode = "before"
         if (target < 0) {
             clearGroupDragIndicator()
             return
         }
         var targetItem = layerList.itemAtIndex(target)
-        if (!targetItem || !targetItem.layerContentShown) {
+        if (!targetItem) {
             clearGroupDragIndicator()
             return
         }
+
+        var yInItem = y - targetItem.y
+        if (targetItem.headerData.length > 0 && yInItem >= 0 && yInItem < targetItem.layerCardY) {
+            var headerStride = root.groupHeaderHeight + 2
+            var headerIndex = Math.max(0, Math.min(targetItem.headerData.length - 1, Math.floor(yInItem / headerStride)))
+            var header = targetItem.headerData[headerIndex]
+            var headerId = String(header.id || "")
+            if (headerId !== "" && headerId !== groupDragId) {
+                groupDragDropMode = "into"
+                groupDragTargetGroupId = headerId
+                setGroupDragIndicator(
+                    Math.max(14, Number(header.depth || 1) * 12 + 14),
+                    targetItem.y + headerIndex * headerStride + root.groupHeaderHeight - 1,
+                    Math.max(80, layerList.width - (Math.max(14, Number(header.depth || 1) * 12 + 24))))
+                return
+            }
+        }
+
+        if (!targetItem.layerContentShown) {
+            clearGroupDragIndicator()
+            return
+        }
+        var localY = y - (targetItem.y + targetItem.layerCardY)
+        groupDragDropMode = localY < root.layerRowHeight * 0.5 ? "before" : "after"
         setGroupDragIndicator(
             targetItem.layerIndent + 8,
-            targetItem.y + targetItem.layerCardY - 1,
+            targetItem.y + targetItem.layerCardY + (groupDragDropMode === "before" ? -1 : root.layerRowHeight - 1),
             Math.max(80, layerList.width - (targetItem.layerIndent + 18)))
     }
 
     function finishGroupDrag() {
         var groupId = groupDragId
         var target = groupDragTargetIndex
+        var mode = groupDragDropMode
+        var targetGroupId = groupDragTargetGroupId
         groupDragId = ""
         groupDragTargetIndex = -1
+        groupDragTargetGroupId = ""
+        groupDragDropMode = "before"
         clearGroupDragIndicator()
         if (groupId !== "" && target >= 0)
-            backend.dropLayerGroup(groupId, target)
+            backend.dropLayerGroup(groupId, target, mode, targetGroupId)
     }
 
     function beginGroupRename(groupId, name) {

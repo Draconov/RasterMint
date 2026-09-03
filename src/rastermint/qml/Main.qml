@@ -570,5 +570,4 @@ ApplicationWindow {
         function onInfoOccurred(title, message) { infoDialog.title = title; infoDialog.text = message; infoDialog.open() }
     }
 
-    Component.onDestruction: backend.shutdown()
 }
