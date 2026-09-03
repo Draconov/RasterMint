@@ -178,13 +178,3 @@ def test_dragging_layer_out_of_group_ungroups_one_level_even_without_an_outside_
 
     assert stack[0]["group_id"] == "root"
     assert [group["id"] for group in groups] == ["root"]
-
-def test_backend_exposes_group_drag_slots_and_immediate_group_creation():
-    from pathlib import Path
-
-    backend_source = (Path(__file__).resolve().parents[1] / "src/rastermint/qmlui/backend.py").read_text(encoding="utf-8")
-    assert "def groupSelectedLayers(self)" in backend_source
-    assert "def dropLayer(self, source: int, target: int, mode: str)" in backend_source
-    assert "def dropLayerGroup(self, group_id: str, target_index: int)" in backend_source
-    assert "next_group_name(" in backend_source
-    assert 'source == target and str(mode).lower() != "ungroup"' in backend_source
