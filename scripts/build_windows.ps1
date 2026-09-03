@@ -85,27 +85,44 @@ function Build-LeanFfmpeg {
     }
 
     $ManifestRoot = Join-Path $Root "build\ffmpeg-vcpkg"
-    $WorkRoot = Join-Path $Root "build\ffmpeg-vcpkg\work"
+    $WorkRoot = Join-Path $ManifestRoot "work"
+    $CacheRoot = Join-Path $ManifestRoot "cache"
     $InstallRoot = Join-Path $WorkRoot "installed"
     $BuildTrees = Join-Path $WorkRoot "buildtrees"
     $Packages = Join-Path $WorkRoot "packages"
-    $Downloads = Join-Path $WorkRoot "downloads"
+    $BinaryCache = Join-Path $CacheRoot "binary"
+    $Downloads = Join-Path $CacheRoot "downloads"
 
-    New-Item -ItemType Directory -Force -Path $InstallRoot, $BuildTrees, $Packages, $Downloads | Out-Null
+    New-Item -ItemType Directory -Force -Path $InstallRoot, $BuildTrees, $Packages, $BinaryCache, $Downloads | Out-Null
+
+    # Keep compiled vcpkg packages in a stable directory. GitHub Actions caches
+    # this directory between Windows builds, so FFmpeg/x264 can be restored
+    # rather than rebuilt from source on every fresh hosted runner.
+    $env:VCPKG_BINARY_SOURCES = "clear;files,$BinaryCache,readwrite"
 
     Write-Host "Building/restoring RasterMint's lean static FFmpeg with vcpkg..."
+    Write-Host "vcpkg binary cache: $BinaryCache"
     # Manifest features intentionally keep FFmpeg's native codec/demuxer set,
     # but omit large unrelated external libraries. x264 supplies RasterMint's
     # H.264 MP4 encoder; zlib is retained for the PNG-frame GIF export path.
-    & $Vcpkg install `
-        "--x-manifest-root=$ManifestRoot" `
-        "--x-install-root=$InstallRoot" `
-        "--x-buildtrees-root=$BuildTrees" `
-        "--x-packages-root=$Packages" `
-        "--downloads-root=$Downloads" `
+    $VcpkgArgs = @(
+        "install",
+        "--x-manifest-root=$ManifestRoot",
+        "--x-install-root=$InstallRoot",
+        "--x-buildtrees-root=$BuildTrees",
+        "--x-packages-root=$Packages",
+        "--downloads-root=$Downloads",
         "--triplet=x64-windows-static"
-    if ($LASTEXITCODE -ne 0) {
-        Write-Warning "vcpkg could not build the lean FFmpeg (exit $LASTEXITCODE)."
+    )
+
+    # A PowerShell function writes native stdout to its success-output stream.
+    # Build-LeanFfmpeg is assigned to $Candidate below, so raw vcpkg output used
+    # to contaminate the returned executable path. Forward every line to the
+    # host instead; only the final ffmpeg.exe path is returned by this function.
+    & $Vcpkg @VcpkgArgs 2>&1 | ForEach-Object { Write-Host $_ }
+    $VcpkgExitCode = $LASTEXITCODE
+    if ($VcpkgExitCode -ne 0) {
+        Write-Warning "vcpkg could not build the lean FFmpeg (exit $VcpkgExitCode)."
         return $null
     }
 
