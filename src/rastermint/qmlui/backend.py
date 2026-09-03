@@ -18,6 +18,7 @@ from uuid import uuid4
 from PySide6.QtCore import QCoreApplication, QObject, Property, QRect, QSettings, QThreadPool, QTimer, QUrl, Qt, Signal, Slot
 from PySide6.QtGui import QColor, QCursor, QGuiApplication, QImage, QPainter, QPen, QRasterWindow
 from PySide6.QtQuick import QQuickWindow
+from PySide6.QtQml import QQmlEngine
 
 from rastermint import __version__
 from rastermint.core.animation import EASINGS, MODULATORS, normalize_tracks, settings_at_time
@@ -38,6 +39,7 @@ from rastermint.core.layer_groups import (
     duplicate_layer_group,
     group_effective_enabled_for_solo,
     layer_indices_for_group,
+    move_layer_by_index,
     next_group_name,
     prune_layer_groups,
     step_effective_enabled_for_solo,
@@ -69,6 +71,37 @@ PALETTE_OPTIMIZERS = ["Median Cut", "K-Means", "Octree", "Wu Quantization"]
 PREVIEW_MAX_SIDE = 640
 FAST_PREVIEW_MAX_SIDE = 320
 MAX_FULL_PREVIEW_PIXELS = 12_000_000
+
+# Context properties are Python-owned QObjects.  Keep them alive for the short
+# interval between QGuiApplication::aboutToQuit and QQmlApplicationEngine
+# destruction so QML bindings do not briefly see e.g. `theme === null` while
+# the object tree is being torn down.
+_shutdown_qml_context_refs: list[QObject] = []
+
+
+def _retain_qml_context_objects_for_shutdown() -> None:
+    app = QGuiApplication.instance()
+    if app is None:
+        return
+    for window in app.topLevelWindows():
+        try:
+            context = QQmlEngine.contextForObject(window)
+        except RuntimeError:
+            continue
+        if context is None:
+            continue
+        found = False
+        for name in ("theme", "localization", "backend"):
+            try:
+                obj = context.contextProperty(name)
+            except RuntimeError:
+                obj = None
+            if isinstance(obj, QObject):
+                found = True
+                if not any(existing is obj for existing in _shutdown_qml_context_refs):
+                    _shutdown_qml_context_refs.append(obj)
+        if found:
+            break
 
 
 def adaptive_preview_max_side(settings: ProcessingSettings, requested: int) -> int:
@@ -891,6 +924,13 @@ class RasterMintBackend(QObject):
     @Property(str, notify=settingsChanged)
     def soloLayerId(self) -> str:
         return str(self.settings.solo_layer_id or "")
+
+    @Slot(int, result=bool)
+    def layerSolo(self, index: int) -> bool:
+        index = int(index)
+        if not (0 <= index < len(self.settings.effect_stack)):
+            return False
+        return str(self.settings.effect_stack[index].get("id", "")) == str(self.settings.solo_layer_id or "")
 
     @Property(str, notify=settingsChanged)
     def soloLayerGroupId(self) -> str:
@@ -2115,6 +2155,7 @@ class RasterMintBackend(QObject):
     @Slot(int, int)
     def moveLayer(self, source: int, target: int) -> None:
         stack = normalize_effect_stack(self.settings.effect_stack, self.settings)
+        groups = [dict(group) for group in self.settings.layer_groups]
         if not (0 <= source < len(stack)):
             return
         if str(stack[source].get("kind")) in FIXED_STAGE_KINDS:
@@ -2124,13 +2165,17 @@ class RasterMintBackend(QObject):
         target = max(0, min(int(target), max_target))
         if target == source:
             return
-        item = stack.pop(source)
-        stack.insert(target, item)
+        moved_kind = str(stack[source].get("kind", "Layer"))
+        stack, groups = move_layer_by_index(stack, groups, source, target)
         data = self.settings.to_dict()
         data["effect_stack"] = stack
+        data["layer_groups"] = groups
+        valid_group_ids = {str(group.get("id", "")) for group in groups}
+        if str(data.get("solo_group_id", "")) not in valid_group_ids:
+            data["solo_group_id"] = ""
         self._replace_settings(
             ProcessingSettings.from_dict(data),
-            action=f"Moved layer: {item.get('kind', 'Layer')}",
+            action=f"Moved layer: {moved_kind}",
             selected_layer=target,
         )
 
@@ -3908,6 +3953,7 @@ class RasterMintBackend(QObject):
 
     @Slot()
     def shutdown(self) -> None:
+        _retain_qml_context_objects_for_shutdown()
         self._close_screen_eyedropper()
         self._quick_timer.stop(); self._stable_timer.stop(); self._play_timer.stop()
         self.thread_pool.clear()

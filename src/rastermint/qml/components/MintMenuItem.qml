@@ -5,6 +5,10 @@ import QtQuick.Layouts
 MenuItem {
     id: control
 
+    readonly property color safeTextColor: theme ? theme.textColor : "#f3f7ff"
+    readonly property color safeMutedTextColor: theme ? theme.mutedTextColor : "#a0a7b4"
+    readonly property color safeSelectionColor: theme ? theme.selectionColor : "#3a4f6e"
+
     implicitHeight: 32
     implicitWidth: Math.max(220, implicitContentWidth + leftPadding + rightPadding + 24)
     leftPadding: 12
@@ -26,7 +30,7 @@ MenuItem {
         Text {
             Layout.fillWidth: true
             text: control.text
-            color: control.enabled ? theme.textColor : theme.mutedTextColor
+            color: control.enabled ? control.safeTextColor : control.safeMutedTextColor
             verticalAlignment: Text.AlignVCenter
             elide: Text.ElideRight
         }
@@ -34,7 +38,7 @@ MenuItem {
         Text {
             visible: backend.showHotkeys && shortcutDisplay.nativeText.length > 0
             text: shortcutDisplay.nativeText
-            color: theme.mutedTextColor
+            color: control.safeMutedTextColor
             verticalAlignment: Text.AlignVCenter
             horizontalAlignment: Text.AlignRight
             font.pixelSize: 11
@@ -45,7 +49,7 @@ MenuItem {
         implicitWidth: 220
         implicitHeight: 32
         radius: 5
-        color: control.highlighted || control.hovered ? theme.selectionColor : "transparent"
+        color: control.highlighted || control.hovered ? control.safeSelectionColor : "transparent"
         Behavior on color { ColorAnimation { duration: 70 } }
     }
 }

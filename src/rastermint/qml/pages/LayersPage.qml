@@ -45,6 +45,9 @@ Item {
     property real dragIndicatorY: -1
     property real dragIndicatorX: 0
     property real dragIndicatorWidth: 0
+    property real groupDragIndicatorY: -1
+    property real groupDragIndicatorX: 0
+    property real groupDragIndicatorWidth: 0
 
     // Glyph picker metadata mirrors the core's 48 built-in sets plus Custom.
     // The actual characters and density analysis stay in Python; QML only needs
@@ -135,6 +138,18 @@ Item {
         dragIndicatorX = x
         dragIndicatorY = y
         dragIndicatorWidth = width
+    }
+
+    function clearGroupDragIndicator() {
+        groupDragIndicatorY = -1
+        groupDragIndicatorX = 0
+        groupDragIndicatorWidth = 0
+    }
+
+    function setGroupDragIndicator(x, y, width) {
+        groupDragIndicatorX = x
+        groupDragIndicatorY = y
+        groupDragIndicatorWidth = width
     }
 
     function lastVisibleLayerIndexInGroup(groupId) {
@@ -266,12 +281,27 @@ Item {
     function beginGroupDrag(groupId) {
         groupDragId = String(groupId || "")
         groupDragTargetIndex = -1
+        clearGroupDragIndicator()
     }
 
     function updateGroupDragAt(y) {
         if (groupDragId === "")
             return
-        groupDragTargetIndex = nearestVisibleLayerIndex(y)
+        var target = nearestVisibleLayerIndex(y)
+        groupDragTargetIndex = target
+        if (target < 0) {
+            clearGroupDragIndicator()
+            return
+        }
+        var targetItem = layerList.itemAtIndex(target)
+        if (!targetItem || !targetItem.layerContentShown) {
+            clearGroupDragIndicator()
+            return
+        }
+        setGroupDragIndicator(
+            targetItem.layerIndent + 8,
+            targetItem.y + targetItem.layerCardY - 1,
+            Math.max(80, layerList.width - (targetItem.layerIndent + 18)))
     }
 
     function finishGroupDrag() {
@@ -279,6 +309,7 @@ Item {
         var target = groupDragTargetIndex
         groupDragId = ""
         groupDragTargetIndex = -1
+        clearGroupDragIndicator()
         if (groupId !== "" && target >= 0)
             backend.dropLayerGroup(groupId, target)
     }
@@ -470,6 +501,8 @@ Item {
                 property bool multiSelected: backend.selectedLayerIndices.indexOf(index) >= 0
                 property var headerData: groupHeaders || []
                 property bool layerContentShown: Boolean(layerContentVisible)
+                property bool authoredLayerEnabled: Boolean(layerEnabled)
+                property bool layerSoloTarget: backend.layerSolo(index)
                 property real headerAreaHeight: headerData.length > 0
                                                 ? headerData.length * (root.groupHeaderHeight + 2)
                                                 : 0
@@ -491,23 +524,27 @@ Item {
                         delegate: Rectangle {
                             id: groupHeader
                             required property var modelData
-                            property bool groupIsDragging: root.groupDragId === String(modelData.id)
+                            property bool groupModelReady: groupHeader.modelData !== undefined && groupHeader.modelData !== null
+                            property string groupIdText: String(groupModelReady && groupHeader.modelData.id ? groupHeader.modelData.id : "")
+                            property bool groupEnabledState: Boolean(groupModelReady && groupHeader.modelData.enabled)
+                            property bool groupSoloTarget: backend.layerGroupSolo(groupIdText)
+                            property bool groupIsDragging: root.groupDragId === groupIdText
                             x: Math.max(0, (Number(modelData.depth || 1) - 1) * 12)
                             width: Math.max(80, groupHeaderColumn.width - x)
                             height: root.groupHeaderHeight
                             radius: 6
-                            readonly property string groupColorCode: String(groupHeader.modelData.color_label || "")
+                            readonly property string groupColorCode: String(groupHeader.groupModelReady && groupHeader.modelData.color_label ? groupHeader.modelData.color_label : "")
                             readonly property color tintedBaseColor: groupColorCode !== ""
                                                                      ? Qt.tint(theme.panelColor, Qt.alpha(groupColorCode, groupHeaderHover.hovered ? 0.28 : 0.20))
                                                                      : (groupHeaderHover.hovered ? theme.panelHoverColor : theme.panelColor)
                             color: groupIsDragging
                                    ? theme.selectionColor
-                                   : (root.selectedGroupId === String(groupHeader.modelData.id)
+                                   : (root.selectedGroupId === groupHeader.groupIdText
                                       ? Qt.tint(tintedBaseColor, Qt.alpha(theme.accentColor, 0.20))
                                       : tintedBaseColor)
-                            border.color: groupIsDragging || root.selectedGroupId === String(groupHeader.modelData.id)
+                            border.color: groupIsDragging || root.selectedGroupId === groupHeader.groupIdText
                                           ? theme.accentColor : theme.borderColor
-                            border.width: groupIsDragging || root.selectedGroupId === String(groupHeader.modelData.id) ? 2 : 1
+                            border.width: groupIsDragging || root.selectedGroupId === groupHeader.groupIdText ? 2 : 1
 
                             RowLayout {
                                 anchors.fill: parent
@@ -521,7 +558,7 @@ Item {
                                     Layout.preferredHeight: 25
                                     text: Boolean(groupHeader.modelData.collapsed) ? "▸" : "▾"
                                     onClicked: backend.setLayerGroupCollapsed(
-                                                   String(groupHeader.modelData.id),
+                                                   groupHeader.groupIdText,
                                                    !Boolean(groupHeader.modelData.collapsed))
                                     MintToolTip {
                                         visible: collapseGroupButton.hovered
@@ -529,33 +566,43 @@ Item {
                                     }
                                 }
 
-                                MintCheckBox {
-                                    id: groupEnabledToggle
-                                    checked: backend.soloActive
-                                             ? backend.layerGroupEffectiveEnabled(String(groupHeader.modelData.id))
-                                             : Boolean(groupHeader.modelData.enabled)
+                                Rectangle {
+                                    Layout.preferredWidth: 28
+                                    Layout.preferredHeight: 28
+                                    radius: 8
+                                    color: groupHeader.groupSoloTarget ? Qt.alpha(theme.accentColor, 0.18) : "transparent"
+                                    border.color: groupHeader.groupSoloTarget ? theme.accentColor : "transparent"
+                                    border.width: groupHeader.groupSoloTarget ? 2 : 0
 
-                                    MouseArea {
-                                        id: groupEnabledToggleMouse
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        acceptedButtons: Qt.LeftButton
-                                        cursorShape: Qt.PointingHandCursor
-                                        onClicked: function(mouse) {
-                                            root.selectedGroupId = String(groupHeader.modelData.id)
-                                            if (mouse.modifiers & Qt.AltModifier)
-                                                backend.toggleSoloLayerGroup(String(groupHeader.modelData.id))
-                                            else
-                                                backend.setLayerGroupEnabled(
-                                                    String(groupHeader.modelData.id),
-                                                    !Boolean(groupHeader.modelData.enabled))
+                                    MintCheckBox {
+                                        id: groupEnabledToggle
+                                        anchors.centerIn: parent
+                                        checked: Boolean(backend.soloActive
+                                                         ? backend.layerGroupEffectiveEnabled(groupHeader.groupIdText)
+                                                         : groupHeader.groupEnabledState)
+
+                                        MouseArea {
+                                            id: groupEnabledToggleMouse
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            acceptedButtons: Qt.LeftButton
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: function(mouse) {
+                                                root.selectedGroupId = groupHeader.groupIdText
+                                                if (mouse.modifiers & Qt.AltModifier)
+                                                    backend.toggleSoloLayerGroup(groupHeader.groupIdText)
+                                                else
+                                                    backend.setLayerGroupEnabled(
+                                                        groupHeader.groupIdText,
+                                                        !groupHeader.groupEnabledState)
+                                            }
                                         }
-                                    }
 
-                                    MintToolTip {
-                                        visible: groupEnabledToggleMouse.containsMouse
-                                        delay: 350
-                                        text: qsTr("Alt+Click to solo this group")
+                                        MintToolTip {
+                                            visible: groupEnabledToggleMouse.containsMouse
+                                            delay: 350
+                                            text: qsTr("Alt+Click to solo this group")
+                                        }
                                     }
                                 }
 
@@ -566,45 +613,45 @@ Item {
                                     Text {
                                         anchors.fill: parent
                                         verticalAlignment: Text.AlignVCenter
-                                        text: String(groupHeader.modelData.name || "")
+                                        text: String(groupHeader.groupModelReady && groupHeader.modelData.name ? groupHeader.modelData.name : "")
                                         color: theme.textColor
                                         font.bold: true
                                         elide: Text.ElideRight
-                                        visible: root.editingGroupId !== String(groupHeader.modelData.id)
+                                        visible: root.editingGroupId !== groupHeader.groupIdText
                                     }
 
                                     MintTextField {
                                         id: groupNameEditor
                                         anchors.fill: parent
-                                        visible: root.editingGroupId === String(groupHeader.modelData.id)
+                                        visible: root.editingGroupId === groupHeader.groupIdText
                                         onVisibleChanged: {
                                             if (visible) {
-                                                text = String(groupHeader.modelData.name || "")
+                                                text = String(groupHeader.groupModelReady && groupHeader.modelData.name ? groupHeader.modelData.name : "")
                                                 forceActiveFocus()
                                                 selectAll()
                                             }
                                         }
-                                        Keys.onReturnPressed: root.finishGroupRename(groupHeader.modelData.id, text)
-                                        Keys.onEnterPressed: root.finishGroupRename(groupHeader.modelData.id, text)
+                                        Keys.onReturnPressed: root.finishGroupRename(groupHeader.groupIdText, text)
+                                        Keys.onEnterPressed: root.finishGroupRename(groupHeader.groupIdText, text)
                                         Keys.onEscapePressed: root.editingGroupId = ""
                                         onEditingFinished: {
-                                            if (root.editingGroupId === String(groupHeader.modelData.id))
-                                                root.finishGroupRename(groupHeader.modelData.id, text)
+                                            if (root.editingGroupId === groupHeader.groupIdText)
+                                                root.finishGroupRename(groupHeader.groupIdText, text)
                                         }
                                     }
 
                                     MouseArea {
                                         anchors.fill: parent
-                                        enabled: root.editingGroupId !== String(groupHeader.modelData.id)
+                                        enabled: root.editingGroupId !== groupHeader.groupIdText
                                         acceptedButtons: Qt.LeftButton | Qt.RightButton
                                         onClicked: function(mouse) {
-                                            root.selectedGroupId = String(groupHeader.modelData.id)
+                                            root.selectedGroupId = groupHeader.groupIdText
                                             if (mouse.button === Qt.RightButton)
-                                                backend.ungroupLayerGroup(String(groupHeader.modelData.id))
+                                                backend.ungroupLayerGroup(groupHeader.groupIdText)
                                         }
                                         onDoubleClicked: {
-                                            root.selectedGroupId = String(groupHeader.modelData.id)
-                                            root.beginGroupRename(groupHeader.modelData.id, groupHeader.modelData.name)
+                                            root.selectedGroupId = groupHeader.groupIdText
+                                            root.beginGroupRename(groupHeader.groupIdText, groupHeader.groupModelReady ? groupHeader.modelData.name : "")
                                         }
                                     }
                                 }
@@ -620,7 +667,7 @@ Item {
                                          && (!groupIsDragging)
                                          && ((root.dragTargetIndex === index && root.dragDropMode === "into")
                                              || root.groupDragTargetIndex === index)
-                                onTriggered: backend.setLayerGroupCollapsed(String(groupHeader.modelData.id), false)
+                                onTriggered: backend.setLayerGroupCollapsed(groupHeader.groupIdText, false)
                             }
 
                             MintToolTip {
@@ -632,7 +679,7 @@ Item {
                                 timeout: 10000
                                 text: {
                                     var parts = []
-                                    parts.push(String(groupHeader.modelData.name || ""))
+                                    parts.push(String(groupHeader.groupModelReady && groupHeader.modelData.name ? groupHeader.modelData.name : ""))
                                     var mix = []
                                     mix.push(Math.round(Number(groupHeader.modelData.opacity || 1) * 100) + "%")
                                     mix.push(qsTr(String(groupHeader.modelData.blend_mode || "Normal")))
@@ -645,15 +692,15 @@ Item {
 
                             DragHandler {
                                 id: groupDrag
-                                enabled: root.editingGroupId !== String(groupHeader.modelData.id)
+                                enabled: root.editingGroupId !== groupHeader.groupIdText
                                 target: null
                                 acceptedButtons: Qt.LeftButton
                                 xAxis.enabled: false
                                 yAxis.enabled: true
                                 onActiveChanged: {
                                     if (active) {
-                                        root.beginGroupDrag(groupHeader.modelData.id)
-                                    } else if (root.groupDragId === String(groupHeader.modelData.id)) {
+                                        root.beginGroupDrag(groupHeader.groupIdText)
+                                    } else if (root.groupDragId === groupHeader.groupIdText) {
                                         root.finishGroupDrag()
                                     }
                                 }
@@ -697,30 +744,40 @@ Item {
                         anchors.margins: 7
                         spacing: 7
 
-                        MintCheckBox {
-                            id: layerEnabledToggle
-                            checked: backend.soloActive ? backend.layerEffectiveEnabled(index) : layerEnabled
+                        Rectangle {
+                            Layout.preferredWidth: 28
+                            Layout.preferredHeight: 28
+                            radius: 8
+                            color: layerDelegate.layerSoloTarget ? Qt.alpha(theme.accentColor, 0.18) : "transparent"
+                            border.color: layerDelegate.layerSoloTarget ? theme.accentColor : "transparent"
+                            border.width: layerDelegate.layerSoloTarget ? 2 : 0
 
-                            MouseArea {
-                                id: layerEnabledToggleMouse
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                acceptedButtons: Qt.LeftButton
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: function(mouse) {
-                                    root.selectedGroupId = ""
-                                    backend.selectLayer(index)
-                                    if (mouse.modifiers & Qt.AltModifier)
-                                        backend.toggleSoloLayer(index)
-                                    else
-                                        backend.setLayerEnabled(index, !Boolean(layerEnabled))
+                            MintCheckBox {
+                                id: layerEnabledToggle
+                                anchors.centerIn: parent
+                                checked: Boolean(backend.soloActive ? backend.layerEffectiveEnabled(index) : layerDelegate.authoredLayerEnabled)
+
+                                MouseArea {
+                                    id: layerEnabledToggleMouse
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    acceptedButtons: Qt.LeftButton
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: function(mouse) {
+                                        root.selectedGroupId = ""
+                                        backend.selectLayer(index)
+                                        if (mouse.modifiers & Qt.AltModifier)
+                                            backend.toggleSoloLayer(index)
+                                        else
+                                            backend.setLayerEnabled(index, !layerDelegate.authoredLayerEnabled)
+                                    }
                                 }
-                            }
 
-                            MintToolTip {
-                                visible: layerEnabledToggleMouse.containsMouse
-                                delay: 350
-                                text: qsTr("Alt+Click to solo this layer")
+                                MintToolTip {
+                                    visible: layerEnabledToggleMouse.containsMouse
+                                    delay: 350
+                                    text: qsTr("Alt+Click to solo this layer")
+                                }
                             }
                         }
 
@@ -832,6 +889,18 @@ Item {
                 visible: root.dragSourceIndex >= 0 && root.dragIndicatorY >= 0 && root.dragDropMode !== "ungroup"
                 z: 40
             }
+
+            Rectangle {
+                parent: layerList.contentItem
+                x: root.groupDragIndicatorX
+                y: root.groupDragIndicatorY
+                width: root.groupDragIndicatorWidth
+                height: 3
+                radius: 2
+                color: theme.accentColor
+                visible: root.groupDragId !== "" && root.groupDragIndicatorY >= 0
+                z: 40
+            }
         }
 
         RowLayout {
@@ -873,9 +942,15 @@ Item {
             spacing: 4
             MintButton {
                 Layout.fillWidth: true
-                text: backend.selectedLayerSolo ? qsTr("Unsolo") : qsTr("Solo")
-                enabled: !root.groupExists(root.selectedGroupId)
-                onClicked: backend.toggleSoloSelectedLayer()
+                text: root.groupExists(root.selectedGroupId)
+                      ? (backend.layerGroupSolo(root.selectedGroupId) ? qsTr("Unsolo Group") : qsTr("Solo Group"))
+                      : (backend.selectedLayerSolo ? qsTr("Unsolo") : qsTr("Solo"))
+                onClicked: {
+                    if (root.groupExists(root.selectedGroupId))
+                        backend.toggleSoloLayerGroup(root.selectedGroupId)
+                    else
+                        backend.toggleSoloSelectedLayer()
+                }
             }
             MintButton { Layout.fillWidth: true; text: qsTr("Group"); onClicked: backend.groupSelectedLayers() }
             MintButton {

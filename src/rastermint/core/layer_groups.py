@@ -466,6 +466,53 @@ def _last_index_in_group(
     return result
 
 
+def _direct_group_member_indices(stack: list[dict[str, Any]], group_id: str) -> list[int]:
+    target = str(group_id or "")
+    if not target:
+        return []
+    return [
+        index
+        for index, step in enumerate(stack)
+        if str(step.get("group_id", "") or "") == target
+    ]
+
+
+def move_layer_by_index(
+    stack: Iterable[dict[str, Any]],
+    groups: Iterable[dict[str, Any]],
+    source: int,
+    target: int,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Move one flat layer entry while honoring group-boundary arrow moves.
+
+    When a direct child is nudged beyond the first/last slot of its current
+    direct group, the layer moves one hierarchy level outward instead of
+    remaining attached to the old group. Top-level group members therefore
+    become ungrouped, while nested members move to their parent group.
+    """
+    copied_stack = _copy_stack(stack)
+    copied_groups = canonicalize_layer_groups(list(groups))
+    source = int(source)
+    target = int(target)
+    if not (0 <= source < len(copied_stack) and 0 <= target < len(copied_stack)):
+        return copied_stack, copied_groups
+    if source == target:
+        return copied_stack, copied_groups
+
+    direct_group = str(copied_stack[source].get("group_id", "") or "")
+    if direct_group and abs(target - source) == 1:
+        member_indices = _direct_group_member_indices(copied_stack, direct_group)
+        if member_indices:
+            crosses_upper_boundary = target < source and source == member_indices[0]
+            crosses_lower_boundary = target > source and source == member_indices[-1]
+            if crosses_upper_boundary or crosses_lower_boundary:
+                copied_stack[source]["group_id"] = group_parent_id(direct_group, copied_groups)
+
+    item = copied_stack.pop(source)
+    copied_stack.insert(target, item)
+    return copied_stack, prune_layer_groups(copied_groups, copied_stack)
+
+
 def drop_layer(
     stack: Iterable[dict[str, Any]],
     groups: Iterable[dict[str, Any]],

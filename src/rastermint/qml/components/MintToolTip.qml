@@ -4,6 +4,10 @@ import QtQuick.Controls
 ToolTip {
     id: control
 
+    readonly property color safeTextColor: theme ? theme.textColor : "#f3f7ff"
+    readonly property color safePanelColor: theme ? theme.panelColor : "#2b2b2b"
+    readonly property color safeAccentColor: theme ? theme.accentColor : "#4da3ff"
+
     delay: 350
     timeout: 10000
     margins: 8
@@ -18,7 +22,7 @@ ToolTip {
 
     contentItem: Text {
         text: control.text
-        color: theme.textColor
+        color: control.safeTextColor
         font.pixelSize: 11
         wrapMode: Text.NoWrap
         maximumLineCount: 6
@@ -27,9 +31,9 @@ ToolTip {
 
     background: Rectangle {
         radius: 6
-        color: theme.panelColor
+        color: control.safePanelColor
         border.width: 1
-        border.color: theme.accentColor
+        border.color: control.safeAccentColor
         opacity: 0.98
     }
 }
