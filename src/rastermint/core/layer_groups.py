@@ -403,14 +403,12 @@ def ungroup_layers(
     groups: Iterable[dict[str, Any]],
     indices: Iterable[int],
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Move selected layers one level upward, keeping them inside any outer group."""
+    """Move selected layers one level upward without splitting their old group."""
     copied_stack = _copy_stack(stack)
     copied_groups = canonicalize_layer_groups(list(groups))
-    for index in sorted({int(index) for index in indices}):
-        if not (0 <= index < len(copied_stack)):
-            continue
-        current = str(copied_stack[index].get("group_id", "") or "")
-        copied_stack[index]["group_id"] = group_parent_id(current, copied_groups) if current else ""
+    selected = sorted({int(index) for index in indices if 0 <= int(index) < len(copied_stack)})
+    layer_ids = [str(copied_stack[index].get("id", "") or "") for index in selected]
+    copied_stack = _ungroup_layer_ids(copied_stack, copied_groups, layer_ids)
     return copied_stack, prune_layer_groups(copied_groups, copied_stack)
 
 
@@ -477,19 +475,190 @@ def _direct_group_member_indices(stack: list[dict[str, Any]], group_id: str) -> 
     ]
 
 
+def _layer_index_by_id(stack: list[dict[str, Any]], layer_id: str) -> int:
+    target = str(layer_id or "")
+    return next(
+        (index for index, step in enumerate(stack) if str(step.get("id", "") or "") == target),
+        -1,
+    )
+
+
+def _move_layer_across_group_block(
+    stack: list[dict[str, Any]],
+    groups: list[dict[str, Any]],
+    source: int,
+    group_id: str,
+    direction: int,
+) -> list[dict[str, Any]]:
+    """Move one direct layer across an adjacent child-group subtree atomically."""
+    if not (0 <= source < len(stack)):
+        return stack
+    item = stack.pop(source)
+    block = layer_indices_for_group(stack, groups, group_id)
+    if not block:
+        stack.insert(max(0, min(source, len(stack))), item)
+        return stack
+    insert_at = min(block) if direction < 0 else max(block) + 1
+    stack.insert(insert_at, item)
+    return stack
+
+
+def _shared_boundary_group(
+    stack: list[dict[str, Any]],
+    groups: list[dict[str, Any]],
+    target_id: str,
+    mode: str,
+) -> str:
+    """Return the deepest group shared across the requested insertion edge.
+
+    This lets an ungrouped layer join a group only when the user drops it
+    *inside* that group's contiguous block. Dropping at the outer top/bottom
+    edge of the block keeps the layer in its current/root container.
+    """
+    target_index = _layer_index_by_id(stack, target_id)
+    if target_index < 0:
+        return ""
+    neighbor_index = target_index - 1 if mode == "before" else target_index + 1
+    if not (0 <= neighbor_index < len(stack)):
+        return ""
+
+    target_path = step_group_path(stack[target_index], groups)
+    neighbor_path = step_group_path(stack[neighbor_index], groups)
+    shared: list[str] = []
+    for left, right in zip(target_path, neighbor_path):
+        if left != right:
+            break
+        shared.append(left)
+    return shared[-1] if shared else ""
+
+
+def _insert_layer_relative_in_container(
+    stack: list[dict[str, Any]],
+    groups: list[dict[str, Any]],
+    item: dict[str, Any],
+    destination_group: str,
+    target_id: str,
+    mode: str,
+    *,
+    fallback_index: int,
+) -> list[dict[str, Any]]:
+    """Insert *item* at a legal sibling boundary in destination_group."""
+    destination_group = str(destination_group or "")
+    item["group_id"] = destination_group
+    target_index = _layer_index_by_id(stack, target_id)
+    if target_index < 0:
+        stack.insert(max(0, min(fallback_index, len(stack))), item)
+        return stack
+
+    target_group = str(stack[target_index].get("group_id", "") or "")
+    unit_start = target_index
+    unit_end = target_index
+
+    if destination_group:
+        target_path = group_path(target_group, groups)
+        if target_group == destination_group:
+            pass
+        elif destination_group in target_path:
+            child_index = target_path.index(destination_group) + 1
+            if child_index < len(target_path):
+                child_group = target_path[child_index]
+                block = layer_indices_for_group(stack, groups, child_group)
+                if block:
+                    unit_start, unit_end = min(block), max(block)
+        else:
+            # The target is outside the container the layer is allowed to join.
+            # Stay at the nearest edge of that container rather than splitting it.
+            destination_block = layer_indices_for_group(stack, groups, destination_group)
+            if destination_block:
+                insert_at = min(destination_block) if target_index < min(destination_block) else max(destination_block) + 1
+            else:
+                insert_at = max(0, min(fallback_index, len(stack)))
+            stack.insert(insert_at, item)
+            return stack
+    elif target_group:
+        target_path = group_path(target_group, groups)
+        top_group = target_path[0] if target_path else target_group
+        block = layer_indices_for_group(stack, groups, top_group)
+        if block:
+            unit_start, unit_end = min(block), max(block)
+
+    insert_at = unit_start if mode == "before" else unit_end + 1
+    stack.insert(insert_at, item)
+    return stack
+
+
+def _ungroup_layer_ids(
+    stack: list[dict[str, Any]],
+    groups: list[dict[str, Any]],
+    layer_ids: Iterable[str],
+) -> list[dict[str, Any]]:
+    """Move each requested layer one hierarchy level out without splitting groups."""
+    wanted = {str(layer_id or "") for layer_id in layer_ids if str(layer_id or "")}
+    if not wanted:
+        return stack
+
+    original_group = {
+        str(step.get("id", "") or ""): str(step.get("group_id", "") or "")
+        for step in stack
+        if str(step.get("id", "") or "") in wanted
+    }
+    group_ids = sorted(
+        {gid for gid in original_group.values() if gid},
+        key=lambda gid: group_depth(gid, groups),
+        reverse=True,
+    )
+
+    for group_id in group_ids:
+        moving_ids = {
+            layer_id for layer_id, direct_group in original_group.items()
+            if direct_group == group_id
+        }
+        if not moving_ids:
+            continue
+
+        current_block = layer_indices_for_group(stack, groups, group_id)
+        if not current_block:
+            continue
+        block_start = min(current_block)
+        block_end = max(current_block)
+        after_anchor_id = ""
+        for index in range(block_end + 1, len(stack)):
+            candidate_id = str(stack[index].get("id", "") or "")
+            if candidate_id not in moving_ids:
+                after_anchor_id = candidate_id
+                break
+
+        parent_id = group_parent_id(group_id, groups)
+        moved_steps: list[dict[str, Any]] = []
+        remaining: list[dict[str, Any]] = []
+        for step in stack:
+            layer_id = str(step.get("id", "") or "")
+            if layer_id in moving_ids:
+                step["group_id"] = parent_id
+                moved_steps.append(step)
+            else:
+                remaining.append(step)
+
+        remaining_block = layer_indices_for_group(remaining, groups, group_id)
+        if remaining_block:
+            insert_at = max(remaining_block) + 1
+        elif after_anchor_id:
+            anchor_index = _layer_index_by_id(remaining, after_anchor_id)
+            insert_at = anchor_index if anchor_index >= 0 else len(remaining)
+        else:
+            insert_at = min(block_start, len(remaining))
+        stack = remaining[:insert_at] + moved_steps + remaining[insert_at:]
+
+    return stack
+
+
 def move_layer_by_index(
     stack: Iterable[dict[str, Any]],
     groups: Iterable[dict[str, Any]],
     source: int,
     target: int,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Move one flat layer entry while honoring group-boundary arrow moves.
-
-    When a direct child is nudged beyond the first/last slot of its current
-    direct group, the layer moves one hierarchy level outward instead of
-    remaining attached to the old group. Top-level group members therefore
-    become ungrouped, while nested members move to their parent group.
-    """
+    """Move one layer while treating nested group subtrees as atomic siblings."""
     copied_stack = _copy_stack(stack)
     copied_groups = canonicalize_layer_groups(list(groups))
     source = int(source)
@@ -499,14 +668,75 @@ def move_layer_by_index(
     if source == target:
         return copied_stack, copied_groups
 
-    direct_group = str(copied_stack[source].get("group_id", "") or "")
-    if direct_group and abs(target - source) == 1:
-        member_indices = _direct_group_member_indices(copied_stack, direct_group)
-        if member_indices:
-            crosses_upper_boundary = target < source and source == member_indices[0]
-            crosses_lower_boundary = target > source and source == member_indices[-1]
-            if crosses_upper_boundary or crosses_lower_boundary:
-                copied_stack[source]["group_id"] = group_parent_id(direct_group, copied_groups)
+    # The UI arrow controls request adjacent moves. Keep legacy behavior for
+    # non-adjacent programmatic callers rather than inventing multi-step nesting.
+    if abs(target - source) != 1:
+        item = copied_stack.pop(source)
+        copied_stack.insert(target, item)
+        return copied_stack, prune_layer_groups(copied_groups, copied_stack)
+
+    direction = 1 if target > source else -1
+    source_group = str(copied_stack[source].get("group_id", "") or "")
+    target_group = str(copied_stack[target].get("group_id", "") or "")
+
+    if source_group:
+        source_block = layer_indices_for_group(copied_stack, copied_groups, source_group)
+        target_inside_source = target in set(source_block)
+
+        # Crossing out of a group's flat boundary is a one-level ungroup. Do
+        # not also jump across an unrelated parent/sibling block in the same click.
+        at_boundary = bool(source_block) and (
+            (direction < 0 and source == min(source_block))
+            or (direction > 0 and source == max(source_block))
+        )
+        if not target_inside_source and at_boundary:
+            parent_id = group_parent_id(source_group, copied_groups)
+            copied_stack[source]["group_id"] = parent_id
+            if target_group == parent_id:
+                item = copied_stack.pop(source)
+                copied_stack.insert(target, item)
+            return copied_stack, prune_layer_groups(copied_groups, copied_stack)
+
+        # A direct layer moving over a nested child group must cross the whole
+        # child subtree, never one flat row from its middle.
+        target_path = group_path(target_group, copied_groups)
+        if source_group in target_path and target_group != source_group:
+            child_index = target_path.index(source_group) + 1
+            if child_index < len(target_path):
+                child_group = target_path[child_index]
+                copied_stack = _move_layer_across_group_block(
+                    copied_stack,
+                    copied_groups,
+                    source,
+                    child_group,
+                    direction,
+                )
+                return copied_stack, prune_layer_groups(copied_groups, copied_stack)
+
+        if source_group == target_group:
+            item = copied_stack.pop(source)
+            copied_stack.insert(target, item)
+            return copied_stack, prune_layer_groups(copied_groups, copied_stack)
+
+        # This branch mainly repairs already-inconsistent old stacks. The moved
+        # layer adopts the target's direct container instead of splitting it.
+        copied_stack[source]["group_id"] = target_group
+        item = copied_stack.pop(source)
+        copied_stack.insert(target, item)
+        return copied_stack, prune_layer_groups(copied_groups, copied_stack)
+
+    # A top-level layer crossing a top-level group treats that group as one row.
+    if target_group:
+        target_path = group_path(target_group, copied_groups)
+        top_group = target_path[0] if target_path else target_group
+        copied_stack = _move_layer_across_group_block(
+            copied_stack,
+            copied_groups,
+            source,
+            top_group,
+            direction,
+        )
+        return copied_stack, prune_layer_groups(copied_groups, copied_stack)
 
     item = copied_stack.pop(source)
     copied_stack.insert(target, item)
@@ -524,7 +754,7 @@ def drop_layer(
     new_group_name: str,
     target_group_id: str = "",
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Apply one layer drag/drop gesture to flat stack + nested group metadata."""
+    """Apply one layer drag/drop gesture without breaking group contiguity."""
     copied_stack = _copy_stack(stack)
     copied_groups = canonicalize_layer_groups(list(groups))
     source = int(source)
@@ -533,10 +763,11 @@ def drop_layer(
     if not (0 <= source < len(copied_stack) and 0 <= target < len(copied_stack)):
         return copied_stack, copied_groups
 
+    source_id = str(copied_stack[source].get("id", "") or "")
     source_group = str(copied_stack[source].get("group_id", "") or "")
     if mode == "ungroup":
         if source_group:
-            copied_stack[source]["group_id"] = group_parent_id(source_group, copied_groups)
+            copied_stack = _ungroup_layer_ids(copied_stack, copied_groups, [source_id])
         return copied_stack, prune_layer_groups(copied_groups, copied_stack)
 
     if source == target:
@@ -544,40 +775,78 @@ def drop_layer(
     if mode not in {"into", "before", "after"}:
         mode = "before"
 
+    target_id = str(copied_stack[target].get("id", "") or "")
     target_group = str(copied_stack[target].get("group_id", "") or "")
     requested_group = str(target_group_id or "")
 
     if mode == "into":
-        source_id = str(copied_stack[source].get("id", ""))
-        target_id = str(copied_stack[target].get("id", ""))
         effective_target_group = requested_group or target_group
+
+        # Dropping onto the current group header simply moves the layer to the
+        # end of that group; it must not create a nested group by accident.
         if requested_group and effective_target_group == source_group:
-            remaining = [step for i, step in enumerate(copied_stack) if i != source]
-            insert_after = _last_index_in_group(remaining, copied_groups, effective_target_group)
-            item = copied_stack[source]
-            copied_stack = remaining
-            copied_stack.insert(max(0, insert_after + 1), item)
+            item = copied_stack.pop(source)
+            remaining_block = layer_indices_for_group(copied_stack, copied_groups, effective_target_group)
+            insert_at = max(remaining_block) + 1 if remaining_block else min(source, len(copied_stack))
+            copied_stack.insert(insert_at, item)
+
+        # Dropping one layer onto another layer in the same container creates a
+        # subgroup, which is RasterMint's intentional auto-group gesture.
         elif effective_target_group and source_group == effective_target_group and not requested_group:
             parent_id = effective_target_group
             if parent_id and group_depth(parent_id, copied_groups) >= MAX_GROUP_DEPTH:
                 raise ValueError("Layer groups can be nested up to 5 levels")
             _add_group(copied_groups, group_id=new_group_id, name=new_group_name, parent_id=parent_id)
             for step in copied_stack:
-                if str(step.get("id", "")) in {source_id, target_id}:
+                if str(step.get("id", "") or "") in {source_id, target_id}:
                     step["group_id"] = new_group_id
             copied_stack = _reorder_layer(copied_stack, source, target, "after")
+
         elif effective_target_group:
-            copied_stack[source]["group_id"] = effective_target_group
-            copied_stack = _reorder_layer(copied_stack, source, target, "after")
+            item = copied_stack.pop(source)
+            item["group_id"] = effective_target_group
+            if requested_group:
+                # Header drops target the whole group, not whichever descendant
+                # layer happened to carry that header in the flat ListView.
+                remaining_block = layer_indices_for_group(copied_stack, copied_groups, effective_target_group)
+                insert_at = max(remaining_block) + 1 if remaining_block else len(copied_stack)
+            else:
+                remaining_target = _layer_index_by_id(copied_stack, target_id)
+                insert_at = remaining_target + 1 if remaining_target >= 0 else len(copied_stack)
+            copied_stack.insert(insert_at, item)
+
         else:
+            # Two top-level layers dropped onto each other create a new group.
             _add_group(copied_groups, group_id=new_group_id, name=new_group_name, parent_id="")
-            copied_stack[source]["group_id"] = new_group_id
-            copied_stack[target]["group_id"] = new_group_id
+            for step in copied_stack:
+                if str(step.get("id", "") or "") in {source_id, target_id}:
+                    step["group_id"] = new_group_id
             copied_stack = _reorder_layer(copied_stack, source, target, "after")
+
     else:
-        if source_group and source_group != target_group:
-            copied_stack[source]["group_id"] = group_parent_id(source_group, copied_groups)
-        copied_stack = _reorder_layer(copied_stack, source, target, mode)
+        # Edge drops are reorders. For an ungrouped layer, an insertion edge
+        # that lies *inside* a group's contiguous block adopts the deepest group
+        # shared by the two layers bordering that edge. An outer edge remains
+        # top-level. This makes dropping between two group children intuitive
+        # without making ordinary above/below-group reorders implicit grouping.
+        item = copied_stack.pop(source)
+        if source_group:
+            destination_group = source_group
+            if source_group != target_group:
+                destination_group = group_parent_id(source_group, copied_groups)
+        else:
+            destination_group = _shared_boundary_group(
+                copied_stack, copied_groups, target_id, mode
+            )
+        copied_stack = _insert_layer_relative_in_container(
+            copied_stack,
+            copied_groups,
+            item,
+            destination_group,
+            target_id,
+            mode,
+            fallback_index=source,
+        )
 
     return copied_stack, prune_layer_groups(copied_groups, copied_stack)
 
@@ -648,7 +917,7 @@ def reparent_layer_group(
     source_group_id: str,
     target_group_id: str,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Nest one existing group directly inside another without creating a group."""
+    """Nest a group inside another and move its complete subtree into that block."""
     copied_stack = _copy_stack(stack)
     copied_groups = canonicalize_layer_groups(list(groups))
     source_group_id = str(source_group_id or "")
@@ -660,11 +929,24 @@ def reparent_layer_group(
         return copied_stack, copied_groups
     if not can_reparent_group(source_group_id, target_group_id, copied_groups):
         raise ValueError("Layer groups can be nested up to 5 levels")
+
+    source_indices = layer_indices_for_group(copied_stack, copied_groups, source_group_id)
+    if not source_indices:
+        return copied_stack, copied_groups
+    source_set = set(source_indices)
+    moved_steps = [copied_stack[index] for index in source_indices]
+    remaining = [step for index, step in enumerate(copied_stack) if index not in source_set]
+    fallback = min(source_indices)
+
     for group in copied_groups:
         if str(group.get("id", "") or "") == source_group_id:
             group["parent_id"] = target_group_id
             break
-    return copied_stack, prune_layer_groups(copied_groups, copied_stack)
+
+    target_block = layer_indices_for_group(remaining, copied_groups, target_group_id)
+    insert_at = max(target_block) + 1 if target_block else min(fallback, len(remaining))
+    updated_stack = remaining[:insert_at] + moved_steps + remaining[insert_at:]
+    return updated_stack, prune_layer_groups(copied_groups, updated_stack)
 
 
 def drop_group_on_layer(
