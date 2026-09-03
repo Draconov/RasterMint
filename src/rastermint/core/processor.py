@@ -12,7 +12,7 @@ from PIL import Image, ImageOps
 from .effect_stack import apply_normalized_effect_stack, effect_stack_output_size, normalize_effect_stack
 from .effect_schema import scale_normalized_stack_for_preview
 from .hardware import render_display_view
-from .layer_groups import group_is_effectively_enabled
+from .layer_groups import canonicalize_layer_groups, group_path, step_effective_enabled_for_solo
 from .palette import hex_to_rgb
 from .settings import ProcessingSettings
 from .temporal import TemporalEffectState
@@ -24,28 +24,41 @@ FAST_PREVIEW_MAX_SIDE = 320
 def runtime_effect_stack(settings: ProcessingSettings) -> list[dict[str, object]]:
     """Return the normalized stack with UI group/solo visibility applied.
 
-    Group enable and Solo are non-destructive layer-workflow controls. They must
-    affect previews and exports without overwriting each layer's own enabled
-    flag, so runtime visibility is derived on a shallow copy only when needed.
+    Group enable, group-level compositing, and solo controls are non-destructive
+    workflow metadata. They must affect previews and exports without overwriting
+    the authored layer stack, so runtime visibility/compositing metadata is
+    derived on shallow copies only when needed.
     """
     stack = normalize_effect_stack(settings.effect_stack, settings)
-    groups = list(getattr(settings, "layer_groups", []) or [])
+    groups = canonicalize_layer_groups(list(getattr(settings, "layer_groups", []) or []))
     solo_id = str(getattr(settings, "solo_layer_id", "") or "")
-    if not groups and not solo_id:
+    solo_group_id = str(getattr(settings, "solo_group_id", "") or "")
+    if not groups and not solo_id and not solo_group_id:
         return stack
 
+    group_by_id = {str(group.get("id", "")): dict(group) for group in groups}
     runtime: list[dict[str, object]] = []
     for step in stack:
-        visible = bool(step.get("enabled", True))
         group_id = str(step.get("group_id", "") or "")
-        if group_id and not group_is_effectively_enabled(group_id, groups):
-            visible = False
-        if solo_id and str(step.get("id", "")) != solo_id:
-            visible = False
-        if visible == bool(step.get("enabled", True)):
-            runtime.append(step)
+        path_ids = group_path(group_id, groups)
+        path_groups = [dict(group_by_id[gid]) for gid in path_ids if gid in group_by_id]
+        visible = step_effective_enabled_for_solo(
+            step,
+            groups,
+            solo_layer_id=solo_id,
+            solo_group_id=solo_group_id,
+        )
+
+        needs_copy = bool(path_groups) or visible != bool(step.get("enabled", True))
+        if needs_copy:
+            updated = dict(step)
+            updated["enabled"] = visible
+            if path_ids:
+                updated["_group_path"] = list(path_ids)
+                updated["_group_settings"] = path_groups
+            runtime.append(updated)
         else:
-            runtime.append({**step, "enabled": visible})
+            runtime.append(step)
     return runtime
 
 

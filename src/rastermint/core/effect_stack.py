@@ -27,6 +27,7 @@ from .effect_schema import (
     scale_stack_for_preview,
 )
 from .palette import palette_array
+from .layer_groups import canonicalize_layer_groups
 from .pixel_cleanup import cleanup_pixel_art
 from .temporal import TemporalEffectState
 
@@ -2955,6 +2956,15 @@ def _layer_mask_array(base_image: Image.Image, mask: dict[str, Any], target_size
     return np.clip(arr * strength, 0.0, 1.0)
 
 
+def _apply_group_composite(base_image: Image.Image, group_image: Image.Image, group: dict[str, Any]) -> Image.Image:
+    pseudo_step = {
+        "opacity": float(group.get("opacity", 1.0) or 0.0),
+        "blend_mode": str(group.get("blend_mode", "Normal") or "Normal"),
+        "mask": {"type": "None", "invert": False, "strength": 1.0},
+    }
+    return _apply_layer_composite(base_image, group_image, pseudo_step)
+
+
 def _apply_layer_composite(base_image: Image.Image, effect_image: Image.Image, step: dict[str, Any]) -> Image.Image:
     opacity = max(0.0, min(1.0, float(step.get("opacity", 1.0) or 0.0)))
     mode = str(step.get("blend_mode", "Normal") or "Normal")
@@ -3025,6 +3035,37 @@ def apply_normalized_effect_stack(
             progress_callback(max(0, min(total_steps, int(completed))), total_steps, str(label or ""))
 
     cache_signatures: list[str] | None = None
+    active_groups: list[dict[str, Any]] = []
+
+    def _shared_prefix_length(left: list[str], right: list[str]) -> int:
+        shared = 0
+        while shared < len(left) and shared < len(right) and str(left[shared]) == str(right[shared]):
+            shared += 1
+        return shared
+
+    def _open_runtime_groups(current_image: Image.Image, step: dict[str, Any]) -> Image.Image:
+        current_path = [str(value) for value in (step.get("_group_path") or []) if str(value)]
+        current_settings = canonicalize_layer_groups(list(step.get("_group_settings") or []))
+        active_path = [str(entry.get("id", "")) for entry in active_groups]
+        shared = _shared_prefix_length(active_path, current_path)
+        image_out = current_image
+        while len(active_groups) > shared:
+            state = active_groups.pop()
+            image_out = _apply_group_composite(state["base"], image_out, state["group"])
+        by_id = {str(group.get("id", "")): dict(group) for group in current_settings}
+        for gid in current_path[shared:]:
+            group = by_id.get(gid)
+            if group is not None:
+                active_groups.append({"id": gid, "base": image_out.copy(), "group": group})
+        return image_out
+
+    def _close_runtime_groups(current_image: Image.Image, current_path: list[str], next_path: list[str]) -> Image.Image:
+        shared = _shared_prefix_length(current_path, next_path)
+        image_out = current_image
+        while len(active_groups) > shared:
+            state = active_groups.pop()
+            image_out = _apply_group_composite(state["base"], image_out, state["group"])
+        return image_out
     start_index = 0
     if render_cache is not None and cache_context:
         try:
@@ -3044,7 +3085,12 @@ def apply_normalized_effect_stack(
     for step_index, step in enumerate(stack):
         if step_index < start_index:
             continue
+        img = _open_runtime_groups(img, step)
+        current_path = [str(value) for value in (step.get("_group_path") or []) if str(value)]
+        next_step = stack[step_index + 1] if step_index + 1 < len(stack) else None
+        next_path = [str(value) for value in ((next_step.get("_group_path") if isinstance(next_step, dict) else []) or []) if str(value)]
         if not step.get("enabled", True):
+            img = _close_runtime_groups(img, current_path, next_path)
             if cache_signatures is not None and render_cache is not None:
                 try:
                     render_cache.store(str(cache_context), cache_signatures[step_index], img)
@@ -3269,12 +3315,16 @@ def apply_normalized_effect_stack(
             img = rgba
 
         img = _apply_layer_composite(layer_input, img, step)
+        img = _close_runtime_groups(img, current_path, next_path)
         if cache_signatures is not None and render_cache is not None:
             try:
                 render_cache.store(str(cache_context), cache_signatures[step_index], img)
             except Exception:
                 pass
         report_progress(step_index + 1, kind)
+    while active_groups:
+        state = active_groups.pop()
+        img = _apply_group_composite(state["base"], img, state["group"])
     return img
 
 def apply_effect_stack(

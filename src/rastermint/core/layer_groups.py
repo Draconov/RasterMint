@@ -6,9 +6,14 @@ from __future__ import annotations
 import re
 from copy import deepcopy
 from typing import Any, Iterable
+from uuid import uuid4
 
 MAX_GROUP_DEPTH = 5
 _GROUP_NAME_RE = re.compile(r"^Group\s+(\d+)$")
+_DEFAULT_GROUP_COLOR = ""
+_DEFAULT_GROUP_NOTE = ""
+_DEFAULT_GROUP_BLEND = "Normal"
+_DEFAULT_GROUP_OPACITY = 1.0
 
 
 def _group_map(groups: Iterable[dict[str, Any]]) -> dict[str, dict[str, Any]]:
@@ -102,12 +107,20 @@ def canonicalize_layer_groups(groups: Any) -> list[dict[str, Any]]:
         if not group_id or group_id in seen:
             continue
         seen.add(group_id)
+        try:
+            opacity = float(raw.get("opacity", _DEFAULT_GROUP_OPACITY) or _DEFAULT_GROUP_OPACITY)
+        except (TypeError, ValueError):
+            opacity = _DEFAULT_GROUP_OPACITY
         normalized.append({
             "id": group_id,
             "name": str(raw.get("name", "Layer Group") or "Layer Group"),
             "parent_id": str(raw.get("parent_id", "") or "").strip(),
             "collapsed": bool(raw.get("collapsed", False)),
             "enabled": bool(raw.get("enabled", True)),
+            "opacity": max(0.0, min(1.0, opacity)),
+            "blend_mode": str(raw.get("blend_mode", _DEFAULT_GROUP_BLEND) or _DEFAULT_GROUP_BLEND),
+            "color_label": str(raw.get("color_label", _DEFAULT_GROUP_COLOR) or _DEFAULT_GROUP_COLOR).strip(),
+            "note": str(raw.get("note", _DEFAULT_GROUP_NOTE) or _DEFAULT_GROUP_NOTE),
         })
 
     by_id = _group_map(normalized)
@@ -170,6 +183,108 @@ def group_is_effectively_enabled(group_id: str, groups: Iterable[dict[str, Any]]
     return all(bool(by_id[gid].get("enabled", True)) for gid in path if gid in by_id)
 
 
+def step_effective_enabled_for_solo(
+    step: dict[str, Any],
+    groups: Iterable[dict[str, Any]],
+    *,
+    solo_layer_id: str = "",
+    solo_group_id: str = "",
+) -> bool:
+    """Return temporary runtime visibility without mutating authored enable flags."""
+    normalized = list(groups)
+    solo_layer_id = str(solo_layer_id or "")
+    solo_group_id = str(solo_group_id or "")
+    if solo_layer_id:
+        return str(step.get("id", "")) == solo_layer_id
+
+    visible = bool(step.get("enabled", True))
+    group_id = str(step.get("group_id", "") or "")
+    path = group_path(group_id, normalized)
+    by_id = _group_map(normalized)
+    if solo_group_id:
+        if solo_group_id not in path or not visible:
+            return False
+        forced = set(group_path(solo_group_id, normalized))
+        return all(
+            gid in forced or bool(by_id.get(gid, {}).get("enabled", True))
+            for gid in path
+        )
+    if group_id:
+        return visible and group_is_effectively_enabled(group_id, normalized)
+    return visible
+
+
+def group_effective_enabled_for_solo(
+    group_id: str,
+    stack: Iterable[dict[str, Any]],
+    groups: Iterable[dict[str, Any]],
+    *,
+    solo_layer_id: str = "",
+    solo_group_id: str = "",
+) -> bool:
+    """Return the checkbox state a group should show while solo is active."""
+    normalized = list(groups)
+    key = str(group_id or "")
+    by_id = _group_map(normalized)
+    group = by_id.get(key)
+    if group is None:
+        return False
+
+    solo_layer_id = str(solo_layer_id or "")
+    solo_group_id = str(solo_group_id or "")
+    if solo_layer_id:
+        target = next(
+            (step for step in stack if str(step.get("id", "")) == solo_layer_id),
+            None,
+        )
+        if target is None:
+            return False
+        return key in group_path(str(target.get("group_id", "") or ""), normalized)
+
+    if solo_group_id:
+        solo_path = group_path(solo_group_id, normalized)
+        if key in solo_path:
+            return True
+        current_path = group_path(key, normalized)
+        if solo_group_id in current_path:
+            return bool(group.get("enabled", True))
+        return False
+
+    return bool(group.get("enabled", True))
+
+
+def step_group_path(step: dict[str, Any], groups: Iterable[dict[str, Any]]) -> list[str]:
+    return group_path(str(step.get("group_id", "") or ""), groups) if isinstance(step, dict) else []
+
+
+def group_descendant_ids(group_id: str, groups: Iterable[dict[str, Any]]) -> list[str]:
+    normalized = canonicalize_layer_groups(list(groups))
+    target = str(group_id or "")
+    if not target:
+        return []
+    result: list[str] = []
+    for group in normalized:
+        gid = str(group.get("id", "") or "")
+        if gid and target in group_path(gid, normalized):
+            result.append(gid)
+    return result
+
+
+def layer_indices_for_group(
+    stack: Iterable[dict[str, Any]],
+    groups: Iterable[dict[str, Any]],
+    group_id: str,
+) -> list[int]:
+    normalized_groups = canonicalize_layer_groups(list(groups))
+    target = str(group_id or "")
+    if not target:
+        return []
+    result: list[int] = []
+    for index, step in enumerate(stack):
+        if target in step_group_path(step, normalized_groups):
+            result.append(index)
+    return result
+
 
 def build_layer_group_view(
     stack: Iterable[dict[str, Any]],
@@ -196,6 +311,10 @@ def build_layer_group_view(
                     "depth": depth,
                     "collapsed": bool(group.get("collapsed", False)),
                     "enabled": bool(group.get("enabled", True)),
+                    "opacity": float(group.get("opacity", _DEFAULT_GROUP_OPACITY) or _DEFAULT_GROUP_OPACITY),
+                    "blend_mode": str(group.get("blend_mode", _DEFAULT_GROUP_BLEND) or _DEFAULT_GROUP_BLEND),
+                    "color_label": str(group.get("color_label", _DEFAULT_GROUP_COLOR) or _DEFAULT_GROUP_COLOR),
+                    "note": str(group.get("note", _DEFAULT_GROUP_NOTE) or _DEFAULT_GROUP_NOTE),
                 })
                 seen_headers.add(gid)
             if bool(group.get("collapsed", False)):
@@ -221,6 +340,12 @@ def _add_group(
     group_id: str,
     name: str,
     parent_id: str = "",
+    collapsed: bool = False,
+    enabled: bool = True,
+    opacity: float = _DEFAULT_GROUP_OPACITY,
+    blend_mode: str = _DEFAULT_GROUP_BLEND,
+    color_label: str = _DEFAULT_GROUP_COLOR,
+    note: str = _DEFAULT_GROUP_NOTE,
 ) -> list[dict[str, Any]]:
     group_id = str(group_id or "").strip()
     if not group_id or group_id in _group_map(groups):
@@ -232,8 +357,12 @@ def _add_group(
         "id": group_id,
         "name": str(name or "Layer Group").strip() or "Layer Group",
         "parent_id": parent_id,
-        "collapsed": False,
-        "enabled": True,
+        "collapsed": bool(collapsed),
+        "enabled": bool(enabled),
+        "opacity": max(0.0, min(1.0, float(opacity))),
+        "blend_mode": str(blend_mode or _DEFAULT_GROUP_BLEND),
+        "color_label": str(color_label or _DEFAULT_GROUP_COLOR).strip(),
+        "note": str(note or _DEFAULT_GROUP_NOTE),
     })
     return groups
 
@@ -256,9 +385,16 @@ def create_layer_group(
     parent_id = next(iter(direct_groups)) if len(direct_groups) == 1 else ""
     if parent_id and group_depth(parent_id, copied_groups) >= MAX_GROUP_DEPTH:
         raise ValueError("Layer groups can be nested up to 5 levels")
+
     _add_group(copied_groups, group_id=group_id, name=group_name, parent_id=parent_id)
-    for index in selected:
-        copied_stack[index]["group_id"] = group_id
+
+    selected_set = set(selected)
+    grouped_steps = [copied_stack[index] for index in selected]
+    for step in grouped_steps:
+        step["group_id"] = group_id
+    remaining = [step for index, step in enumerate(copied_stack) if index not in selected_set]
+    insert_at = selected[0]
+    copied_stack = remaining[:insert_at] + grouped_steps + remaining[insert_at:]
     return copied_stack, prune_layer_groups(copied_groups, copied_stack)
 
 
@@ -278,6 +414,34 @@ def ungroup_layers(
     return copied_stack, prune_layer_groups(copied_groups, copied_stack)
 
 
+def ungroup_layer_group(
+    stack: Iterable[dict[str, Any]],
+    groups: Iterable[dict[str, Any]],
+    group_id: str,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Dissolve a group while keeping child layers/groups in the same place."""
+    copied_stack = _copy_stack(stack)
+    copied_groups = canonicalize_layer_groups(list(groups))
+    target = str(group_id or "")
+    by_id = _group_map(copied_groups)
+    if target not in by_id:
+        return copied_stack, copied_groups
+    parent_id = group_parent_id(target, copied_groups)
+    for step in copied_stack:
+        if str(step.get("group_id", "") or "") == target:
+            step["group_id"] = parent_id
+    updated_groups: list[dict[str, Any]] = []
+    for group in copied_groups:
+        gid = str(group.get("id", "") or "")
+        if gid == target:
+            continue
+        row = dict(group)
+        if str(row.get("parent_id", "") or "") == target:
+            row["parent_id"] = parent_id
+        updated_groups.append(row)
+    return copied_stack, prune_layer_groups(updated_groups, copied_stack)
+
+
 def _reorder_layer(stack: list[dict[str, Any]], source: int, target: int, mode: str) -> list[dict[str, Any]]:
     if source == target:
         return stack
@@ -289,6 +453,19 @@ def _reorder_layer(stack: list[dict[str, Any]], source: int, target: int, mode: 
     return stack
 
 
+def _last_index_in_group(
+    stack: list[dict[str, Any]],
+    groups: list[dict[str, Any]],
+    group_id: str,
+) -> int:
+    target = str(group_id or "")
+    result = -1
+    for index, step in enumerate(stack):
+        if target and target in step_group_path(step, groups):
+            result = index
+    return result
+
+
 def drop_layer(
     stack: Iterable[dict[str, Any]],
     groups: Iterable[dict[str, Any]],
@@ -298,6 +475,7 @@ def drop_layer(
     *,
     new_group_id: str,
     new_group_name: str,
+    target_group_id: str = "",
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Apply one layer drag/drop gesture to flat stack + nested group metadata."""
     copied_stack = _copy_stack(stack)
@@ -320,25 +498,35 @@ def drop_layer(
         mode = "before"
 
     target_group = str(copied_stack[target].get("group_id", "") or "")
+    requested_group = str(target_group_id or "")
 
     if mode == "into":
         source_id = str(copied_stack[source].get("id", ""))
         target_id = str(copied_stack[target].get("id", ""))
-        if source_group == target_group:
-            parent_id = target_group
+        effective_target_group = requested_group or target_group
+        if requested_group and effective_target_group == source_group:
+            remaining = [step for i, step in enumerate(copied_stack) if i != source]
+            insert_after = _last_index_in_group(remaining, copied_groups, effective_target_group)
+            item = copied_stack[source]
+            copied_stack = remaining
+            copied_stack.insert(max(0, insert_after + 1), item)
+        elif effective_target_group and source_group == effective_target_group and not requested_group:
+            parent_id = effective_target_group
             if parent_id and group_depth(parent_id, copied_groups) >= MAX_GROUP_DEPTH:
                 raise ValueError("Layer groups can be nested up to 5 levels")
             _add_group(copied_groups, group_id=new_group_id, name=new_group_name, parent_id=parent_id)
             for step in copied_stack:
                 if str(step.get("id", "")) in {source_id, target_id}:
                     step["group_id"] = new_group_id
-        elif target_group:
-            copied_stack[source]["group_id"] = target_group
+            copied_stack = _reorder_layer(copied_stack, source, target, "after")
+        elif effective_target_group:
+            copied_stack[source]["group_id"] = effective_target_group
+            copied_stack = _reorder_layer(copied_stack, source, target, "after")
         else:
             _add_group(copied_groups, group_id=new_group_id, name=new_group_name, parent_id="")
             copied_stack[source]["group_id"] = new_group_id
             copied_stack[target]["group_id"] = new_group_id
-        copied_stack = _reorder_layer(copied_stack, source, target, "after")
+            copied_stack = _reorder_layer(copied_stack, source, target, "after")
     else:
         if source_group and source_group != target_group:
             copied_stack[source]["group_id"] = group_parent_id(source_group, copied_groups)
@@ -394,3 +582,50 @@ def drop_group_on_layer(
         copied_stack[target_index]["group_id"] = new_group_id
 
     return copied_stack, prune_layer_groups(copied_groups, copied_stack)
+
+
+def duplicate_layer_group(
+    stack: Iterable[dict[str, Any]],
+    groups: Iterable[dict[str, Any]],
+    group_id: str,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], str]:
+    """Duplicate an entire group subtree with all of its layers."""
+    copied_stack = _copy_stack(stack)
+    copied_groups = canonicalize_layer_groups(list(groups))
+    target = str(group_id or "")
+    by_id = _group_map(copied_groups)
+    if target not in by_id:
+        return copied_stack, copied_groups, ""
+
+    member_indices = layer_indices_for_group(copied_stack, copied_groups, target)
+    if not member_indices:
+        return copied_stack, copied_groups, ""
+
+    subtree_ids = group_descendant_ids(target, copied_groups)
+    id_map = {old_id: f"group-{uuid4().hex[:10]}" for old_id in subtree_ids}
+
+    cloned_groups: list[dict[str, Any]] = []
+    for old_id in subtree_ids:
+        original = by_id[old_id]
+        clone = dict(original)
+        clone["id"] = id_map[old_id]
+        parent_id = str(original.get("parent_id", "") or "")
+        clone["parent_id"] = id_map[parent_id] if parent_id in id_map else parent_id
+        if old_id == target:
+            clone["name"] = f"{str(original.get('name', 'Layer Group') or 'Layer Group')} Copy"
+        cloned_groups.append(clone)
+
+    cloned_layers: list[dict[str, Any]] = []
+    for index in member_indices:
+        step = deepcopy(copied_stack[index])
+        step["id"] = f"effect-{uuid4().hex[:10]}"
+        direct_group = str(step.get("group_id", "") or "")
+        if direct_group in id_map:
+            step["group_id"] = id_map[direct_group]
+        cloned_layers.append(step)
+
+    insert_at = member_indices[-1] + 1
+    copied_stack[insert_at:insert_at] = cloned_layers
+    copied_groups.extend(cloned_groups)
+    duplicated_group_id = id_map.get(target, "")
+    return copied_stack, prune_layer_groups(copied_groups, copied_stack), duplicated_group_id

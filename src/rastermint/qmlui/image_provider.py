@@ -23,10 +23,6 @@ class RasterImageProvider(QQuickImageProvider):
         with self._lock:
             self._images[str(key)] = image.copy()
 
-    def get_image(self, key: str = "preview") -> QImage:
-        with self._lock:
-            return self._images.get(str(key), QImage()).copy()
-
     def clear(self, key: str = "preview") -> None:
         with self._lock:
             self._images[str(key)] = QImage()
@@ -37,9 +33,11 @@ class RasterImageProvider(QQuickImageProvider):
             image = self._images.get(key, QImage()).copy()
 
         if image.isNull():
-            size.setWidth(0)
-            size.setHeight(0)
-            return QImage()
+            placeholder = QImage(1, 1, QImage.Format.Format_ARGB32)
+            placeholder.fill(0)
+            size.setWidth(1)
+            size.setHeight(1)
+            return placeholder
 
         # Qt expects `size` to describe the unscaled source image. The returned
         # QImage may still honor the requested display size.

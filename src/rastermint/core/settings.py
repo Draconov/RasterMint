@@ -95,6 +95,7 @@ class ProcessingSettings:
     # pipeline so old projects/presets retain identical processing semantics.
     layer_groups: list[dict[str, Any]] = field(default_factory=list)
     solo_layer_id: str = ""
+    solo_group_id: str = ""
 
     animation_duration: float = 4.0
     animation_fps: int = 12
@@ -130,6 +131,7 @@ class ProcessingSettings:
             self.display_profile = {}
         self.layer_groups = canonicalize_layer_groups(self.layer_groups)
         self.solo_layer_id = str(self.solo_layer_id or "")
+        self.solo_group_id = str(self.solo_group_id or "")
         if not isinstance(self.audio_envelope, list):
             self.audio_envelope = []
         cleaned_envelope: list[float] = []
@@ -181,7 +183,7 @@ class ProcessingSettings:
             "grid_enabled", "grid_preview", "grid_export", "grid_spacing",
             "grid_major_spacing", "grid_opacity", "hardware_profile_id",
             "hardware_mode", "palette", "palette_locks", "palette_name",
-            "palette_author", "palette_source", "effect_stack", "layer_groups", "solo_layer_id",
+            "palette_author", "palette_source", "effect_stack", "layer_groups", "solo_layer_id", "solo_group_id",
             "animation_duration", "animation_fps", "animation_loop", "animation_tracks",
             "audio_envelope", "audio_envelope_rate", "random_locks",
         }
@@ -264,6 +266,7 @@ class ProcessingSettings:
             obj.effect_stack = []
         obj.layer_groups = canonicalize_layer_groups(obj.layer_groups)
         obj.solo_layer_id = str(obj.solo_layer_id or "")
+        obj.solo_group_id = str(obj.solo_group_id or "")
         if not isinstance(obj.animation_tracks, list):
             obj.animation_tracks = []
         if not isinstance(obj.audio_envelope, list):

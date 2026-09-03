@@ -6,26 +6,30 @@ ToolTip {
 
     delay: 350
     timeout: 10000
-    padding: 8
-    leftPadding: 9
-    rightPadding: 9
+    margins: 8
+    leftPadding: 10
+    rightPadding: 10
+    topPadding: 6
+    bottomPadding: 6
+    closePolicy: Popup.NoAutoClose
 
-    implicitWidth: Math.min(420, Math.max(80, tooltipText.implicitWidth + leftPadding + rightPadding))
-    implicitHeight: tooltipText.implicitHeight + topPadding + bottomPadding
+    implicitWidth: Math.ceil(contentItem.implicitWidth) + leftPadding + rightPadding
+    implicitHeight: Math.ceil(contentItem.implicitHeight) + topPadding + bottomPadding
 
     contentItem: Text {
-        id: tooltipText
         text: control.text
         color: theme.textColor
-        font.pixelSize: 12
-        wrapMode: Text.WordWrap
-        width: Math.min(390, implicitWidth)
+        font.pixelSize: 11
+        wrapMode: Text.NoWrap
+        maximumLineCount: 6
+        elide: Text.ElideRight
     }
 
     background: Rectangle {
-        color: theme.panelRaisedColor
-        border.color: theme.borderColor
+        radius: 6
+        color: theme.panelColor
         border.width: 1
-        radius: 5
+        border.color: theme.accentColor
+        opacity: 0.98
     }
 }

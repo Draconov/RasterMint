@@ -35,8 +35,13 @@ from rastermint.core.layer_groups import (
     create_layer_group,
     drop_group_on_layer,
     drop_layer,
+    duplicate_layer_group,
+    group_effective_enabled_for_solo,
+    layer_indices_for_group,
     next_group_name,
     prune_layer_groups,
+    step_effective_enabled_for_solo,
+    ungroup_layer_group,
     ungroup_layers,
 )
 from rastermint.core.lospec import fetch_lospec_palette
@@ -333,6 +338,7 @@ class RasterMintBackend(QObject):
         self.layer_model.replace(self.settings.effect_stack, self.settings.layer_groups)
         self._selected_layer = min(len(self.settings.effect_stack) - 1, 0)
         self._selected_layers: set[int] = {self._selected_layer} if self._selected_layer >= 0 else set()
+        self._layer_selection_anchor = self._selected_layer
         self._layer_clipboard: dict[str, Any] | None = None
 
         self._source_image: Any | None = None
@@ -881,6 +887,18 @@ class RasterMintBackend(QObject):
     def selectedLayerSolo(self) -> bool:
         item = self.layer_model.item(self._selected_layer)
         return bool(item and str(item.get("id", "")) == str(self.settings.solo_layer_id or ""))
+
+    @Property(str, notify=settingsChanged)
+    def soloLayerId(self) -> str:
+        return str(self.settings.solo_layer_id or "")
+
+    @Property(str, notify=settingsChanged)
+    def soloLayerGroupId(self) -> str:
+        return str(self.settings.solo_group_id or "")
+
+    @Property(bool, notify=settingsChanged)
+    def soloActive(self) -> bool:
+        return bool(self.settings.solo_layer_id or self.settings.solo_group_id)
 
     @Property("QVariantList", notify=settingsChanged)
     def layerGroups(self) -> list[dict[str, Any]]:
@@ -1605,6 +1623,7 @@ class RasterMintBackend(QObject):
         self._selected_layers = {int(i) for i in raw_selected if isinstance(i, (int, float)) and int(i) >= 0}
         if not self._selected_layers:
             self._selected_layers = {self._selected_layer}
+        self._layer_selection_anchor = self._selected_layer
         self._preserve_audio = bool(state.get("preserve_audio", self._preserve_audio))
         preview_mode = str(state.get("preview_mode", self._preview_mode)).title()
         if preview_mode in {"Quick", "Stable", "Full"}:
@@ -1668,6 +1687,7 @@ class RasterMintBackend(QObject):
                 self.customDitherMatrixChanged.emit()
         self._selected_layer = desired_layer
         self._selected_layers = {desired_layer} if canonical.effect_stack else set()
+        self._layer_selection_anchor = desired_layer
         self.layer_model.replace(self.settings.effect_stack, self.settings.layer_groups)
         self._settings_revision += 1
         self._reset_preview_temporal_state()
@@ -1987,6 +2007,7 @@ class RasterMintBackend(QObject):
         if 0 <= index < len(self.settings.effect_stack):
             self._selected_layer = index
             self._selected_layers = {index}
+            self._layer_selection_anchor = index
             self.layerSelectionChanged.emit()
             self.layerWorkflowChanged.emit()
 
@@ -2000,12 +2021,28 @@ class RasterMintBackend(QObject):
         else:
             self._selected_layers.add(index)
             self._selected_layer = index
+            self._layer_selection_anchor = index
+        self.layerSelectionChanged.emit()
+        self.layerWorkflowChanged.emit()
+
+    @Slot(int)
+    def selectLayerRange(self, index: int) -> None:
+        index = int(index)
+        if not (0 <= index < len(self.settings.effect_stack)):
+            return
+        anchor = int(self._layer_selection_anchor if self._layer_selection_anchor >= 0 else self._selected_layer)
+        anchor = max(0, min(anchor, len(self.settings.effect_stack) - 1))
+        start = min(anchor, index)
+        end = max(anchor, index)
+        self._selected_layer = index
+        self._selected_layers = set(range(start, end + 1))
         self.layerSelectionChanged.emit()
         self.layerWorkflowChanged.emit()
 
     @Slot()
     def clearLayerMultiSelection(self) -> None:
         self._selected_layers = {self._selected_layer} if self._selected_layer >= 0 else set()
+        self._layer_selection_anchor = self._selected_layer
         self.layerWorkflowChanged.emit()
 
     @Slot(str)
@@ -2214,20 +2251,26 @@ class RasterMintBackend(QObject):
         stack[self._selected_layer] = reset
         self._replace_layer_metadata(stack, self._selected_layer, f"Reset layer: {kind}")
 
-    @Slot()
-    def toggleSoloSelectedLayer(self) -> None:
+    @Slot(int)
+    def toggleSoloLayer(self, index: int) -> None:
         stack = normalize_effect_stack(self.settings.effect_stack, self.settings)
-        if not (0 <= self._selected_layer < len(stack)):
+        index = int(index)
+        if not (0 <= index < len(stack)):
             return
-        layer_id = str(stack[self._selected_layer].get("id", ""))
+        layer_id = str(stack[index].get("id", ""))
         data = self.settings.to_dict()
-        data["solo_layer_id"] = "" if str(self.settings.solo_layer_id or "") == layer_id else layer_id
-        enabled = bool(data["solo_layer_id"])
+        enabled = str(self.settings.solo_layer_id or "") != layer_id
+        data["solo_layer_id"] = layer_id if enabled else ""
+        data["solo_group_id"] = ""
         self._replace_settings(
             ProcessingSettings.from_dict(data),
-            action=f"Solo {stack[self._selected_layer].get('kind', 'Layer')}: {'On' if enabled else 'Off'}",
-            selected_layer=self._selected_layer,
+            action=f"Solo {stack[index].get('kind', 'Layer')}: {'On' if enabled else 'Off'}",
+            selected_layer=index,
         )
+
+    @Slot()
+    def toggleSoloSelectedLayer(self) -> None:
+        self.toggleSoloLayer(self._selected_layer)
 
     @Slot()
     def removeSelectedLayers(self) -> None:
@@ -2244,6 +2287,9 @@ class RasterMintBackend(QObject):
         data["layer_groups"] = groups
         if str(data.get("solo_layer_id", "")) in removed_ids:
             data["solo_layer_id"] = ""
+        valid_group_ids = {str(group.get("id", "")) for group in groups}
+        if str(data.get("solo_group_id", "")) not in valid_group_ids:
+            data["solo_group_id"] = ""
         self._replace_settings(
             ProcessingSettings.from_dict(data),
             action=f"Removed {len(selected)} layer{'s' if len(selected) != 1 else ''}: {', '.join(removed_names[:3])}",
@@ -2293,14 +2339,17 @@ class RasterMintBackend(QObject):
         data = self.settings.to_dict()
         data["effect_stack"] = stack
         data["layer_groups"] = groups
+        valid_group_ids = {str(group.get("id", "")) for group in groups}
+        if str(data.get("solo_group_id", "")) not in valid_group_ids:
+            data["solo_group_id"] = ""
         self._replace_settings(
             ProcessingSettings.from_dict(data),
             action=f"Ungrouped {len(selected)} layer{'s' if len(selected) != 1 else ''}",
             selected_layer=selected[-1],
         )
 
-    @Slot(int, int, str)
-    def dropLayer(self, source: int, target: int, mode: str) -> None:
+    @Slot(int, int, str, str)
+    def dropLayer(self, source: int, target: int, mode: str, target_group_id: str = "") -> None:
         stack = normalize_effect_stack(self.settings.effect_stack, self.settings)
         source = int(source)
         target = int(target)
@@ -2331,6 +2380,7 @@ class RasterMintBackend(QObject):
                 mode,
                 new_group_id=group_id,
                 new_group_name=group_name,
+                target_group_id=str(target_group_id or ""),
             )
         except ValueError as exc:
             self._set_status(str(exc))
@@ -2339,6 +2389,9 @@ class RasterMintBackend(QObject):
         data = self.settings.to_dict()
         data["effect_stack"] = stack
         data["layer_groups"] = groups
+        valid_group_ids = {str(group.get("id", "")) for group in groups}
+        if str(data.get("solo_group_id", "")) not in valid_group_ids:
+            data["solo_group_id"] = ""
         self._replace_settings(
             ProcessingSettings.from_dict(data),
             action=(
@@ -2375,6 +2428,9 @@ class RasterMintBackend(QObject):
         data = self.settings.to_dict()
         data["effect_stack"] = stack
         data["layer_groups"] = groups
+        valid_group_ids = {str(group.get("id", "")) for group in groups}
+        if str(data.get("solo_group_id", "")) not in valid_group_ids:
+            data["solo_group_id"] = ""
         self._replace_settings(
             ProcessingSettings.from_dict(data),
             action="Nested layer group",
@@ -2392,6 +2448,26 @@ class RasterMintBackend(QObject):
             return ""
         return str(self.settings.effect_stack[index].get("group_id", "") or "")
 
+    @Slot(int, result=bool)
+    def layerEffectiveEnabled(self, index: int) -> bool:
+        index = int(index)
+        if not (0 <= index < len(self.settings.effect_stack)):
+            return False
+        return step_effective_enabled_for_solo(
+            self.settings.effect_stack[index],
+            self.settings.layer_groups,
+            solo_layer_id=str(self.settings.solo_layer_id or ""),
+            solo_group_id=str(self.settings.solo_group_id or ""),
+        )
+
+    @Slot(int, str, result=bool)
+    def layerIsInGroup(self, index: int, group_id: str) -> bool:
+        index = int(index)
+        key = str(group_id or "")
+        if not key or not (0 <= index < len(self.settings.effect_stack)):
+            return False
+        return key in self._layer_group_path_for_step(self.settings.effect_stack[index])
+
     @Slot(str, result=str)
     def layerGroupName(self, group_id: str) -> str:
         group = self._group_by_id(group_id)
@@ -2406,6 +2482,40 @@ class RasterMintBackend(QObject):
     def layerGroupEnabled(self, group_id: str) -> bool:
         group = self._group_by_id(group_id)
         return bool(group is None or group.get("enabled", True))
+
+    @Slot(str, result=bool)
+    def layerGroupEffectiveEnabled(self, group_id: str) -> bool:
+        return group_effective_enabled_for_solo(
+            str(group_id or ""),
+            self.settings.effect_stack,
+            self.settings.layer_groups,
+            solo_layer_id=str(self.settings.solo_layer_id or ""),
+            solo_group_id=str(self.settings.solo_group_id or ""),
+        )
+
+    @Slot(str, result=float)
+    def layerGroupOpacity(self, group_id: str) -> float:
+        group = self._group_by_id(group_id)
+        return float(group.get("opacity", 1.0) or 0.0) if group else 1.0
+
+    @Slot(str, result=str)
+    def layerGroupBlendMode(self, group_id: str) -> str:
+        group = self._group_by_id(group_id)
+        return str(group.get("blend_mode", "Normal") or "Normal") if group else "Normal"
+
+    @Slot(str, result=str)
+    def layerGroupColor(self, group_id: str) -> str:
+        group = self._group_by_id(group_id)
+        return str(group.get("color_label", "") or "") if group else ""
+
+    @Slot(str, result=str)
+    def layerGroupNote(self, group_id: str) -> str:
+        group = self._group_by_id(group_id)
+        return str(group.get("note", "") or "") if group else ""
+
+    @Slot(str, result=bool)
+    def layerGroupSolo(self, group_id: str) -> bool:
+        return str(self.settings.solo_group_id or "") == str(group_id or "")
 
     @Slot(str, result=int)
     def layerGroupCount(self, group_id: str) -> int:
@@ -2448,11 +2558,81 @@ class RasterMintBackend(QObject):
     def setLayerGroupEnabled(self, group_id: str, enabled: bool) -> None:
         self._update_group(group_id, "enabled", bool(enabled), f"Layer group: {'Enabled' if enabled else 'Disabled'}")
 
+    @Slot(str, float)
+    def setLayerGroupOpacity(self, group_id: str, opacity: float) -> None:
+        self._update_group(group_id, "opacity", max(0.0, min(1.0, float(opacity))), f"Layer group opacity: {round(max(0.0, min(1.0, float(opacity))) * 100)}%")
+
+    @Slot(str, str)
+    def setLayerGroupBlendMode(self, group_id: str, mode: str) -> None:
+        clean = str(mode or "Normal") or "Normal"
+        self._update_group(group_id, "blend_mode", clean, f"Layer group blend mode: {clean}")
+
+    @Slot(str, str)
+    def setLayerGroupColor(self, group_id: str, color: str) -> None:
+        clean = str(color or "").strip()
+        self._update_group(group_id, "color_label", clean, "Layer group colour label")
+
+    @Slot(str, str)
+    def setLayerGroupNote(self, group_id: str, note: str) -> None:
+        self._update_group(group_id, "note", str(note or ""), "Layer group note")
+
+    @Slot(str)
+    def toggleSoloLayerGroup(self, group_id: str) -> None:
+        clean = str(group_id or "")
+        if not clean or self._group_by_id(clean) is None:
+            return
+        data = self.settings.to_dict()
+        enabled = str(self.settings.solo_group_id or "") != clean
+        data["solo_group_id"] = clean if enabled else ""
+        data["solo_layer_id"] = ""
+        self._replace_settings(
+            ProcessingSettings.from_dict(data),
+            action=f"Solo layer group: {'On' if enabled else 'Off'}",
+            selected_layer=self._selected_layer,
+        )
+
     @Slot(str, str)
     def renameLayerGroup(self, group_id: str, name: str) -> None:
         clean = str(name or "").strip()
         if clean:
             self._update_group(group_id, "name", clean, f"Renamed layer group: {clean}")
+
+    @Slot(str)
+    def duplicateLayerGroup(self, group_id: str) -> None:
+        clean = str(group_id or "")
+        if not clean:
+            return
+        stack = normalize_effect_stack(self.settings.effect_stack, self.settings)
+        stack, groups, duplicated_id = duplicate_layer_group(stack, self.settings.layer_groups, clean)
+        if not duplicated_id:
+            return
+        indices = layer_indices_for_group(stack, groups, duplicated_id)
+        data = self.settings.to_dict()
+        data["effect_stack"] = stack
+        data["layer_groups"] = groups
+        self._replace_settings(
+            ProcessingSettings.from_dict(data),
+            action="Duplicated layer group",
+            selected_layer=indices[0] if indices else self._selected_layer,
+        )
+
+    @Slot(str)
+    def ungroupLayerGroup(self, group_id: str) -> None:
+        clean = str(group_id or "")
+        if not clean:
+            return
+        stack = normalize_effect_stack(self.settings.effect_stack, self.settings)
+        stack, groups = ungroup_layer_group(stack, self.settings.layer_groups, clean)
+        data = self.settings.to_dict()
+        data["effect_stack"] = stack
+        data["layer_groups"] = groups
+        if str(data.get("solo_group_id", "")) == clean:
+            data["solo_group_id"] = ""
+        self._replace_settings(
+            ProcessingSettings.from_dict(data),
+            action="Ungrouped layer group",
+            selected_layer=self._selected_layer,
+        )
 
     @Slot(str, "QVariant")
     def setLayerParam(self, key: str, value: Any) -> None:

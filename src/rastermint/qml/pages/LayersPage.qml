@@ -11,15 +11,29 @@ Item {
     // layers; edge drops keep reorder semantics and can pull a layer out one level.
     property int dragSourceIndex: -1
     property int dragTargetIndex: -1
+    property string dragTargetGroupId: ""
     property string dragDropMode: "before"
     property real dragDeltaX: 0
     property real dragDeltaY: 0
     property string groupDragId: ""
     property int groupDragTargetIndex: -1
     property string editingGroupId: ""
+    property string selectedGroupId: ""
+    property var groupColorOptions: [
+        {"name": qsTr("None"), "value": ""},
+        {"name": qsTr("Red"), "value": "#ff5f56"},
+        {"name": qsTr("Orange"), "value": "#ff9f43"},
+        {"name": qsTr("Yellow"), "value": "#feca57"},
+        {"name": qsTr("Green"), "value": "#2ed573"},
+        {"name": qsTr("Cyan"), "value": "#48dbfb"},
+        {"name": qsTr("Blue"), "value": "#54a0ff"},
+        {"name": qsTr("Purple"), "value": "#a55eea"},
+        {"name": qsTr("Pink"), "value": "#ff6bcb"}
+    ]
     readonly property int layerRowHeight: 48
     readonly property int layerRowSpacing: 4
     readonly property int groupHeaderHeight: 34
+    focus: true
 
     // Keep one stable parameter-editor model while a slider is held.
     // The backend emits layerSelectionChanged for every live parameter update;
@@ -27,6 +41,10 @@ Item {
     // releases its mouse grab. We therefore resync only after the gesture ends.
     property bool parameterInteractionActive: false
     property var editorLayerParams: []
+    property var selectedGroupData: root.groupData(root.selectedGroupId)
+    property real dragIndicatorY: -1
+    property real dragIndicatorX: 0
+    property real dragIndicatorWidth: 0
 
     // Glyph picker metadata mirrors the core's 48 built-in sets plus Custom.
     // The actual characters and density analysis stay in Python; QML only needs
@@ -96,12 +114,51 @@ Item {
         return bestIndex
     }
 
+    function groupData(groupId) {
+        var key = String(groupId || "")
+        var groups = backend.layerGroups
+        for (var i = 0; i < groups.length; ++i) {
+            if (String(groups[i].id || "") === key)
+                return groups[i]
+        }
+        return {"id": "", "name": "", "opacity": 1.0, "blend_mode": "Normal", "color_label": "", "note": ""}
+    }
+
+    function clearLayerDragIndicator() {
+        dragIndicatorY = -1
+        dragIndicatorX = 0
+        dragIndicatorWidth = 0
+        dragTargetGroupId = ""
+    }
+
+    function setLayerDragIndicator(x, y, width) {
+        dragIndicatorX = x
+        dragIndicatorY = y
+        dragIndicatorWidth = width
+    }
+
+    function lastVisibleLayerIndexInGroup(groupId) {
+        var key = String(groupId || "")
+        var lastIndex = -1
+        for (var i = 0; i < layerList.count; ++i) {
+            var item = layerList.itemAtIndex(i)
+            if (!item || item.height <= 0)
+                continue
+            if (backend.layerIsInGroup(i, key))
+                lastIndex = i
+        }
+        return lastIndex
+    }
+
     function beginLayerDrag(index) {
+        selectedGroupId = ""
         dragSourceIndex = index
         dragTargetIndex = index
+        dragTargetGroupId = ""
         dragDropMode = "before"
         dragDeltaX = 0
         dragDeltaY = 0
+        clearLayerDragIndicator()
         backend.selectLayer(index)
     }
 
@@ -113,43 +170,97 @@ Item {
             return
         dragDeltaX = deltaX
         dragDeltaY = deltaY
+        dragTargetGroupId = ""
         if (deltaX < -28 && backend.layerDirectGroupId(dragSourceIndex) !== "") {
             dragTargetIndex = dragSourceIndex
             dragDropMode = "ungroup"
+            clearLayerDragIndicator()
             return
         }
         var centerY = sourceItem.y + sourceItem.layerCardY + root.layerRowHeight / 2 + deltaY
         var target = nearestVisibleLayerIndex(centerY)
-        if (target < 0)
-            return
-        dragTargetIndex = target
-        if (target === dragSourceIndex) {
-            dragDropMode = "before"
+        if (target < 0) {
+            clearLayerDragIndicator()
             return
         }
+        dragTargetIndex = target
         var targetItem = layerList.itemAtIndex(target)
-        if (!targetItem || !targetItem.layerContentShown) {
+        if (!targetItem) {
+            clearLayerDragIndicator()
+            return
+        }
+        var yInItem = centerY - targetItem.y
+        if (targetItem.headerData.length > 0 && yInItem >= 0 && yInItem < targetItem.layerCardY) {
+            var headerStride = root.groupHeaderHeight + 2
+            var headerIndex = Math.max(0, Math.min(targetItem.headerData.length - 1, Math.floor(yInItem / headerStride)))
+            var header = targetItem.headerData[headerIndex]
             dragDropMode = "into"
+            dragTargetGroupId = String(header.id || "")
+            var lastMemberIndex = lastVisibleLayerIndexInGroup(dragTargetGroupId)
+            if (lastMemberIndex >= 0) {
+                var lastMemberItem = layerList.itemAtIndex(lastMemberIndex)
+                if (lastMemberItem && lastMemberItem.layerContentShown) {
+                    setLayerDragIndicator(
+                        lastMemberItem.layerIndent + 14,
+                        lastMemberItem.y + lastMemberItem.layerCardY + root.layerRowHeight - 1,
+                        Math.max(80, layerList.width - (lastMemberItem.layerIndent + 24)))
+                    return
+                }
+            }
+            setLayerDragIndicator(
+                Math.max(14, Number(header.depth || 1) * 12 + 14),
+                targetItem.y + headerIndex * headerStride + root.groupHeaderHeight - 1,
+                Math.max(80, layerList.width - (Math.max(14, Number(header.depth || 1) * 12 + 24))))
+            return
+        }
+        if (target === dragSourceIndex) {
+            dragDropMode = "before"
+            clearLayerDragIndicator()
+            return
+        }
+        if (!targetItem.layerContentShown) {
+            dragDropMode = "into"
+            clearLayerDragIndicator()
             return
         }
         var localY = centerY - (targetItem.y + targetItem.layerCardY)
-        if (localY >= root.layerRowHeight * 0.25 && localY <= root.layerRowHeight * 0.75)
+        var targetGroup = backend.layerDirectGroupId(target)
+        if (localY >= root.layerRowHeight * 0.25 && localY <= root.layerRowHeight * 0.75) {
             dragDropMode = "into"
-        else
-            dragDropMode = localY < root.layerRowHeight * 0.5 ? "before" : "after"
+            dragTargetGroupId = String(targetGroup || "")
+            setLayerDragIndicator(
+                targetItem.layerIndent + 14,
+                targetItem.y + targetItem.layerCardY + root.layerRowHeight - 1,
+                Math.max(80, layerList.width - (targetItem.layerIndent + 24)))
+        } else if (localY < root.layerRowHeight * 0.5) {
+            dragDropMode = "before"
+            setLayerDragIndicator(
+                targetItem.layerIndent + 8,
+                targetItem.y + targetItem.layerCardY - 1,
+                Math.max(80, layerList.width - (targetItem.layerIndent + 18)))
+        } else {
+            dragDropMode = "after"
+            setLayerDragIndicator(
+                targetItem.layerIndent + 8,
+                targetItem.y + targetItem.layerCardY + root.layerRowHeight - 1,
+                Math.max(80, layerList.width - (targetItem.layerIndent + 18)))
+        }
     }
 
     function finishLayerDrag() {
         var source = dragSourceIndex
         var target = dragTargetIndex
         var mode = dragDropMode
+        var targetGroupId = dragTargetGroupId
         dragSourceIndex = -1
         dragTargetIndex = -1
+        dragTargetGroupId = ""
         dragDropMode = "before"
         dragDeltaX = 0
         dragDeltaY = 0
+        clearLayerDragIndicator()
         if (source >= 0 && target >= 0 && (source !== target || mode === "ungroup"))
-            backend.dropLayer(source, target, mode)
+            backend.dropLayer(source, target, mode, targetGroupId)
     }
 
     function beginGroupDrag(groupId) {
@@ -173,6 +284,7 @@ Item {
     }
 
     function beginGroupRename(groupId, name) {
+        selectedGroupId = String(groupId || "")
         editingGroupId = String(groupId || "")
     }
 
@@ -209,6 +321,16 @@ Item {
                 return editorLayerParams[i].value
         }
         return fallback
+    }
+
+    function groupExists(groupId) {
+        var key = String(groupId || "")
+        return key !== "" && backend.layerGroupName(key) !== ""
+    }
+
+    function ensureSelectedGroupValid() {
+        if (!groupExists(selectedGroupId))
+            selectedGroupId = ""
     }
 
     function paramVisible(param) {
@@ -294,6 +416,19 @@ Item {
         function onLayerSelectionChanged() {
             root.syncEditorLayerParams()
         }
+        function onLayerWorkflowChanged() {
+            root.ensureSelectedGroupValid()
+        }
+        function onSettingsChanged() {
+            root.ensureSelectedGroupValid()
+        }
+    }
+
+    Keys.onPressed: function(event) {
+        if (event.key === Qt.Key_F2 && root.groupExists(root.selectedGroupId)) {
+            root.beginGroupRename(root.selectedGroupId, backend.layerGroupName(root.selectedGroupId))
+            event.accepted = true
+        }
     }
 
     ColumnLayout {
@@ -361,17 +496,24 @@ Item {
                             width: Math.max(80, groupHeaderColumn.width - x)
                             height: root.groupHeaderHeight
                             radius: 6
+                            readonly property string groupColorCode: String(groupHeader.modelData.color_label || "")
+                            readonly property color tintedBaseColor: groupColorCode !== ""
+                                                                     ? Qt.tint(theme.panelColor, Qt.alpha(groupColorCode, groupHeaderHover.hovered ? 0.28 : 0.20))
+                                                                     : (groupHeaderHover.hovered ? theme.panelHoverColor : theme.panelColor)
                             color: groupIsDragging
                                    ? theme.selectionColor
-                                   : (groupHeaderHover.hovered ? theme.panelHoverColor : theme.panelColor)
-                            border.color: groupIsDragging ? theme.accentColor : theme.borderColor
-                            border.width: groupIsDragging ? 2 : 1
+                                   : (root.selectedGroupId === String(groupHeader.modelData.id)
+                                      ? Qt.tint(tintedBaseColor, Qt.alpha(theme.accentColor, 0.20))
+                                      : tintedBaseColor)
+                            border.color: groupIsDragging || root.selectedGroupId === String(groupHeader.modelData.id)
+                                          ? theme.accentColor : theme.borderColor
+                            border.width: groupIsDragging || root.selectedGroupId === String(groupHeader.modelData.id) ? 2 : 1
 
                             RowLayout {
                                 anchors.fill: parent
-                                anchors.leftMargin: 5
-                                anchors.rightMargin: 6
-                                spacing: 5
+                                anchors.leftMargin: 8
+                                anchors.rightMargin: 8
+                                spacing: 6
 
                                 MintButton {
                                     id: collapseGroupButton
@@ -388,8 +530,33 @@ Item {
                                 }
 
                                 MintCheckBox {
-                                    checked: Boolean(groupHeader.modelData.enabled)
-                                    onToggled: backend.setLayerGroupEnabled(String(groupHeader.modelData.id), checked)
+                                    id: groupEnabledToggle
+                                    checked: backend.soloActive
+                                             ? backend.layerGroupEffectiveEnabled(String(groupHeader.modelData.id))
+                                             : Boolean(groupHeader.modelData.enabled)
+
+                                    MouseArea {
+                                        id: groupEnabledToggleMouse
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        acceptedButtons: Qt.LeftButton
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: function(mouse) {
+                                            root.selectedGroupId = String(groupHeader.modelData.id)
+                                            if (mouse.modifiers & Qt.AltModifier)
+                                                backend.toggleSoloLayerGroup(String(groupHeader.modelData.id))
+                                            else
+                                                backend.setLayerGroupEnabled(
+                                                    String(groupHeader.modelData.id),
+                                                    !Boolean(groupHeader.modelData.enabled))
+                                        }
+                                    }
+
+                                    MintToolTip {
+                                        visible: groupEnabledToggleMouse.containsMouse
+                                        delay: 350
+                                        text: qsTr("Alt+Click to solo this group")
+                                    }
                                 }
 
                                 Item {
@@ -429,13 +596,52 @@ Item {
                                     MouseArea {
                                         anchors.fill: parent
                                         enabled: root.editingGroupId !== String(groupHeader.modelData.id)
-                                        acceptedButtons: Qt.LeftButton
-                                        onDoubleClicked: root.beginGroupRename(groupHeader.modelData.id, groupHeader.modelData.name)
+                                        acceptedButtons: Qt.LeftButton | Qt.RightButton
+                                        onClicked: function(mouse) {
+                                            root.selectedGroupId = String(groupHeader.modelData.id)
+                                            if (mouse.button === Qt.RightButton)
+                                                backend.ungroupLayerGroup(String(groupHeader.modelData.id))
+                                        }
+                                        onDoubleClicked: {
+                                            root.selectedGroupId = String(groupHeader.modelData.id)
+                                            root.beginGroupRename(groupHeader.modelData.id, groupHeader.modelData.name)
+                                        }
                                     }
                                 }
                             }
 
                             HoverHandler { id: groupHeaderHover }
+
+                            Timer {
+                                interval: 700
+                                repeat: false
+                                running: Boolean(groupHeader.modelData.collapsed)
+                                         && (root.dragSourceIndex >= 0 || root.groupDragId !== "")
+                                         && (!groupIsDragging)
+                                         && ((root.dragTargetIndex === index && root.dragDropMode === "into")
+                                             || root.groupDragTargetIndex === index)
+                                onTriggered: backend.setLayerGroupCollapsed(String(groupHeader.modelData.id), false)
+                            }
+
+                            MintToolTip {
+                                visible: groupHeaderHover.hovered
+                                         && !groupEnabledToggleMouse.containsMouse
+                                         && !collapseGroupButton.hovered
+                                         && !groupIsDragging
+                                delay: 450
+                                timeout: 10000
+                                text: {
+                                    var parts = []
+                                    parts.push(String(groupHeader.modelData.name || ""))
+                                    var mix = []
+                                    mix.push(Math.round(Number(groupHeader.modelData.opacity || 1) * 100) + "%")
+                                    mix.push(qsTr(String(groupHeader.modelData.blend_mode || "Normal")))
+                                    if (String(groupHeader.modelData.note || "") !== "")
+                                        parts.push(String(groupHeader.modelData.note))
+                                    parts.push(mix.join(" · "))
+                                    return parts.join("\n")
+                                }
+                            }
 
                             DragHandler {
                                 id: groupDrag
@@ -477,15 +683,8 @@ Item {
                     color: layerDelegate.multiSelected
                            ? theme.selectionColor
                            : (layerHover.hovered ? theme.panelHoverColor : theme.panelRaisedColor)
-                    border.color: layerDelegate.isDragging
-                                  || (root.dragSourceIndex >= 0 && root.dragTargetIndex === index)
-                                  || (root.groupDragId !== "" && root.groupDragTargetIndex === index)
-                                  ? theme.accentColor
-                                  : theme.borderColor
-                    border.width: layerDelegate.isDragging
-                                  || (root.dragSourceIndex >= 0 && root.dragTargetIndex === index)
-                                  || (root.groupDragId !== "" && root.groupDragTargetIndex === index)
-                                  ? 2 : 1
+                    border.color: layerDelegate.isDragging ? theme.accentColor : theme.borderColor
+                    border.width: layerDelegate.isDragging ? 2 : 1
                     opacity: layerDelegate.isDragging ? 0.88 : 1.0
 
                     transform: Translate {
@@ -499,8 +698,30 @@ Item {
                         spacing: 7
 
                         MintCheckBox {
-                            checked: layerEnabled
-                            onToggled: backend.setLayerEnabled(index, checked)
+                            id: layerEnabledToggle
+                            checked: backend.soloActive ? backend.layerEffectiveEnabled(index) : layerEnabled
+
+                            MouseArea {
+                                id: layerEnabledToggleMouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                acceptedButtons: Qt.LeftButton
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: function(mouse) {
+                                    root.selectedGroupId = ""
+                                    backend.selectLayer(index)
+                                    if (mouse.modifiers & Qt.AltModifier)
+                                        backend.toggleSoloLayer(index)
+                                    else
+                                        backend.setLayerEnabled(index, !Boolean(layerEnabled))
+                                }
+                            }
+
+                            MintToolTip {
+                                visible: layerEnabledToggleMouse.containsMouse
+                                delay: 350
+                                text: qsTr("Alt+Click to solo this layer")
+                            }
                         }
 
                         ColumnLayout {
@@ -546,11 +767,24 @@ Item {
 
                     TapHandler {
                         acceptedModifiers: Qt.NoModifier
-                        onTapped: backend.selectLayer(index)
+                        onTapped: {
+                            root.selectedGroupId = ""
+                            backend.selectLayer(index)
+                        }
                     }
                     TapHandler {
                         acceptedModifiers: Qt.ControlModifier
-                        onTapped: backend.toggleLayerSelection(index)
+                        onTapped: {
+                            root.selectedGroupId = ""
+                            backend.toggleLayerSelection(index)
+                        }
+                    }
+                    TapHandler {
+                        acceptedModifiers: Qt.ShiftModifier
+                        onTapped: {
+                            root.selectedGroupId = ""
+                            backend.selectLayerRange(index)
+                        }
                     }
 
                     DragHandler {
@@ -576,12 +810,27 @@ Item {
                     }
 
                     MintToolTip {
-                        visible: layerHover.hovered && !cardDrag.active && root.effectDescription(kind) !== ""
+                        visible: layerHover.hovered
+                                 && !layerEnabledToggleMouse.containsMouse
+                                 && !cardDrag.active
+                                 && root.effectDescription(kind) !== ""
                         delay: 500
                         timeout: 10000
                         text: root.effectDescription(kind)
                     }
                 }
+            }
+
+            Rectangle {
+                parent: layerList.contentItem
+                x: root.dragIndicatorX
+                y: root.dragIndicatorY
+                width: root.dragIndicatorWidth
+                height: 3
+                radius: 2
+                color: theme.accentColor
+                visible: root.dragSourceIndex >= 0 && root.dragIndicatorY >= 0 && root.dragDropMode !== "ungroup"
+                z: 40
             }
         }
 
@@ -590,24 +839,140 @@ Item {
             spacing: 4
             MintButton {
                 Layout.fillWidth: true
-                text: qsTr("Duplicate")
-                enabled: backend.selectedLayerName !== "Hardware Limits" && backend.selectedLayerName !== "Hardware Display"
-                onClicked: backend.duplicateSelectedLayer()
+                text: root.groupExists(root.selectedGroupId) ? qsTr("Duplicate Group") : qsTr("Duplicate")
+                enabled: root.groupExists(root.selectedGroupId)
+                         || (backend.selectedLayerName !== "Hardware Limits" && backend.selectedLayerName !== "Hardware Display")
+                onClicked: {
+                    if (root.groupExists(root.selectedGroupId))
+                        backend.duplicateLayerGroup(root.selectedGroupId)
+                    else
+                        backend.duplicateSelectedLayer()
+                }
             }
-            MintButton { Layout.fillWidth: true; text: qsTr("Copy"); onClicked: backend.copySelectedLayerSettings() }
-            MintButton { Layout.fillWidth: true; text: qsTr("Paste"); enabled: backend.layerClipboardAvailable; onClicked: backend.pasteSelectedLayerSettings() }
-            MintButton { Layout.fillWidth: true; text: qsTr("Reset"); onClicked: backend.resetSelectedLayer() }
+            MintButton {
+                Layout.fillWidth: true
+                text: qsTr("Copy")
+                enabled: !root.groupExists(root.selectedGroupId)
+                onClicked: backend.copySelectedLayerSettings()
+            }
+            MintButton {
+                Layout.fillWidth: true
+                text: qsTr("Paste")
+                enabled: !root.groupExists(root.selectedGroupId) && backend.layerClipboardAvailable
+                onClicked: backend.pasteSelectedLayerSettings()
+            }
+            MintButton {
+                Layout.fillWidth: true
+                text: qsTr("Reset")
+                enabled: !root.groupExists(root.selectedGroupId)
+                onClicked: backend.resetSelectedLayer()
+            }
         }
         RowLayout {
             Layout.fillWidth: true
             spacing: 4
-            MintButton { Layout.fillWidth: true; text: backend.selectedLayerSolo ? qsTr("Unsolo") : qsTr("Solo"); onClicked: backend.toggleSoloSelectedLayer() }
-            MintButton { Layout.fillWidth: true; text: qsTr("Group"); onClicked: backend.groupSelectedLayers() }
-            MintButton { Layout.fillWidth: true; text: qsTr("Ungroup"); onClicked: backend.ungroupSelectedLayers() }
             MintButton {
                 Layout.fillWidth: true
+                text: backend.selectedLayerSolo ? qsTr("Unsolo") : qsTr("Solo")
+                enabled: !root.groupExists(root.selectedGroupId)
+                onClicked: backend.toggleSoloSelectedLayer()
+            }
+            MintButton { Layout.fillWidth: true; text: qsTr("Group"); onClicked: backend.groupSelectedLayers() }
+            MintButton {
+                Layout.fillWidth: true
+                text: root.groupExists(root.selectedGroupId) ? qsTr("Ungroup Group") : qsTr("Ungroup")
+                onClicked: {
+                    if (root.groupExists(root.selectedGroupId))
+                        backend.ungroupLayerGroup(root.selectedGroupId)
+                    else
+                        backend.ungroupSelectedLayers()
+                }
+            }
+            MintButton {
+                Layout.fillWidth: true
+                enabled: !root.groupExists(root.selectedGroupId)
                 text: backend.selectedLayerIndices.length > 1 ? qsTr("Remove %1").arg(backend.selectedLayerIndices.length) : qsTr("Remove")
                 onClicked: backend.removeSelectedLayers()
+            }
+        }
+
+        ColumnLayout {
+            Layout.fillWidth: true
+            spacing: 6
+            visible: root.groupExists(root.selectedGroupId)
+
+            MintLabel {
+                text: qsTr("Selected group") + ": " + String(root.selectedGroupData.name || "")
+                font.bold: true
+            }
+            MintLabel {
+                Layout.fillWidth: true
+                text: qsTr("%1 layer(s) inside this hierarchy").arg(backend.layerGroupCount(root.selectedGroupId))
+                color: theme.mutedTextColor
+                font.pixelSize: 10
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                MintLabel { text: qsTr("Opacity"); color: theme.mutedTextColor; Layout.fillWidth: true }
+                MintLabel { text: Math.round(Number(root.selectedGroupData.opacity || 1) * 100) + "%" }
+            }
+            MintSlider {
+                Layout.fillWidth: true
+                from: 0; to: 1; stepSize: 0.01
+                value: Number(root.selectedGroupData.opacity || 1)
+                onInteractionActiveChanged: {
+                    if (interactionActive) backend.beginHistoryGroup(backend.layerGroupName(root.selectedGroupId) + " · Group Opacity")
+                    else backend.endHistoryGroup()
+                }
+                onUserMoved: function(newValue) { backend.setLayerGroupOpacity(root.selectedGroupId, newValue) }
+            }
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 3
+                MintLabel { text: qsTr("Blend mode"); color: theme.mutedTextColor }
+                MintComboBox {
+                    Layout.fillWidth: true
+                    model: backend.layerBlendModes
+                    currentIndex: Math.max(0, backend.layerBlendModes.indexOf(String(root.selectedGroupData.blend_mode || "Normal")))
+                    onActivated: backend.setLayerGroupBlendMode(root.selectedGroupId, currentText)
+                }
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 6
+                Rectangle {
+                    Layout.preferredWidth: visible ? 12 : 0
+                    Layout.preferredHeight: visible ? 12 : 0
+                    radius: 6
+                    visible: String(root.selectedGroupData.color_label || "") !== ""
+                    color: String(root.selectedGroupData.color_label || "")
+                    border.width: 0
+                }
+                MintComboBox {
+                    id: groupColorCombo
+                    Layout.fillWidth: true
+                    model: root.groupColorOptions.map(function(item) { return item.name })
+                    currentIndex: {
+                        var current = String(root.selectedGroupData.color_label || "")
+                        for (var i = 0; i < root.groupColorOptions.length; ++i) {
+                            if (String(root.groupColorOptions[i].value) === String(current))
+                                return i
+                        }
+                        return 0
+                    }
+                    onActivated: backend.setLayerGroupColor(root.selectedGroupId, root.groupColorOptions[currentIndex].value)
+                }
+            }
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 3
+                MintLabel { text: qsTr("Group note"); color: theme.mutedTextColor }
+                MintTextField {
+                    Layout.fillWidth: true
+                    text: String(root.selectedGroupData.note || "")
+                    placeholderText: qsTr("Example: CRT finishing pass")
+                    onEditingFinished: backend.setLayerGroupNote(root.selectedGroupId, text)
+                }
             }
         }
 
