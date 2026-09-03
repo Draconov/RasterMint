@@ -9,11 +9,9 @@ on:
 permissions:
   contents: read
 
-# Do not cancel a run while it may be replacing release assets. New pushes wait,
-# then refresh the same version again with the newest successful build.
 concurrency:
-  group: rastermint-rolling-release
-  cancel-in-progress: false
+  group: rastermint-release-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -39,55 +37,63 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: pip
 
-      # QtGui/Qt Quick dynamically load Linux graphics/runtime libraries even
-      # when the QML smoke test uses the offscreen + software backends.
-      - name: Install Linux Qt runtime libraries
+      - name: Install Linux Qt test runtime
         if: runner.os == 'Linux'
         shell: bash
         run: |
+          set -euo pipefail
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
+            xvfb \
             libegl1 \
             libgl1 \
             libopengl0 \
             libxkbcommon0 \
             libxkbcommon-x11-0 \
-            libxcb-cursor0
-
-      # One test run is enough. Keeping it inside the Linux build avoids a
-      # separate fourth job on every push.
-      - name: Run tests
-        if: runner.os == 'Linux'
-        env:
-          QT_QPA_PLATFORM: offscreen
-          QSG_RHI_BACKEND: software
-        run: |
+            libxcb-cursor0 \
+            libxcb-xinerama0
           python -m pip install -e ".[dev]"
-          python -m pytest
 
-      - name: Cache lean FFmpeg packages
-        if: runner.os == 'Windows'
-        uses: actions/cache@v4
-        with:
-          path: ~/AppData/Local/vcpkg/archives
-          key: rastermint-ffmpeg-${{ runner.os }}-${{ hashFiles('build/ffmpeg-vcpkg/vcpkg.json') }}
-          restore-keys: |
-            rastermint-ffmpeg-${{ runner.os }}-
+      # Keep normal tests away from the Qt Quick process. This prevents a
+      # QGuiApplication/Qt Quick teardown crash from taking down unrelated tests.
+      - name: Run non-QML tests
+        if: runner.os == 'Linux'
+        shell: bash
+        env:
+          PYTHONFAULTHANDLER: "1"
+        run: |
+          set -euo pipefail
+          python -m pytest --ignore=tests/test_qml_runtime.py
+
+      # Qt Quick gets its own process and a virtual X server on Linux.
+      # Using xcb + software rendering is more stable than destroying an
+      # offscreen Qt Quick scene at the end of the full pytest process.
+      - name: Run QML runtime tests
+        if: runner.os == 'Linux'
+        shell: bash
+        env:
+          QT_QPA_PLATFORM: xcb
+          QT_QUICK_BACKEND: software
+          QSG_RHI_BACKEND: software
+          QT_OPENGL: software
+          LIBGL_ALWAYS_SOFTWARE: "1"
+          PYTHONFAULTHANDLER: "1"
+        run: |
+          set -euo pipefail
+          xvfb-run -a -s "-screen 0 1280x1024x24" \
+            python -m pytest tests/test_qml_runtime.py
 
       - name: Build Windows
         if: runner.os == 'Windows'
         shell: pwsh
-        # The build script tries the smaller validated FFmpeg first. If vcpkg
-        # is unavailable or fails upstream, it safely falls back to the
-        # imageio-ffmpeg binary so a size optimization cannot block releases.
         run: ./scripts/build_windows.ps1
 
       - name: Build Linux
@@ -101,7 +107,7 @@ jobs:
         run: bash scripts/build_macos.sh
 
       - name: Upload build artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
           path: ${{ matrix.artifact_path }}
@@ -118,10 +124,12 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Download all platform builds
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v4
         with:
           pattern: RasterMint-*
           path: release-assets
@@ -136,96 +144,47 @@ jobs:
           test -f release-assets/RasterMint-macOS.zip
           ls -lh release-assets
 
-      - name: Read version from VERSION
+      - name: Resolve release version
         id: version
         shell: bash
         run: |
           set -euo pipefail
-
-          if [[ ! -f VERSION ]]; then
-            echo "VERSION file is missing" >&2
+          version="$(tr -d '[:space:]' < VERSION)"
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::VERSION must contain a version such as 0.7.1"
             exit 1
           fi
-
-          version="$(tr -d '\r\n' < VERSION)"
-          if [[ -z "$version" || "$version" =~ [[:space:]] ]]; then
-            echo "VERSION must contain one non-empty version string with no spaces" >&2
-            exit 1
-          fi
-
-          tag="v$version"
           echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          echo "RasterMint version: $version"
-          echo "Rolling release tag: $tag"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
 
-      - name: Move or create release tag at this commit
+      - name: Publish or refresh rolling release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ steps.version.outputs.tag }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
 
-          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" >/dev/null 2>&1; then
-            echo "Moving existing $TAG to $GITHUB_SHA"
-            gh api \
-              --method PATCH \
-              "repos/$GITHUB_REPOSITORY/git/refs/tags/$TAG" \
-              -f sha="$GITHUB_SHA" \
-              -F force=true >/dev/null
-          else
-            echo "Creating $TAG at $GITHUB_SHA"
-            gh api \
-              --method POST \
-              "repos/$GITHUB_REPOSITORY/git/refs" \
-              -f ref="refs/tags/$TAG" \
-              -f sha="$GITHUB_SHA" >/dev/null
-          fi
+          # VERSION is the release identity. Repeated pushes at the same version
+          # replace the binaries instead of creating junk build-number releases.
+          git fetch --tags --force
+          git tag -f "$RELEASE_TAG" "$GITHUB_SHA"
+          git push origin "refs/tags/$RELEASE_TAG" --force
 
-      - name: Create or refresh GitHub Release
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ steps.version.outputs.tag }}
-          VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          set -euo pipefail
-
-          short_sha="${GITHUB_SHA::7}"
-          printf -v notes '%s\n\n%s' \
-            "Rolling build for RasterMint v${VERSION}." \
-            "Automatically rebuilt from commit \`${short_sha}\`. Every successful push to main replaces the application files for this version."
-
-          assets=(
-            release-assets/RasterMint.exe
-            release-assets/RasterMint-linux-x86_64.tar.gz
-            release-assets/RasterMint-macOS.zip
-          )
-
-          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "Refreshing existing release $TAG"
-
-            gh release edit "$TAG" \
-              --repo "$GITHUB_REPOSITORY" \
-              --title "RasterMint $TAG" \
-              --target "$GITHUB_SHA" \
-              --notes "$notes" \
-              --latest
-
-            # --clobber replaces assets that already have these names.
-            gh release upload "$TAG" "${assets[@]}" \
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" \
+              release-assets/RasterMint.exe \
+              release-assets/RasterMint-linux-x86_64.tar.gz \
+              release-assets/RasterMint-macOS.zip \
               --repo "$GITHUB_REPOSITORY" \
               --clobber
           else
-            echo "Creating release $TAG"
-
-            gh release create "$TAG" "${assets[@]}" \
+            gh release create "$RELEASE_TAG" \
+              release-assets/RasterMint.exe \
+              release-assets/RasterMint-linux-x86_64.tar.gz \
+              release-assets/RasterMint-macOS.zip \
               --repo "$GITHUB_REPOSITORY" \
-              --verify-tag \
-              --title "RasterMint $TAG" \
-              --notes "$notes" \
-              --latest
+              --title "RasterMint v${RELEASE_VERSION}" \
+              --generate-notes
           fi
-
-          echo "Published RasterMint $TAG from $GITHUB_SHA"
