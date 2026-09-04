@@ -167,6 +167,8 @@ ApplicationWindow {
             Action { text: qsTr("Load Preset…"); shortcut: "Ctrl+L"; onTriggered: loadPresetDialog.open() }
             Action { text: qsTr("Save Preset…"); shortcut: "Ctrl+Shift+S"; onTriggered: savePresetDialog.open() }
             MintMenuSeparator { }
+            Action { text: qsTr("Clear Imported File"); enabled: backend.hasSource; onTriggered: backend.clearSource() }
+            MintMenuSeparator { }
             Action { text: qsTr("Quit"); shortcut: StandardKey.Quit; onTriggered: Qt.quit() }
         }
 

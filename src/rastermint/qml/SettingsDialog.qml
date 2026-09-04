@@ -25,6 +25,7 @@ Dialog {
         backend.setLayerCacheMegabytes(192)
         backend.setTiledProcessingEnabled(true)
         backend.setProcessingTileSize(1024)
+        backend.setLimitLargeImportsToFullHD(false)
         themeChooser.syncThemeIndex()
         languageChooser.rebuildLanguageMenu()
     }
@@ -211,6 +212,29 @@ Dialog {
                 function onHistoryLimitChanged() {
                     if (!historyLimitInput.activeFocus)
                         historyLimitInput.text = String(backend.historyLimit)
+                }
+            }
+
+            Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: theme.borderColor }
+            MintLabel { text: qsTr("Import"); font.bold: true }
+
+            RowLayout {
+                Layout.fillWidth: true
+                MintCheckBox {
+                    checked: backend.limitLargeImportsToFullHD
+                    onToggled: backend.setLimitLargeImportsToFullHD(checked)
+                }
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 1
+                    MintLabel { text: qsTr("Limit large image imports to Full HD") }
+                    MintLabel {
+                        Layout.fillWidth: true
+                        text: qsTr("Images larger than 1920 × 1080 are fitted inside Full HD on import while preserving aspect ratio. Smaller images keep their native raster size.")
+                        color: theme.mutedTextColor
+                        font.pixelSize: 10
+                        wrapMode: Text.WordWrap
+                    }
                 }
             }
 

@@ -6,6 +6,7 @@ from PIL import Image
 
 from rastermint.core.processor import (
     FAST_PREVIEW_MAX_SIDE,
+    fit_size_within,
     PREVIEW_MAX_SIDE,
     make_preview_settings,
     linked_target_size,
@@ -15,6 +16,15 @@ from rastermint.core.processor import (
     source_raster_size,
 )
 from rastermint.core.settings import ProcessingSettings
+
+
+
+
+def test_fit_size_within_full_hd_preserves_aspect_and_never_upscales():
+    assert fit_size_within((3840, 2160), (1920, 1080)) == (1920, 1080)
+    assert fit_size_within((3000, 4000), (1920, 1080)) == (810, 1080)
+    assert fit_size_within((1281, 1242), (1920, 1080)) == (1114, 1080)
+    assert fit_size_within((1280, 720), (1920, 1080)) == (1280, 720)
 
 
 def test_processor_preserves_output_size_with_pixelation():

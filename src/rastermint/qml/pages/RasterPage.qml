@@ -40,12 +40,12 @@ ScrollView {
             ColumnLayout {
                 Layout.fillWidth: true
                 MintLabel { text: qsTr("Width"); color: theme.mutedTextColor }
-                MintSpinBox { Layout.fillWidth: true; from: 1; to: 16384; value: Math.max(1, backend.settingsMap.target_width || 1); editable: true; enabled: backend.settingsMap.target_enabled; onValueModified: backend.setTargetRasterWidth(value) }
+                MintSpinBox { Layout.fillWidth: true; from: 1; to: 16384; value: backend.settingsMap.target_enabled ? Math.max(1, backend.settingsMap.target_width || 1) : backend.sourceWidth; editable: true; enabled: backend.settingsMap.target_enabled; onValueModified: backend.setTargetRasterWidth(value) }
             }
             ColumnLayout {
                 Layout.fillWidth: true
                 MintLabel { text: qsTr("Height"); color: theme.mutedTextColor }
-                MintSpinBox { Layout.fillWidth: true; from: 1; to: 16384; value: Math.max(1, backend.settingsMap.target_height || 1); editable: true; enabled: backend.settingsMap.target_enabled; onValueModified: backend.setTargetRasterHeight(value) }
+                MintSpinBox { Layout.fillWidth: true; from: 1; to: 16384; value: backend.settingsMap.target_enabled ? Math.max(1, backend.settingsMap.target_height || 1) : backend.sourceHeight; editable: true; enabled: backend.settingsMap.target_enabled; onValueModified: backend.setTargetRasterHeight(value) }
             }
         }
         MintCheckBox { text: qsTr("Keep aspect ratio"); checked: backend.settingsMap.keep_aspect; enabled: backend.settingsMap.target_enabled; onToggled: backend.setSetting("keep_aspect", checked) }
@@ -97,6 +97,5 @@ ScrollView {
             Component.onCompleted: currentIndex = Math.max(0, ["raw","corrected","display"].indexOf(String(backend.settingsMap.display_mode)))
             onActivated: backend.setSetting("display_mode", ["raw","corrected","display"][currentIndex])
         }
-        MintCheckBox { text: qsTr("Apply display view to export"); checked: backend.settingsMap.display_export; onToggled: backend.setSetting("display_export", checked) }
     }
 }

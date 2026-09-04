@@ -49,7 +49,7 @@ MenuItem {
         implicitWidth: 220
         implicitHeight: 32
         radius: 5
-        color: control.highlighted || control.hovered ? control.safeSelectionColor : "transparent"
+        color: control.enabled && (control.highlighted || control.hovered) ? control.safeSelectionColor : "transparent"
         Behavior on color { ColorAnimation { duration: 70 } }
     }
 }

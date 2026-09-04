@@ -31,6 +31,7 @@ DEFAULT_TILED_PROCESSING_ENABLED = True
 DEFAULT_PROCESSING_TILE_SIZE = 1024
 DEFAULT_SLIDER_WHEEL_CONTROL = False
 DEFAULT_DEBOUNCE_SLIDER_UPDATES = False
+DEFAULT_LIMIT_LARGE_IMPORTS_TO_FULL_HD = False
 
 
 def _processor_call(name: str, *args, **kwargs):
@@ -78,6 +79,7 @@ class RasterMintBackend(BaseRasterMintBackend):
 
     historyLimitChanged = Signal()
     performanceSettingsChanged = Signal()
+    importSettingsChanged = Signal()
     userPaletteLibraryChanged = Signal()
     presetLibraryChanged = Signal()
     presetMutationsChanged = Signal()
@@ -107,6 +109,7 @@ class RasterMintBackend(BaseRasterMintBackend):
         self._processing_tile_size = min(choices, key=lambda value: abs(value - raw_tile))
         self._slider_wheel_control = str(self.app_settings.value("interaction/sliderWheelControl", "false")).lower() in {"1", "true", "yes", "on"}
         self._debounce_slider_updates = str(self.app_settings.value("interaction/debounceSliderUpdates", "false")).lower() in {"1", "true", "yes", "on"}
+        self._limit_large_imports_to_full_hd = str(self.app_settings.value("import/limitLargeToFullHD", "false")).lower() in {"1", "true", "yes", "on"}
         self._slider_interaction_active = False
 
         self._debounce_full_timer = QTimer(self)
@@ -239,6 +242,21 @@ class RasterMintBackend(BaseRasterMintBackend):
         self.performanceSettingsChanged.emit()
         self._set_status(f"Slider render debounce: {'On' if enabled else 'Off'}")
 
+    # ---------- import preferences ----------
+    @Property(bool, notify=importSettingsChanged)
+    def limitLargeImportsToFullHD(self) -> bool:
+        return bool(self._limit_large_imports_to_full_hd)
+
+    @Slot(bool)
+    def setLimitLargeImportsToFullHD(self, enabled: bool) -> None:
+        enabled = bool(enabled)
+        if enabled == self._limit_large_imports_to_full_hd:
+            return
+        self._limit_large_imports_to_full_hd = enabled
+        self.app_settings.setValue("import/limitLargeToFullHD", enabled)
+        self.importSettingsChanged.emit()
+        self._set_status(f"Limit large imports to Full HD: {'On' if enabled else 'Off'}")
+
     @Slot()
     def beginDebouncedSliderInteraction(self) -> None:
         if self._debounce_slider_updates:
@@ -305,12 +323,14 @@ class RasterMintBackend(BaseRasterMintBackend):
             or self._slider_wheel_control != DEFAULT_SLIDER_WHEEL_CONTROL
             or self._debounce_slider_updates != DEFAULT_DEBOUNCE_SLIDER_UPDATES
         )
+        import_changed = self._limit_large_imports_to_full_hd != DEFAULT_LIMIT_LARGE_IMPORTS_TO_FULL_HD
         self._layer_cache_enabled = DEFAULT_LAYER_CACHE_ENABLED
         self._layer_cache_megabytes = DEFAULT_LAYER_CACHE_MEGABYTES
         self._tiled_processing_enabled = DEFAULT_TILED_PROCESSING_ENABLED
         self._processing_tile_size = DEFAULT_PROCESSING_TILE_SIZE
         self._slider_wheel_control = DEFAULT_SLIDER_WHEEL_CONTROL
         self._debounce_slider_updates = DEFAULT_DEBOUNCE_SLIDER_UPDATES
+        self._limit_large_imports_to_full_hd = DEFAULT_LIMIT_LARGE_IMPORTS_TO_FULL_HD
         self._slider_interaction_active = False
         self.app_settings.setValue("performance/layerCacheEnabled", DEFAULT_LAYER_CACHE_ENABLED)
         self.app_settings.setValue("performance/layerCacheMegabytes", DEFAULT_LAYER_CACHE_MEGABYTES)
@@ -318,9 +338,12 @@ class RasterMintBackend(BaseRasterMintBackend):
         self.app_settings.setValue("performance/tileSize", DEFAULT_PROCESSING_TILE_SIZE)
         self.app_settings.setValue("interaction/sliderWheelControl", DEFAULT_SLIDER_WHEEL_CONTROL)
         self.app_settings.setValue("interaction/debounceSliderUpdates", DEFAULT_DEBOUNCE_SLIDER_UPDATES)
+        self.app_settings.setValue("import/limitLargeToFullHD", DEFAULT_LIMIT_LARGE_IMPORTS_TO_FULL_HD)
         self._clear_layer_render_cache()
         if performance_changed:
             self.performanceSettingsChanged.emit()
+        if import_changed:
+            self.importSettingsChanged.emit()
 
     @Slot()
     def shutdown(self) -> None:

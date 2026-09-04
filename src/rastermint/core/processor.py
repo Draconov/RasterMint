@@ -99,6 +99,18 @@ def adaptive_preview_max_side(settings: ProcessingSettings, requested: int) -> i
     return requested
 
 
+def fit_size_within(size: tuple[int, int], maximum: tuple[int, int]) -> tuple[int, int]:
+    """Fit ``size`` inside ``maximum`` without upscaling, preserving aspect ratio."""
+    width = max(1, int(size[0]))
+    height = max(1, int(size[1]))
+    max_width = max(1, int(maximum[0]))
+    max_height = max(1, int(maximum[1]))
+    scale = min(1.0, max_width / width, max_height / height)
+    if scale >= 1.0:
+        return width, height
+    return max(1, round(width * scale)), max(1, round(height * scale))
+
+
 def scaled_output_size(size: tuple[int, int], divisor: int) -> tuple[int, int]:
     """Legacy divisor-based output size retained for old presets and CLI."""
     divisor = max(1, int(divisor))

@@ -85,6 +85,18 @@ Dialog {
         scaleCombo.currentIndex = scaleCombo.count - 1
     }
 
+    function refreshOutputSize() {
+        var info = backend.exportImageInfo()
+        sourceWidth = Math.max(1, Number(info.sourceWidth || 1))
+        sourceHeight = Math.max(1, Number(info.sourceHeight || 1))
+        baseWidth = Math.max(1, Number(info.width || sourceWidth))
+        baseHeight = Math.max(1, Number(info.height || sourceHeight))
+        var scales = [0.25, 0.5, 1.0, 2.0, 3.0, 4.0]
+        if (scaleCombo.currentIndex >= 0 && scaleCombo.currentIndex < scales.length)
+            applyScale(scales[scaleCombo.currentIndex])
+        return info
+    }
+
     function resetFromCurrentImage() {
         var info = backend.exportImageInfo()
         sourceWidth = Math.max(1, Number(info.sourceWidth || 1))
@@ -355,6 +367,17 @@ Dialog {
                     Layout.fillWidth: true
                     model: [qsTr("Nearest (pixel-perfect)"), qsTr("Bilinear"), qsTr("Bicubic"), qsTr("Lanczos")]
                     currentIndex: 0
+                }
+            }
+
+            MintCheckBox {
+                id: applyDisplayViewCheck
+                text: qsTr("Apply display view to export")
+                checked: backend.settingsMap.display_export
+                visible: !root.textFormat
+                onToggled: {
+                    backend.setSetting("display_export", checked)
+                    root.refreshOutputSize()
                 }
             }
 

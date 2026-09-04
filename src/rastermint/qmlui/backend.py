@@ -640,6 +640,16 @@ class RasterMintBackend(QObject):
             return f"{source.width} × {source.height} · {self._video_info.duration:.2f}s · {self._video_info.fps:.2f} fps"
         return f"{source.width} × {source.height}"
 
+    @Property(int, notify=sourceChanged)
+    def sourceWidth(self) -> int:
+        source = self._active_source()
+        return max(1, int(source.width)) if source is not None else 1
+
+    @Property(int, notify=sourceChanged)
+    def sourceHeight(self) -> int:
+        source = self._active_source()
+        return max(1, int(source.height)) if source is not None else 1
+
     @Property(int, notify=previewChanged)
     def previewRevision(self) -> int:
         return self._preview_revision
@@ -1839,6 +1849,41 @@ class RasterMintBackend(QObject):
         data.update(pixel_aspect_x=float(width), pixel_aspect_y=float(height))
         self._replace_settings(ProcessingSettings.from_dict(data), action=f"Pixel aspect: {float(width):g}:{float(height):g}")
 
+    def _sync_import_target_raster(self) -> tuple[int, int] | None:
+        """Initialize target-raster dimensions for a newly imported still image."""
+        source = self._active_source()
+        if source is None:
+            return None
+        from rastermint.core.processor import fit_size_within
+
+        source_size = (max(1, int(source.width)), max(1, int(source.height)))
+        data = self.settings.to_dict()
+        fitted = source_size
+        cap_enabled = bool(getattr(self, "limitLargeImportsToFullHD", False))
+        if cap_enabled:
+            fitted = fit_size_within(source_size, (1920, 1080))
+
+        if cap_enabled and fitted != source_size:
+            data.update(
+                target_enabled=True,
+                target_width=int(fitted[0]),
+                target_height=int(fitted[1]),
+                keep_aspect=True,
+            )
+        elif not bool(data.get("target_enabled", False)):
+            # Keep disabled Target Raster controls informative and make the first
+            # enable start from this source instead of stale/1×1 dimensions.
+            data.update(target_width=source_size[0], target_height=source_size[1])
+        else:
+            return None
+
+        self._replace_settings(
+            ProcessingSettings.from_dict(data),
+            schedule=False,
+            record_history=False,
+        )
+        return fitted
+
     # ---------- file/source ----------
     @Slot(str)
     def openFile(self, value: str) -> None:
@@ -1863,6 +1908,7 @@ class RasterMintBackend(QObject):
                 from PIL import Image
                 with Image.open(path) as img:
                     self._source_image = img.convert("RGB").copy()
+                self._sync_import_target_raster()
             else:
                 raise ValueError(f"Unsupported file type: {suffix or '(none)'}")
             self._source_revision += 1
@@ -1878,6 +1924,56 @@ class RasterMintBackend(QObject):
             self.refreshPresetThumbnails()
         except Exception as exc:
             self.errorOccurred.emit("Could not open file", str(exc))
+
+    @Slot()
+    def clearSource(self) -> None:
+        """Unload the current source while preserving layers and processing settings."""
+        if not self.hasSource and self._current_file is None and self._video_path is None:
+            return
+        self._playing = False
+        self._play_timer.stop()
+        self._current_file = None
+        self._current_time = 0.0
+        self._video_path = None
+        self._video_info = None
+        self._source_image = None
+        self._clipboard_source_image = None
+        self._current_frame = None
+        self._source_revision += 1
+        self._clear_layer_render_cache()
+        self._reset_preview_temporal_state()
+        self._invalidate_rendered()
+        self._preview_running = False
+        self._pending_preview_side = 0
+        self._quick_timer.stop()
+        self._stable_timer.stop()
+        self._render_busy = False
+        self._render_progress = 0.0
+        self._render_eta_seconds = -1.0
+        self._render_stage = ""
+        self._render_progress_visible = False
+        self._render_job_id = 0
+        self.renderProgressChanged.emit()
+        self.provider.clear("preview")
+        self._preview_width = 1
+        self._preview_height = 1
+        self._preview_revision += 1
+        self._snapshot_a = None
+        self._snapshot_b = None
+        self._comparison_enabled = False
+        self._palette_lab_data = {}
+        self._palette_mapping_data = []
+        self._benchmark_summary = ""
+        self._preset_thumbnail_revision += 1
+        for preset in BUILTIN_PRESETS:
+            self.provider.clear(f"preset/{preset.id}")
+        self.previewChanged.emit()
+        self.paletteLabChanged.emit()
+        self.benchmarkChanged.emit()
+        self.sourceChanged.emit()
+        self.playbackChanged.emit()
+        self.comparisonChanged.emit()
+        self._set_status(_tr("Cleared imported file"))
 
     @Slot()
     def pasteImageFromClipboard(self) -> None:
@@ -1911,6 +2007,7 @@ class RasterMintBackend(QObject):
             self._current_frame = None
             self._clipboard_source_image = pasted if int(alpha_min) < 255 else None
             self._source_image = pasted.convert("RGB")
+            self._sync_import_target_raster()
 
             self._source_revision += 1
             self._clear_layer_render_cache()
@@ -3797,8 +3894,8 @@ class RasterMintBackend(QObject):
                 self._request_preview(pending)
             return
         if purpose == "video-frame" and _is_pil_image(result):
-            # Ignore stale decode responses that are far away from current time.
-            if abs(float(context) - self._current_time) < 0.15:
+            # Ignore stale decode responses after source changes/clearing.
+            if self._video_path is not None and abs(float(context) - self._current_time) < 0.15:
                 self._current_frame = result
                 self.sourceChanged.emit()
                 self.schedulePreview(force=True)
