@@ -130,6 +130,35 @@ jobs:
           restore-keys: |
             vcpkg-ffmpeg-${{ runner.os }}-${{ runner.arch }}-${{ steps.vcpkg-cache-id.outputs.version }}-
 
+      - name: Resolve Linux vcpkg cache identity
+        if: runner.os == 'Linux'
+        id: vcpkg-linux-cache-id
+        shell: bash
+        run: |
+          set -euo pipefail
+          vcpkg="${VCPKG_INSTALLATION_ROOT:-}/vcpkg"
+          if [[ ! -x "$vcpkg" ]]; then
+            vcpkg="$(command -v vcpkg || true)"
+          fi
+          version="unknown"
+          if [[ -n "$vcpkg" && -x "$vcpkg" ]]; then
+            version="$($vcpkg version | head -n 1)"
+          fi
+          safe_version="$(printf '%s' "$version" | sed -E 's/[^A-Za-z0-9._-]+/-/g')"
+          echo "version=$safe_version" >> "$GITHUB_OUTPUT"
+          echo "vcpkg Linux cache identity: $safe_version"
+
+      - name: Restore Linux vcpkg FFmpeg cache
+        if: runner.os == 'Linux'
+        uses: actions/cache@v6
+        with:
+          path: |
+            build/ffmpeg-vcpkg/cache/linux/binary
+            build/ffmpeg-vcpkg/cache/linux/downloads
+          key: vcpkg-ffmpeg-${{ runner.os }}-${{ runner.arch }}-${{ steps.vcpkg-linux-cache-id.outputs.version }}-${{ hashFiles('build/ffmpeg-vcpkg/vcpkg.json') }}
+          restore-keys: |
+            vcpkg-ffmpeg-${{ runner.os }}-${{ runner.arch }}-${{ steps.vcpkg-linux-cache-id.outputs.version }}-
+
       - name: Build Windows
         if: runner.os == 'Windows'
         shell: pwsh

@@ -37,6 +37,25 @@ _QMLDIR_DEP_RE = re.compile(
     r"^\s*(?:(?:optional)\s+)?(?:depends|import)\s+([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)\b"
 )
 
+# RasterMint calls QQuickStyle.setStyle("Basic") before the QML engine is
+# created. QtQuick.Controls advertises every built-in style as a dependency,
+# which otherwise pulls five style families that can never be selected at
+# runtime. Keep Basic + generic Controls implementation modules only.
+_UNUSED_CONTROL_STYLE_PREFIXES = (
+    "QtQuick.Controls.FluentWinUI3",
+    "QtQuick.Controls.Fusion",
+    "QtQuick.Controls.Imagine",
+    "QtQuick.Controls.Material",
+    "QtQuick.Controls.Universal",
+)
+
+
+def _is_unused_control_style(module_name: str) -> bool:
+    return any(
+        module_name == prefix or module_name.startswith(prefix + ".")
+        for prefix in _UNUSED_CONTROL_STYLE_PREFIXES
+    )
+
 
 def _qml_root() -> Path:
     location = pyside6_library_info.location
@@ -160,11 +179,13 @@ def _module_dependencies(qml_root: Path, module_name: str) -> set[str]:
 
 
 def _dependency_closure(qml_root: Path, initial: set[str]) -> list[str]:
-    selected = set(initial)
-    pending = list(initial)
+    selected = {name for name in initial if not _is_unused_control_style(name)}
+    pending = list(selected)
     while pending:
         module_name = pending.pop()
         for dependency in _module_dependencies(qml_root, module_name):
+            if _is_unused_control_style(dependency):
+                continue
             if dependency not in selected:
                 selected.add(dependency)
                 pending.append(dependency)

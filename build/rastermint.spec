@@ -14,6 +14,11 @@ from PyInstaller.utils.hooks import collect_data_files, collect_submodules, copy
 ROOT = Path(SPECPATH).parent
 APP_VERSION = distribution_version("rastermint")
 
+# Linux release binaries contain ELF symbol tables that are not needed at
+# runtime. PyInstaller supports stripping executables/shared libraries on
+# Unix-like systems; keep Windows/macOS behavior unchanged.
+STRIP_BINARIES = sys.platform.startswith("linux")
+
 # Keep the imageio-ffmpeg Python wrapper because RasterMint uses its robust pipe
 # API; the actual FFmpeg executable is selected separately below. Pillow is
 # handled by our format-aware hook instead of collecting every optional PIL
@@ -144,7 +149,7 @@ exe = EXE(
     name="RasterMint",
     debug=False,
     bootloader_ignore_signals=False,
-    strip=False,
+    strip=STRIP_BINARIES,
     upx=True,
     console=False,
     disable_windowed_traceback=False,
