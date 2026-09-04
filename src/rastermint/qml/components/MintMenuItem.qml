@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Controls
-import QtQuick.Layouts
 
 MenuItem {
     id: control
@@ -8,27 +7,37 @@ MenuItem {
     readonly property color safeTextColor: theme ? theme.textColor : "#f3f7ff"
     readonly property color safeMutedTextColor: theme ? theme.mutedTextColor : "#a0a7b4"
     readonly property color safeSelectionColor: theme ? theme.selectionColor : "#3a4f6e"
+    readonly property color safeAccentColor: theme ? theme.accentColor : "#b8ff3b"
 
     implicitHeight: 32
-    implicitWidth: Math.max(220, implicitContentWidth + leftPadding + rightPadding + 24)
+    implicitWidth: Math.max(220, implicitContentWidth + leftPadding + rightPadding + 12)
     leftPadding: 12
-    rightPadding: 12
-    topPadding: 0
-    bottomPadding: 0
+    rightPadding: 10
+    spacing: 6
 
-    // This Shortcut is only a formatter for the menu's visible hotkey label.
-    // Action already owns the real shortcut, so keep this helper disabled.
+    // RasterMint handles checked-state visuals itself.
+    // Do not show the native Qt menu indicator/checkmark.
+    indicator: null
+
     Shortcut {
-        id: shortcutDisplay
+        id: shortcutFormatter
         enabled: false
         sequences: control.action && control.action.shortcut ? [control.action.shortcut] : []
     }
 
-    contentItem: RowLayout {
-        spacing: 16
+    contentItem: Item {
+        id: content
+        implicitWidth: label.implicitWidth
+                       + (shortcutLabel.visible ? shortcutLabel.implicitWidth + 18 : 0)
+        implicitHeight: 32
 
         Text {
-            Layout.fillWidth: true
+            id: label
+            anchors.left: parent.left
+            anchors.right: shortcutLabel.visible ? shortcutLabel.left : parent.right
+            anchors.rightMargin: shortcutLabel.visible ? 18 : 0
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
             text: control.text
             color: control.enabled ? control.safeTextColor : control.safeMutedTextColor
             verticalAlignment: Text.AlignVCenter
@@ -36,12 +45,16 @@ MenuItem {
         }
 
         Text {
-            visible: backend.showHotkeys && shortcutDisplay.nativeText.length > 0
-            text: shortcutDisplay.nativeText
+            id: shortcutLabel
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            visible: backend.showHotkeys && text.length > 0
+            text: shortcutFormatter.nativeText
             color: control.safeMutedTextColor
+            font.pixelSize: 11
             verticalAlignment: Text.AlignVCenter
             horizontalAlignment: Text.AlignRight
-            font.pixelSize: 11
         }
     }
 
@@ -49,7 +62,27 @@ MenuItem {
         implicitWidth: 220
         implicitHeight: 32
         radius: 5
-        color: control.enabled && (control.highlighted || control.hovered) ? control.safeSelectionColor : "transparent"
+        color: control.enabled && (control.highlighted || control.hovered)
+               ? control.safeSelectionColor
+               : (control.checkable && control.checked
+                  ? Qt.rgba(control.safeAccentColor.r, control.safeAccentColor.g, control.safeAccentColor.b, 0.14)
+                  : "transparent")
+        border.color: control.checkable && control.checked
+                      ? Qt.rgba(control.safeAccentColor.r, control.safeAccentColor.g, control.safeAccentColor.b, 0.42)
+                      : "transparent"
+        border.width: control.checkable && control.checked ? 1 : 0
         Behavior on color { ColorAnimation { duration: 70 } }
+        Behavior on border.color { ColorAnimation { duration: 70 } }
+
+        Rectangle {
+            anchors.left: parent.left
+            anchors.leftMargin: 3
+            anchors.verticalCenter: parent.verticalCenter
+            width: 3
+            height: 18
+            radius: 2
+            visible: control.checkable && control.checked
+            color: control.safeAccentColor
+        }
     }
 }
