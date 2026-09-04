@@ -48,7 +48,7 @@ from rastermint.core.layer_groups import (
 )
 from rastermint.core.lospec import fetch_lospec_palette
 from rastermint.core.palette_library import PALETTE_LIBRARY, find_palette, interpolate_palette, interpolate_palette_stops
-from rastermint.core.presets import load_preset, save_preset
+from rastermint.core.presets import load_preset, merge_preset_with_current_crop, save_preset
 from rastermint.core.settings import ProcessingSettings
 
 from .image_provider import RasterImageProvider
@@ -2203,6 +2203,13 @@ class RasterMintBackend(QObject):
         self._crop_overlay = overlay
         self.cropChanged.emit()
 
+    def _apply_source_import_crop_policy(self) -> None:
+        preserve_crop = bool(getattr(self, "preserveCroppingPosition", False))
+        prepared = self.settings.for_source_import(preserve_crop)
+        if prepared.to_dict() == self.settings.to_dict():
+            return
+        self._replace_settings(prepared, schedule=False, record_history=False)
+
     # ---------- file/source ----------
     @Slot(str)
     def openFile(self, value: str) -> None:
@@ -2220,6 +2227,7 @@ class RasterMintBackend(QObject):
             self._source_image = None
             self._clipboard_source_image = None
             self._current_frame = None
+            self._apply_source_import_crop_policy()
             if suffix in SUPPORTED_VIDEO_SUFFIXES:
                 self._video_path = path
                 self._video_info = probe_video(path)
@@ -2329,6 +2337,9 @@ class RasterMintBackend(QObject):
             self._video_path = None
             self._video_info = None
             self._current_frame = None
+            self._source_image = None
+            self._clipboard_source_image = None
+            self._apply_source_import_crop_policy()
             self._clipboard_source_image = pasted if int(alpha_min) < 255 else None
             self._source_image = pasted.convert("RGB")
             self._sync_import_target_raster()
@@ -3558,6 +3569,7 @@ class RasterMintBackend(QObject):
                     )
                     settings = ProcessingSettings.from_dict(data)
 
+            settings = merge_preset_with_current_crop(settings, self.settings)
             self._replace_settings(settings, action=f"Applied preset: {label}")
         except Exception as exc:
             self.errorOccurred.emit("Could not apply preset", str(exc))
@@ -3577,7 +3589,8 @@ class RasterMintBackend(QObject):
     def loadPreset(self, value: str) -> None:
         try:
             path = Path(_local_path(value))
-            self._replace_settings(load_preset(path), action=f"Loaded preset: {path.name}")
+            loaded = merge_preset_with_current_crop(load_preset(path), self.settings)
+            self._replace_settings(loaded, action=f"Loaded preset: {path.name}")
         except Exception as exc:
             self.errorOccurred.emit("Could not load preset", str(exc))
 

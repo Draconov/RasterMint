@@ -941,6 +941,8 @@
     "Rounding": "Bo tròn",
     "Sampling": "Lấy mẫu",
     "Native": "Gốc",
-    "2× Supersampled": "Siêu lấy mẫu 2×"
+    "2× Supersampled": "Siêu lấy mẫu 2×",
+    "Preserve cropping position": "Giữ vị trí cắt",
+    "Keep the current crop position and size when importing a new image, GIF, or video. When off, each import starts uncropped.": "Giữ vị trí và kích thước vùng cắt hiện tại khi nhập ảnh, GIF hoặc video mới. Khi tắt, mỗi lần nhập sẽ bắt đầu với ảnh chưa cắt."
   }
 }

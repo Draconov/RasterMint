@@ -838,6 +838,8 @@
     "Rounding": "تدوير الحواف",
     "Sampling": "أخذ العينات",
     "Native": "أصلي",
-    "2× Supersampled": "أخذ عينات فائق 2×"
+    "2× Supersampled": "أخذ عينات فائق 2×",
+    "Preserve cropping position": "الحفاظ على موضع الاقتصاص",
+    "Keep the current crop position and size when importing a new image, GIF, or video. When off, each import starts uncropped.": "احتفظ بموضع الاقتصاص وحجمه الحاليين عند استيراد صورة أو GIF أو فيديو جديد. عند إيقافه، يبدأ كل استيراد بدون اقتصاص."
   }
 }

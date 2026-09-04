@@ -56,6 +56,43 @@ def test_library_metadata_api_is_backward_compatible(tmp_path):
     assert payload["hardware_reference"]["profile_id"] == "game-boy"
 
 
+
+def test_preset_files_do_not_store_source_crop(tmp_path):
+    settings = ProcessingSettings(
+        crop_x=0.20, crop_y=0.15, crop_width=0.55, crop_height=0.60,
+        brightness=14,
+    )
+    path = tmp_path / "no-crop.json"
+    save_preset(path, settings)
+
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    assert "crop_x" not in payload["settings"]
+    assert "crop_y" not in payload["settings"]
+    assert "crop_width" not in payload["settings"]
+    assert "crop_height" not in payload["settings"]
+    assert payload["settings"]["brightness"] == 14
+
+    loaded = load_preset(path)
+    assert (loaded.crop_x, loaded.crop_y, loaded.crop_width, loaded.crop_height) == (0.0, 0.0, 1.0, 1.0)
+
+
+def test_preset_application_merges_current_crop_without_other_source_state():
+    import rastermint.core.presets as preset_module
+
+    merge = getattr(preset_module, "merge_preset_with_current_crop", None)
+    assert callable(merge)
+
+    current = ProcessingSettings(
+        crop_x=0.25, crop_y=0.10, crop_width=0.50, crop_height=0.65,
+        brightness=-20,
+    )
+    preset = ProcessingSettings(brightness=35, contrast=12)
+    merged = merge(preset, current)
+
+    assert merged.brightness == 35
+    assert merged.contrast == 12
+    assert (merged.crop_x, merged.crop_y, merged.crop_width, merged.crop_height) == (0.25, 0.10, 0.50, 0.65)
+
 def test_slugify_preset_name():
     assert slugify_preset_name("  My Fancy Preset!  ") == "my-fancy-preset"
     assert slugify_preset_name("") == "preset"

@@ -838,6 +838,8 @@
     "Rounding": "Noapaļošana",
     "Sampling": "Paraugošana",
     "Native": "Dabisks",
-    "2× Supersampled": "2× virsparaugošana"
+    "2× Supersampled": "2× virsparaugošana",
+    "Preserve cropping position": "Saglabāt apgriešanas pozīciju",
+    "Keep the current crop position and size when importing a new image, GIF, or video. When off, each import starts uncropped.": "Importējot jaunu attēlu, GIF vai video, saglabā pašreizējo apgriešanas pozīciju un izmēru. Ja izslēgts, katrs imports sākas bez apgriešanas."
   }
 }

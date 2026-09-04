@@ -238,6 +238,26 @@ Dialog {
                 }
             }
 
+            RowLayout {
+                Layout.fillWidth: true
+                MintCheckBox {
+                    checked: backend.preserveCroppingPosition
+                    onToggled: backend.setPreserveCroppingPosition(checked)
+                }
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 1
+                    MintLabel { text: qsTr("Preserve cropping position") }
+                    MintLabel {
+                        Layout.fillWidth: true
+                        text: qsTr("Keep the current crop position and size when importing a new image, GIF, or video. When off, each import starts uncropped.")
+                        color: theme.mutedTextColor
+                        font.pixelSize: 10
+                        wrapMode: Text.WordWrap
+                    }
+                }
+            }
+
             Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: theme.borderColor }
             MintLabel { text: qsTr("Performance"); font.bold: true }
 

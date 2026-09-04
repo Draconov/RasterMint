@@ -838,6 +838,8 @@
     "Rounding": "Zaokrąglenie",
     "Sampling": "Próbkowanie",
     "Native": "Natywne",
-    "2× Supersampled": "Nadpróbkowanie 2×"
+    "2× Supersampled": "Nadpróbkowanie 2×",
+    "Preserve cropping position": "Zachowaj pozycję kadrowania",
+    "Keep the current crop position and size when importing a new image, GIF, or video. When off, each import starts uncropped.": "Zachowuje bieżącą pozycję i rozmiar kadrowania podczas importowania nowego obrazu, GIF-a lub filmu. Gdy opcja jest wyłączona, każdy import zaczyna się bez kadrowania."
   }
 }

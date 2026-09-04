@@ -8,6 +8,8 @@
 - Positive Bleed expands darker/ink-like palette regions while negative Bleed contracts them; Rounding smooths isolated/jagged palette-index structures without inventing colours.
 - 2× Supersampled dithering renders the algorithm at double resolution, area-downsamples it, then remaps to the active palette before edge treatment.
 - Default Dither settings remain visually identical to 0.7.3.
+- Preset files no longer store source crop coordinates, and applying built-in, user, imported, or mutated presets preserves the crop already active on the current source.
+- New imports reset to the full image by default; Settings > Import now offers **Preserve cropping position** to carry the current normalized crop position and size across images, GIFs, videos, and clipboard imports.
 - Updated all bundled translation catalogs for the new effect and controls.
 - Updated the application version to **0.7.4**.
 

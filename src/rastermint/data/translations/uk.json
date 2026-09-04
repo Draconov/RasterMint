@@ -941,6 +941,8 @@
     "Rounding": "Заокруглення",
     "Sampling": "Семплінг",
     "Native": "Нативний",
-    "2× Supersampled": "2× суперсемплінг"
+    "2× Supersampled": "2× суперсемплінг",
+    "Preserve cropping position": "Зберігати положення обрізання",
+    "Keep the current crop position and size when importing a new image, GIF, or video. When off, each import starts uncropped.": "Зберігати поточні положення та розмір обрізання під час імпорту нового зображення, GIF або відео. Якщо вимкнено, кожен імпорт починається без обрізання."
   }
 }

@@ -13,6 +13,26 @@ from .settings import ProcessingSettings
 
 PRESET_FORMAT = "rastermint-preset"
 PRESET_VERSION = 2
+PRESET_CROP_KEYS = ("crop_x", "crop_y", "crop_width", "crop_height")
+
+
+def _preset_settings_payload(settings: ProcessingSettings) -> dict[str, Any]:
+    """Serialize only preset-owned settings, excluding source crop state."""
+    data = settings.to_dict()
+    for key in PRESET_CROP_KEYS:
+        data.pop(key, None)
+    return data
+
+
+def merge_preset_with_current_crop(
+    preset: ProcessingSettings,
+    current: ProcessingSettings,
+) -> ProcessingSettings:
+    """Apply a preset look while keeping the current source crop unchanged."""
+    data = preset.to_dict()
+    for key in PRESET_CROP_KEYS:
+        data[key] = getattr(current, key)
+    return ProcessingSettings.from_dict(data)
 
 
 def slugify_preset_name(value: str) -> str:
@@ -105,7 +125,7 @@ def save_preset(
     payload: dict[str, Any] = {
         "format": PRESET_FORMAT,
         "version": PRESET_VERSION,
-        "settings": settings.to_dict(),
+        "settings": _preset_settings_payload(settings),
     }
 
     if preset_id is not None:

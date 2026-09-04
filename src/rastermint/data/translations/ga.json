@@ -838,6 +838,8 @@
     "Rounding": "Slánú",
     "Sampling": "Sampláil",
     "Native": "Dúchasach",
-    "2× Supersampled": "Forshampláilte 2×"
+    "2× Supersampled": "Forshampláilte 2×",
+    "Preserve cropping position": "Coinnigh suíomh an bhearrtha",
+    "Keep the current crop position and size when importing a new image, GIF, or video. When off, each import starts uncropped.": "Coinnigh suíomh agus méid reatha an bhearrtha agus íomhá, GIF nó físeán nua á iompórtáil. Nuair atá sé múchta, tosaíonn gach iompórtáil gan bhearradh."
   }
 }

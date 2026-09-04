@@ -838,6 +838,8 @@
     "Rounding": "Arrotondamento",
     "Sampling": "Campionamento",
     "Native": "Nativo",
-    "2× Supersampled": "Supersampling 2×"
+    "2× Supersampled": "Supersampling 2×",
+    "Preserve cropping position": "Mantieni la posizione di ritaglio",
+    "Keep the current crop position and size when importing a new image, GIF, or video. When off, each import starts uncropped.": "Mantieni la posizione e le dimensioni correnti del ritaglio quando importi una nuova immagine, GIF o video. Se disattivato, ogni importazione parte senza ritaglio."
   }
 }

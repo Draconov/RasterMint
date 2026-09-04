@@ -197,6 +197,21 @@ class ProcessingSettings:
         cloned.random_locks = dict(self.random_locks)
         return cloned
 
+    def for_source_import(self, preserve_crop: bool) -> "ProcessingSettings":
+        """Return independent settings prepared for a newly imported source.
+
+        Crop is source-specific editing state. New sources therefore start from
+        the full image unless the user explicitly asks RasterMint to preserve
+        the current normalized crop rectangle.
+        """
+        imported = self.clone()
+        if not bool(preserve_crop):
+            imported.crop_x = 0.0
+            imported.crop_y = 0.0
+            imported.crop_width = 1.0
+            imported.crop_height = 1.0
+        return imported
+
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 

@@ -24,6 +24,21 @@ from rastermint.core.settings import ProcessingSettings
 
 
 
+
+def test_source_import_crop_policy_resets_by_default_and_can_preserve():
+    settings = ProcessingSettings(crop_x=0.20, crop_y=0.15, crop_width=0.55, crop_height=0.60)
+    policy = getattr(settings, "for_source_import", None)
+    assert callable(policy)
+
+    reset = policy(False)
+    assert (reset.crop_x, reset.crop_y, reset.crop_width, reset.crop_height) == (0.0, 0.0, 1.0, 1.0)
+
+    preserved = policy(True)
+    assert (preserved.crop_x, preserved.crop_y, preserved.crop_width, preserved.crop_height) == (0.20, 0.15, 0.55, 0.60)
+
+    # The import policy returns independent settings and never mutates the live state.
+    assert (settings.crop_x, settings.crop_y, settings.crop_width, settings.crop_height) == (0.20, 0.15, 0.55, 0.60)
+
 def test_fit_size_within_full_hd_preserves_aspect_and_never_upscales():
     assert fit_size_within((3840, 2160), (1920, 1080)) == (1920, 1080)
     assert fit_size_within((3000, 4000), (1920, 1080)) == (810, 1080)

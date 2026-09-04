@@ -13,7 +13,13 @@ from rastermint.core import builtin_presets, palette_library
 from rastermint.core.extensions import asset_files
 from rastermint.core.history import UndoHistory
 from rastermint.core.palette_json import load_palette_json, slugify_palette_name, write_palette_json
-from rastermint.core.presets import load_preset, load_preset_payload, save_preset, slugify_preset_name
+from rastermint.core.presets import (
+    load_preset,
+    load_preset_payload,
+    merge_preset_with_current_crop,
+    save_preset,
+    slugify_preset_name,
+)
 from rastermint.core.preset_mutation import generate_preset_mutations
 from rastermint.core.settings import ProcessingSettings
 from rastermint.qmlui.backend import RasterMintBackend as BaseRasterMintBackend
@@ -32,6 +38,7 @@ DEFAULT_PROCESSING_TILE_SIZE = 1024
 DEFAULT_SLIDER_WHEEL_CONTROL = False
 DEFAULT_DEBOUNCE_SLIDER_UPDATES = False
 DEFAULT_LIMIT_LARGE_IMPORTS_TO_FULL_HD = False
+DEFAULT_PRESERVE_CROPPING_POSITION = False
 
 
 def _processor_call(name: str, *args, **kwargs):
@@ -110,6 +117,7 @@ class RasterMintBackend(BaseRasterMintBackend):
         self._slider_wheel_control = str(self.app_settings.value("interaction/sliderWheelControl", "false")).lower() in {"1", "true", "yes", "on"}
         self._debounce_slider_updates = str(self.app_settings.value("interaction/debounceSliderUpdates", "false")).lower() in {"1", "true", "yes", "on"}
         self._limit_large_imports_to_full_hd = str(self.app_settings.value("import/limitLargeToFullHD", "false")).lower() in {"1", "true", "yes", "on"}
+        self._preserve_cropping_position = str(self.app_settings.value("import/preserveCroppingPosition", "false")).lower() in {"1", "true", "yes", "on"}
         self._slider_interaction_active = False
 
         self._debounce_full_timer = QTimer(self)
@@ -257,6 +265,20 @@ class RasterMintBackend(BaseRasterMintBackend):
         self.importSettingsChanged.emit()
         self._set_status(f"Limit large imports to Full HD: {'On' if enabled else 'Off'}")
 
+    @Property(bool, notify=importSettingsChanged)
+    def preserveCroppingPosition(self) -> bool:
+        return bool(self._preserve_cropping_position)
+
+    @Slot(bool)
+    def setPreserveCroppingPosition(self, enabled: bool) -> None:
+        enabled = bool(enabled)
+        if enabled == self._preserve_cropping_position:
+            return
+        self._preserve_cropping_position = enabled
+        self.app_settings.setValue("import/preserveCroppingPosition", enabled)
+        self.importSettingsChanged.emit()
+        self._set_status(f"Preserve cropping position: {'On' if enabled else 'Off'}")
+
     @Slot()
     def beginDebouncedSliderInteraction(self) -> None:
         if self._debounce_slider_updates:
@@ -323,7 +345,10 @@ class RasterMintBackend(BaseRasterMintBackend):
             or self._slider_wheel_control != DEFAULT_SLIDER_WHEEL_CONTROL
             or self._debounce_slider_updates != DEFAULT_DEBOUNCE_SLIDER_UPDATES
         )
-        import_changed = self._limit_large_imports_to_full_hd != DEFAULT_LIMIT_LARGE_IMPORTS_TO_FULL_HD
+        import_changed = (
+            self._limit_large_imports_to_full_hd != DEFAULT_LIMIT_LARGE_IMPORTS_TO_FULL_HD
+            or self._preserve_cropping_position != DEFAULT_PRESERVE_CROPPING_POSITION
+        )
         self._layer_cache_enabled = DEFAULT_LAYER_CACHE_ENABLED
         self._layer_cache_megabytes = DEFAULT_LAYER_CACHE_MEGABYTES
         self._tiled_processing_enabled = DEFAULT_TILED_PROCESSING_ENABLED
@@ -331,6 +356,7 @@ class RasterMintBackend(BaseRasterMintBackend):
         self._slider_wheel_control = DEFAULT_SLIDER_WHEEL_CONTROL
         self._debounce_slider_updates = DEFAULT_DEBOUNCE_SLIDER_UPDATES
         self._limit_large_imports_to_full_hd = DEFAULT_LIMIT_LARGE_IMPORTS_TO_FULL_HD
+        self._preserve_cropping_position = DEFAULT_PRESERVE_CROPPING_POSITION
         self._slider_interaction_active = False
         self.app_settings.setValue("performance/layerCacheEnabled", DEFAULT_LAYER_CACHE_ENABLED)
         self.app_settings.setValue("performance/layerCacheMegabytes", DEFAULT_LAYER_CACHE_MEGABYTES)
@@ -339,6 +365,7 @@ class RasterMintBackend(BaseRasterMintBackend):
         self.app_settings.setValue("interaction/sliderWheelControl", DEFAULT_SLIDER_WHEEL_CONTROL)
         self.app_settings.setValue("interaction/debounceSliderUpdates", DEFAULT_DEBOUNCE_SLIDER_UPDATES)
         self.app_settings.setValue("import/limitLargeToFullHD", DEFAULT_LIMIT_LARGE_IMPORTS_TO_FULL_HD)
+        self.app_settings.setValue("import/preserveCroppingPosition", DEFAULT_PRESERVE_CROPPING_POSITION)
         self._clear_layer_render_cache()
         if performance_changed:
             self.performanceSettingsChanged.emit()
@@ -699,8 +726,9 @@ class RasterMintBackend(BaseRasterMintBackend):
             return
         try:
             path = Path(str(record.get("file", "")))
+            loaded = merge_preset_with_current_crop(load_preset(path), self.settings)
             self._replace_settings(
-                load_preset(path),
+                loaded,
                 action=f"Applied preset: {record.get('name') or path.stem}",
             )
             self._touch_recent_preset(preset_key)
@@ -716,7 +744,8 @@ class RasterMintBackend(BaseRasterMintBackend):
         record = self._user_presets.get(key) or self._extension_presets.get(key)
         if record is not None:
             path = Path(str(record.get("file", "")))
-            return load_preset(path), str(record.get("name") or path.stem)
+            settings = merge_preset_with_current_crop(load_preset(path), self.settings)
+            return settings, str(record.get("name") or path.stem)
         preset = next((item for item in builtin_presets.BUILTIN_PRESETS if item.id == key), None)
         if preset is None:
             raise KeyError(f"Unknown preset: {key}")
@@ -769,7 +798,8 @@ class RasterMintBackend(BaseRasterMintBackend):
         if settings is None:
             return
         label = next((str(item.get("name")) for item in self._preset_mutation_items if str(item.get("id")) == str(mutation_id)), "Preset mutation")
-        self._replace_settings(ProcessingSettings.from_dict(settings.to_dict()), action=f"Applied mutation: {label}")
+        loaded = merge_preset_with_current_crop(ProcessingSettings.from_dict(settings.to_dict()), self.settings)
+        self._replace_settings(loaded, action=f"Applied mutation: {label}")
 
     @Slot()
     def clearPresetMutations(self) -> None:
@@ -999,7 +1029,11 @@ class RasterMintBackend(BaseRasterMintBackend):
         if record is None or not self.hasSource:
             return
         try:
-            self._queue_preset_thumbnail(str(preset_id), load_preset(Path(str(record["file"]))))
+            settings = merge_preset_with_current_crop(
+                load_preset(Path(str(record["file"]))),
+                self.settings,
+            )
+            self._queue_preset_thumbnail(str(preset_id), settings)
         except Exception:
             pass
 

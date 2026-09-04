@@ -941,6 +941,8 @@
     "Rounding": "রাউন্ডিং",
     "Sampling": "স্যাম্পলিং",
     "Native": "নেটিভ",
-    "2× Supersampled": "2× সুপারস্যাম্পলড"
+    "2× Supersampled": "2× সুপারস্যাম্পলড",
+    "Preserve cropping position": "ক্রপের অবস্থান সংরক্ষণ করুন",
+    "Keep the current crop position and size when importing a new image, GIF, or video. When off, each import starts uncropped.": "নতুন ছবি, GIF বা ভিডিও ইমপোর্ট করার সময় বর্তমান ক্রপের অবস্থান ও আকার বজায় রাখুন। বন্ধ থাকলে প্রতিটি ইমপোর্ট সম্পূর্ণ ছবি থেকে শুরু হবে।"
   }
 }
