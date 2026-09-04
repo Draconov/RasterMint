@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.7.3 - 2026-09-04 — Canvas Crop Tool
+
+- Rebuilt cropping as a non-destructive canvas tool with eight resize handles, move/new-selection gestures, themed outside shading and Rule of Thirds/Grid/Center overlays.
+- Added Free, Original, 1:1, 4:3, 3:2, 16:9 and custom aspect ratios with orientation swapping and exact pixel X/Y/Width/Height controls.
+- Crop edits are draft-only until Apply, so dragging does not trigger expensive preview renders; Enter applies, Esc cancels and double-click applies.
+- Replaced four edge crop percentages with the normalized `crop_x`, `crop_y`, `crop_width`, `crop_height` model and centralized pixel crop rounding for RGB, alpha and raster-size calculations.
+- Added full-resolution crop coordinates with a 4096-pixel display proxy for very large sources.
+- Added the Crop sidebar page and Edit > Crop Image… (`C`) shortcut using the user-supplied `sidebar-crop.png`.
+- Updated built-in preset schema/settings for the new crop model and advanced project schema to the new crop-era format.
+- Updated all translation catalogs for the new crop UI.
+- Updated the application version to **0.8.0**.
+
 Notable user-facing and engineering changes are recorded here. RasterMint is still in active alpha development, so entries focus on behavior that affects releases, compatibility, or contributor expectations.
 
 ## 0.7.1 - 2026-09-02 — Group Fix/Update

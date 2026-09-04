@@ -801,6 +801,27 @@
     "Display Geometry & Response": "Géométrie et réponse d’affichage",
     "CRT & Scan": "CRT et balayage",
     "Analog Signal": "Signal analogique",
-    "Tape & Compression": "Bande et compression"
+    "Tape & Compression": "Bande et compression",
+    "Crop": "Recadrage",
+    "Crop Image…": "Recadrer l’image…",
+    "Crop: editing": "Recadrage : édition",
+    "Crop cancelled": "Recadrage annulé",
+    "Crop image": "Recadrer l’image",
+    "Reset crop": "Réinitialiser le recadrage",
+    "Drag the image handles, then Apply. Preview rendering waits until the crop is accepted.": "Drag the image handles, then Apply. Preview rendering waits until the crop is accepted.",
+    "Aspect": "Proportions",
+    "Swap aspect orientation": "Inverser l’orientation des proportions",
+    "Free": "Libre",
+    "Original": "Original",
+    "Ratio Width": "Largeur du ratio",
+    "Ratio Height": "Hauteur du ratio",
+    "Crop rectangle (pixels)": "Rectangle de recadrage (pixels)",
+    "Rule of Thirds": "Règle des tiers",
+    "Grid": "Grid",
+    "Reset to Full Image": "Réinitialiser à l’image entière",
+    "Enter applies · Esc cancels · Double-click inside the crop applies": "Entrée applique · Échap annule · Double-clic dans le cadre applique",
+    "Full image · %1 × %2": "Image entière · %1 × %2",
+    "%1 × %2 px · X %3 · Y %4": "%1 × %2 px · X %3 · Y %4",
+    "Edit Crop…": "Modifier le recadrage…"
   }
 }

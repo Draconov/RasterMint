@@ -1,10 +1,13 @@
 import QtQuick
 import QtQuick.Controls
+import "components"
 
 Item {
     id: root
     property real zoomFactor: 1.0
-    property real fitScale: backend.previewWidth > 0 && backend.previewHeight > 0 ? Math.max(0.01, Math.min(width / backend.previewWidth, height / backend.previewHeight)) : 1.0
+    readonly property int logicalWidth: backend.cropEditing ? backend.cropDisplayWidth : backend.previewWidth
+    readonly property int logicalHeight: backend.cropEditing ? backend.cropDisplayHeight : backend.previewHeight
+    property real fitScale: logicalWidth > 0 && logicalHeight > 0 ? Math.max(0.01, Math.min(width / logicalWidth, height / logicalHeight)) : 1.0
     property real effectiveScale: fitScale * zoomFactor
 
     function resetView() {
@@ -27,8 +30,8 @@ Item {
 
         Item {
             id: imageFrame
-            width: Math.max(1, backend.previewWidth * root.effectiveScale)
-            height: Math.max(1, backend.previewHeight * root.effectiveScale)
+            width: Math.max(1, root.logicalWidth * root.effectiveScale)
+            height: Math.max(1, root.logicalHeight * root.effectiveScale)
             x: Math.max(0, (flick.width - width) / 2)
             y: Math.max(0, (flick.height - height) / 2)
 
@@ -39,14 +42,18 @@ Item {
                 cache: false
                 asynchronous: false
                 fillMode: Image.Stretch
-                source: backend.hasSource ? "image://rastermint/preview?r=" + backend.previewRevision : ""
+                source: backend.hasSource
+                        ? (backend.cropEditing
+                           ? "image://rastermint/crop-source?r=" + backend.previewRevision
+                           : "image://rastermint/preview?r=" + backend.previewRevision)
+                        : ""
                 smooth: root.effectiveScale < 5
             }
 
             Item {
                 id: comparisonOverlay
                 anchors.fill: parent
-                visible: backend.comparisonEnabled
+                visible: backend.comparisonEnabled && !backend.cropEditing
                 z: 5
 
                 Item {
@@ -102,7 +109,7 @@ Item {
             Canvas {
                 id: grid
                 anchors.fill: parent
-                visible: backend.hasSource && root.effectiveScale >= 8
+                visible: backend.hasSource && !backend.cropEditing && root.effectiveScale >= 8
                 opacity: Math.min(0.65, 0.22 + (root.effectiveScale - 8) * 0.015)
                 onPaint: {
                     var ctx = getContext("2d")
@@ -132,7 +139,7 @@ Item {
 
             Rectangle {
                 id: horizontalMirrorAxis
-                visible: Boolean(backend.settingsMap.mirror_horizontal)
+                visible: !backend.cropEditing && Boolean(backend.settingsMap.mirror_horizontal)
                 width: 2; height: parent.height
                 x: Math.round(Number(backend.settingsMap.mirror_horizontal_axis) * parent.width) - 1
                 color: theme.mirrorAxisColor
@@ -157,7 +164,7 @@ Item {
 
             Rectangle {
                 id: verticalMirrorAxis
-                visible: Boolean(backend.settingsMap.mirror_vertical)
+                visible: !backend.cropEditing && Boolean(backend.settingsMap.mirror_vertical)
                 width: parent.width; height: 2
                 y: Math.round(Number(backend.settingsMap.mirror_vertical_axis) * parent.height) - 1
                 color: theme.mirrorAxisColor
@@ -178,6 +185,13 @@ Item {
                     onCanceled: backend.endHistoryGroup()
                     onPositionChanged: function(mouse) { if (pressed) updateAxis(mouse) }
                 }
+            }
+
+            CropOverlay {
+                id: cropOverlay
+                anchors.fill: parent
+                visible: backend.cropEditing
+                z: 20
             }
         }
     }
@@ -232,6 +246,7 @@ Item {
         target: backend
         function onPreviewChanged() { grid.requestPaint() }
         function onSourceChanged() { root.resetView() }
+        function onCropChanged() { if (backend.cropEditing) grid.requestPaint() }
     }
     onEffectiveScaleChanged: grid.requestPaint()
 }

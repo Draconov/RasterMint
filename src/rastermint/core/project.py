@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 PROJECT_SCHEMA = "rastermint-project"
-PROJECT_VERSION = 1
+PROJECT_VERSION = 2
 
 
 def save_project_file(path: str | Path, payload: dict[str, Any]) -> Path:
@@ -31,6 +31,6 @@ def load_project_file(path: str | Path) -> dict[str, Any]:
     if not isinstance(payload, dict) or payload.get("schema") != PROJECT_SCHEMA:
         raise ValueError("This is not a RasterMint project file.")
     version = int(payload.get("schema_version", 0) or 0)
-    if version < 1 or version > PROJECT_VERSION:
+    if version != PROJECT_VERSION:
         raise ValueError(f"Unsupported RasterMint project schema version: {version}")
     return payload

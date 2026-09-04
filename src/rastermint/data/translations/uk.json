@@ -904,6 +904,27 @@
     "Display Geometry & Response": "Геометрія та відгук дисплея",
     "CRT & Scan": "CRT і розгортка",
     "Analog Signal": "Аналоговий сигнал",
-    "Tape & Compression": "Стрічка та стиснення"
+    "Tape & Compression": "Стрічка та стиснення",
+    "Crop": "Обрізання",
+    "Crop Image…": "Обрізати зображення…",
+    "Crop: editing": "Обрізання: редагування",
+    "Crop cancelled": "Обрізання скасовано",
+    "Crop image": "Обрізати зображення",
+    "Reset crop": "Скинути обрізання",
+    "Drag the image handles, then Apply. Preview rendering waits until the crop is accepted.": "Drag the image handles, then Apply. Preview rendering waits until the crop is accepted.",
+    "Aspect": "Співвідношення сторін",
+    "Swap aspect orientation": "Поміняти орієнтацію співвідношення",
+    "Free": "Вільне",
+    "Original": "Оригінальне",
+    "Ratio Width": "Ширина співвідношення",
+    "Ratio Height": "Висота співвідношення",
+    "Crop rectangle (pixels)": "Область обрізання (пікселі)",
+    "Rule of Thirds": "Правило третин",
+    "Grid": "Grid",
+    "Reset to Full Image": "Скинути до повного зображення",
+    "Enter applies · Esc cancels · Double-click inside the crop applies": "Enter — застосувати · Esc — скасувати · Подвійний клік усередині — застосувати",
+    "Full image · %1 × %2": "Повне зображення · %1 × %2",
+    "%1 × %2 px · X %3 · Y %4": "%1 × %2 px · X %3 · Y %4",
+    "Edit Crop…": "Редагувати обрізання…"
   }
 }

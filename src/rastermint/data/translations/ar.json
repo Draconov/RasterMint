@@ -801,6 +801,27 @@
     "Display Geometry & Response": "هندسة العرض والاستجابة",
     "CRT & Scan": "CRT والمسح",
     "Analog Signal": "الإشارة التناظرية",
-    "Tape & Compression": "الشريط والضغط"
+    "Tape & Compression": "الشريط والضغط",
+    "Crop": "اقتصاص",
+    "Crop Image…": "اقتصاص الصورة…",
+    "Crop: editing": "الاقتصاص: تحرير",
+    "Crop cancelled": "تم إلغاء الاقتصاص",
+    "Crop image": "اقتصاص الصورة",
+    "Reset crop": "إعادة ضبط الاقتصاص",
+    "Drag the image handles, then Apply. Preview rendering waits until the crop is accepted.": "Drag the image handles, then Apply. Preview rendering waits until the crop is accepted.",
+    "Aspect": "نسبة الأبعاد",
+    "Swap aspect orientation": "تبديل اتجاه النسبة",
+    "Free": "حر",
+    "Original": "الأصلية",
+    "Ratio Width": "عرض النسبة",
+    "Ratio Height": "ارتفاع النسبة",
+    "Crop rectangle (pixels)": "مستطيل الاقتصاص (بكسل)",
+    "Rule of Thirds": "قاعدة الأثلاث",
+    "Grid": "Grid",
+    "Reset to Full Image": "إعادة ضبط إلى الصورة كاملة",
+    "Enter applies · Esc cancels · Double-click inside the crop applies": "Enter applies · Esc cancels · Double-click inside the crop applies",
+    "Full image · %1 × %2": "الصورة كاملة · %1 × %2",
+    "%1 × %2 px · X %3 · Y %4": "%1 × %2 px · X %3 · Y %4",
+    "Edit Crop…": "تحرير الاقتصاص…"
   }
 }

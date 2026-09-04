@@ -118,10 +118,176 @@ def scaled_output_size(size: tuple[int, int], divisor: int) -> tuple[int, int]:
     return max(1, width // divisor), max(1, height // divisor)
 
 
+def _normalized_rect(rect: tuple[float, float, float, float]) -> tuple[float, float, float, float]:
+    x, y, width, height = (float(v) for v in rect)
+    eps = 1e-9
+    x = max(0.0, min(1.0 - eps, x))
+    y = max(0.0, min(1.0 - eps, y))
+    width = max(eps, min(1.0 - x, width))
+    height = max(eps, min(1.0 - y, height))
+    return x, y, width, height
+
+
+def source_crop_box(source_size: tuple[int, int], settings: ProcessingSettings) -> tuple[int, int, int, int]:
+    """Return the canonical integer source crop box (left, top, right, bottom).
+
+    Every consumer uses this helper so preview size, RGB pixels and alpha pixels
+    agree on the exact rounded crop dimensions. The normalized settings can
+    represent arbitrarily narrow crops; the integer box always retains at least
+    one source pixel per axis.
+    """
+    width = max(1, int(source_size[0]))
+    height = max(1, int(source_size[1]))
+    x, y, crop_width, crop_height = _normalized_rect(
+        (settings.crop_x, settings.crop_y, settings.crop_width, settings.crop_height)
+    )
+    left = max(0, min(width - 1, round(width * x)))
+    top = max(0, min(height - 1, round(height * y)))
+    right = max(left + 1, min(width, round(width * (x + crop_width))))
+    bottom = max(top + 1, min(height, round(height * (y + crop_height))))
+    return left, top, right, bottom
+
+
+def _transform_unit_point_to_display(
+    x: float,
+    y: float,
+    *,
+    rotation: int = 0,
+    flip_horizontal: bool = False,
+    flip_vertical: bool = False,
+) -> tuple[float, float]:
+    if flip_horizontal:
+        x = 1.0 - x
+    if flip_vertical:
+        y = 1.0 - y
+    rotation = int(rotation) % 360
+    if rotation == 90:
+        return 1.0 - y, x
+    if rotation == 180:
+        return 1.0 - x, 1.0 - y
+    if rotation == 270:
+        return y, 1.0 - x
+    return x, y
+
+
+def _transform_unit_point_to_source(
+    x: float,
+    y: float,
+    *,
+    rotation: int = 0,
+    flip_horizontal: bool = False,
+    flip_vertical: bool = False,
+) -> tuple[float, float]:
+    rotation = int(rotation) % 360
+    if rotation == 90:
+        x, y = y, 1.0 - x
+    elif rotation == 180:
+        x, y = 1.0 - x, 1.0 - y
+    elif rotation == 270:
+        x, y = 1.0 - y, x
+    if flip_vertical:
+        y = 1.0 - y
+    if flip_horizontal:
+        x = 1.0 - x
+    return x, y
+
+
+def _map_rect(
+    rect: tuple[float, float, float, float],
+    mapper: Callable[[float, float], tuple[float, float]],
+) -> tuple[float, float, float, float]:
+    x, y, width, height = _normalized_rect(rect)
+    corners = (
+        mapper(x, y),
+        mapper(x + width, y),
+        mapper(x, y + height),
+        mapper(x + width, y + height),
+    )
+    xs = [point[0] for point in corners]
+    ys = [point[1] for point in corners]
+    left = max(0.0, min(xs))
+    top = max(0.0, min(ys))
+    right = min(1.0, max(xs))
+    bottom = min(1.0, max(ys))
+    return _normalized_rect((left, top, right - left, bottom - top))
+
+
+def source_rect_to_display_rect(
+    rect: tuple[float, float, float, float],
+    *,
+    rotation: int = 0,
+    flip_horizontal: bool = False,
+    flip_vertical: bool = False,
+) -> tuple[float, float, float, float]:
+    """Map a normalized source-space crop rectangle into crop-editor display space."""
+    return _map_rect(
+        rect,
+        lambda x, y: _transform_unit_point_to_display(
+            x,
+            y,
+            rotation=rotation,
+            flip_horizontal=flip_horizontal,
+            flip_vertical=flip_vertical,
+        ),
+    )
+
+
+def display_rect_to_source_rect(
+    rect: tuple[float, float, float, float],
+    *,
+    rotation: int = 0,
+    flip_horizontal: bool = False,
+    flip_vertical: bool = False,
+) -> tuple[float, float, float, float]:
+    """Map a normalized crop-editor rectangle back into source coordinates."""
+    return _map_rect(
+        rect,
+        lambda x, y: _transform_unit_point_to_source(
+            x,
+            y,
+            rotation=rotation,
+            flip_horizontal=flip_horizontal,
+            flip_vertical=flip_vertical,
+        ),
+    )
+
+
+def make_crop_display_source(
+    image: Image.Image,
+    settings: ProcessingSettings,
+    *,
+    max_side: int = 4096,
+) -> Image.Image:
+    """Return the crop editor source view without applying crop/effects/target raster.
+
+    Only source-orientation transforms that conceptually precede the editor's
+    display mapping are applied. The returned image may be downscaled for UI
+    responsiveness; crop coordinates remain normalized against full source size.
+    """
+    img = image.convert("RGB")
+    if settings.flip_horizontal:
+        img = ImageOps.mirror(img)
+    if settings.flip_vertical:
+        img = ImageOps.flip(img)
+    rotation = int(settings.rotation) % 360
+    if rotation == 90:
+        img = img.transpose(Image.Transpose.ROTATE_270)
+    elif rotation == 180:
+        img = img.transpose(Image.Transpose.ROTATE_180)
+    elif rotation == 270:
+        img = img.transpose(Image.Transpose.ROTATE_90)
+
+    cap = max(1, int(max_side))
+    if max(img.size) > cap:
+        target = fit_size_within(img.size, (cap, cap))
+        img = img.resize(target, Image.Resampling.LANCZOS)
+    return img
+
+
 def _cropped_rotated_size(size: tuple[int, int], settings: ProcessingSettings) -> tuple[int, int]:
-    width, height = size
-    width = max(1, round(width * max(0.02, 1.0 - settings.crop_left - settings.crop_right)))
-    height = max(1, round(height * max(0.02, 1.0 - settings.crop_top - settings.crop_bottom)))
+    left, top, right, bottom = source_crop_box(size, settings)
+    width = max(1, right - left)
+    height = max(1, bottom - top)
     if settings.rotation % 180:
         width, height = height, width
     return width, height
@@ -211,10 +377,7 @@ def image_has_transparency(image: Image.Image) -> bool:
 def _apply_alpha_source_transform(alpha: Image.Image, settings: ProcessingSettings) -> Image.Image:
     mask = alpha.convert("L")
     w, h = mask.size
-    left = max(0, min(w - 1, round(w * settings.crop_left)))
-    top = max(0, min(h - 1, round(h * settings.crop_top)))
-    right = max(left + 1, min(w, round(w * (1.0 - settings.crop_right))))
-    bottom = max(top + 1, min(h, round(h * (1.0 - settings.crop_bottom))))
+    left, top, right, bottom = source_crop_box((w, h), settings)
     if (left, top, right, bottom) != (0, 0, w, h):
         mask = mask.crop((left, top, right, bottom))
     if settings.flip_horizontal:
@@ -328,10 +491,7 @@ def prepare_transparency_mask(
 def _apply_source_transform(image: Image.Image, settings: ProcessingSettings) -> Image.Image:
     img = image if image.mode == "RGB" else image.convert("RGB")
     w, h = img.size
-    left = max(0, min(w - 1, round(w * settings.crop_left)))
-    top = max(0, min(h - 1, round(h * settings.crop_top)))
-    right = max(left + 1, min(w, round(w * (1.0 - settings.crop_right))))
-    bottom = max(top + 1, min(h, round(h * (1.0 - settings.crop_bottom))))
+    left, top, right, bottom = source_crop_box((w, h), settings)
     if (left, top, right, bottom) != (0, 0, w, h):
         img = img.crop((left, top, right, bottom))
 
@@ -649,7 +809,8 @@ def make_preview_settings(
     preview.target_enabled = False
     preview.target_width = 0
     preview.target_height = 0
-    preview.crop_left = preview.crop_top = preview.crop_right = preview.crop_bottom = 0.0
+    preview.crop_x = preview.crop_y = 0.0
+    preview.crop_width = preview.crop_height = 1.0
     preview.rotation = 0
     preview.flip_horizontal = False
     preview.flip_vertical = False

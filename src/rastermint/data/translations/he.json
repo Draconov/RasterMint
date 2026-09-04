@@ -801,6 +801,27 @@
     "Display Geometry & Response": "גאומטריית תצוגה ותגובה",
     "CRT & Scan": "CRT וסריקה",
     "Analog Signal": "אות אנלוגי",
-    "Tape & Compression": "קלטת ודחיסה"
+    "Tape & Compression": "קלטת ודחיסה",
+    "Crop": "חיתוך",
+    "Crop Image…": "חיתוך תמונה…",
+    "Crop: editing": "חיתוך: עריכה",
+    "Crop cancelled": "החיתוך בוטל",
+    "Crop image": "חתוך תמונה",
+    "Reset crop": "איפוס חיתוך",
+    "Drag the image handles, then Apply. Preview rendering waits until the crop is accepted.": "Drag the image handles, then Apply. Preview rendering waits until the crop is accepted.",
+    "Aspect": "יחס גובה-רוחב",
+    "Swap aspect orientation": "החלף כיוון יחס",
+    "Free": "חופשי",
+    "Original": "מקורי",
+    "Ratio Width": "רוחב יחס",
+    "Ratio Height": "גובה יחס",
+    "Crop rectangle (pixels)": "מלבן חיתוך (פיקסלים)",
+    "Rule of Thirds": "חוק השלישים",
+    "Grid": "Grid",
+    "Reset to Full Image": "איפוס לתמונה מלאה",
+    "Enter applies · Esc cancels · Double-click inside the crop applies": "Enter מחיל · Esc מבטל · לחיצה כפולה בתוך החיתוך מחילה",
+    "Full image · %1 × %2": "תמונה מלאה · %1 × %2",
+    "%1 × %2 px · X %3 · Y %4": "%1 × %2 px · X %3 · Y %4",
+    "Edit Crop…": "עריכת חיתוך…"
   }
 }

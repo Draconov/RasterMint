@@ -58,10 +58,12 @@ class ProcessingSettings:
     mirror_vertical: bool = False
     mirror_horizontal_axis: float = 0.5
     mirror_vertical_axis: float = 0.5
-    crop_left: float = 0.0   # source-relative fractions 0..0.49
-    crop_top: float = 0.0
-    crop_right: float = 0.0
-    crop_bottom: float = 0.0
+    # Normalized source crop rectangle. (0, 0, 1, 1) means full source.
+    # The crop is applied before flips/rotation and before target-raster fitting.
+    crop_x: float = 0.0
+    crop_y: float = 0.0
+    crop_width: float = 1.0
+    crop_height: float = 1.0
 
     # Framebuffer pixel geometry and display view. pixel_aspect_x/y describe
     # pixel width:height. The framebuffer itself is never distorted; display
@@ -146,6 +148,36 @@ class ProcessingSettings:
         except (TypeError, ValueError):
             self.audio_envelope_rate = 30.0
 
+        self._normalize_crop_rect()
+
+    def _normalize_crop_rect(self) -> None:
+        """Clamp the normalized crop rectangle to the source unit square."""
+        eps = 1e-6
+        try:
+            x = float(self.crop_x)
+        except (TypeError, ValueError):
+            x = 0.0
+        try:
+            y = float(self.crop_y)
+        except (TypeError, ValueError):
+            y = 0.0
+        try:
+            width = float(self.crop_width)
+        except (TypeError, ValueError):
+            width = 1.0
+        try:
+            height = float(self.crop_height)
+        except (TypeError, ValueError):
+            height = 1.0
+        x = max(0.0, min(1.0 - eps, x))
+        y = max(0.0, min(1.0 - eps, y))
+        width = max(eps, min(1.0 - x, width))
+        height = max(eps, min(1.0 - y, height))
+        self.crop_x = x
+        self.crop_y = y
+        self.crop_width = width
+        self.crop_height = height
+
     def clone(self) -> "ProcessingSettings":
         """Fast independent copy for preview/frame evaluation.
 
@@ -177,8 +209,8 @@ class ProcessingSettings:
             "target_width", "target_height", "target_enabled", "keep_aspect",
             "fit_mode", "position_x", "position_y", "rotation",
             "flip_horizontal", "flip_vertical", "mirror_horizontal", "mirror_vertical",
-            "mirror_horizontal_axis", "mirror_vertical_axis", "crop_left", "crop_top",
-            "crop_right", "crop_bottom", "pixel_aspect_x", "pixel_aspect_y",
+            "mirror_horizontal_axis", "mirror_vertical_axis", "crop_x", "crop_y",
+            "crop_width", "crop_height", "pixel_aspect_x", "pixel_aspect_y",
             "display_mode", "display_export", "display_profile",
             "grid_enabled", "grid_preview", "grid_export", "grid_spacing",
             "grid_major_spacing", "grid_opacity", "hardware_profile_id",
@@ -220,16 +252,7 @@ class ProcessingSettings:
         obj.mirror_vertical = bool(obj.mirror_vertical)
         obj.mirror_horizontal_axis = max(0.0, min(1.0, float(obj.mirror_horizontal_axis)))
         obj.mirror_vertical_axis = max(0.0, min(1.0, float(obj.mirror_vertical_axis)))
-        obj.crop_left = max(0.0, min(0.49, float(obj.crop_left)))
-        obj.crop_top = max(0.0, min(0.49, float(obj.crop_top)))
-        obj.crop_right = max(0.0, min(0.49, float(obj.crop_right)))
-        obj.crop_bottom = max(0.0, min(0.49, float(obj.crop_bottom)))
-        # Keep at least ~2% of each axis even if a malformed preset requests
-        # overlapping crop margins.
-        if obj.crop_left + obj.crop_right > 0.98:
-            obj.crop_right = max(0.0, 0.98 - obj.crop_left)
-        if obj.crop_top + obj.crop_bottom > 0.98:
-            obj.crop_bottom = max(0.0, 0.98 - obj.crop_top)
+        obj._normalize_crop_rect()
 
         obj.pixel_aspect_x = max(0.05, min(20.0, float(obj.pixel_aspect_x)))
         obj.pixel_aspect_y = max(0.05, min(20.0, float(obj.pixel_aspect_y)))

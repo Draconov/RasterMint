@@ -28,6 +28,21 @@ ApplicationWindow {
         return result
     }
 
+    function setInspector(index) {
+        if (backend.cropEditing && index !== 11)
+            backend.cancelCropEdit()
+        inspectorIndex = index
+        if (index === 11 && backend.hasSource && !backend.cropEditing) {
+            backend.beginCropEdit()
+            canvas.resetView()
+        }
+    }
+
+    function openCropTool() {
+        if (backend.hasSource)
+            setInspector(11)
+    }
+
     function pasteImageShortcutAllowed() {
         var item = window.activeFocusItem
         if (!item)
@@ -182,6 +197,13 @@ ApplicationWindow {
             Action { text: qsTr("Undo"); enabled: backend.canUndo; shortcut: "Ctrl+Z"; onTriggered: backend.undo() }
             Action { text: qsTr("Redo"); enabled: backend.canRedo; shortcut: "Ctrl+Y"; onTriggered: backend.redo() }
             MintMenuSeparator { }
+            Action {
+                text: qsTr("Crop Image…")
+                enabled: backend.hasSource && window.pasteImageShortcutAllowed()
+                shortcut: "C"
+                onTriggered: window.openCropTool()
+            }
+            MintMenuSeparator { }
             Action { text: qsTr("Flip Image Horizontally"); enabled: backend.hasSource; shortcut: "Ctrl+Shift+H"; onTriggered: backend.flipHorizontal() }
             Action { text: qsTr("Flip Image Vertically"); enabled: backend.hasSource; shortcut: "Ctrl+Shift+V"; onTriggered: backend.flipVertical() }
             MintMenuSeparator { }
@@ -233,6 +255,33 @@ ApplicationWindow {
             Action { text: qsTr("A/B Split View"); enabled: backend.snapshotAReady && backend.snapshotBReady; checkable: true; checked: backend.comparisonEnabled; onTriggered: backend.setComparisonEnabled(checked) }
             MintMenuSeparator { }
             Action { text: qsTr("About RasterMint"); shortcut: "F1"; onTriggered: aboutDialog.open() }
+        }
+    }
+
+    Shortcut {
+        sequence: "Return"
+        enabled: backend.cropEditing
+        context: Qt.ApplicationShortcut
+        onActivated: backend.applyCropEdit()
+    }
+    Shortcut {
+        sequence: "Enter"
+        enabled: backend.cropEditing
+        context: Qt.ApplicationShortcut
+        onActivated: backend.applyCropEdit()
+    }
+    Shortcut {
+        sequence: "Escape"
+        enabled: backend.cropEditing
+        context: Qt.ApplicationShortcut
+        onActivated: backend.cancelCropEdit()
+    }
+
+    Connections {
+        target: backend
+        function onCropChanged() {
+            if (!backend.cropEditing && window.inspectorIndex === 11)
+                window.inspectorIndex = 1
         }
     }
 
@@ -369,7 +418,7 @@ ApplicationWindow {
                             text: qsTr("Randomize")
                             iconSource: Qt.resolvedUrl("../data/icons/sidebar-random.png")
                             selected: window.inspectorIndex === 0
-                            onClicked: window.inspectorIndex = 0
+                            onClicked: window.setInspector(0)
                         }
 
                         Item {
@@ -393,35 +442,35 @@ ApplicationWindow {
                             text: qsTr("Presets")
                             iconSource: Qt.resolvedUrl("../data/icons/sidebar-presets.png")
                             selected: window.inspectorIndex === 4
-                            onClicked: window.inspectorIndex = 4
+                            onClicked: window.setInspector(4)
                         }
                         InspectorNavButton {
                             Layout.fillWidth: true
                             text: qsTr("Hardware")
                             iconSource: Qt.resolvedUrl("../data/icons/sidebar-hardware.png")
                             selected: window.inspectorIndex === 5
-                            onClicked: window.inspectorIndex = 5
+                            onClicked: window.setInspector(5)
                         }
                         InspectorNavButton {
                             Layout.fillWidth: true
                             text: qsTr("Palette")
                             paletteSwatches: true
                             selected: window.inspectorIndex === 6
-                            onClicked: window.inspectorIndex = 6
+                            onClicked: window.setInspector(6)
                         }
                         InspectorNavButton {
                             Layout.fillWidth: true
                             text: qsTr("Layers")
                             iconSource: Qt.resolvedUrl("../data/icons/sidebar-layers.png")
                             selected: window.inspectorIndex === 7
-                            onClicked: window.inspectorIndex = 7
+                            onClicked: window.setInspector(7)
                         }
                         InspectorNavButton {
                             Layout.fillWidth: true
                             text: qsTr("Print Lab")
                             iconSource: Qt.resolvedUrl("../data/icons/sidebar-print-lab.png")
                             selected: window.inspectorIndex === 10
-                            onClicked: window.inspectorIndex = 10
+                            onClicked: window.setInspector(10)
                         }
 
                         Item {
@@ -445,21 +494,29 @@ ApplicationWindow {
                             text: qsTr("Source")
                             iconSource: Qt.resolvedUrl("../data/icons/sidebar-source.png")
                             selected: window.inspectorIndex === 1
-                            onClicked: window.inspectorIndex = 1
+                            onClicked: window.setInspector(1)
+                        }
+                        InspectorNavButton {
+                            Layout.fillWidth: true
+                            text: qsTr("Crop")
+                            iconSource: Qt.resolvedUrl("../data/icons/sidebar-crop.png")
+                            enabled: backend.hasSource
+                            selected: window.inspectorIndex === 11
+                            onClicked: window.openCropTool()
                         }
                         InspectorNavButton {
                             Layout.fillWidth: true
                             text: qsTr("Preview")
                             iconSource: Qt.resolvedUrl("../data/icons/sidebar-preview.png")
                             selected: window.inspectorIndex === 2
-                            onClicked: window.inspectorIndex = 2
+                            onClicked: window.setInspector(2)
                         }
                         InspectorNavButton {
                             Layout.fillWidth: true
                             text: qsTr("Raster")
                             iconSource: Qt.resolvedUrl("../data/icons/sidebar-raster.png")
                             selected: window.inspectorIndex === 3
-                            onClicked: window.inspectorIndex = 3
+                            onClicked: window.setInspector(3)
                         }
 
                         Item {
@@ -483,14 +540,14 @@ ApplicationWindow {
                             text: qsTr("Animation")
                             iconSource: Qt.resolvedUrl("../data/icons/sidebar-animation.png")
                             selected: window.inspectorIndex === 8
-                            onClicked: window.inspectorIndex = 8
+                            onClicked: window.setInspector(8)
                         }
                         InspectorNavButton {
                             Layout.fillWidth: true
                             text: qsTr("Media Playback")
                             iconSource: Qt.resolvedUrl("../data/icons/sidebar-media-playback.png")
                             selected: window.inspectorIndex === 9
-                            onClicked: window.inspectorIndex = 9
+                            onClicked: window.setInspector(9)
                         }
                         Item { Layout.fillHeight: true }
                     }
@@ -507,7 +564,7 @@ ApplicationWindow {
                             anchors.fill: parent
                             currentIndex: window.inspectorIndex
                             Pages.RandomizePage { }
-                            Pages.SourcePage { }
+                            Pages.SourcePage { onCropRequested: window.openCropTool() }
                             Pages.PreviewPage { onFitRequested: canvas.resetView() }
                             Pages.RasterPage { }
                             Pages.PresetsPage { }
@@ -517,6 +574,7 @@ ApplicationWindow {
                             Pages.AnimationPage { }
                             Pages.MediaPage { }
                             Pages.PrintLabPage { }
+                            Pages.CropPage { }
                         }
                     }
                 }

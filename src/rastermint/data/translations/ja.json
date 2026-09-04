@@ -904,6 +904,27 @@
     "Display Geometry & Response": "画面ジオメトリ＆応答",
     "CRT & Scan": "CRT＆スキャン",
     "Analog Signal": "アナログ信号",
-    "Tape & Compression": "テープ＆圧縮"
+    "Tape & Compression": "テープ＆圧縮",
+    "Crop": "切り抜き",
+    "Crop Image…": "画像を切り抜く…",
+    "Crop: editing": "切り抜き：編集中",
+    "Crop cancelled": "切り抜きをキャンセルしました",
+    "Crop image": "画像を切り抜く",
+    "Reset crop": "切り抜きをリセット",
+    "Drag the image handles, then Apply. Preview rendering waits until the crop is accepted.": "Drag the image handles, then Apply. Preview rendering waits until the crop is accepted.",
+    "Aspect": "アスペクト比",
+    "Swap aspect orientation": "比率の向きを入れ替え",
+    "Free": "自由",
+    "Original": "元の比率",
+    "Ratio Width": "比率の幅",
+    "Ratio Height": "比率の高さ",
+    "Crop rectangle (pixels)": "切り抜き範囲（ピクセル）",
+    "Rule of Thirds": "三分割法",
+    "Grid": "Grid",
+    "Reset to Full Image": "画像全体にリセット",
+    "Enter applies · Esc cancels · Double-click inside the crop applies": "Enterで適用 · Escでキャンセル · 範囲内をダブルクリックで適用",
+    "Full image · %1 × %2": "画像全体 · %1 × %2",
+    "%1 × %2 px · X %3 · Y %4": "%1 × %2 px · X %3 · Y %4",
+    "Edit Crop…": "切り抜きを編集…"
   }
 }

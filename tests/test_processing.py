@@ -14,6 +14,10 @@ from rastermint.core.processor import (
     process_image,
     scaled_output_size,
     source_raster_size,
+    source_crop_box,
+    source_rect_to_display_rect,
+    display_rect_to_source_rect,
+    make_crop_display_source,
 )
 from rastermint.core.settings import ProcessingSettings
 
@@ -25,6 +29,85 @@ def test_fit_size_within_full_hd_preserves_aspect_and_never_upscales():
     assert fit_size_within((3000, 4000), (1920, 1080)) == (810, 1080)
     assert fit_size_within((1281, 1242), (1920, 1080)) == (1114, 1080)
     assert fit_size_within((1280, 720), (1920, 1080)) == (1280, 720)
+
+
+def test_normalized_crop_box_supports_extreme_single_edge_crop_and_exact_size():
+    settings = ProcessingSettings(crop_x=0.80, crop_y=0.10, crop_width=0.20, crop_height=0.75)
+    assert source_crop_box((1000, 800), settings) == (800, 80, 1000, 680)
+    assert source_raster_size((1000, 800), settings) == (200, 600)
+
+
+def test_normalized_crop_box_clamps_to_at_least_one_source_pixel():
+    settings = ProcessingSettings(crop_x=0.9999, crop_y=0.9999, crop_width=0.00001, crop_height=0.00001)
+    left, top, right, bottom = source_crop_box((11, 7), settings)
+    assert right - left == 1
+    assert bottom - top == 1
+
+
+def test_crop_rect_display_mapping_round_trips_rotation_and_flips():
+    source_rect = (0.15, 0.20, 0.55, 0.60)
+    for rotation in (0, 90, 180, 270):
+        for flip_horizontal in (False, True):
+            for flip_vertical in (False, True):
+                display = source_rect_to_display_rect(
+                    source_rect,
+                    rotation=rotation,
+                    flip_horizontal=flip_horizontal,
+                    flip_vertical=flip_vertical,
+                )
+                restored = display_rect_to_source_rect(
+                    display,
+                    rotation=rotation,
+                    flip_horizontal=flip_horizontal,
+                    flip_vertical=flip_vertical,
+                )
+                assert np.allclose(restored, source_rect, atol=1e-9)
+
+
+def test_crop_rect_90_degree_mapping_uses_display_orientation():
+    display = source_rect_to_display_rect(
+        (0.10, 0.20, 0.30, 0.40),
+        rotation=90,
+        flip_horizontal=False,
+        flip_vertical=False,
+    )
+    assert np.allclose(display, (0.40, 0.10, 0.40, 0.30), atol=1e-9)
+
+
+def test_processing_settings_uses_new_crop_rectangle_only():
+    settings = ProcessingSettings.from_dict({
+        "crop_x": 0.25,
+        "crop_y": 0.10,
+        "crop_width": 0.50,
+        "crop_height": 0.80,
+        "crop_left": 0.40,
+    })
+    assert settings.crop_x == 0.25
+    assert settings.crop_y == 0.10
+    assert settings.crop_width == 0.50
+    assert settings.crop_height == 0.80
+    assert "crop_left" not in settings.to_dict()
+
+
+def test_crop_display_source_ignores_crop_target_and_effects_but_applies_orientation():
+    source = Image.new("RGB", (6, 4), "black")
+    source.putpixel((0, 0), (255, 0, 0))
+    settings = ProcessingSettings(
+        crop_x=0.5, crop_y=0.0, crop_width=0.5, crop_height=1.0,
+        target_enabled=True, target_width=2, target_height=2,
+        flip_horizontal=True, rotation=90,
+    )
+    display = make_crop_display_source(source, settings, max_side=4096)
+    assert display.size == (4, 6)
+    # Crop is ignored and the red source corner survives orientation mapping.
+    assert (255, 0, 0) in set(display.get_flattened_data())
+
+
+def test_crop_display_source_caps_only_the_display_proxy():
+    source = Image.new("RGB", (8000, 4000), "white")
+    settings = ProcessingSettings()
+    display = make_crop_display_source(source, settings, max_side=4096)
+    assert display.size == (4096, 2048)
 
 
 def test_processor_preserves_output_size_with_pixelation():
@@ -135,7 +218,7 @@ def test_linked_target_height_updates_width_from_source_aspect():
 
 
 def test_linked_target_uses_cropped_and_rotated_source_aspect():
-    settings = ProcessingSettings(crop_left=0.25, crop_right=0.25, rotation=90)
+    settings = ProcessingSettings(crop_x=0.25, crop_y=0.0, crop_width=0.5, crop_height=1.0, rotation=90)
     # 1200x800 -> crop to 600x800 -> rotate to 800x600 (4:3).
     assert source_raster_size((1200, 800), settings) == (800, 600)
     assert linked_target_size((1200, 800), settings, width=400) == (400, 300)
@@ -172,7 +255,7 @@ def test_exact_target_raster_output():
 
 
 def test_crop_and_rotation_change_implicit_raster_size():
-    settings = ProcessingSettings(crop_left=0.1, crop_right=0.1, rotation=90)
+    settings = ProcessingSettings(crop_x=0.1, crop_y=0.0, crop_width=0.8, crop_height=1.0, rotation=90)
     assert target_raster_size((100, 50), settings) == (50, 80)
 
 

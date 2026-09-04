@@ -904,6 +904,27 @@
     "Display Geometry & Response": "डिस्प्ले ज्योमेट्री और रिस्पॉन्स",
     "CRT & Scan": "CRT और स्कैन",
     "Analog Signal": "एनालॉग सिग्नल",
-    "Tape & Compression": "टेप और कम्प्रेशन"
+    "Tape & Compression": "टेप और कम्प्रेशन",
+    "Crop": "क्रॉप",
+    "Crop Image…": "छवि क्रॉप करें…",
+    "Crop: editing": "क्रॉप: संपादन",
+    "Crop cancelled": "क्रॉप रद्द किया गया",
+    "Crop image": "छवि क्रॉप करें",
+    "Reset crop": "क्रॉप रीसेट करें",
+    "Drag the image handles, then Apply. Preview rendering waits until the crop is accepted.": "Drag the image handles, then Apply. Preview rendering waits until the crop is accepted.",
+    "Aspect": "आस्पेक्ट अनुपात",
+    "Swap aspect orientation": "अनुपात दिशा बदलें",
+    "Free": "मुक्त",
+    "Original": "मूल",
+    "Ratio Width": "अनुपात चौड़ाई",
+    "Ratio Height": "अनुपात ऊंचाई",
+    "Crop rectangle (pixels)": "क्रॉप आयत (पिक्सेल)",
+    "Rule of Thirds": "रूल ऑफ थर्ड्स",
+    "Grid": "Grid",
+    "Reset to Full Image": "पूर्ण छवि पर रीसेट करें",
+    "Enter applies · Esc cancels · Double-click inside the crop applies": "Enter applies · Esc cancels · Double-click inside the crop applies",
+    "Full image · %1 × %2": "पूर्ण छवि · %1 × %2",
+    "%1 × %2 px · X %3 · Y %4": "%1 × %2 px · X %3 · Y %4",
+    "Edit Crop…": "क्रॉप संपादित करें…"
   }
 }

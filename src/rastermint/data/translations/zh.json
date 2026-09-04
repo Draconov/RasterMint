@@ -904,6 +904,27 @@
     "Display Geometry & Response": "显示几何与响应",
     "CRT & Scan": "CRT 与扫描",
     "Analog Signal": "模拟信号",
-    "Tape & Compression": "磁带与压缩"
+    "Tape & Compression": "磁带与压缩",
+    "Crop": "裁剪",
+    "Crop Image…": "裁剪图像…",
+    "Crop: editing": "裁剪：编辑中",
+    "Crop cancelled": "已取消裁剪",
+    "Crop image": "裁剪图像",
+    "Reset crop": "重置裁剪",
+    "Drag the image handles, then Apply. Preview rendering waits until the crop is accepted.": "Drag the image handles, then Apply. Preview rendering waits until the crop is accepted.",
+    "Aspect": "宽高比",
+    "Swap aspect orientation": "交换宽高比方向",
+    "Free": "自由",
+    "Original": "原始",
+    "Ratio Width": "比例宽度",
+    "Ratio Height": "比例高度",
+    "Crop rectangle (pixels)": "裁剪矩形（像素）",
+    "Rule of Thirds": "三分法",
+    "Grid": "Grid",
+    "Reset to Full Image": "重置为完整图像",
+    "Enter applies · Esc cancels · Double-click inside the crop applies": "Enter 应用 · Esc 取消 · 在裁剪区域内双击应用",
+    "Full image · %1 × %2": "完整图像 · %1 × %2",
+    "%1 × %2 px · X %3 · Y %4": "%1 × %2 px · X %3 · Y %4",
+    "Edit Crop…": "编辑裁剪…"
   }
 }

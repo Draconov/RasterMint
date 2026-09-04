@@ -904,6 +904,27 @@
     "Display Geometry & Response": "Ekran Geometrisi ve Tepki",
     "CRT & Scan": "CRT ve Tarama",
     "Analog Signal": "Analog Sinyal",
-    "Tape & Compression": "Bant ve Sıkıştırma"
+    "Tape & Compression": "Bant ve Sıkıştırma",
+    "Crop": "Kırp",
+    "Crop Image…": "Görüntüyü Kırp…",
+    "Crop: editing": "Kırpma: düzenleniyor",
+    "Crop cancelled": "Kırpma iptal edildi",
+    "Crop image": "Görüntüyü kırp",
+    "Reset crop": "Kırpmayı sıfırla",
+    "Drag the image handles, then Apply. Preview rendering waits until the crop is accepted.": "Drag the image handles, then Apply. Preview rendering waits until the crop is accepted.",
+    "Aspect": "En-boy oranı",
+    "Swap aspect orientation": "Oran yönünü değiştir",
+    "Free": "Serbest",
+    "Original": "Orijinal",
+    "Ratio Width": "Oran genişliği",
+    "Ratio Height": "Oran yüksekliği",
+    "Crop rectangle (pixels)": "Kırpma dikdörtgeni (piksel)",
+    "Rule of Thirds": "Üçler kuralı",
+    "Grid": "Grid",
+    "Reset to Full Image": "Tam görüntüye sıfırla",
+    "Enter applies · Esc cancels · Double-click inside the crop applies": "Enter applies · Esc cancels · Double-click inside the crop applies",
+    "Full image · %1 × %2": "Tam görüntü · %1 × %2",
+    "%1 × %2 px · X %3 · Y %4": "%1 × %2 px · X %3 · Y %4",
+    "Edit Crop…": "Kırpmayı Düzenle…"
   }
 }

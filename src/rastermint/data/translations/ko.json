@@ -904,6 +904,27 @@
     "Display Geometry & Response": "디스플레이 기하 및 응답",
     "CRT & Scan": "CRT 및 스캔",
     "Analog Signal": "아날로그 신호",
-    "Tape & Compression": "테이프 및 압축"
+    "Tape & Compression": "테이프 및 압축",
+    "Crop": "자르기",
+    "Crop Image…": "이미지 자르기…",
+    "Crop: editing": "자르기: 편집 중",
+    "Crop cancelled": "자르기 취소됨",
+    "Crop image": "이미지 자르기",
+    "Reset crop": "자르기 초기화",
+    "Drag the image handles, then Apply. Preview rendering waits until the crop is accepted.": "Drag the image handles, then Apply. Preview rendering waits until the crop is accepted.",
+    "Aspect": "종횡비",
+    "Swap aspect orientation": "비율 방향 바꾸기",
+    "Free": "자유",
+    "Original": "원본",
+    "Ratio Width": "비율 너비",
+    "Ratio Height": "비율 높이",
+    "Crop rectangle (pixels)": "자르기 영역(픽셀)",
+    "Rule of Thirds": "삼분할 법칙",
+    "Grid": "Grid",
+    "Reset to Full Image": "전체 이미지로 초기화",
+    "Enter applies · Esc cancels · Double-click inside the crop applies": "Enter 적용 · Esc 취소 · 자르기 안쪽 더블클릭으로 적용",
+    "Full image · %1 × %2": "전체 이미지 · %1 × %2",
+    "%1 × %2 px · X %3 · Y %4": "%1 × %2 px · X %3 · Y %4",
+    "Edit Crop…": "자르기 편집…"
   }
 }

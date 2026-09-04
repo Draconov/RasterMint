@@ -904,6 +904,27 @@
     "Display Geometry & Response": "Hình học & phản hồi màn hình",
     "CRT & Scan": "CRT & quét",
     "Analog Signal": "Tín hiệu tương tự",
-    "Tape & Compression": "Băng & nén"
+    "Tape & Compression": "Băng & nén",
+    "Crop": "Cắt",
+    "Crop Image…": "Cắt ảnh…",
+    "Crop: editing": "Cắt: đang chỉnh sửa",
+    "Crop cancelled": "Đã hủy cắt",
+    "Crop image": "Cắt ảnh",
+    "Reset crop": "Đặt lại vùng cắt",
+    "Drag the image handles, then Apply. Preview rendering waits until the crop is accepted.": "Drag the image handles, then Apply. Preview rendering waits until the crop is accepted.",
+    "Aspect": "Tỷ lệ khung hình",
+    "Swap aspect orientation": "Đổi hướng tỷ lệ",
+    "Free": "Tự do",
+    "Original": "Gốc",
+    "Ratio Width": "Chiều rộng tỷ lệ",
+    "Ratio Height": "Chiều cao tỷ lệ",
+    "Crop rectangle (pixels)": "Khung cắt (pixel)",
+    "Rule of Thirds": "Quy tắc một phần ba",
+    "Grid": "Grid",
+    "Reset to Full Image": "Đặt lại toàn ảnh",
+    "Enter applies · Esc cancels · Double-click inside the crop applies": "Enter applies · Esc cancels · Double-click inside the crop applies",
+    "Full image · %1 × %2": "Toàn ảnh · %1 × %2",
+    "%1 × %2 px · X %3 · Y %4": "%1 × %2 px · X %3 · Y %4",
+    "Edit Crop…": "Sửa vùng cắt…"
   }
 }

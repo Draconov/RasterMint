@@ -322,6 +322,7 @@ class RasterMintBackend(QObject):
     showHotkeysChanged = Signal()
     screenColorPicked = Signal(str)
     screenEyedropperCancelled = Signal()
+    cropChanged = Signal()
 
     def __init__(self, image_provider: RasterImageProvider, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -405,6 +406,18 @@ class RasterMintBackend(QObject):
         self._snapshot_b: dict[str, Any] | None = None
         self._comparison_split = 0.5
         self._comparison_enabled = False
+
+        # Crop editor state is deliberately transient. Dragging/resizing only
+        # changes this draft; ProcessingSettings is updated once on Apply.
+        self._crop_editing = False
+        self._crop_draft_rect = (0.0, 0.0, 1.0, 1.0)
+        self._crop_display_width = 1
+        self._crop_display_height = 1
+        self._crop_aspect_mode = "Free"
+        self._crop_aspect_inverted = False
+        self._crop_custom_ratio = (16, 9)
+        self._crop_overlay = "Rule of Thirds"
+
         self._benchmark_summary = ""
         # Created lazily on the first eligible preview so importing the QML
         # backend remains lightweight during application startup.
@@ -661,6 +674,96 @@ class RasterMintBackend(QObject):
     @Property(int, notify=previewChanged)
     def previewHeight(self) -> int:
         return self._preview_height
+
+    @Property(bool, notify=cropChanged)
+    def cropEditing(self) -> bool:
+        return bool(self._crop_editing)
+
+    @Property(int, notify=cropChanged)
+    def cropDisplayWidth(self) -> int:
+        return max(1, int(self._crop_display_width))
+
+    @Property(int, notify=cropChanged)
+    def cropDisplayHeight(self) -> int:
+        return max(1, int(self._crop_display_height))
+
+    @Property(float, notify=cropChanged)
+    def cropDraftNormX(self) -> float:
+        return float(self._crop_draft_rect[0])
+
+    @Property(float, notify=cropChanged)
+    def cropDraftNormY(self) -> float:
+        return float(self._crop_draft_rect[1])
+
+    @Property(float, notify=cropChanged)
+    def cropDraftNormWidth(self) -> float:
+        return float(self._crop_draft_rect[2])
+
+    @Property(float, notify=cropChanged)
+    def cropDraftNormHeight(self) -> float:
+        return float(self._crop_draft_rect[3])
+
+    @Property(int, notify=cropChanged)
+    def cropDraftX(self) -> int:
+        return int(round(self._crop_draft_rect[0] * self.cropDisplayWidth))
+
+    @Property(int, notify=cropChanged)
+    def cropDraftY(self) -> int:
+        return int(round(self._crop_draft_rect[1] * self.cropDisplayHeight))
+
+    @Property(int, notify=cropChanged)
+    def cropDraftWidth(self) -> int:
+        return max(1, int(round(self._crop_draft_rect[2] * self.cropDisplayWidth)))
+
+    @Property(int, notify=cropChanged)
+    def cropDraftHeight(self) -> int:
+        return max(1, int(round(self._crop_draft_rect[3] * self.cropDisplayHeight)))
+
+    @Property(str, notify=cropChanged)
+    def cropAspectMode(self) -> str:
+        return str(self._crop_aspect_mode)
+
+    @Property(bool, notify=cropChanged)
+    def cropAspectInverted(self) -> bool:
+        return bool(self._crop_aspect_inverted)
+
+    @Property(float, notify=cropChanged)
+    def cropAspectRatio(self) -> float:
+        mode = str(self._crop_aspect_mode)
+        if mode == "Free":
+            return 0.0
+        if mode == "Original":
+            ratio = self.cropDisplayWidth / max(1.0, float(self.cropDisplayHeight))
+        elif mode == "Custom":
+            ratio = self._crop_custom_ratio[0] / max(1.0, float(self._crop_custom_ratio[1]))
+        else:
+            ratios = {"1:1": (1, 1), "4:3": (4, 3), "3:2": (3, 2), "16:9": (16, 9)}
+            numerator, denominator = ratios.get(mode, (0, 1))
+            ratio = numerator / max(1.0, float(denominator))
+        if ratio <= 0.0:
+            return 0.0
+        return (1.0 / ratio) if self._crop_aspect_inverted else ratio
+
+    @Property(int, notify=cropChanged)
+    def cropCustomRatioWidth(self) -> int:
+        return int(self._crop_custom_ratio[0])
+
+    @Property(int, notify=cropChanged)
+    def cropCustomRatioHeight(self) -> int:
+        return int(self._crop_custom_ratio[1])
+
+    @Property(str, notify=cropChanged)
+    def cropOverlay(self) -> str:
+        return str(self._crop_overlay)
+
+    @Property("QVariantMap", notify=cropChanged)
+    def appliedCropPixels(self) -> dict[str, int]:
+        source = self._active_source()
+        if source is None:
+            return {"x": 0, "y": 0, "width": 1, "height": 1}
+        from rastermint.core.processor import source_crop_box
+        left, top, right, bottom = source_crop_box((int(source.width), int(source.height)), self.settings)
+        return {"x": left, "y": top, "width": max(1, right - left), "height": max(1, bottom - top)}
 
     @Property(str, notify=statusChanged)
     def statusText(self) -> str:
@@ -1658,8 +1761,8 @@ class RasterMintBackend(QObject):
             "target_enabled": "Target raster", "target_width": "Raster width", "target_height": "Raster height",
             "keep_aspect": "Keep aspect ratio", "fit_mode": "Fit mode", "position_x": "Fill position X",
             "position_y": "Fill position Y", "pixel_aspect_x": "Pixel aspect width", "pixel_aspect_y": "Pixel aspect height",
-            "display_mode": "Display view", "display_export": "Display view on export", "crop_left": "Crop left",
-            "crop_right": "Crop right", "crop_top": "Crop top", "crop_bottom": "Crop bottom",
+            "display_mode": "Display view", "display_export": "Display view on export",
+            "crop_x": "Crop X", "crop_y": "Crop Y", "crop_width": "Crop width", "crop_height": "Crop height",
             "animation_duration": "Animation duration", "animation_fps": "Animation FPS", "animation_loop": "Animation loop",
             "random_locks": "Randomize locks",
         }
@@ -1691,6 +1794,13 @@ class RasterMintBackend(QObject):
         settings.effect_stack = normalize_effect_stack(settings.effect_stack, settings)
         canonical = ProcessingSettings.from_dict(settings.to_dict())
         rotation_changed = int(canonical.rotation) != int(self.settings.rotation)
+        crop_changed = (
+            float(canonical.crop_x), float(canonical.crop_y),
+            float(canonical.crop_width), float(canonical.crop_height),
+        ) != (
+            float(self.settings.crop_x), float(self.settings.crop_y),
+            float(self.settings.crop_width), float(self.settings.crop_height),
+        )
         desired_layer = self._selected_layer if selected_layer is None else int(selected_layer)
         desired_layer = max(0, min(desired_layer, max(0, len(canonical.effect_stack) - 1)))
         if canonical.to_dict() == self.settings.to_dict() and desired_layer == self._selected_layer:
@@ -1712,14 +1822,15 @@ class RasterMintBackend(QObject):
         self._reset_preview_temporal_state()
         self._invalidate_rendered()
         self.settingsChanged.emit()
+        if crop_changed:
+            self.cropChanged.emit()
         self.layerSelectionChanged.emit()
         self.layerWorkflowChanged.emit()
         if schedule and self.hasSource:
             self.schedulePreview()
-        if rotation_changed and self.hasSource:
+        if (rotation_changed or crop_changed) and self.hasSource:
             # Preset cards are rendered from the current source-transform
-            # context. Refresh for every rotation change (including undo/redo,
-            # project load and transform reset), not only the rotate button.
+            # context. Refresh for transform changes, including crop edits.
             self.refreshPresetThumbnails()
         if action:
             self._set_status(action)
@@ -1884,9 +1995,218 @@ class RasterMintBackend(QObject):
         )
         return fitted
 
+    # ---------- crop editor ----------
+    @staticmethod
+    def _clamp_crop_rect(rect: tuple[float, float, float, float], width: int, height: int) -> tuple[float, float, float, float]:
+        x, y, crop_width, crop_height = (float(value) for value in rect)
+        min_width = 1.0 / max(1.0, float(width))
+        min_height = 1.0 / max(1.0, float(height))
+        crop_width = max(min_width, min(1.0, crop_width))
+        crop_height = max(min_height, min(1.0, crop_height))
+        x = max(0.0, min(1.0 - crop_width, x))
+        y = max(0.0, min(1.0 - crop_height, y))
+        return x, y, crop_width, crop_height
+
+    def _crop_normalized_ratio(self) -> float:
+        pixel_ratio = float(self.cropAspectRatio)
+        if pixel_ratio <= 0.0:
+            return 0.0
+        return pixel_ratio * self.cropDisplayHeight / max(1.0, float(self.cropDisplayWidth))
+
+    def _fit_crop_rect_to_ratio(self, rect: tuple[float, float, float, float]) -> tuple[float, float, float, float]:
+        ratio = self._crop_normalized_ratio()
+        if ratio <= 0.0:
+            return self._clamp_crop_rect(rect, self.cropDisplayWidth, self.cropDisplayHeight)
+        x, y, width, height = self._clamp_crop_rect(rect, self.cropDisplayWidth, self.cropDisplayHeight)
+        center_x = x + width / 2.0
+        center_y = y + height / 2.0
+        if width / max(1e-12, height) > ratio:
+            width = height * ratio
+        else:
+            height = width / ratio
+        x = center_x - width / 2.0
+        y = center_y - height / 2.0
+        return self._clamp_crop_rect((x, y, width, height), self.cropDisplayWidth, self.cropDisplayHeight)
+
+    def _cancel_crop_for_source_change(self) -> None:
+        if self._crop_editing:
+            self._crop_editing = False
+            self.provider.clear("crop-source")
+            self.cropChanged.emit()
+
+    @Slot()
+    def beginCropEdit(self) -> None:
+        source = self._active_source()
+        if source is None:
+            return
+        if self._playing:
+            self._playing = False
+            self._play_timer.stop()
+            self.playbackChanged.emit()
+        from rastermint.core.processor import make_crop_display_source, source_rect_to_display_rect
+        source_width = max(1, int(source.width))
+        source_height = max(1, int(source.height))
+        if int(self.settings.rotation) % 180:
+            self._crop_display_width, self._crop_display_height = source_height, source_width
+        else:
+            self._crop_display_width, self._crop_display_height = source_width, source_height
+        source_rect = (
+            float(self.settings.crop_x), float(self.settings.crop_y),
+            float(self.settings.crop_width), float(self.settings.crop_height),
+        )
+        self._crop_draft_rect = source_rect_to_display_rect(
+            source_rect,
+            rotation=int(self.settings.rotation),
+            flip_horizontal=bool(self.settings.flip_horizontal),
+            flip_vertical=bool(self.settings.flip_vertical),
+        )
+        proxy = make_crop_display_source(source, self.settings, max_side=4096)
+        self.provider.set_image("crop-source", _pil_to_qimage(proxy))
+        self._crop_editing = True
+        self.cropChanged.emit()
+        self._set_status(_tr("Crop: editing"))
+
+    @Slot()
+    def cancelCropEdit(self) -> None:
+        if not self._crop_editing:
+            return
+        self._crop_editing = False
+        self.provider.clear("crop-source")
+        self.cropChanged.emit()
+        self._set_status(_tr("Crop cancelled"))
+
+    @Slot()
+    def applyCropEdit(self) -> None:
+        if not self._crop_editing:
+            return
+        from rastermint.core.processor import display_rect_to_source_rect
+        source_rect = display_rect_to_source_rect(
+            self._crop_draft_rect,
+            rotation=int(self.settings.rotation),
+            flip_horizontal=bool(self.settings.flip_horizontal),
+            flip_vertical=bool(self.settings.flip_vertical),
+        )
+        data = self.settings.to_dict()
+        data.update(
+            crop_x=source_rect[0], crop_y=source_rect[1],
+            crop_width=source_rect[2], crop_height=source_rect[3],
+        )
+        self._crop_editing = False
+        self.provider.clear("crop-source")
+        self.cropChanged.emit()
+        self._replace_settings(ProcessingSettings.from_dict(data), action=_tr("Crop image"))
+
+    @Slot(float, float, float, float)
+    def setCropDraftRect(self, x: float, y: float, width: float, height: float) -> None:
+        if not self._crop_editing:
+            return
+        rect = self._clamp_crop_rect((x, y, width, height), self.cropDisplayWidth, self.cropDisplayHeight)
+        if self.cropAspectRatio > 0.0:
+            rect = self._fit_crop_rect_to_ratio(rect)
+        if rect == self._crop_draft_rect:
+            return
+        self._crop_draft_rect = rect
+        self.cropChanged.emit()
+
+    @Slot(str, int)
+    def setCropDraftPixelValue(self, key: str, value: int) -> None:
+        if not self._crop_editing:
+            return
+        x = self.cropDraftX
+        y = self.cropDraftY
+        width = self.cropDraftWidth
+        height = self.cropDraftHeight
+        key = str(key)
+        value = max(0, int(value))
+        if key == "x":
+            x = min(max(0, self.cropDisplayWidth - width), value)
+        elif key == "y":
+            y = min(max(0, self.cropDisplayHeight - height), value)
+        elif key == "width":
+            width = max(1, min(self.cropDisplayWidth - x, value))
+            if self.cropAspectRatio > 0.0:
+                height = max(1, min(self.cropDisplayHeight - y, round(width / self.cropAspectRatio)))
+                width = max(1, min(self.cropDisplayWidth - x, round(height * self.cropAspectRatio)))
+        elif key == "height":
+            height = max(1, min(self.cropDisplayHeight - y, value))
+            if self.cropAspectRatio > 0.0:
+                width = max(1, min(self.cropDisplayWidth - x, round(height * self.cropAspectRatio)))
+                height = max(1, min(self.cropDisplayHeight - y, round(width / self.cropAspectRatio)))
+        else:
+            return
+        self.setCropDraftRect(
+            x / self.cropDisplayWidth,
+            y / self.cropDisplayHeight,
+            width / self.cropDisplayWidth,
+            height / self.cropDisplayHeight,
+        )
+
+    @Slot()
+    def resetCropDraft(self) -> None:
+        if not self._crop_editing:
+            return
+        self._crop_aspect_mode = "Free"
+        self._crop_aspect_inverted = False
+        self._crop_draft_rect = (0.0, 0.0, 1.0, 1.0)
+        self.cropChanged.emit()
+
+    @Slot()
+    def resetCrop(self) -> None:
+        if self._crop_editing:
+            self.resetCropDraft()
+            return
+        if (
+            abs(float(self.settings.crop_x)) < 1e-12
+            and abs(float(self.settings.crop_y)) < 1e-12
+            and abs(float(self.settings.crop_width) - 1.0) < 1e-12
+            and abs(float(self.settings.crop_height) - 1.0) < 1e-12
+        ):
+            return
+        data = self.settings.to_dict()
+        data.update(crop_x=0.0, crop_y=0.0, crop_width=1.0, crop_height=1.0)
+        self._replace_settings(ProcessingSettings.from_dict(data), action=_tr("Reset crop"))
+
+    @Slot(str)
+    def setCropAspectMode(self, mode: str) -> None:
+        mode = str(mode or "Free")
+        if mode not in {"Free", "Original", "1:1", "4:3", "3:2", "16:9", "Custom"}:
+            mode = "Free"
+        self._crop_aspect_mode = mode
+        self._crop_aspect_inverted = False
+        if self._crop_editing and self.cropAspectRatio > 0.0:
+            self._crop_draft_rect = self._fit_crop_rect_to_ratio(self._crop_draft_rect)
+        self.cropChanged.emit()
+
+    @Slot(int, int)
+    def setCropCustomRatio(self, width: int, height: int) -> None:
+        self._crop_custom_ratio = (max(1, min(999, int(width))), max(1, min(999, int(height))))
+        if self._crop_editing and self._crop_aspect_mode == "Custom":
+            self._crop_draft_rect = self._fit_crop_rect_to_ratio(self._crop_draft_rect)
+        self.cropChanged.emit()
+
+    @Slot()
+    def toggleCropAspectOrientation(self) -> None:
+        if self._crop_aspect_mode == "Free":
+            return
+        self._crop_aspect_inverted = not self._crop_aspect_inverted
+        if self._crop_editing:
+            self._crop_draft_rect = self._fit_crop_rect_to_ratio(self._crop_draft_rect)
+        self.cropChanged.emit()
+
+    @Slot(str)
+    def setCropOverlay(self, overlay: str) -> None:
+        overlay = str(overlay or "None")
+        if overlay not in {"None", "Rule of Thirds", "Grid", "Center"}:
+            overlay = "None"
+        if overlay == self._crop_overlay:
+            return
+        self._crop_overlay = overlay
+        self.cropChanged.emit()
+
     # ---------- file/source ----------
     @Slot(str)
     def openFile(self, value: str) -> None:
+        self._cancel_crop_for_source_change()
         path = Path(_local_path(value))
         if not path.is_file():
             self.errorOccurred.emit("Could not open file", "The selected file does not exist.")
@@ -1916,6 +2236,7 @@ class RasterMintBackend(QObject):
             self._reset_preview_temporal_state()
             self._invalidate_rendered()
             self.sourceChanged.emit()
+            self.cropChanged.emit()
             self.playbackChanged.emit()
             self._history.clear()
             self.historyChanged.emit()
@@ -1928,6 +2249,7 @@ class RasterMintBackend(QObject):
     @Slot()
     def clearSource(self) -> None:
         """Unload the current source while preserving layers and processing settings."""
+        self._cancel_crop_for_source_change()
         if not self.hasSource and self._current_file is None and self._video_path is None:
             return
         self._playing = False
@@ -1971,6 +2293,7 @@ class RasterMintBackend(QObject):
         self.paletteLabChanged.emit()
         self.benchmarkChanged.emit()
         self.sourceChanged.emit()
+        self.cropChanged.emit()
         self.playbackChanged.emit()
         self.comparisonChanged.emit()
         self._set_status(_tr("Cleared imported file"))
@@ -1978,6 +2301,7 @@ class RasterMintBackend(QObject):
     @Slot()
     def pasteImageFromClipboard(self) -> None:
         """Load image pixels (or a copied image file) from the system clipboard."""
+        self._cancel_crop_for_source_change()
         clipboard = QGuiApplication.clipboard()
         if clipboard is None:
             self.errorOccurred.emit(_tr("Clipboard"), _tr("The clipboard does not contain an image."))
@@ -2014,6 +2338,7 @@ class RasterMintBackend(QObject):
             self._reset_preview_temporal_state()
             self._invalidate_rendered()
             self.sourceChanged.emit()
+            self.cropChanged.emit()
             self.playbackChanged.emit()
             self._history.clear()
             self.historyChanged.emit()
@@ -2797,6 +3122,7 @@ class RasterMintBackend(QObject):
 
     # ---------- transforms ----------
     def _transform_change(self, action: str, **changes: Any) -> None:
+        self._cancel_crop_for_source_change()
         data = self.settings.to_dict()
         data.update(changes)
         self._replace_settings(ProcessingSettings.from_dict(data), action=action)
@@ -2841,14 +3167,15 @@ class RasterMintBackend(QObject):
         data = self.settings.to_dict()
         for key in (
             "rotation", "flip_horizontal", "flip_vertical", "mirror_horizontal", "mirror_vertical",
-            "mirror_horizontal_axis", "mirror_vertical_axis", "crop_left", "crop_top", "crop_right",
-            "crop_bottom", "position_x", "position_y",
+            "mirror_horizontal_axis", "mirror_vertical_axis", "crop_x", "crop_y", "crop_width",
+            "crop_height", "position_x", "position_y",
         ):
             data[key] = getattr(defaults, key)
         self._replace_settings(ProcessingSettings.from_dict(data), action="Reset image transform")
 
     @Slot()
     def resetSettings(self) -> None:
+        self._cancel_crop_for_source_change()
         settings = ProcessingSettings()
         settings.effect_stack = default_effect_stack(settings)
         self._preview_mode = "Quick"

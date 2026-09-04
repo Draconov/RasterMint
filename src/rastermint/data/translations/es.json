@@ -801,6 +801,27 @@
     "Display Geometry & Response": "Geometría y respuesta de pantalla",
     "CRT & Scan": "CRT y barrido",
     "Analog Signal": "Señal analógica",
-    "Tape & Compression": "Cinta y compresión"
+    "Tape & Compression": "Cinta y compresión",
+    "Crop": "Recortar",
+    "Crop Image…": "Recortar imagen…",
+    "Crop: editing": "Recorte: editando",
+    "Crop cancelled": "Recorte cancelado",
+    "Crop image": "Recortar imagen",
+    "Reset crop": "Restablecer recorte",
+    "Drag the image handles, then Apply. Preview rendering waits until the crop is accepted.": "Drag the image handles, then Apply. Preview rendering waits until the crop is accepted.",
+    "Aspect": "Proporción",
+    "Swap aspect orientation": "Invertir orientación de proporción",
+    "Free": "Libre",
+    "Original": "Original",
+    "Ratio Width": "Ancho de proporción",
+    "Ratio Height": "Alto de proporción",
+    "Crop rectangle (pixels)": "Rectángulo de recorte (píxeles)",
+    "Rule of Thirds": "Regla de los tercios",
+    "Grid": "Grid",
+    "Reset to Full Image": "Restablecer imagen completa",
+    "Enter applies · Esc cancels · Double-click inside the crop applies": "Enter aplica · Esc cancela · Doble clic dentro del recorte aplica",
+    "Full image · %1 × %2": "Imagen completa · %1 × %2",
+    "%1 × %2 px · X %3 · Y %4": "%1 × %2 px · X %3 · Y %4",
+    "Edit Crop…": "Editar recorte…"
   }
 }

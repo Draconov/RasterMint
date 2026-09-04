@@ -904,6 +904,27 @@
     "Display Geometry & Response": "ڈسپلے جیومیٹری اور رسپانس",
     "CRT & Scan": "CRT اور اسکین",
     "Analog Signal": "اینالاگ سگنل",
-    "Tape & Compression": "ٹیپ اور کمپریشن"
+    "Tape & Compression": "ٹیپ اور کمپریشن",
+    "Crop": "Crop",
+    "Crop Image…": "Crop Image…",
+    "Crop: editing": "Crop: editing",
+    "Crop cancelled": "Crop cancelled",
+    "Crop image": "Crop image",
+    "Reset crop": "Reset crop",
+    "Drag the image handles, then Apply. Preview rendering waits until the crop is accepted.": "Drag the image handles, then Apply. Preview rendering waits until the crop is accepted.",
+    "Aspect": "Aspect",
+    "Swap aspect orientation": "Swap aspect orientation",
+    "Free": "Free",
+    "Original": "Original",
+    "Ratio Width": "Ratio Width",
+    "Ratio Height": "Ratio Height",
+    "Crop rectangle (pixels)": "Crop rectangle (pixels)",
+    "Rule of Thirds": "Rule of Thirds",
+    "Grid": "Grid",
+    "Reset to Full Image": "Reset to Full Image",
+    "Enter applies · Esc cancels · Double-click inside the crop applies": "Enter applies · Esc cancels · Double-click inside the crop applies",
+    "Full image · %1 × %2": "Full image · %1 × %2",
+    "%1 × %2 px · X %3 · Y %4": "%1 × %2 px · X %3 · Y %4",
+    "Edit Crop…": "Edit Crop…"
   }
 }

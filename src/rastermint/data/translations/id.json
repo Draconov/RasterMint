@@ -904,6 +904,27 @@
     "Display Geometry & Response": "Geometri & Respons Layar",
     "CRT & Scan": "CRT & Pemindaian",
     "Analog Signal": "Sinyal Analog",
-    "Tape & Compression": "Pita & Kompresi"
+    "Tape & Compression": "Pita & Kompresi",
+    "Crop": "Pangkas",
+    "Crop Image…": "Pangkas Gambar…",
+    "Crop: editing": "Pangkas: mengedit",
+    "Crop cancelled": "Pangkas dibatalkan",
+    "Crop image": "Pangkas gambar",
+    "Reset crop": "Atur ulang pangkas",
+    "Drag the image handles, then Apply. Preview rendering waits until the crop is accepted.": "Drag the image handles, then Apply. Preview rendering waits until the crop is accepted.",
+    "Aspect": "Rasio aspek",
+    "Swap aspect orientation": "Tukar orientasi rasio",
+    "Free": "Bebas",
+    "Original": "Asli",
+    "Ratio Width": "Lebar rasio",
+    "Ratio Height": "Tinggi rasio",
+    "Crop rectangle (pixels)": "Persegi pangkas (piksel)",
+    "Rule of Thirds": "Aturan sepertiga",
+    "Grid": "Grid",
+    "Reset to Full Image": "Atur ulang ke gambar penuh",
+    "Enter applies · Esc cancels · Double-click inside the crop applies": "Enter applies · Esc cancels · Double-click inside the crop applies",
+    "Full image · %1 × %2": "Gambar penuh · %1 × %2",
+    "%1 × %2 px · X %3 · Y %4": "%1 × %2 px · X %3 · Y %4",
+    "Edit Crop…": "Edit Pangkas…"
   }
 }

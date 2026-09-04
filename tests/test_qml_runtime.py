@@ -274,3 +274,55 @@ def test_missing_provider_key_returns_transparent_placeholder_instead_of_null_im
     assert (size.width(), size.height()) == (1, 1)
     assert image.pixelColor(0, 0).alpha() == 0
 
+
+
+def test_crop_edit_session_is_draft_only_until_apply():
+    _app()
+    provider = RasterImageProvider()
+    backend = RasterMintBackend(provider)
+    try:
+        from PIL import Image
+
+        backend._source_image = Image.new("RGB", (400, 200), "white")
+        before = backend.settings.to_dict()
+
+        backend.beginCropEdit()
+        assert backend.cropEditing
+        assert (backend.cropDisplayWidth, backend.cropDisplayHeight) == (400, 200)
+
+        backend.setCropDraftRect(0.25, 0.10, 0.50, 0.60)
+        assert backend.settings.to_dict() == before
+        assert backend.cropDraftX == 100
+        assert backend.cropDraftY == 20
+
+        backend.applyCropEdit()
+        assert not backend.cropEditing
+        assert backend.settings.crop_x == pytest.approx(0.25)
+        assert backend.settings.crop_y == pytest.approx(0.10)
+        assert backend.settings.crop_width == pytest.approx(0.50)
+        assert backend.settings.crop_height == pytest.approx(0.60)
+        assert backend.canUndo
+    finally:
+        backend.shutdown()
+
+
+def test_crop_edit_rotation_maps_display_rect_back_to_source():
+    _app()
+    provider = RasterImageProvider()
+    backend = RasterMintBackend(provider)
+    try:
+        from PIL import Image
+
+        backend._source_image = Image.new("RGB", (400, 200), "white")
+        backend.settings.rotation = 90
+        backend.beginCropEdit()
+        assert (backend.cropDisplayWidth, backend.cropDisplayHeight) == (200, 400)
+
+        backend.setCropDraftRect(0.40, 0.10, 0.40, 0.30)
+        backend.applyCropEdit()
+        assert backend.settings.crop_x == pytest.approx(0.10)
+        assert backend.settings.crop_y == pytest.approx(0.20)
+        assert backend.settings.crop_width == pytest.approx(0.30)
+        assert backend.settings.crop_height == pytest.approx(0.40)
+    finally:
+        backend.shutdown()
