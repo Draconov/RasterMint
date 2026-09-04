@@ -9,7 +9,7 @@ from typing import Callable
 import numpy as np
 from PIL import Image, ImageOps
 
-from .effect_stack import apply_normalized_effect_stack, effect_stack_output_size, normalize_effect_stack
+from .effect_stack import ProcessingCancelled, apply_normalized_effect_stack, effect_stack_output_size, normalize_effect_stack
 from .effect_schema import scale_normalized_stack_for_preview
 from .hardware import render_display_view
 from .layer_groups import canonicalize_layer_groups, group_path, step_effective_enabled_for_solo
@@ -470,6 +470,7 @@ def _apply_stack_tiled(
     frame_time: float,
     frame_index: int,
     progress_callback: Callable[[int, int, str], None] | None = None,
+    cancel_callback: Callable[[], bool] | None = None,
 ) -> Image.Image:
     tile_size = max(256, min(4096, int(tile_size)))
     output = Image.new(source.mode, source.size)
@@ -480,6 +481,8 @@ def _apply_stack_tiled(
     for top in range(0, source.height, tile_size):
         bottom = min(source.height, top + tile_size)
         for left in range(0, source.width, tile_size):
+            if cancel_callback is not None and cancel_callback():
+                raise ProcessingCancelled("Processing superseded by a newer preview")
             right = min(source.width, left + tile_size)
             tile = source.crop((left, top, right, bottom))
             rendered = apply_normalized_effect_stack(
@@ -517,13 +520,18 @@ def process_image(
     tile_size: int = 1024,
     tile_threshold_pixels: int = 12_000_000,
     progress_callback: Callable[[int, int, str], None] | None = None,
+    cancel_callback: Callable[[], bool] | None = None,
 ) -> Image.Image:
+    if cancel_callback is not None and cancel_callback():
+        raise ProcessingCancelled("Processing superseded by a newer preview")
     stack = runtime_effect_stack(settings)
     overall_total = max(2, len(stack) + 2)
     if progress_callback is not None:
         progress_callback(0, overall_total, "Preparing source")
 
     source = prepare_raster_source(image, settings)
+    if cancel_callback is not None and cancel_callback():
+        raise ProcessingCancelled("Processing superseded by a newer preview")
     if progress_callback is not None:
         progress_callback(1, overall_total, "Preparing source")
 
@@ -554,6 +562,7 @@ def process_image(
             frame_time=frame_time,
             frame_index=frame_index,
             progress_callback=tiled_progress if progress_callback is not None else None,
+            cancel_callback=cancel_callback,
         )
     else:
         cache = render_cache
@@ -584,8 +593,11 @@ def process_image(
             render_cache=cache,
             cache_context=resolved_context,
             progress_callback=layer_progress if progress_callback is not None else None,
+            cancel_callback=cancel_callback,
         )
 
+    if cancel_callback is not None and cancel_callback():
+        raise ProcessingCancelled("Processing superseded by a newer preview")
     if progress_callback is not None:
         progress_callback(overall_total - 1, overall_total, "Finalizing display")
 

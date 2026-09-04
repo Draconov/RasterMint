@@ -15,50 +15,19 @@
   <img alt="Qt Quick / QML" src="https://img.shields.io/badge/UI-Qt%20Quick%20%2F%20QML-41CD52">
 </p>
 
-RasterMint is built around a single processing pipeline: the live preview, still-image export, animation, video, presets, hardware profiles, and batch processing all use the same core rendering logic. The desktop interface is written with **PySide6 + Qt Quick/QML**, while the processing core stays independent from the UI where practical.
-
 > **Status:** RasterMint is under active development. Project files, presets, and behavior may continue to evolve between releases.
 
-## RasterMint 0.7.1 — Group Fix/Update
-
-RasterMint 0.7.1 focuses on the layer workflow and finishing effects:
-
-- **Nested layer groups:** Group now creates the first free `Group N` immediately, layers and groups can be grouped by drag-and-drop, groups can nest up to five levels, dragging out ungroups one level, and group names can be edited inline with a double-click.
-- **Vignette + chroma noise:** Vignette is available as a normal editable layer effect with strength, size, softness, roundness, centre, and colour controls; Noise gains an optional independent RGB chroma mode.
-- **Themed hover help:** hover tooltips now use RasterMint theme colours for readable, consistent help throughout the interface, while active-layer tooltips stay focused on the effect description.
-
-RasterMint 0.7.0 features remain part of the current release:
-
-- **Pixel Art Cleanup Lab:** a non-destructive cleanup layer with orphan-pixel removal, cluster cleanup, line repair, staircase correction, exact tiny-island removal, edge preservation, selectable 4/8-neighbour connectivity, and Clean Result / Issue Overlay / Cluster Map inspection modes. Clean output only reuses colours already present in the processed image.
-- **Preset Mutation:** generate 6–12 controlled variations from any built-in, user, or extension preset, with adjustable mutation amount and current-image thumbnails. Mutations preserve the full editable layer structure, masks, blend modes, animation tracks, raster settings, and locked palette colours.
-
-RasterMint 0.6.0 features remain part of the current release:
-
-- **Print Lab:** non-destructive Monochrome, CMYK, RGB, and 1–8 Spot Color AM halftone screening with independent ink angles/registration/phase/opacity, dot gain, black generation, print imperfections, paper/overprint controls, individual separation preview, real vector SVG separations, raster proofs, and composite export.
-- **New raster styles:** Pop Tone, Hexa-Poly, Penta-Poly, Tri-Poly, Low-Poly, and Beehive.
-- **Modulated Diffusion:** the existing single **Modulation** dither now exposes 14 compact modes—Smooth Diffuse, directional/uniform modulation, Waveform variants, Ordered Modulation, Stucki/Atkinson variants, contrast-aware X/Y, Displace Contour, and Sine Wave Modulation—without cluttering the main algorithm list.
-- **Modulation looks:** new Smooth Diffuse Bloom, Circuit Cyan Lines, Stucki Wire Glow, Contour Bend Glow, Waveform Scan Bloom, and animated **Particle / Star Field** presets. The star-field look is deliberately composed from RasterMint's existing Noise, Threshold, Temporal Pattern, glow/bloom, and flicker layers instead of adding a separate particle engine.
-- **Display Lab:** CRT/LCD/OLED/composite/RF/VHS effects and reusable display/tape presets.
-- **Layer System 2.0:** opacity, blend modes, masks, groups, solo, duplicate/reset, copy/paste and multi-selection.
-- **Palette & Dither Lab:** usage analysis, sorting, ramps, near-duplicates, reduction suggestions and custom dither matrices.
-- **Motion Studio:** multi-keyframe tracks, Bezier easing, reusable clips and procedural/audio modulators.
-- **Projects:** `.rastermint` project files plus A/B snapshots and split comparison.
-- **Performance:** per-layer render caching, safe large-image tiling and built-in stack benchmarking.
-- **Extensions:** data-only packs can add palettes, themes, translations, hardware profiles and presets without modifying the application install.
+RasterMint is built around a single processing pipeline: the live preview, still-image export, animation, video, presets, hardware profiles, and batch processing all use the same core rendering logic. The desktop interface is written with **PySide6 + Qt Quick/QML**, while the processing core stays independent from the UI where practical.
 
 ## Download
 
-Prebuilt releases are published from the `main` branch:
-
-**[Download the latest RasterMint release](https://github.com/Draconov/RasterMint/releases/latest)**
+Prebuilt releases are published from the `main` branch: **[Download the latest RasterMint release](https://github.com/Draconov/RasterMint/releases/latest)**
 
 | Platform | Release format |
 | --- | --- |
 | Windows | Single portable `RasterMint.exe` |
 | Linux | `RasterMint-linux-x86_64.tar.gz` |
 | macOS | `RasterMint-macOS.zip` |
-
-The Windows release intentionally remains a **single executable**. The build uses a trimmed PyInstaller payload, a lean FFmpeg build, and lazy loading of the heavy image-processing stack to reduce startup overhead while preserving offline media support.
 
 ## What RasterMint does
 
@@ -276,4 +245,3 @@ Third-party components and notices are documented in [`THIRD_PARTY_NOTICES.md`](
 RasterMint is available for noncommercial use under the terms in [`LICENSE`](LICENSE). Commercial licensing information is available in [`COMMERCIAL-LICENSE.md`](COMMERCIAL-LICENSE.md).
 
 Copyright © 2026 Draconov.
-

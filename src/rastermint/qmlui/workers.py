@@ -36,12 +36,13 @@ class ProcessingWorker(QRunnable):
         cache_context: str = "",
         tiled_processing: bool = True,
         tile_size: int = 1024,
+        cancel_callback: Any | None = None,
     ) -> None:
         super().__init__()
         self.job_id = job_id
         self.purpose = purpose
         self.image = image
-        self.settings = ProcessingSettings.from_dict(settings.to_dict())
+        self.settings = settings.clone()
         self.context = context
         self.frame_time = float(frame_time)
         self.frame_index = int(frame_index)
@@ -52,6 +53,7 @@ class ProcessingWorker(QRunnable):
         self.cache_context = str(cache_context or "")
         self.tiled_processing = bool(tiled_processing)
         self.tile_size = max(256, int(tile_size))
+        self.cancel_callback = cancel_callback
         self.signals = WorkerSignals()
 
     @Slot()
@@ -60,6 +62,7 @@ class ProcessingWorker(QRunnable):
             # NumPy/Pillow and the rendering pipeline are intentionally imported
             # only when a worker actually starts processing an image. Importing
             # the QML backend during application startup must stay lightweight.
+            from rastermint.core.effect_stack import ProcessingCancelled
             from rastermint.core.processor import process_image
 
             def progress(current: int, total: int, label: str) -> None:
@@ -84,10 +87,13 @@ class ProcessingWorker(QRunnable):
                 tiled_processing=self.tiled_processing,
                 tile_size=self.tile_size,
                 progress_callback=progress,
+                cancel_callback=self.cancel_callback,
             )
             self.signals.finished.emit(
                 self.job_id, self.purpose, result, self.context
             )
+        except ProcessingCancelled:
+            self.signals.finished.emit(self.job_id, self.purpose, None, self.context)
         except Exception:
             self.signals.failed.emit(
                 self.job_id, self.purpose, traceback.format_exc(), self.context
@@ -109,7 +115,7 @@ class VideoCurrentFrameWorker(QRunnable):
         self.job_id = job_id
         self.path = path
         self.time_seconds = float(time_seconds)
-        self.settings = ProcessingSettings.from_dict(settings.to_dict())
+        self.settings = settings.clone()
         self.context = context
         self.signals = WorkerSignals()
 
@@ -158,7 +164,7 @@ class BenchmarkWorker(QRunnable):
         super().__init__()
         self.job_id = int(job_id)
         self.image = image
-        self.settings = ProcessingSettings.from_dict(settings.to_dict())
+        self.settings = settings.clone()
         self.signals = WorkerSignals()
 
     @Slot()
@@ -212,7 +218,7 @@ class MediaExportWorker(QRunnable):
     ) -> None:
         super().__init__()
         self.job_id = job_id
-        self.settings = ProcessingSettings.from_dict(settings.to_dict())
+        self.settings = settings.clone()
         self.output = output
         self.image = image
         self.video_path = video_path
@@ -291,7 +297,7 @@ class RenderedPreviewWorker(QRunnable):
     ) -> None:
         super().__init__()
         self.job_id = job_id
-        self.settings = ProcessingSettings.from_dict(settings.to_dict())
+        self.settings = settings.clone()
         self.image = image
         self.video_path = video_path
         self.start_time = float(start_time)
@@ -370,7 +376,7 @@ class SequenceExportWorker(QRunnable):
     ) -> None:
         super().__init__()
         self.job_id = job_id
-        self.settings = ProcessingSettings.from_dict(settings.to_dict())
+        self.settings = settings.clone()
         self.output_dir = output_dir
         self.image = image
         self.video_path = video_path
@@ -439,7 +445,7 @@ class BatchWorker(QRunnable):
         self.job_id = job_id
         self.paths = paths
         self.output_dir = output_dir
-        self.settings = ProcessingSettings.from_dict(settings.to_dict())
+        self.settings = settings.clone()
         self.options = dict(options or {})
         self.signals = WorkerSignals()
 
@@ -491,7 +497,7 @@ class PrintSeparationExportWorker(QRunnable):
         super().__init__()
         self.job_id = int(job_id)
         self.image = image
-        self.settings = ProcessingSettings.from_dict(settings.to_dict())
+        self.settings = settings.clone()
         self.output_folder = str(output_folder)
         self.stem = str(stem or "image")
         self.signals = WorkerSignals()

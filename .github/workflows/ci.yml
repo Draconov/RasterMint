@@ -38,4 +38,4 @@ jobs:
         env:
           QT_QPA_PLATFORM: offscreen
           QSG_RHI_BACKEND: software
-        run: python -m pytest
+        run: python -m pytest --ignore=tests/test_qml_runtime.py

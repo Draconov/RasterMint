@@ -31,6 +31,23 @@ from .layer_groups import canonicalize_layer_groups
 from .pixel_cleanup import cleanup_pixel_art
 from .temporal import TemporalEffectState
 
+
+class ProcessingCancelled(RuntimeError):
+    """Raised when an interactive render is superseded by newer work."""
+
+
+def _layer_composite_is_passthrough(step: dict[str, Any]) -> bool:
+    """Return whether layer compositing can return the effect image directly."""
+    opacity = max(0.0, min(1.0, float(step.get("opacity", 1.0) or 0.0)))
+    mode = str(step.get("blend_mode", "Normal") or "Normal")
+    mask = step.get("mask") if isinstance(step.get("mask"), dict) else {"type": "None"}
+    default_mask = (
+        str(mask.get("type", "None") or "None") == "None"
+        and not bool(mask.get("invert", False))
+        and float(mask.get("strength", 1.0) or 0.0) >= 0.999999
+    )
+    return opacity >= 0.999999 and mode == "Normal" and default_mask
+
 def _temporal_pattern(
     image: Image.Image,
     pattern: str,
@@ -2969,9 +2986,8 @@ def _apply_layer_composite(base_image: Image.Image, effect_image: Image.Image, s
     opacity = max(0.0, min(1.0, float(step.get("opacity", 1.0) or 0.0)))
     mode = str(step.get("blend_mode", "Normal") or "Normal")
     mask = step.get("mask") if isinstance(step.get("mask"), dict) else {"type": "None"}
-    default_mask = str(mask.get("type", "None") or "None") == "None" and not bool(mask.get("invert", False)) and float(mask.get("strength", 1.0) or 0.0) >= 0.999999
 
-    if opacity >= 0.999999 and mode == "Normal" and default_mask:
+    if _layer_composite_is_passthrough(step):
         return effect_image
     if opacity <= 1e-9:
         if base_image.size == effect_image.size:
@@ -3018,6 +3034,7 @@ def apply_normalized_effect_stack(
     render_cache: Any | None = None,
     cache_context: str = "",
     progress_callback: Callable[[int, int, str], None] | None = None,
+    cancel_callback: Callable[[], bool] | None = None,
 ) -> Image.Image:
     """Apply a stack that has already been normalized by effect_schema.
 
@@ -3085,6 +3102,8 @@ def apply_normalized_effect_stack(
     for step_index, step in enumerate(stack):
         if step_index < start_index:
             continue
+        if cancel_callback is not None and cancel_callback():
+            raise ProcessingCancelled("Processing superseded by a newer preview")
         img = _open_runtime_groups(img, step)
         current_path = [str(value) for value in (step.get("_group_path") or []) if str(value)]
         next_step = stack[step_index + 1] if step_index + 1 < len(stack) else None
@@ -3100,7 +3119,7 @@ def apply_normalized_effect_stack(
             continue
         kind = step["kind"]
         p = step["params"]
-        layer_input = img.copy()
+        layer_input = img if _layer_composite_is_passthrough(step) else img.copy()
         alpha_before = img.getchannel("A") if "A" in img.getbands() else None
         if alpha_before is not None:
             img = img.convert("RGB")

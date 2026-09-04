@@ -184,3 +184,96 @@ def test_typewriter_reveal_track_and_cursor_blink_are_frame_aware():
     cursor_off = np.asarray(apply_effect_stack(source, [blink], palette, frame_time=0.3, frame_index=9))
     assert not np.array_equal(cursor_on, cursor_off)
 
+
+# ---- merged from test_effects_v071.py ----
+
+import numpy as np
+from PIL import Image
+
+from rastermint.core.effect_schema import EFFECT_DEFINITIONS, EFFECT_DESCRIPTIONS, effect_categories, new_effect
+from rastermint.core.effect_stack import apply_effect_stack
+
+
+def test_vignette_is_a_visible_layer_effect_with_expected_controls():
+    assert "Vignette" in EFFECT_DEFINITIONS
+    params = EFFECT_DEFINITIONS["Vignette"]["params"]
+    assert list(params) == ["strength", "size", "softness", "roundness", "center_x", "center_y", "color"]
+    assert params["strength"]["default"] > 0
+    assert params["color"]["type"] == "color"
+    assert EFFECT_DESCRIPTIONS["Vignette"].strip()
+    assert any("Vignette" in category["effects"] for category in effect_categories())
+
+
+def test_vignette_darkens_edges_more_than_center_and_keeps_size():
+    source = Image.new("RGB", (65, 49), (240, 240, 240))
+    effect = new_effect("Vignette")
+    effect["params"].update(
+        strength=1.0,
+        size=0.45,
+        softness=0.45,
+        roundness=1.0,
+        center_x=0.0,
+        center_y=0.0,
+        color="#000000",
+    )
+
+    result = apply_effect_stack(source, [effect], ["#000000", "#FFFFFF"])
+
+    assert result.size == source.size
+    center = result.getpixel((source.width // 2, source.height // 2))[0]
+    corner = result.getpixel((0, 0))[0]
+    assert center >= 235
+    assert corner < center - 80
+
+
+def test_noise_chroma_toggle_preserves_monochrome_noise_and_can_split_channels():
+    source = Image.new("RGB", (48, 48), (128, 128, 128))
+    mono = new_effect("Noise")
+    mono["params"].update(amount=24.0, seed=77, temporal=False, chroma=False)
+    chroma = new_effect("Noise")
+    chroma["params"].update(amount=24.0, seed=77, temporal=False, chroma=True)
+
+    mono_arr = np.asarray(apply_effect_stack(source, [mono], ["#000000", "#FFFFFF"]))
+    chroma_a = np.asarray(apply_effect_stack(source, [chroma], ["#000000", "#FFFFFF"]))
+    chroma_b = np.asarray(apply_effect_stack(source, [chroma], ["#000000", "#FFFFFF"]))
+
+    assert np.array_equal(mono_arr[:, :, 0], mono_arr[:, :, 1])
+    assert np.array_equal(mono_arr[:, :, 1], mono_arr[:, :, 2])
+    assert np.any(chroma_a[:, :, 0] != chroma_a[:, :, 1])
+    assert np.any(chroma_a[:, :, 1] != chroma_a[:, :, 2])
+    assert np.array_equal(chroma_a, chroma_b)
+
+
+# ---- merged from test_animation.py ----
+
+from rastermint.core.animation import ease_value, settings_at_time
+from rastermint.core.effect_stack import default_effect_stack
+from rastermint.core.settings import ProcessingSettings
+
+
+def test_animation_interpolates_effect_parameter_without_mutating_source():
+    settings = ProcessingSettings()
+    settings.effect_stack = default_effect_stack(settings)
+    adjustments = next(step for step in settings.effect_stack if step["kind"] == "Adjustments")
+    target = f"effect:{adjustments['id']}:brightness"
+    settings.animation_tracks = [{
+        "target": target,
+        "from": -20,
+        "to": 80,
+        "start": 1.0,
+        "end": 3.0,
+        "easing": "Linear",
+        "enabled": True,
+    }]
+
+    animated = settings_at_time(settings, 2.0)
+    animated_adjustments = next(step for step in animated.effect_stack if step["id"] == adjustments["id"])
+    assert animated_adjustments["params"]["brightness"] == 30
+    assert adjustments["params"]["brightness"] == 0
+
+
+def test_easings_are_clamped():
+    assert ease_value(-1, "Linear") == 0
+    assert ease_value(2, "Linear") == 1
+    assert 0 < ease_value(0.5, "Ease In") < 0.5
+    assert 0.5 < ease_value(0.5, "Ease Out") < 1

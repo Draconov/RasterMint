@@ -17,7 +17,7 @@ PySide6 = pytest.importorskip("PySide6")
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 os.environ.setdefault("QSG_RHI_BACKEND", "software")
 
-from PySide6.QtCore import QCoreApplication, QMetaObject, QObject, QUrl, Qt  # noqa: E402
+from PySide6.QtCore import QCoreApplication, QMetaObject, QObject, QSize, QUrl, Qt  # noqa: E402
 from PySide6.QtGui import QGuiApplication  # noqa: E402
 from PySide6.QtQml import QQmlApplicationEngine, QQmlComponent  # noqa: E402
 from PySide6.QtQuickControls2 import QQuickStyle  # noqa: E402
@@ -262,3 +262,15 @@ def test_rotate_image_refreshes_preset_thumbnails(monkeypatch):
         assert calls == [90, 0]
     finally:
         backend.shutdown()
+
+def test_missing_provider_key_returns_transparent_placeholder_instead_of_null_image():
+    provider = RasterImageProvider()
+    size = QSize()
+
+    image = provider.requestImage("preset/does-not-exist?r=53", size, QSize())
+
+    assert not image.isNull()
+    assert (image.width(), image.height()) == (1, 1)
+    assert (size.width(), size.height()) == (1, 1)
+    assert image.pixelColor(0, 0).alpha() == 0
+

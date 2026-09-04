@@ -3727,11 +3727,16 @@ class RasterMintBackend(QObject):
         job = self._next_job()
         self._latest_preview_job = job
         self._begin_preview_render(job, int(max_side), preview_settings)
+        source_revision = self._source_revision
+        settings_revision = self._settings_revision
         context = {
-            "source_revision": self._source_revision,
-            "settings_revision": self._settings_revision,
+            "source_revision": source_revision,
+            "settings_revision": settings_revision,
             "time": self._current_time,
         }
+
+        def preview_cancelled() -> bool:
+            return source_revision != self._source_revision or settings_revision != self._settings_revision
         temporal_state = None
         if self._playing and self._playback_mode != "Rendered":
             if self._preview_temporal_state is None:
@@ -3752,6 +3757,7 @@ class RasterMintBackend(QObject):
             render_cache=self._preview_layer_cache(),
             tiled_processing=bool(getattr(self, "tiledProcessingEnabled", True)),
             tile_size=int(getattr(self, "processingTileSize", 1024) or 1024),
+            cancel_callback=preview_cancelled,
         )
         self._connect_worker(worker)
         self.thread_pool.start(worker)
