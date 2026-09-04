@@ -822,6 +822,22 @@
     "Enter applies · Esc cancels · Double-click inside the crop applies": "Enter applies · Esc cancels · Double-click inside the crop applies",
     "Full image · %1 × %2": "Pilns attēls · %1 × %2",
     "%1 × %2 px · X %3 · Y %4": "%1 × %2 px · X %3 · Y %4",
-    "Edit Crop…": "Rediģēt apgriešanu…"
+    "Edit Crop…": "Rediģēt apgriešanu…",
+    "Tonal Map": "Toņu karte",
+    "Map image luminance through configurable mono, duotone, tritone, or four-colour tonal anchors.": "Kartē attēla gaišumu ar konfigurējamiem mono, divtoņu, trīstoņu vai četru krāsu toņu enkuriem.",
+    "Duotone": "Divtoņu",
+    "Tritone": "Trīstoņu",
+    "Midtone": "Vidustonis",
+    "Highlight": "Gaišās zonas",
+    "Shadow point": "Ēnu punkts",
+    "Midpoint": "Viduspunkts",
+    "Highlight point": "Gaišo zonu punkts",
+    "Blend softness": "Sapludināšanas maigums",
+    "Preserve alpha": "Saglabāt alfa",
+    "Edge treatment": "Malu apstrāde",
+    "Rounding": "Noapaļošana",
+    "Sampling": "Paraugošana",
+    "Native": "Dabisks",
+    "2× Supersampled": "2× virsparaugošana"
   }
 }

@@ -822,6 +822,22 @@
     "Enter applies · Esc cancels · Double-click inside the crop applies": "Enter applies · Esc cancels · Double-click inside the crop applies",
     "Full image · %1 × %2": "الصورة كاملة · %1 × %2",
     "%1 × %2 px · X %3 · Y %4": "%1 × %2 px · X %3 · Y %4",
-    "Edit Crop…": "تحرير الاقتصاص…"
+    "Edit Crop…": "تحرير الاقتصاص…",
+    "Tonal Map": "خريطة الدرجات اللونية",
+    "Map image luminance through configurable mono, duotone, tritone, or four-colour tonal anchors.": "حوّل سطوع الصورة عبر نقاط لونية قابلة للضبط للأحادي أو الثنائي أو الثلاثي أو التدرج بأربعة ألوان.",
+    "Duotone": "ثنائي اللون",
+    "Tritone": "ثلاثي اللون",
+    "Midtone": "الدرجات المتوسطة",
+    "Highlight": "الإضاءة",
+    "Shadow point": "نقطة الظلال",
+    "Midpoint": "نقطة المنتصف",
+    "Highlight point": "نقطة الإضاءة",
+    "Blend softness": "نعومة المزج",
+    "Preserve alpha": "الحفاظ على ألفا",
+    "Edge treatment": "معالجة الحواف",
+    "Rounding": "تدوير الحواف",
+    "Sampling": "أخذ العينات",
+    "Native": "أصلي",
+    "2× Supersampled": "أخذ عينات فائق 2×"
   }
 }

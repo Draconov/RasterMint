@@ -925,6 +925,22 @@
     "Enter applies · Esc cancels · Double-click inside the crop applies": "Enter applies · Esc cancels · Double-click inside the crop applies",
     "Full image · %1 × %2": "पूर्ण छवि · %1 × %2",
     "%1 × %2 px · X %3 · Y %4": "%1 × %2 px · X %3 · Y %4",
-    "Edit Crop…": "क्रॉप संपादित करें…"
+    "Edit Crop…": "क्रॉप संपादित करें…",
+    "Tonal Map": "टोनल मैप",
+    "Map image luminance through configurable mono, duotone, tritone, or four-colour tonal anchors.": "कॉन्फ़िगर किए जा सकने वाले मोनो, डुओटोन, ट्राइटोन या चार-रंग टोनल एंकर से छवि की ल्यूमिनेंस मैप करें।",
+    "Duotone": "डुओटोन",
+    "Tritone": "ट्राइटोन",
+    "Midtone": "मिडटोन",
+    "Highlight": "हाइलाइट",
+    "Shadow point": "शैडो बिंदु",
+    "Midpoint": "मध्य बिंदु",
+    "Highlight point": "हाइलाइट बिंदु",
+    "Blend softness": "ब्लेंड कोमलता",
+    "Preserve alpha": "अल्फ़ा सुरक्षित रखें",
+    "Edge treatment": "किनारा उपचार",
+    "Rounding": "राउंडिंग",
+    "Sampling": "सैंपलिंग",
+    "Native": "मूल",
+    "2× Supersampled": "2× सुपर-सैंपल्ड"
   }
 }

@@ -472,6 +472,14 @@ def prepare_transparency_mask(
     """
     if not image_has_transparency(image):
         return None
+    for step in runtime_effect_stack(settings):
+        if (
+            bool(step.get("enabled", True))
+            and str(step.get("kind", "")) == "Tonal Map"
+            and isinstance(step.get("params"), dict)
+            and not bool(step["params"].get("preserve_alpha", True))
+        ):
+            return None
     alpha = image.convert("RGBA").getchannel("A")
     transformed = _apply_alpha_source_transform(alpha, settings)
     target = target_override or target_raster_size(image.size, settings)
@@ -604,7 +612,7 @@ def prepare_raster_source(
 
 
 _TILE_SAFE_EFFECTS = frozenset({
-    "Adjustments", "Levels", "Hue Rotate", "Grayscale", "Invert", "Posterize",
+    "Adjustments", "Levels", "Hue Rotate", "Tonal Map", "Grayscale", "Invert", "Posterize",
     "Channel Swap", "Hardware Display",
 })
 
@@ -626,6 +634,12 @@ def _stack_supports_exact_tiling(stack: list[dict[str, object]]) -> bool:
         if kind == "Dither":
             params = step.get("params") if isinstance(step.get("params"), dict) else {}
             if str(params.get("algorithm", "")) not in {"Nearest Palette", "Threshold"}:
+                return False
+            if int(round(float(params.get("bleed", 0)))) != 0:
+                return False
+            if float(params.get("rounding", 0.0)) > 1e-9:
+                return False
+            if str(params.get("sampling", "Native")) != "Native":
                 return False
             continue
         if kind not in _TILE_SAFE_EFFECTS:

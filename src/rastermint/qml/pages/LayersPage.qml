@@ -443,6 +443,15 @@ Item {
             if (modulation && param.key === "threshold")
                 return false
         }
+        if (backend.selectedLayerName === "Tonal Map") {
+            var tonalMode = String(selectedParamValue("mode", "Tritone"))
+            if (param.key === "background_color")
+                return tonalMode === "Mono" || tonalMode === "Gradient"
+            if (param.key === "shadow_color" || param.key === "shadow_point")
+                return tonalMode === "Duotone" || tonalMode === "Tritone" || tonalMode === "Gradient"
+            if (param.key === "midtone_color" || param.key === "midpoint")
+                return tonalMode === "Tritone" || tonalMode === "Gradient"
+        }
         if (backend.selectedLayerName === "Dither Glow" && param.key === "glow_color")
             return String(selectedParamValue("glow_color_mode", "Source")) === "Custom Tint"
         if (backend.selectedLayerName === "Hardware Limits" && param.key === "palette_source")
@@ -1187,23 +1196,39 @@ Item {
 
                 Repeater {
                     model: root.editorLayerParams
-                    delegate: Loader {
+                    delegate: ColumnLayout {
+                        id: parameterRow
                         Layout.fillWidth: true
                         property var param: modelData
                         visible: root.paramVisible(param)
-                        sourceComponent: param.type === "bool"
-                                         ? boolEditor
-                                         : param.type === "glyph_set"
-                                           ? glyphSetEditor
-                                           : param.type === "choice"
-                                             ? choiceEditor
-                                             : param.type === "color"
-                                               ? colorEditor
-                                               : param.type === "text" || param.type === "file"
-                                                 ? textEditor
-                                                 : param.type === "duration"
-                                                   ? durationEditor
-                                                   : numberEditor
+                        spacing: 4
+
+                        MintLabel {
+                            Layout.fillWidth: true
+                            visible: backend.selectedLayerName === "Dither" && parameterRow.param.key === "bleed"
+                            text: qsTr("Edge treatment")
+                            font.bold: true
+                            color: theme.textColor
+                            topPadding: 4
+                        }
+
+                        Loader {
+                            Layout.fillWidth: true
+                            property var param: parameterRow.param
+                            sourceComponent: param.type === "bool"
+                                             ? boolEditor
+                                             : param.type === "glyph_set"
+                                               ? glyphSetEditor
+                                               : param.type === "choice"
+                                                 ? choiceEditor
+                                                 : param.type === "color"
+                                                   ? colorEditor
+                                                   : param.type === "text" || param.type === "file"
+                                                     ? textEditor
+                                                     : param.type === "duration"
+                                                       ? durationEditor
+                                                       : numberEditor
+                        }
                     }
                 }
             }

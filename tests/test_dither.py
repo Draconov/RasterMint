@@ -235,3 +235,64 @@ def test_modulation_ui_and_translations_are_wired():
     for path in (root / "src/rastermint/data/translations").glob("*.json"):
         messages = json.loads(path.read_text(encoding="utf-8"))["messages"]
         assert required <= set(messages), path.name
+
+
+def test_dither_edge_treatment_schema_defaults_preserve_legacy_behavior():
+    params = EFFECT_DEFINITIONS["Dither"]["params"]
+    assert params["bleed"]["default"] == 0.0
+    assert params["bleed"]["min"] == -10.0
+    assert params["bleed"]["max"] == 10.0
+    assert params["rounding"]["default"] == 0.0
+    assert params["rounding"]["min"] == 0.0
+    assert params["rounding"]["max"] == 100.0
+    assert params["sampling"]["default"] == "Native"
+    assert params["sampling"]["options"] == ["Native", "2× Supersampled"]
+
+
+def test_dither_edge_treatment_bleed_and_rounding_stay_palette_bounded():
+    from rastermint.core.effect_stack import _apply_dither_edge_treatment
+
+    palette = np.array([[0, 0, 0], [255, 255, 255]], dtype=np.float32)
+    result = np.full((7, 7, 3), 255.0, dtype=np.float32)
+    result[3, 3] = 0.0
+
+    bled = _apply_dither_edge_treatment(result, palette, bleed=1.0, rounding=0.0)
+    assert np.all(bled[2:5, 2:5] == 0)
+
+    dark_block = np.full((7, 7, 3), 255.0, dtype=np.float32)
+    dark_block[2:5, 2:5] = 0.0
+    contracted = _apply_dither_edge_treatment(dark_block, palette, bleed=-1.0, rounding=0.0)
+    assert np.all(contracted[3, 3] == 0)
+    contracted_copy = contracted.copy()
+    contracted_copy[3, 3] = 255
+    assert np.all(contracted_copy == 255)
+
+    rounded = _apply_dither_edge_treatment(result, palette, bleed=0.0, rounding=40.0)
+    assert np.all(rounded == 255)
+
+    palette_rows = {tuple(map(int, row)) for row in palette}
+    for candidate in (bled, contracted, rounded):
+        emitted = {tuple(map(int, row)) for row in candidate.reshape(-1, 3)}
+        assert emitted <= palette_rows
+
+
+def test_dither_supersampling_keeps_size_and_palette_and_native_matches_direct_dither():
+    from rastermint.core.effect_stack import apply_effect_stack, new_effect
+
+    source_arr = np.rint(make_gradient()).astype(np.uint8)
+    source = Image.fromarray(source_arr, "RGB")
+    colors = ["#000000", "#FF0000", "#FFFFFF"]
+    palette = palette_array(colors)
+
+    effect = new_effect("Dither")
+    effect["params"].update(algorithm="Bayer 4x4", strength=0.9, sampling="Native", bleed=0.0, rounding=0.0)
+    native = np.asarray(apply_effect_stack(source, [effect], colors))
+    direct = np.clip(apply_dither(source_arr.astype(np.float32), palette, "Bayer 4x4", strength=0.9), 0, 255).astype(np.uint8)
+    assert np.array_equal(native, direct)
+
+    effect["params"]["sampling"] = "2× Supersampled"
+    supersampled = np.asarray(apply_effect_stack(source, [effect], colors))
+    assert supersampled.shape == source_arr.shape
+    palette_rows = {tuple(map(int, row)) for row in palette}
+    emitted = {tuple(map(int, row)) for row in supersampled.reshape(-1, 3)}
+    assert emitted <= palette_rows

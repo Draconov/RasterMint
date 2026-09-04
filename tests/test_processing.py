@@ -554,3 +554,17 @@ def test_workers_use_settings_clone_instead_of_serialization_round_trip():
     source = (Path(__file__).resolve().parents[1] / "src/rastermint/qmlui/workers.py").read_text(encoding="utf-8")
     assert "ProcessingSettings.from_dict(settings.to_dict())" not in source
     assert source.count("settings.clone()") >= 8
+
+
+def test_tonal_map_can_disable_source_transparency_preservation():
+    from rastermint.core.effect_schema import new_effect
+    from rastermint.core.processor import prepare_transparency_mask
+
+    source = Image.new("RGBA", (4, 4), (120, 80, 40, 128))
+    effect = new_effect("Tonal Map")
+    settings = ProcessingSettings(effect_stack=[effect])
+    assert prepare_transparency_mask(source, settings) is not None
+
+    effect["params"]["preserve_alpha"] = False
+    settings.effect_stack = [effect]
+    assert prepare_transparency_mask(source, settings) is None

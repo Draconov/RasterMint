@@ -925,6 +925,22 @@
     "Enter applies · Esc cancels · Double-click inside the crop applies": "Enter applies · Esc cancels · Double-click inside the crop applies",
     "Full image · %1 × %2": "Toàn ảnh · %1 × %2",
     "%1 × %2 px · X %3 · Y %4": "%1 × %2 px · X %3 · Y %4",
-    "Edit Crop…": "Sửa vùng cắt…"
+    "Edit Crop…": "Sửa vùng cắt…",
+    "Tonal Map": "Bản đồ tông màu",
+    "Map image luminance through configurable mono, duotone, tritone, or four-colour tonal anchors.": "Ánh xạ độ sáng ảnh qua các mốc tông màu mono, duotone, tritone hoặc bốn màu có thể cấu hình.",
+    "Duotone": "Duotone",
+    "Tritone": "Tritone",
+    "Midtone": "Trung sắc",
+    "Highlight": "Vùng sáng",
+    "Shadow point": "Điểm vùng tối",
+    "Midpoint": "Điểm giữa",
+    "Highlight point": "Điểm vùng sáng",
+    "Blend softness": "Độ mềm hòa trộn",
+    "Preserve alpha": "Giữ alpha",
+    "Edge treatment": "Xử lý cạnh",
+    "Rounding": "Bo tròn",
+    "Sampling": "Lấy mẫu",
+    "Native": "Gốc",
+    "2× Supersampled": "Siêu lấy mẫu 2×"
   }
 }

@@ -45,6 +45,18 @@ EFFECT_DEFINITIONS: dict[str, dict[str, Any]] = {
     "Hue Rotate": {"params": {
         "degrees": {"type": "int", "label": "Degrees", "default": 0, "min": -180, "max": 180, "step": 1, "animatable": True},
     }},
+    "Tonal Map": {"params": {
+        "mode": {"type": "choice", "label": "Mode", "default": "Tritone", "options": ["Mono", "Duotone", "Tritone", "Gradient"]},
+        "shadow_color": {"type": "color", "label": "Shadow", "default": "#000000"},
+        "midtone_color": {"type": "color", "label": "Midtone", "default": "#808080"},
+        "highlight_color": {"type": "color", "label": "Highlight", "default": "#FFFFFF"},
+        "background_color": {"type": "color", "label": "Background", "default": "#000000"},
+        "shadow_point": {"type": "float", "label": "Shadow point", "default": 0.0, "min": 0.0, "max": 100.0, "step": 1.0, "decimals": 1, "suffix": "%", "animatable": True},
+        "midpoint": {"type": "float", "label": "Midpoint", "default": 50.0, "min": 0.0, "max": 100.0, "step": 1.0, "decimals": 1, "suffix": "%", "animatable": True},
+        "highlight_point": {"type": "float", "label": "Highlight point", "default": 100.0, "min": 0.0, "max": 100.0, "step": 1.0, "decimals": 1, "suffix": "%", "animatable": True},
+        "blend_softness": {"type": "float", "label": "Blend softness", "default": 100.0, "min": 0.0, "max": 100.0, "step": 1.0, "decimals": 1, "suffix": "%", "animatable": True},
+        "preserve_alpha": {"type": "bool", "label": "Preserve alpha", "default": True},
+    }},
     "Grayscale": {"params": {}},
     "Invert": {"params": {}},
     "Gaussian Blur": {"params": {
@@ -566,6 +578,9 @@ EFFECT_DEFINITIONS: dict[str, dict[str, Any]] = {
         "modulation_bias": {"type": "float", "label": "Modulation bias", "default": 0.0, "min": -1.0, "max": 1.0, "step": 0.01, "decimals": 2, "animatable": True},
         "modulation_detail": {"type": "float", "label": "Contour detail", "default": 0.55, "min": 0.0, "max": 1.0, "step": 0.01, "decimals": 2, "animatable": True},
         "modulation_seed": {"type": "int", "label": "Modulation seed", "default": 1, "min": 0, "max": 999999, "step": 1, "animatable": False},
+        "bleed": {"type": "int", "label": "Bleed", "default": 0, "min": -10, "max": 10, "step": 1, "suffix": " px", "animatable": True, "pixel_scaled": True},
+        "rounding": {"type": "float", "label": "Rounding", "default": 0.0, "min": 0.0, "max": 100.0, "step": 1.0, "decimals": 1, "suffix": "%", "animatable": True},
+        "sampling": {"type": "choice", "label": "Sampling", "default": "Native", "options": ["Native", "2× Supersampled"]},
         "custom_matrix_json": {"type": "text", "label": "Custom threshold matrix", "default": "[[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]", "hidden": True},
     }},
 }
@@ -575,6 +590,7 @@ EFFECT_DESCRIPTIONS: dict[str, str] = {
     "Levels": "Remap black, midpoint, and white levels for precise tonal control.",
     "Local Contrast": "Boost local edge contrast to add clarity without globally sharpening the image.",
     "Hue Rotate": "Rotate image hues around the colour wheel.",
+    "Tonal Map": "Map image luminance through configurable mono, duotone, tritone, or four-colour tonal anchors.",
     "Grayscale": "Convert the image to luminance-based grayscale.",
     "Invert": "Invert RGB colours for a photographic-negative look.",
     "Gaussian Blur": "Soften image detail with a smooth Gaussian blur.",
@@ -647,7 +663,7 @@ EFFECT_DESCRIPTIONS: dict[str, str] = {
 
 EFFECT_CATEGORIES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("Color & Tone", (
-        "Adjustments", "Levels", "Local Contrast", "Posterize", "Grayscale", "Hue Rotate", "Invert",
+        "Adjustments", "Levels", "Local Contrast", "Tonal Map", "Posterize", "Grayscale", "Hue Rotate", "Invert",
     )),
     ("Detail & Light", (
         "Median Denoise", "Gaussian Blur", "Sharpen", "Glow", "Bloom", "Vignette",

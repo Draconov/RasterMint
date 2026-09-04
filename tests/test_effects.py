@@ -277,3 +277,57 @@ def test_easings_are_clamped():
     assert ease_value(2, "Linear") == 1
     assert 0 < ease_value(0.5, "Ease In") < 0.5
     assert 0.5 < ease_value(0.5, "Ease Out") < 1
+
+
+def test_tonal_map_schema_and_category_are_available():
+    assert "Tonal Map" in EFFECT_DEFINITIONS
+    params = EFFECT_DEFINITIONS["Tonal Map"]["params"]
+    assert params["mode"]["options"] == ["Mono", "Duotone", "Tritone", "Gradient"]
+    assert params["preserve_alpha"]["default"] is True
+    categories = effect_categories()
+    assert any("Tonal Map" in category["effects"] for category in categories)
+
+
+def test_tonal_map_tritone_hits_exact_anchor_colours():
+    source = Image.fromarray(np.array([[[0, 0, 0], [128, 128, 128], [255, 255, 255]]], dtype=np.uint8), "RGB")
+    effect = new_effect("Tonal Map")
+    effect["params"].update(
+        mode="Tritone",
+        shadow_color="#102030",
+        midtone_color="#C02040",
+        highlight_color="#E0F0FF",
+        shadow_point=0.0,
+        midpoint=50.0,
+        highlight_point=100.0,
+        blend_softness=100.0,
+    )
+    out = np.asarray(apply_effect_stack(source, [effect], ["#000000", "#FFFFFF"]))
+    assert tuple(out[0, 0]) == (16, 32, 48)
+    assert np.max(np.abs(out[0, 1].astype(int) - np.array([192, 32, 64]))) <= 2
+    assert tuple(out[0, 2]) == (224, 240, 255)
+
+
+def test_tonal_map_gradient_uses_background_and_softness_controls_transition():
+    source = Image.fromarray(np.array([[[0, 0, 0], [96, 96, 96], [128, 128, 128], [192, 192, 192]]], dtype=np.uint8), "RGB")
+    effect = new_effect("Tonal Map")
+    effect["params"].update(
+        mode="Gradient",
+        background_color="#000000",
+        shadow_color="#0000FF",
+        midtone_color="#00FF00",
+        highlight_color="#FFFFFF",
+        shadow_point=25.0,
+        midpoint=50.0,
+        highlight_point=75.0,
+        blend_softness=100.0,
+    )
+    smooth = np.asarray(apply_effect_stack(source, [effect], ["#000000", "#FFFFFF"]))
+    assert tuple(smooth[0, 0]) == (0, 0, 0)
+    assert np.max(np.abs(smooth[0, 2].astype(int) - np.array([0, 255, 0]))) <= 3
+    assert np.max(np.abs(smooth[0, 3].astype(int) - np.array([255, 255, 255]))) <= 3
+
+    effect["params"]["blend_softness"] = 0.0
+    hard = np.asarray(apply_effect_stack(source, [effect], ["#000000", "#FFFFFF"]))
+    assert not np.array_equal(smooth, hard)
+    allowed = {(0, 0, 0), (0, 0, 255), (0, 255, 0), (255, 255, 255)}
+    assert {tuple(map(int, row)) for row in hard.reshape(-1, 3)} <= allowed

@@ -925,6 +925,22 @@
     "Enter applies · Esc cancels · Double-click inside the crop applies": "Enterで適用 · Escでキャンセル · 範囲内をダブルクリックで適用",
     "Full image · %1 × %2": "画像全体 · %1 × %2",
     "%1 × %2 px · X %3 · Y %4": "%1 × %2 px · X %3 · Y %4",
-    "Edit Crop…": "切り抜きを編集…"
+    "Edit Crop…": "切り抜きを編集…",
+    "Tonal Map": "トーンマップ",
+    "Map image luminance through configurable mono, duotone, tritone, or four-colour tonal anchors.": "画像の輝度を、設定可能なモノ／デュオトーン／トライトーン／4色のトーンアンカーでマッピングします。",
+    "Duotone": "デュオトーン",
+    "Tritone": "トライトーン",
+    "Midtone": "中間調",
+    "Highlight": "ハイライト",
+    "Shadow point": "シャドウポイント",
+    "Midpoint": "中間点",
+    "Highlight point": "ハイライトポイント",
+    "Blend softness": "ブレンドの柔らかさ",
+    "Preserve alpha": "アルファを保持",
+    "Edge treatment": "エッジ処理",
+    "Rounding": "丸め",
+    "Sampling": "サンプリング",
+    "Native": "ネイティブ",
+    "2× Supersampled": "2× スーパーサンプリング"
   }
 }

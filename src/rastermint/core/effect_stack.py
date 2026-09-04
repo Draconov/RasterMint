@@ -103,6 +103,150 @@ def _temporal_pattern(
     return Image.fromarray(out, "RGB")
 
 
+def _nearest_palette_labels(image: np.ndarray, palette: np.ndarray, chunk_pixels: int = 32768) -> np.ndarray:
+    """Return nearest-palette indices using bounded-memory RGB distance chunks."""
+    source = np.asarray(image, dtype=np.float32)
+    pal = np.asarray(palette, dtype=np.float32)
+    if source.ndim != 3 or source.shape[2] != 3:
+        raise ValueError("image must have shape (H, W, 3)")
+    if pal.ndim != 2 or pal.shape[1] != 3 or len(pal) == 0:
+        raise ValueError("palette must have shape (N, 3) with N >= 1")
+    pixels = source.reshape(-1, 3)
+    pal_sq = np.sum(pal * pal, axis=1)
+    labels = np.empty(len(pixels), dtype=np.intp)
+    step = max(1024, int(chunk_pixels))
+    for start in range(0, len(pixels), step):
+        end = min(len(pixels), start + step)
+        chunk = pixels[start:end]
+        distances = (
+            np.sum(chunk * chunk, axis=1, keepdims=True)
+            + pal_sq[None, :]
+            - 2.0 * (chunk @ pal.T)
+        )
+        labels[start:end] = np.argmin(distances, axis=1)
+    return labels.reshape(source.shape[:2])
+
+
+def _apply_dither_edge_treatment(
+    result: np.ndarray,
+    palette: np.ndarray,
+    *,
+    bleed: float = 0.0,
+    rounding: float = 0.0,
+) -> np.ndarray:
+    """Apply palette-safe morphology to a completed dither result.
+
+    Positive bleed grows darker/ink-like palette entries into neighbouring
+    lighter pixels; negative bleed contracts dark regions by growing lighter
+    neighbours. Rounding is majority morphology on palette indices, so no
+    intermediate colours are introduced.
+    """
+    pal = np.asarray(palette, dtype=np.float32)
+    labels = _nearest_palette_labels(result, pal)
+    if len(pal) > 256:
+        # RasterMint palettes are currently capped at 256 colours, but keep a
+        # defensive no-overflow path if that limit changes in the future.
+        return pal[labels]
+
+    bleed_px = int(round(float(bleed)))
+    if bleed_px:
+        luminance = pal @ np.array([0.2126, 0.7152, 0.0722], dtype=np.float32)
+        rank_to_label = np.argsort(luminance, kind="stable")
+        label_to_rank = np.empty(len(rank_to_label), dtype=np.uint8)
+        label_to_rank[rank_to_label] = np.arange(len(rank_to_label), dtype=np.uint8)
+        ranked = label_to_rank[labels]
+        ranked_image = Image.fromarray(ranked, "L")
+        size = max(3, abs(bleed_px) * 2 + 1)
+        filtered = ranked_image.filter(
+            ImageFilter.MinFilter(size=size) if bleed_px > 0 else ImageFilter.MaxFilter(size=size)
+        )
+        ranks = np.asarray(filtered, dtype=np.uint8)
+        labels = rank_to_label[ranks]
+
+    rounding_amount = max(0.0, min(100.0, float(rounding)))
+    if rounding_amount > 0.0 and len(pal) > 1:
+        mode_image = Image.fromarray(labels.astype(np.uint8), "L")
+        passes = max(1, min(4, int(math.ceil(rounding_amount / 25.0))))
+        kernel = 5 if rounding_amount >= 75.0 else 3
+        for _ in range(passes):
+            mode_image = mode_image.filter(ImageFilter.ModeFilter(size=kernel))
+        labels = np.asarray(mode_image, dtype=np.uint8).astype(np.intp)
+
+    return pal[labels]
+
+
+def _tonal_map(
+    image: Image.Image,
+    mode: str,
+    shadow_color: str,
+    midtone_color: str,
+    highlight_color: str,
+    background_color: str,
+    shadow_point: float,
+    midpoint: float,
+    highlight_point: float,
+    blend_softness: float,
+) -> Image.Image:
+    """Map source luminance through configurable tonal colour anchors."""
+    arr = np.asarray(image.convert("RGB"), dtype=np.float32)
+    luminance = (
+        arr[..., 0] * 0.2126
+        + arr[..., 1] * 0.7152
+        + arr[..., 2] * 0.0722
+    ) / 255.0 * 100.0
+
+    shadow = np.asarray(hex_to_rgb(shadow_color), dtype=np.float32)
+    midtone = np.asarray(hex_to_rgb(midtone_color), dtype=np.float32)
+    highlight = np.asarray(hex_to_rgb(highlight_color), dtype=np.float32)
+    background = np.asarray(hex_to_rgb(background_color), dtype=np.float32)
+
+    sp = max(0.0, min(100.0, float(shadow_point)))
+    mp = max(sp, min(100.0, float(midpoint)))
+    hp = max(mp, min(100.0, float(highlight_point)))
+    mode_name = str(mode or "Tritone")
+
+    if mode_name == "Mono":
+        points = [0.0, hp]
+        colors = [background, highlight]
+    elif mode_name == "Duotone":
+        points = [sp, hp]
+        colors = [shadow, highlight]
+    elif mode_name == "Gradient":
+        points = [0.0, sp, mp, hp]
+        colors = [background, shadow, midtone, highlight]
+    else:  # Tritone
+        points = [sp, mp, hp]
+        colors = [shadow, midtone, highlight]
+
+    softness = max(0.0, min(1.0, float(blend_softness) / 100.0))
+    out = np.empty_like(arr, dtype=np.float32)
+    out[...] = colors[0]
+    out[luminance >= points[-1]] = colors[-1]
+
+    for idx in range(len(points) - 1):
+        lo = float(points[idx])
+        hi = float(points[idx + 1])
+        left = colors[idx]
+        right = colors[idx + 1]
+        if hi <= lo + 1e-9:
+            mask = luminance >= hi
+            out[mask] = right
+            continue
+        if idx == len(points) - 2:
+            mask = (luminance >= lo) & (luminance <= hi)
+        else:
+            mask = (luminance >= lo) & (luminance < hi)
+        if not np.any(mask):
+            continue
+        t = np.clip((luminance[mask] - lo) / (hi - lo), 0.0, 1.0)
+        smooth_t = t * t * (3.0 - 2.0 * t)
+        hard_t = (t >= 0.5).astype(np.float32)
+        blend_t = hard_t * (1.0 - softness) + smooth_t * softness
+        out[mask] = left[None, :] * (1.0 - blend_t[:, None]) + right[None, :] * blend_t[:, None]
+
+    return Image.fromarray(np.rint(np.clip(out, 0, 255)).astype(np.uint8), "RGB")
+
+
 def _seed(params: dict[str, Any], frame_index: int) -> int:
     seed = int(params.get("seed", 1))
     if bool(params.get("temporal", False)):
@@ -3135,6 +3279,19 @@ def apply_normalized_effect_stack(
         elif kind == "Levels": img = _levels(img, int(p["black_point"]), int(p["white_point"]), float(p["gamma"]))
         elif kind == "Local Contrast": img = _local_contrast(img, int(p["amount"]), float(p["radius"]), int(p["threshold"]))
         elif kind == "Hue Rotate": img = _hue_rotate(img, int(p["degrees"]))
+        elif kind == "Tonal Map":
+            img = _tonal_map(
+                img,
+                str(p.get("mode", "Tritone")),
+                str(p.get("shadow_color", "#000000")),
+                str(p.get("midtone_color", "#808080")),
+                str(p.get("highlight_color", "#FFFFFF")),
+                str(p.get("background_color", "#000000")),
+                float(p.get("shadow_point", 0.0)),
+                float(p.get("midpoint", 50.0)),
+                float(p.get("highlight_point", 100.0)),
+                float(p.get("blend_softness", 100.0)),
+            )
         elif kind == "Grayscale": img = ImageOps.grayscale(img).convert("RGB")
         elif kind == "Invert": img = ImageOps.invert(img.convert("RGB"))
         elif kind == "Gaussian Blur":
@@ -3300,7 +3457,13 @@ def apply_normalized_effect_stack(
                 report_progress(step_index + 1, kind)
                 continue
             before = img.convert("RGB")
-            arr = np.asarray(before, dtype=np.float32)
+            sampling = str(p.get("sampling", "Native"))
+            working = (
+                before.resize((before.width * 2, before.height * 2), Image.Resampling.BICUBIC)
+                if sampling == "2× Supersampled"
+                else before
+            )
+            arr = np.asarray(working, dtype=np.float32)
             result = apply_dither(
                 arr,
                 palette_np,
@@ -3319,6 +3482,17 @@ def apply_normalized_effect_stack(
                 modulation_detail=float(p.get("modulation_detail", 0.55)),
                 modulation_seed=int(p.get("modulation_seed", 1)),
             )
+            bleed = float(p.get("bleed", 0.0))
+            rounding = float(p.get("rounding", 0.0))
+            if sampling == "2× Supersampled":
+                high = Image.fromarray(np.clip(result, 0, 255).astype(np.uint8), "RGB")
+                reduced = high.resize(before.size, Image.Resampling.BOX)
+                result = np.asarray(reduced, dtype=np.float32)
+                # Area downsampling creates intermediate RGB values; remap
+                # before morphology so the final result remains palette-pure.
+                result = _apply_dither_edge_treatment(result, palette_np, bleed=bleed, rounding=rounding)
+            elif abs(bleed) > 1e-9 or rounding > 1e-9:
+                result = _apply_dither_edge_treatment(result, palette_np, bleed=bleed, rounding=rounding)
             dithered = Image.fromarray(np.clip(result, 0, 255).astype(np.uint8), "RGB")
             img = dithered if mix >= 1.0 else Image.blend(before, dithered, mix)
 

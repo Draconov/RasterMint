@@ -925,6 +925,22 @@
     "Enter applies · Esc cancels · Double-click inside the crop applies": "Enter 적용 · Esc 취소 · 자르기 안쪽 더블클릭으로 적용",
     "Full image · %1 × %2": "전체 이미지 · %1 × %2",
     "%1 × %2 px · X %3 · Y %4": "%1 × %2 px · X %3 · Y %4",
-    "Edit Crop…": "자르기 편집…"
+    "Edit Crop…": "자르기 편집…",
+    "Tonal Map": "톤 맵",
+    "Map image luminance through configurable mono, duotone, tritone, or four-colour tonal anchors.": "설정 가능한 모노, 듀오톤, 트라이톤 또는 4색 톤 앵커로 이미지 밝기를 매핑합니다.",
+    "Duotone": "듀오톤",
+    "Tritone": "트라이톤",
+    "Midtone": "중간톤",
+    "Highlight": "하이라이트",
+    "Shadow point": "그림자 지점",
+    "Midpoint": "중간 지점",
+    "Highlight point": "하이라이트 지점",
+    "Blend softness": "혼합 부드러움",
+    "Preserve alpha": "알파 유지",
+    "Edge treatment": "가장자리 처리",
+    "Rounding": "라운딩",
+    "Sampling": "샘플링",
+    "Native": "기본",
+    "2× Supersampled": "2× 슈퍼샘플링"
   }
 }

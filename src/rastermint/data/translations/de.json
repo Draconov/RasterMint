@@ -822,6 +822,22 @@
     "Enter applies · Esc cancels · Double-click inside the crop applies": "Enter übernimmt · Esc bricht ab · Doppelklick im Zuschnitt übernimmt",
     "Full image · %1 × %2": "Vollständiges Bild · %1 × %2",
     "%1 × %2 px · X %3 · Y %4": "%1 × %2 px · X %3 · Y %4",
-    "Edit Crop…": "Zuschnitt bearbeiten…"
+    "Edit Crop…": "Zuschnitt bearbeiten…",
+    "Tonal Map": "Tonwertabbildung",
+    "Map image luminance through configurable mono, duotone, tritone, or four-colour tonal anchors.": "Ordnet die Bildluminanz über einstellbare Mono-, Duo-, Tritone- oder vierfarbige Tonwertanker zu.",
+    "Duotone": "Duoton",
+    "Tritone": "Triton",
+    "Midtone": "Mitteltöne",
+    "Highlight": "Lichter",
+    "Shadow point": "Schattenpunkt",
+    "Midpoint": "Mittelpunkt",
+    "Highlight point": "Lichterpunkt",
+    "Blend softness": "Übergangsweichheit",
+    "Preserve alpha": "Alpha beibehalten",
+    "Edge treatment": "Kantenbehandlung",
+    "Rounding": "Abrundung",
+    "Sampling": "Abtastung",
+    "Native": "Nativ",
+    "2× Supersampled": "2× Supersampling"
   }
 }

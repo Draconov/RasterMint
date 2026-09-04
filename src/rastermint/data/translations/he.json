@@ -822,6 +822,22 @@
     "Enter applies · Esc cancels · Double-click inside the crop applies": "Enter מחיל · Esc מבטל · לחיצה כפולה בתוך החיתוך מחילה",
     "Full image · %1 × %2": "תמונה מלאה · %1 × %2",
     "%1 × %2 px · X %3 · Y %4": "%1 × %2 px · X %3 · Y %4",
-    "Edit Crop…": "עריכת חיתוך…"
+    "Edit Crop…": "עריכת חיתוך…",
+    "Tonal Map": "מפת גוונים",
+    "Map image luminance through configurable mono, duotone, tritone, or four-colour tonal anchors.": "מיפוי בהירות התמונה דרך עוגני גוון ניתנים להגדרה: מונו, דו־גוני, תלת־גוני או ארבעה צבעים.",
+    "Duotone": "דו־גוני",
+    "Tritone": "תלת־גוני",
+    "Midtone": "גווני ביניים",
+    "Highlight": "בהירים",
+    "Shadow point": "נקודת צל",
+    "Midpoint": "נקודת אמצע",
+    "Highlight point": "נקודת בהירים",
+    "Blend softness": "רכות מיזוג",
+    "Preserve alpha": "שמור אלפא",
+    "Edge treatment": "טיפול בקצוות",
+    "Rounding": "עיגול",
+    "Sampling": "דגימה",
+    "Native": "מקורי",
+    "2× Supersampled": "דגימת־יתר 2×"
   }
 }

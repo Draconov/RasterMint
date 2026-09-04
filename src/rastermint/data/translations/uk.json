@@ -925,6 +925,22 @@
     "Enter applies · Esc cancels · Double-click inside the crop applies": "Enter — застосувати · Esc — скасувати · Подвійний клік усередині — застосувати",
     "Full image · %1 × %2": "Повне зображення · %1 × %2",
     "%1 × %2 px · X %3 · Y %4": "%1 × %2 px · X %3 · Y %4",
-    "Edit Crop…": "Редагувати обрізання…"
+    "Edit Crop…": "Редагувати обрізання…",
+    "Tonal Map": "Тональна карта",
+    "Map image luminance through configurable mono, duotone, tritone, or four-colour tonal anchors.": "Відображає яскравість зображення через настроювані моно-, дуотонні, тритонні або чотириколірні тональні опорні точки.",
+    "Duotone": "Дуотон",
+    "Tritone": "Тритон",
+    "Midtone": "Середні тони",
+    "Highlight": "Світлі тони",
+    "Shadow point": "Точка тіней",
+    "Midpoint": "Середня точка",
+    "Highlight point": "Точка світлих тонів",
+    "Blend softness": "М’якість змішування",
+    "Preserve alpha": "Зберігати альфа-канал",
+    "Edge treatment": "Обробка країв",
+    "Rounding": "Заокруглення",
+    "Sampling": "Семплінг",
+    "Native": "Нативний",
+    "2× Supersampled": "2× суперсемплінг"
   }
 }

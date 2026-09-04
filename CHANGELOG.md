@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.7.4 - 2026-09-04 — Tonal Map + Dither Edge Treatment
+
+- Added **Tonal Map** as a standalone Color & Tone layer with Mono, Duotone, Tritone, and four-colour Gradient modes.
+- Added configurable Shadow, Midtone, Highlight, and Background colours with tonal anchor points, blend softness, and optional source-alpha preservation.
+- Added **Edge treatment** controls to the Dither layer: palette-safe Bleed from -10 to +10 px, morphological Rounding from 0–100%, and Native / 2× Supersampled sampling.
+- Positive Bleed expands darker/ink-like palette regions while negative Bleed contracts them; Rounding smooths isolated/jagged palette-index structures without inventing colours.
+- 2× Supersampled dithering renders the algorithm at double resolution, area-downsamples it, then remaps to the active palette before edge treatment.
+- Default Dither settings remain visually identical to 0.7.3.
+- Updated all bundled translation catalogs for the new effect and controls.
+- Updated the application version to **0.7.4**.
+
 ## 0.7.3 - 2026-09-04 — Canvas Crop Tool
 
 - Rebuilt cropping as a non-destructive canvas tool with eight resize handles, move/new-selection gestures, themed outside shading and Rule of Thirds/Grid/Center overlays.
@@ -10,7 +21,7 @@
 - Added the Crop sidebar page and Edit > Crop Image… (`C`) shortcut using the user-supplied `sidebar-crop.png`.
 - Updated built-in preset schema/settings for the new crop model and advanced project schema to the new crop-era format.
 - Updated all translation catalogs for the new crop UI.
-- Updated the application version to **0.8.0**.
+- Updated the application version to **0.7.3**.
 
 Notable user-facing and engineering changes are recorded here. RasterMint is still in active alpha development, so entries focus on behavior that affects releases, compatibility, or contributor expectations.
 

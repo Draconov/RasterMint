@@ -925,6 +925,22 @@
     "Enter applies · Esc cancels · Double-click inside the crop applies": "Enter applies · Esc cancels · Double-click inside the crop applies",
     "Full image · %1 × %2": "Full image · %1 × %2",
     "%1 × %2 px · X %3 · Y %4": "%1 × %2 px · X %3 · Y %4",
-    "Edit Crop…": "Edit Crop…"
+    "Edit Crop…": "Edit Crop…",
+    "Tonal Map": "ٹونل میپ",
+    "Map image luminance through configurable mono, duotone, tritone, or four-colour tonal anchors.": "تصویر کی روشنی کو قابلِ ترتیب مونو، ڈوؤٹون، ٹرائی ٹون یا چار رنگوں کے ٹونل اینکرز کے ذریعے میپ کریں۔",
+    "Duotone": "ڈوؤٹون",
+    "Tritone": "ٹرائی ٹون",
+    "Midtone": "درمیانی ٹون",
+    "Highlight": "ہائی لائٹ",
+    "Shadow point": "شیڈو پوائنٹ",
+    "Midpoint": "درمیانی نقطہ",
+    "Highlight point": "ہائی لائٹ پوائنٹ",
+    "Blend softness": "بلینڈ نرمی",
+    "Preserve alpha": "الفا محفوظ رکھیں",
+    "Edge treatment": "کناروں کی پروسیسنگ",
+    "Rounding": "گولائی",
+    "Sampling": "سیمپلنگ",
+    "Native": "اصل",
+    "2× Supersampled": "2× سپر سیمپلڈ"
   }
 }

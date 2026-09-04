@@ -925,6 +925,22 @@
     "Enter applies · Esc cancels · Double-click inside the crop applies": "Enter applies · Esc cancels · Double-click inside the crop applies",
     "Full image · %1 × %2": "Full image · %1 × %2",
     "%1 × %2 px · X %3 · Y %4": "%1 × %2 px · X %3 · Y %4",
-    "Edit Crop…": "Edit Crop…"
+    "Edit Crop…": "Edit Crop…",
+    "Tonal Map": "টোনাল ম্যাপ",
+    "Map image luminance through configurable mono, duotone, tritone, or four-colour tonal anchors.": "কনফিগারযোগ্য মনো, ডুয়োটোন, ট্রাইটোন বা চার-রঙের টোনাল অ্যাঙ্করের মাধ্যমে ছবির উজ্জ্বলতা ম্যাপ করুন।",
+    "Duotone": "ডুয়োটোন",
+    "Tritone": "ট্রাইটোন",
+    "Midtone": "মিডটোন",
+    "Highlight": "হাইলাইট",
+    "Shadow point": "শ্যাডো পয়েন্ট",
+    "Midpoint": "মিডপয়েন্ট",
+    "Highlight point": "হাইলাইট পয়েন্ট",
+    "Blend softness": "ব্লেন্ড কোমলতা",
+    "Preserve alpha": "আলফা সংরক্ষণ",
+    "Edge treatment": "এজ ট্রিটমেন্ট",
+    "Rounding": "রাউন্ডিং",
+    "Sampling": "স্যাম্পলিং",
+    "Native": "নেটিভ",
+    "2× Supersampled": "2× সুপারস্যাম্পলড"
   }
 }

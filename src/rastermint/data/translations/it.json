@@ -822,6 +822,22 @@
     "Enter applies · Esc cancels · Double-click inside the crop applies": "Invio applica · Esc annulla · Doppio clic nel ritaglio applica",
     "Full image · %1 × %2": "Immagine completa · %1 × %2",
     "%1 × %2 px · X %3 · Y %4": "%1 × %2 px · X %3 · Y %4",
-    "Edit Crop…": "Modifica ritaglio…"
+    "Edit Crop…": "Modifica ritaglio…",
+    "Tonal Map": "Mappa tonale",
+    "Map image luminance through configurable mono, duotone, tritone, or four-colour tonal anchors.": "Mappa la luminanza dell'immagine tramite ancore tonali configurabili mono, duotono, tritono o a quattro colori.",
+    "Duotone": "Duotono",
+    "Tritone": "Tritono",
+    "Midtone": "Mezzitoni",
+    "Highlight": "Luci",
+    "Shadow point": "Punto ombre",
+    "Midpoint": "Punto medio",
+    "Highlight point": "Punto luci",
+    "Blend softness": "Morbidezza fusione",
+    "Preserve alpha": "Mantieni alfa",
+    "Edge treatment": "Trattamento bordi",
+    "Rounding": "Arrotondamento",
+    "Sampling": "Campionamento",
+    "Native": "Nativo",
+    "2× Supersampled": "Supersampling 2×"
   }
 }
