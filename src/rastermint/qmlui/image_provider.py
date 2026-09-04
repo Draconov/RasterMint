@@ -27,10 +27,14 @@ class RasterImageProvider(QQuickImageProvider):
         with self._lock:
             self._images[str(key)] = QImage()
 
+    def image(self, key: str) -> QImage:
+        """Return a detached copy of a stored provider image."""
+        with self._lock:
+            return self._images.get(str(key), QImage()).copy()
+
     def requestImage(self, image_id: str, size: QSize, requested_size: QSize) -> QImage:  # noqa: N802 - Qt API
         key = image_id.split("?", 1)[0]
-        with self._lock:
-            image = self._images.get(key, QImage()).copy()
+        image = self.image(key)
 
         if image.isNull():
             placeholder = QImage(1, 1, QImage.Format.Format_ARGB32)

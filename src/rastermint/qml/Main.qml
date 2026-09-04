@@ -248,11 +248,11 @@ ApplicationWindow {
                 onTriggered: backend.setShowHotkeys(checked)
             }
             MintMenuSeparator { }
-            Action { text: qsTr("Capture Snapshot A"); enabled: backend.hasSource; shortcut: "Ctrl+Alt+1"; onTriggered: backend.captureSnapshot("A") }
-            Action { text: qsTr("Capture Snapshot B"); enabled: backend.hasSource; shortcut: "Ctrl+Alt+2"; onTriggered: backend.captureSnapshot("B") }
-            Action { text: qsTr("Apply Snapshot A"); enabled: backend.snapshotAReady; onTriggered: backend.applySnapshot("A") }
-            Action { text: qsTr("Apply Snapshot B"); enabled: backend.snapshotBReady; onTriggered: backend.applySnapshot("B") }
-            Action { text: qsTr("A/B Split View"); enabled: backend.snapshotAReady && backend.snapshotBReady; checkable: true; checked: backend.comparisonEnabled; onTriggered: backend.setComparisonEnabled(checked) }
+            Action { text: qsTr("Capture Snapshot A"); enabled: backend.hasSource && !backend.cropEditing; shortcut: "Ctrl+Alt+1"; onTriggered: backend.captureSnapshot("A") }
+            Action { text: qsTr("Capture Snapshot B"); enabled: backend.hasSource && !backend.cropEditing; shortcut: "Ctrl+Alt+2"; onTriggered: backend.captureSnapshot("B") }
+            Action { text: qsTr("Apply Snapshot A"); enabled: backend.snapshotAReady && !backend.cropEditing; onTriggered: backend.applySnapshot("A") }
+            Action { text: qsTr("Apply Snapshot B"); enabled: backend.snapshotBReady && !backend.cropEditing; onTriggered: backend.applySnapshot("B") }
+            Action { text: qsTr("A/B Split View"); enabled: backend.snapshotAReady && backend.snapshotBReady && !backend.cropEditing; checkable: true; checked: backend.comparisonEnabled; onTriggered: backend.setComparisonEnabled(checked) }
             MintMenuSeparator { }
             Action { text: qsTr("About RasterMint"); shortcut: "F1"; onTriggered: aboutDialog.open() }
         }

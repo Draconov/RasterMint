@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.7.5 - 2026-09-04 — Snapshot Reliability
+
+- Repaired Capture Snapshot A/B by using the image provider's shared thread-safe image accessor instead of calling a nonexistent backend getter.
+- Snapshot capture now stores the settings and timeline time that actually produced the currently published preview, preventing pending edits from being paired with stale pixels.
+- Added a dedicated snapshot image revision so recaptured/restored A/B images refresh independently from the normal preview cache.
+- New image, GIF, video and clipboard sources now clear A/B snapshots and split-view state so snapshots never leak across sources.
+- Project files now preserve snapshot settings, capture time, split position and A/B enabled state without embedding rendered image blobs; snapshot images are rebuilt asynchronously from the project source on load.
+- Video project snapshots restore from their captured frame time before snapshot processing.
+- Snapshot readiness now requires both snapshot metadata and a valid rendered image, while Apply Snapshot remains a normal undoable settings operation and includes crop state.
+- Snapshot capture/apply/split actions are disabled during the transient crop editor so draft crop overlays cannot be mistaken for committed snapshot state.
+- Updated the application version to **0.7.5**.
+
 ## 0.7.4 - 2026-09-04 — Tonal Map + Dither Edge Treatment
 
 - Added **Tonal Map** as a standalone Color & Tone layer with Mono, Duotone, Tritone, and four-colour Gradient modes.

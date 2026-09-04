@@ -583,3 +583,31 @@ def test_tonal_map_can_disable_source_transparency_preservation():
     effect["params"]["preserve_alpha"] = False
     settings.effect_stack = [effect]
     assert prepare_transparency_mask(source, settings) is None
+
+
+def test_project_schema_round_trips_snapshot_metadata_without_image_blobs(tmp_path):
+    from rastermint.core.project import load_project_file, save_project_file
+
+    settings_payload = ProcessingSettings(
+        crop_x=0.2,
+        crop_y=0.1,
+        crop_width=0.6,
+        crop_height=0.7,
+    ).to_dict()
+    snapshots = {
+        "a": {"settings": settings_payload, "time": 1.25},
+        "b": {"settings": settings_payload, "time": 2.5},
+        "split": 0.42,
+        "enabled": True,
+    }
+
+    project_path = save_project_file(tmp_path / "snapshot-project", {"snapshots": snapshots})
+    restored = load_project_file(project_path)["snapshots"]
+
+    assert restored["a"]["settings"]["crop_x"] == 0.2
+    assert restored["a"]["time"] == 1.25
+    assert restored["b"]["time"] == 2.5
+    assert restored["split"] == 0.42
+    assert restored["enabled"] is True
+    assert "image" not in restored["a"]
+    assert "image" not in restored["b"]

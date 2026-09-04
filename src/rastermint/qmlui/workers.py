@@ -179,12 +179,20 @@ class BenchmarkWorker(QRunnable):
 
 class VideoFrameWorker(QRunnable):
     def __init__(
-        self, job_id: int, path: str, time_seconds: float
+        self,
+        job_id: int,
+        path: str,
+        time_seconds: float,
+        *,
+        purpose: str = "video-frame",
+        context: object = None,
     ) -> None:
         super().__init__()
         self.job_id = job_id
         self.path = path
         self.time_seconds = float(time_seconds)
+        self.purpose = str(purpose or "video-frame")
+        self.context = self.time_seconds if context is None else context
         self.signals = WorkerSignals()
 
     @Slot()
@@ -194,14 +202,14 @@ class VideoFrameWorker(QRunnable):
 
             frame = read_video_frame(self.path, self.time_seconds)
             self.signals.finished.emit(
-                self.job_id, "video-frame", frame, self.time_seconds
+                self.job_id, self.purpose, frame, self.context
             )
         except Exception:
             self.signals.failed.emit(
                 self.job_id,
-                "video-frame",
+                self.purpose,
                 traceback.format_exc(),
-                self.time_seconds,
+                self.context,
             )
 
 

@@ -18,7 +18,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 os.environ.setdefault("QSG_RHI_BACKEND", "software")
 
 from PySide6.QtCore import QCoreApplication, QMetaObject, QObject, QSize, QUrl, Qt  # noqa: E402
-from PySide6.QtGui import QGuiApplication  # noqa: E402
+from PySide6.QtGui import QColor, QGuiApplication, QImage  # noqa: E402
 from PySide6.QtQml import QQmlApplicationEngine, QQmlComponent  # noqa: E402
 from PySide6.QtQuickControls2 import QQuickStyle  # noqa: E402
 
@@ -324,5 +324,141 @@ def test_crop_edit_rotation_maps_display_rect_back_to_source():
         assert backend.settings.crop_y == pytest.approx(0.20)
         assert backend.settings.crop_width == pytest.approx(0.30)
         assert backend.settings.crop_height == pytest.approx(0.40)
+    finally:
+        backend.shutdown()
+
+
+def test_image_provider_shared_accessor_returns_detached_copy_and_drives_qml_request():
+    provider = RasterImageProvider()
+    source = QImage(2, 1, QImage.Format.Format_ARGB32)
+    source.fill(QColor("#224466"))
+    provider.set_image("preview", source)
+
+    direct = provider.image("preview")
+    assert not direct.isNull()
+    direct.fill(QColor("#FF0000"))
+
+    stored = provider.image("preview")
+    assert stored.pixelColor(0, 0).name().upper() == "#224466"
+
+    size = QSize()
+    requested = provider.requestImage("preview?r=9", size, QSize())
+    assert (size.width(), size.height()) == (2, 1)
+    assert requested.pixelColor(0, 0).name().upper() == "#224466"
+
+
+def test_capture_snapshot_uses_settings_matching_the_published_preview():
+    _app()
+    provider = RasterImageProvider()
+    backend = RasterMintBackend(provider)
+    try:
+        visible = backend.settings.to_dict()
+        visible["crop_x"] = 0.25
+        backend._published_preview_settings = visible
+        backend._published_preview_time = 1.25
+
+        preview = QImage(3, 2, QImage.Format.Format_ARGB32)
+        preview.fill(QColor("#336699"))
+        provider.set_image("preview", preview)
+
+        # Simulate an edit whose replacement preview is still rendering.
+        backend.settings.crop_x = 0.75
+        backend.captureSnapshot("A")
+
+        assert backend.snapshotAReady
+        assert backend._snapshot_a["settings"]["crop_x"] == pytest.approx(0.25)
+        assert backend._snapshot_a["time"] == pytest.approx(1.25)
+        captured = provider.image("snapshot-a")
+        assert (captured.width(), captured.height()) == (3, 2)
+        assert captured.pixelColor(0, 0).name().upper() == "#336699"
+
+        backend.applySnapshot("A")
+        assert backend.settings.crop_x == pytest.approx(0.25)
+        assert backend.canUndo
+        backend.undo()
+        assert backend.settings.crop_x == pytest.approx(0.75)
+    finally:
+        backend.shutdown()
+
+
+def test_opening_new_source_clears_snapshot_runtime_state(tmp_path, monkeypatch):
+    _app()
+    provider = RasterImageProvider()
+    backend = RasterMintBackend(provider)
+    try:
+        from PIL import Image
+
+        backend._snapshot_a = {"settings": backend.settings.to_dict(), "time": 0.0}
+        backend._snapshot_b = {"settings": backend.settings.to_dict(), "time": 0.0}
+        backend._snapshot_a_ready = True
+        backend._snapshot_b_ready = True
+        backend._comparison_enabled = True
+        marker = QImage(2, 2, QImage.Format.Format_ARGB32)
+        marker.fill(QColor("#FFFFFF"))
+        provider.set_image("snapshot-a", marker)
+        provider.set_image("snapshot-b", marker)
+
+        image_path = tmp_path / "replacement.png"
+        Image.new("RGB", (8, 6), "black").save(image_path)
+        monkeypatch.setattr(RasterMintBackend, "schedulePreview", lambda self, force=False: None)
+        monkeypatch.setattr(RasterMintBackend, "refreshPresetThumbnails", lambda self: None)
+
+        backend.openFile(str(image_path))
+
+        assert backend._snapshot_a is None
+        assert backend._snapshot_b is None
+        assert not backend.snapshotAReady
+        assert not backend.snapshotBReady
+        assert not backend.comparisonEnabled
+        assert provider.image("snapshot-a").isNull()
+        assert provider.image("snapshot-b").isNull()
+    finally:
+        backend.shutdown()
+
+
+def test_project_snapshot_payload_keeps_time_split_and_enabled_state(tmp_path):
+    _app()
+    provider = RasterImageProvider()
+    backend = RasterMintBackend(provider)
+    try:
+        from rastermint.core.project import load_project_file
+
+        backend._snapshot_a = {"settings": backend.settings.to_dict(), "time": 1.5}
+        backend._snapshot_b = {"settings": backend.settings.to_dict(), "time": 2.5}
+        backend._comparison_split = 0.37
+        backend._comparison_enabled = True
+
+        target = tmp_path / "snapshots.rastermint"
+        backend.saveProject(str(target))
+        payload = load_project_file(target)
+        snapshots = payload["snapshots"]
+
+        assert snapshots["a"]["time"] == pytest.approx(1.5)
+        assert snapshots["b"]["time"] == pytest.approx(2.5)
+        assert snapshots["split"] == pytest.approx(0.37)
+        assert snapshots["enabled"] is True
+    finally:
+        backend.shutdown()
+
+
+def test_split_view_requires_two_render_ready_snapshots_and_clamps_divider():
+    _app()
+    provider = RasterImageProvider()
+    backend = RasterMintBackend(provider)
+    try:
+        record = {"settings": backend.settings.to_dict(), "time": 0.0}
+        backend._snapshot_a = record
+        backend._snapshot_a_ready = True
+        backend.setComparisonEnabled(True)
+        assert not backend.comparisonEnabled
+
+        backend._snapshot_b = {"settings": backend.settings.to_dict(), "time": 0.0}
+        backend._snapshot_b_ready = True
+        assert backend.comparisonEnabled
+
+        backend.setComparisonSplit(-4.0)
+        assert backend.comparisonSplit == pytest.approx(0.0)
+        backend.setComparisonSplit(7.0)
+        assert backend.comparisonSplit == pytest.approx(1.0)
     finally:
         backend.shutdown()

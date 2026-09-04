@@ -65,7 +65,7 @@ Item {
                     Image {
                         width: comparisonOverlay.width; height: comparisonOverlay.height
                         cache: false; asynchronous: false; fillMode: Image.Stretch
-                        source: "image://rastermint/snapshot-a?r=" + backend.previewRevision
+                        source: "image://rastermint/snapshot-a?r=" + backend.snapshotRevision
                         smooth: root.effectiveScale < 5
                     }
                 }
@@ -78,7 +78,7 @@ Item {
                         x: -snapshotBClip.x
                         width: comparisonOverlay.width; height: comparisonOverlay.height
                         cache: false; asynchronous: false; fillMode: Image.Stretch
-                        source: "image://rastermint/snapshot-b?r=" + backend.previewRevision
+                        source: "image://rastermint/snapshot-b?r=" + backend.snapshotRevision
                         smooth: root.effectiveScale < 5
                     }
                 }

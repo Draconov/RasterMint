@@ -404,8 +404,14 @@ class RasterMintBackend(QObject):
         self._project_path: Path | None = None
         self._snapshot_a: dict[str, Any] | None = None
         self._snapshot_b: dict[str, Any] | None = None
+        self._snapshot_a_ready = False
+        self._snapshot_b_ready = False
+        self._snapshot_revision = 0
         self._comparison_split = 0.5
         self._comparison_enabled = False
+        self._published_preview_settings: dict[str, Any] | None = None
+        self._published_preview_time = 0.0
+        self._rendered_preview_settings: dict[str, Any] | None = None
 
         # Crop editor state is deliberately transient. Dragging/resizing only
         # changes this draft; ProcessingSettings is updated once on Apply.
@@ -1592,11 +1598,15 @@ class RasterMintBackend(QObject):
 
     @Property(bool, notify=comparisonChanged)
     def snapshotAReady(self) -> bool:
-        return self._snapshot_a is not None
+        return bool(self._snapshot_a is not None and self._snapshot_a_ready)
 
     @Property(bool, notify=comparisonChanged)
     def snapshotBReady(self) -> bool:
-        return self._snapshot_b is not None
+        return bool(self._snapshot_b is not None and self._snapshot_b_ready)
+
+    @Property(int, notify=comparisonChanged)
+    def snapshotRevision(self) -> int:
+        return int(self._snapshot_revision)
 
     @Property(float, notify=comparisonChanged)
     def comparisonSplit(self) -> float:
@@ -1604,13 +1614,136 @@ class RasterMintBackend(QObject):
 
     @Property(bool, notify=comparisonChanged)
     def comparisonEnabled(self) -> bool:
-        return bool(self._comparison_enabled and self._snapshot_a is not None and self._snapshot_b is not None)
+        return bool(
+            self._comparison_enabled
+            and self._snapshot_a is not None
+            and self._snapshot_b is not None
+            and self._snapshot_a_ready
+            and self._snapshot_b_ready
+        )
 
     def _project_extra_state(self) -> dict[str, Any]:
         return {}
 
     def _restore_project_extra_state(self, payload: dict[str, Any]) -> None:
         del payload
+
+    @staticmethod
+    def _normalize_snapshot_record(payload: object) -> dict[str, Any] | None:
+        if not isinstance(payload, dict):
+            return None
+        # 0.7.5 stores snapshot metadata explicitly. Accept the 0.7.4 project
+        # shape too, where the snapshot object itself was the settings payload.
+        settings_payload = payload.get("settings") if isinstance(payload.get("settings"), dict) else payload
+        if not isinstance(settings_payload, dict):
+            return None
+        try:
+            capture_time = max(0.0, float(payload.get("time", 0.0) or 0.0)) if settings_payload is not payload else 0.0
+        except (TypeError, ValueError):
+            capture_time = 0.0
+        return {"settings": deepcopy(settings_payload), "time": capture_time}
+
+    def _snapshot_for_slot(self, slot: str) -> dict[str, Any] | None:
+        slot = str(slot).upper()
+        if slot == "A":
+            return self._snapshot_a
+        if slot == "B":
+            return self._snapshot_b
+        return None
+
+    def _snapshot_record_matches(self, slot: str, record: object) -> bool:
+        current = self._snapshot_for_slot(slot)
+        return isinstance(record, dict) and current == record
+
+    def _set_snapshot_ready(self, slot: str, ready: bool) -> None:
+        slot = str(slot).upper()
+        if slot == "A":
+            self._snapshot_a_ready = bool(ready)
+        elif slot == "B":
+            self._snapshot_b_ready = bool(ready)
+
+    def _reset_published_preview_context(self) -> None:
+        self._published_preview_settings = None
+        self._published_preview_time = 0.0
+
+    def _clear_snapshots(self, *, emit: bool = True) -> None:
+        self._snapshot_a = None
+        self._snapshot_b = None
+        self._snapshot_a_ready = False
+        self._snapshot_b_ready = False
+        self._comparison_enabled = False
+        self.provider.clear("snapshot-a")
+        self.provider.clear("snapshot-b")
+        self._snapshot_revision += 1
+        if emit:
+            self.comparisonChanged.emit()
+
+    def _start_snapshot_render(self, slot: str, source: Any, record: dict[str, Any], source_revision: int) -> None:
+        if source is None or not self._snapshot_record_matches(slot, record):
+            return
+        settings_payload = record.get("settings") if isinstance(record.get("settings"), dict) else None
+        if settings_payload is None:
+            return
+        base_settings = ProcessingSettings.from_dict(deepcopy(settings_payload))
+        capture_time = max(0.0, float(record.get("time", 0.0) or 0.0))
+        animated = settings_at_time(base_settings, capture_time)
+        final_size = target_raster_size(source.size, animated)
+        preview_source = make_preview_source(source, max_side=PREVIEW_MAX_SIDE, settings=animated)
+        preview_settings = make_preview_settings(animated, final_size, preview_source.size)
+        context = {
+            "slot": str(slot).upper(),
+            "source_revision": int(source_revision),
+            "record": deepcopy(record),
+        }
+        job = self._next_job()
+        worker = ProcessingWorker(
+            job,
+            "snapshot-render",
+            preview_source,
+            preview_settings,
+            context,
+            frame_time=capture_time,
+            frame_index=max(0, round(capture_time * (self._video_info.fps if self._video_info else animated.animation_fps))),
+            display_mode=animated.display_mode,
+            include_grid=False,
+            tiled_processing=bool(getattr(self, "tiledProcessingEnabled", True)),
+            tile_size=int(getattr(self, "processingTileSize", 1024) or 1024),
+        )
+        self._connect_worker(worker)
+        self.thread_pool.start(worker)
+
+    def _restore_snapshot_image(self, slot: str) -> None:
+        record = self._snapshot_for_slot(slot)
+        if record is None or not self.hasSource:
+            return
+        source_revision = self._source_revision
+        capture_time = max(0.0, float(record.get("time", 0.0) or 0.0))
+        if self._video_path is not None:
+            context = {
+                "slot": str(slot).upper(),
+                "source_revision": int(source_revision),
+                "record": deepcopy(record),
+            }
+            job = self._next_job()
+            worker = VideoFrameWorker(
+                job,
+                str(self._video_path),
+                capture_time,
+                purpose="snapshot-source-frame",
+                context=context,
+            )
+            self._connect_worker(worker)
+            self.thread_pool.start(worker)
+            return
+        source = self._source_image
+        if source is not None:
+            self._start_snapshot_render(slot, source.copy(), record, source_revision)
+
+    def _restore_project_snapshot_images(self) -> None:
+        if self._snapshot_a is not None:
+            self._restore_snapshot_image("A")
+        if self._snapshot_b is not None:
+            self._restore_snapshot_image("B")
 
     @Slot(str)
     def saveProject(self, value: str) -> None:
@@ -1628,7 +1761,12 @@ class RasterMintBackend(QObject):
                     "playback_speed": float(self._playback_speed),
                 },
                 "ui": {"selected_layer": int(self._selected_layer), "preview_mode": str(self._preview_mode)},
-                "snapshots": {"a": deepcopy(self._snapshot_a), "b": deepcopy(self._snapshot_b), "split": float(self._comparison_split)},
+                "snapshots": {
+                    "a": deepcopy(self._snapshot_a),
+                    "b": deepcopy(self._snapshot_b),
+                    "split": float(self._comparison_split),
+                    "enabled": bool(self._comparison_enabled),
+                },
                 "export": self._project_extra_state(),
             }
             self._project_path = save_project_file(path, payload)
@@ -1660,36 +1798,62 @@ class RasterMintBackend(QObject):
             self._playback_mode = str(timeline.get("playback_mode", self._playback_mode) or self._playback_mode)
             self._playback_speed = float(timeline.get("playback_speed", self._playback_speed) or self._playback_speed)
             snapshots = payload.get("snapshots") if isinstance(payload.get("snapshots"), dict) else {}
-            self._snapshot_a = deepcopy(snapshots.get("a")) if isinstance(snapshots.get("a"), dict) else None
-            self._snapshot_b = deepcopy(snapshots.get("b")) if isinstance(snapshots.get("b"), dict) else None
+            self._clear_snapshots(emit=False)
+            self._snapshot_a = self._normalize_snapshot_record(snapshots.get("a"))
+            self._snapshot_b = self._normalize_snapshot_record(snapshots.get("b"))
+            self._snapshot_a_ready = False
+            self._snapshot_b_ready = False
             self._comparison_split = max(0.0, min(1.0, float(snapshots.get("split", 0.5) or 0.5)))
+            self._comparison_enabled = bool(snapshots.get("enabled", False))
             self._restore_project_extra_state(payload.get("export") if isinstance(payload.get("export"), dict) else {})
             self._project_path = path
             self.projectChanged.emit()
             self.comparisonChanged.emit()
             self.playbackChanged.emit()
             self.schedulePreview(force=True)
+            self._restore_project_snapshot_images()
             self._set_status(f"Loaded project: {path.name}")
         except Exception as exc:
             self.errorOccurred.emit("Could not load project", str(exc))
 
     @Slot(str)
     def captureSnapshot(self, slot: str) -> None:
-        payload = self.settings.to_dict()
-        if str(slot).upper() == "A":
-            self._snapshot_a = payload
-            self.provider.set_image("snapshot-a", self.provider.get_image("preview"))
+        slot = str(slot).upper()
+        if slot not in {"A", "B"} or self._crop_editing:
+            return
+        preview = self.provider.image("preview")
+        if preview.isNull() or self._published_preview_settings is None:
+            self._set_status(_tr("Rendering preview"))
+            return
+        record = {
+            "settings": deepcopy(self._published_preview_settings),
+            "time": max(0.0, float(self._published_preview_time)),
+        }
+        if slot == "A":
+            self._snapshot_a = record
         else:
-            self._snapshot_b = payload
-            self.provider.set_image("snapshot-b", self.provider.get_image("preview"))
+            self._snapshot_b = record
+        self.provider.set_image(f"snapshot-{slot.lower()}", preview)
+        self._set_snapshot_ready(slot, True)
+        self._snapshot_revision += 1
         self.comparisonChanged.emit()
-        self._set_status(f"Captured snapshot {str(slot).upper()}")
+        self._set_status(f"Captured snapshot {slot}")
 
     @Slot(str)
     def applySnapshot(self, slot: str) -> None:
-        payload = self._snapshot_a if str(slot).upper() == "A" else self._snapshot_b
-        if payload is not None:
-            self._replace_settings(ProcessingSettings.from_dict(deepcopy(payload)), action=f"Applied snapshot {str(slot).upper()}")
+        slot = str(slot).upper()
+        if slot not in {"A", "B"} or self._crop_editing:
+            return
+        ready = self._snapshot_a_ready if slot == "A" else self._snapshot_b_ready
+        if not ready:
+            return
+        record = self._snapshot_for_slot(slot)
+        settings_payload = record.get("settings") if isinstance(record, dict) and isinstance(record.get("settings"), dict) else None
+        if settings_payload is not None:
+            self._replace_settings(
+                ProcessingSettings.from_dict(deepcopy(settings_payload)),
+                action=f"Applied snapshot {slot}",
+            )
 
     @Slot(float)
     def setComparisonSplit(self, value: float) -> None:
@@ -1721,6 +1885,7 @@ class RasterMintBackend(QObject):
         self._rendered_frames = []
         self._rendered_times = []
         self._rendered_fps = 0.0
+        self._rendered_preview_settings = None
         self.renderedPreviewChanged.emit()
 
     def _reset_preview_temporal_state(self) -> None:
@@ -2239,6 +2404,8 @@ class RasterMintBackend(QObject):
                 self._sync_import_target_raster()
             else:
                 raise ValueError(f"Unsupported file type: {suffix or '(none)'}")
+            self._reset_published_preview_context()
+            self._clear_snapshots(emit=False)
             self._source_revision += 1
             self._clear_layer_render_cache()
             self._reset_preview_temporal_state()
@@ -2246,6 +2413,7 @@ class RasterMintBackend(QObject):
             self.sourceChanged.emit()
             self.cropChanged.emit()
             self.playbackChanged.emit()
+            self.comparisonChanged.emit()
             self._history.clear()
             self.historyChanged.emit()
             self._set_status(f"Opened {path.name}")
@@ -2288,9 +2456,8 @@ class RasterMintBackend(QObject):
         self._preview_width = 1
         self._preview_height = 1
         self._preview_revision += 1
-        self._snapshot_a = None
-        self._snapshot_b = None
-        self._comparison_enabled = False
+        self._reset_published_preview_context()
+        self._clear_snapshots(emit=False)
         self._palette_lab_data = {}
         self._palette_mapping_data = []
         self._benchmark_summary = ""
@@ -2343,6 +2510,8 @@ class RasterMintBackend(QObject):
             self._clipboard_source_image = pasted if int(alpha_min) < 255 else None
             self._source_image = pasted.convert("RGB")
             self._sync_import_target_raster()
+            self._reset_published_preview_context()
+            self._clear_snapshots(emit=False)
 
             self._source_revision += 1
             self._clear_layer_render_cache()
@@ -2351,6 +2520,7 @@ class RasterMintBackend(QObject):
             self.sourceChanged.emit()
             self.cropChanged.emit()
             self.playbackChanged.emit()
+            self.comparisonChanged.emit()
             self._history.clear()
             self.historyChanged.emit()
             self._set_status(_tr("Pasted image from clipboard"))
@@ -3958,7 +4128,11 @@ class RasterMintBackend(QObject):
             start_time=self._current_time if self._video_path else 0.0,
             duration=min(5.0, self.timelineDuration),
             max_side=PREVIEW_MAX_SIDE,
-            context={"source_revision": self._source_revision, "settings_revision": self._settings_revision},
+            context={
+                "source_revision": self._source_revision,
+                "settings_revision": self._settings_revision,
+                "settings_payload": deepcopy(self.settings.to_dict()),
+            },
         )
         self._connect_worker(worker)
         self.thread_pool.start(worker)
@@ -3980,7 +4154,12 @@ class RasterMintBackend(QObject):
         self._current_time = value
         if self._playback_mode == "Rendered" and self._rendered_frames:
             idx = min(len(self._rendered_frames)-1, max(0, round(value * max(1.0, self._rendered_fps))))
-            self._publish_preview(self._rendered_frames[idx])
+            frame_time = self._rendered_times[idx] if idx < len(self._rendered_times) else value
+            self._publish_preview(
+                self._rendered_frames[idx],
+                settings_payload=self._rendered_preview_settings,
+                time_seconds=frame_time,
+            )
         elif self._video_path:
             job = self._next_job()
             worker = VideoFrameWorker(job, str(self._video_path), value)
@@ -4157,6 +4336,7 @@ class RasterMintBackend(QObject):
             return
         self._preview_running = True
         self._pending_preview_side = 0
+        settings_payload = deepcopy(self.settings.to_dict())
         settings = settings_at_time(self.settings, self._current_time)
         final_size = target_raster_size(source.size, settings)
         preview_source = make_preview_source(source, max_side=int(max_side), settings=settings)
@@ -4170,6 +4350,7 @@ class RasterMintBackend(QObject):
             "source_revision": source_revision,
             "settings_revision": settings_revision,
             "time": self._current_time,
+            "settings_payload": settings_payload,
         }
 
         def preview_cancelled() -> bool:
@@ -4226,12 +4407,39 @@ class RasterMintBackend(QObject):
             self._preview_running = False
             valid = isinstance(context, dict) and context.get("source_revision") == self._source_revision and context.get("settings_revision") == self._settings_revision
             if valid and _is_pil_image(result):
-                self._publish_preview(result)
+                self._publish_preview(
+                    result,
+                    settings_payload=context.get("settings_payload"),
+                    time_seconds=float(context.get("time", self._current_time) or 0.0),
+                )
             pending = self._pending_preview_side
             self._pending_preview_side = 0
             self._finish_preview_render(job_id, keep_busy=bool(pending))
             if pending:
                 self._request_preview(pending)
+            return
+        if purpose == "snapshot-source-frame" and _is_pil_image(result) and isinstance(context, dict):
+            slot = str(context.get("slot", "")).upper()
+            record = context.get("record")
+            if (
+                slot in {"A", "B"}
+                and context.get("source_revision") == self._source_revision
+                and self._snapshot_record_matches(slot, record)
+            ):
+                self._start_snapshot_render(slot, result, deepcopy(record), self._source_revision)
+            return
+        if purpose == "snapshot-render" and _is_pil_image(result) and isinstance(context, dict):
+            slot = str(context.get("slot", "")).upper()
+            record = context.get("record")
+            if (
+                slot in {"A", "B"}
+                and context.get("source_revision") == self._source_revision
+                and self._snapshot_record_matches(slot, record)
+            ):
+                self.provider.set_image(f"snapshot-{slot.lower()}", _pil_to_qimage(result))
+                self._set_snapshot_ready(slot, True)
+                self._snapshot_revision += 1
+                self.comparisonChanged.emit()
             return
         if purpose == "video-frame" and _is_pil_image(result):
             # Ignore stale decode responses after source changes/clearing.
@@ -4278,6 +4486,8 @@ class RasterMintBackend(QObject):
                 self._rendered_frames = [frame for frame in frames if _is_pil_image(frame)]
                 self._rendered_times = [float(v) for v in (result.get("times") or [])]
                 self._rendered_fps = float(result.get("fps") or 0.0)
+                payload = context_map.get("settings_payload")
+                self._rendered_preview_settings = deepcopy(payload) if isinstance(payload, dict) else None
                 self.renderedPreviewChanged.emit()
                 self._set_status(f"Rendered {len(self._rendered_frames)} preview frames")
             return
@@ -4308,6 +4518,20 @@ class RasterMintBackend(QObject):
             if pending:
                 self._request_preview(pending)
         self._export_jobs.discard(job_id)
+        if purpose in {"snapshot-source-frame", "snapshot-render"} and isinstance(context, dict):
+            slot = str(context.get("slot", "")).upper()
+            record = context.get("record")
+            if (
+                slot not in {"A", "B"}
+                or context.get("source_revision") != self._source_revision
+                or not self._snapshot_record_matches(slot, record)
+            ):
+                return
+            self._set_snapshot_ready(slot, False)
+            self.comparisonChanged.emit()
+            last = trace.strip().splitlines()[-1] if trace.strip() else "Unknown error"
+            self.errorOccurred.emit("RasterMint error", last)
+            return
         if purpose == "print-separations" and self._render_job_id == job_id:
             self._render_busy = False
             self._render_progress_visible = False
@@ -4320,6 +4544,8 @@ class RasterMintBackend(QObject):
     def _worker_progress(self, job_id: int, purpose: str, current: int, total: int, label: str) -> None:
         if purpose == "preview":
             self._update_preview_render(job_id, current, total, label)
+            return
+        if purpose in {"snapshot-source-frame", "snapshot-render"}:
             return
         if purpose == "print-separations" and self._render_job_id == job_id:
             elapsed = max(0.0, time.monotonic() - self._render_started_at)
@@ -4337,11 +4563,22 @@ class RasterMintBackend(QObject):
         if total > 0:
             self._set_status(f"{purpose.replace('-', ' ').title()}: {current}/{total} {label}")
 
-    def _publish_preview(self, image: Any) -> None:
+    def _publish_preview(
+        self,
+        image: Any,
+        *,
+        settings_payload: object = None,
+        time_seconds: float | None = None,
+    ) -> None:
         qimage = _pil_to_qimage(image)
         self.provider.set_image("preview", qimage)
         self._preview_width = max(1, image.width)
         self._preview_height = max(1, image.height)
+        if isinstance(settings_payload, dict):
+            self._published_preview_settings = deepcopy(settings_payload)
+        else:
+            self._published_preview_settings = deepcopy(self.settings.to_dict())
+        self._published_preview_time = max(0.0, float(self._current_time if time_seconds is None else time_seconds))
         self._preview_revision += 1
         self.previewChanged.emit()
 
