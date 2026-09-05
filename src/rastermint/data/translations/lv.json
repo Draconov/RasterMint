@@ -840,6 +840,14 @@
     "Native": "Dabisks",
     "2× Supersampled": "2× virsparaugošana",
     "Preserve cropping position": "Saglabāt apgriešanas pozīciju",
-    "Keep the current crop position and size when importing a new image, GIF, or video. When off, each import starts uncropped.": "Importējot jaunu attēlu, GIF vai video, saglabā pašreizējo apgriešanas pozīciju un izmēru. Ja izslēgts, katrs imports sākas bez apgriešanas."
+    "Keep the current crop position and size when importing a new image, GIF, or video. When off, each import starts uncropped.": "Importējot jaunu attēlu, GIF vai video, saglabā pašreizējo apgriešanas pozīciju un izmēru. Ja izslēgts, katrs imports sākas bez apgriešanas.",
+    "Border Fill": "Border Fill",
+    "Black": "Black",
+    "Solid Color": "Solid Color",
+    "Auto": "Auto",
+    "Border Color": "Border Color",
+    "Symbol Randomization": "Symbol Randomization",
+    "Cell Mode": "Cell Mode",
+    "1:1 Pixel Symbols": "1:1 Pixel Symbols"
   }
 }

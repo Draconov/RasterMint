@@ -943,6 +943,13 @@
     "Native": "Doğal",
     "2× Supersampled": "2× süper örnekleme",
     "Preserve cropping position": "Kırpma konumunu koru",
-    "Keep the current crop position and size when importing a new image, GIF, or video. When off, each import starts uncropped.": "Yeni bir görüntü, GIF veya video içe aktarırken mevcut kırpma konumunu ve boyutunu korur. Kapalıyken her içe aktarma kırpılmamış olarak başlar."
+    "Keep the current crop position and size when importing a new image, GIF, or video. When off, each import starts uncropped.": "Yeni bir görüntü, GIF veya video içe aktarırken mevcut kırpma konumunu ve boyutunu korur. Kapalıyken her içe aktarma kırpılmamış olarak başlar.",
+    "Border Fill": "Border Fill",
+    "Solid Color": "Solid Color",
+    "Auto": "Auto",
+    "Border Color": "Border Color",
+    "Symbol Randomization": "Symbol Randomization",
+    "Cell Mode": "Cell Mode",
+    "1:1 Pixel Symbols": "1:1 Pixel Symbols"
   }
 }

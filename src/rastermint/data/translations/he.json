@@ -840,6 +840,14 @@
     "Native": "מקורי",
     "2× Supersampled": "דגימת־יתר 2×",
     "Preserve cropping position": "שמור על מיקום החיתוך",
-    "Keep the current crop position and size when importing a new image, GIF, or video. When off, each import starts uncropped.": "שמור על מיקום וגודל החיתוך הנוכחיים בעת ייבוא תמונה, GIF או וידאו חדשים. כשהאפשרות כבויה, כל ייבוא מתחיל ללא חיתוך."
+    "Keep the current crop position and size when importing a new image, GIF, or video. When off, each import starts uncropped.": "שמור על מיקום וגודל החיתוך הנוכחיים בעת ייבוא תמונה, GIF או וידאו חדשים. כשהאפשרות כבויה, כל ייבוא מתחיל ללא חיתוך.",
+    "Border Fill": "Border Fill",
+    "Black": "Black",
+    "Solid Color": "Solid Color",
+    "Auto": "Auto",
+    "Border Color": "Border Color",
+    "Symbol Randomization": "Symbol Randomization",
+    "Cell Mode": "Cell Mode",
+    "1:1 Pixel Symbols": "1:1 Pixel Symbols"
   }
 }

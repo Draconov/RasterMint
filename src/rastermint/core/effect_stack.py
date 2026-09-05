@@ -824,14 +824,50 @@ def _scanline_variation(
     return Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8), "RGB")
 
 
-def _crt_curvature(image: Image.Image, curvature: float, zoom: float, edge_fade: float) -> Image.Image:
+def _crt_auto_border_fill(image: Image.Image) -> tuple[int, int, int, int]:
+    rgba = np.asarray(image.convert("RGBA"), dtype=np.uint8)
+    if rgba.size == 0:
+        return (0, 0, 0, 255)
+    top = rgba[0, :, :]
+    bottom = rgba[-1, :, :]
+    left = rgba[:, 0, :]
+    right = rgba[:, -1, :]
+    edges = np.concatenate((top, bottom, left, right), axis=0)
+    opaque = edges[edges[:, 3] > 0]
+    sample = opaque if opaque.size else edges
+    if sample.size == 0:
+        return (0, 0, 0, 255)
+    rgb = np.median(sample[:, :3], axis=0)
+    alpha = 255 if opaque.size else int(np.median(sample[:, 3]))
+    return tuple(int(round(v)) for v in (*rgb, alpha))
+
+
+def _crt_fill_colour(image: Image.Image, border_fill: str, border_color: str) -> tuple[int, int, int, int]:
+    mode = str(border_fill or "Solid Color")
+    if mode == "Transparent":
+        return (0, 0, 0, 0)
+    if mode == "Solid Color":
+        return (*hex_to_rgb(border_color), 255)
+    if mode == "Auto":
+        return _crt_auto_border_fill(image)
+    return (0, 0, 0, 255)
+
+
+def _crt_curvature(
+    image: Image.Image,
+    curvature: float,
+    zoom: float,
+    edge_fade: float,
+    border_fill: str = "Solid Color",
+    border_color: str = "#000000",
+) -> Image.Image:
     curvature = max(0.0, min(0.5, float(curvature)))
     zoom = max(1.0, min(1.3, float(zoom)))
     edge_fade = max(0.0, min(1.0, float(edge_fade)))
     if curvature <= 1e-9 and abs(zoom - 1.0) <= 1e-9 and edge_fade <= 1e-9:
         return image
 
-    src = image.convert("RGB")
+    src = image.convert("RGBA")
     w, h = src.size
     # PIL MESH keeps memory bounded while approximating a barrel-distorted CRT face.
     divisions = max(8, min(32, round(max(w, h) / 64)))
@@ -860,24 +896,28 @@ def _crt_curvature(image: Image.Image, curvature: float, zoom: float, edge_fade:
             p10 = source_point(x1, y0)
             p11 = source_point(x1, y1)
             p01 = source_point(x0, y1)
-            # Pillow QUAD/MESH source points are ordered upper-left, lower-left,
-            # lower-right, upper-right. Using clockwise UL/UR/LR/LL folds each
-            # mesh cell across itself, which produces the repeated/mirrored
-            # tiles seen in CRT/VHS presets.
             mesh.append(((x0, y0, x1, y1), (*p00, *p01, *p11, *p10)))
 
-    curved = src.transform(src.size, Image.Transform.MESH, mesh, resample=Image.Resampling.BILINEAR)
-    if edge_fade <= 1e-9:
-        return curved
+    curved = src.transform(
+        src.size,
+        Image.Transform.MESH,
+        mesh,
+        resample=Image.Resampling.BILINEAR,
+        fillcolor=_crt_fill_colour(image, border_fill, border_color),
+    )
+    if edge_fade > 1e-9:
+        arr = np.asarray(curved, dtype=np.float32)
+        yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
+        nx = np.abs((xx / max(1.0, w - 1.0)) * 2.0 - 1.0)
+        ny = np.abs((yy / max(1.0, h - 1.0)) * 2.0 - 1.0)
+        edge = np.maximum(nx, ny)
+        fade = np.clip((edge - 0.82) / 0.18, 0.0, 1.0) * edge_fade
+        arr[..., :3] *= (1.0 - fade[..., None])
+        curved = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8), "RGBA")
 
-    arr = np.asarray(curved, dtype=np.float32)
-    yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
-    nx = np.abs((xx / max(1.0, w - 1.0)) * 2.0 - 1.0)
-    ny = np.abs((yy / max(1.0, h - 1.0)) * 2.0 - 1.0)
-    edge = np.maximum(nx, ny)
-    fade = np.clip((edge - 0.82) / 0.18, 0.0, 1.0) * edge_fade
-    arr *= (1.0 - fade[..., None])
-    return Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8), "RGB")
+    if str(border_fill or "Solid Color") != "Transparent" and "A" not in image.getbands():
+        return curved.convert("RGB")
+    return curved
 
 
 def _edge_distortion(image: Image.Image, amount: float, frequency: float, falloff: float) -> Image.Image:
@@ -2295,6 +2335,42 @@ def _paste_centered_rgba(base: Image.Image, layer: Image.Image, x_percent: float
     return canvas.convert("RGB")
 
 
+def _ascii_stable_random_unit(*values: int) -> float:
+    value = 0x811C9DC5
+    for item in values:
+        value ^= int(item) & 0xFFFFFFFF
+        value = (value * 0x01000193) & 0xFFFFFFFF
+    value ^= value >> 13
+    value = (value * 0x85EBCA6B) & 0xFFFFFFFF
+    value ^= value >> 16
+    return float(value) / float(0xFFFFFFFF)
+
+
+def _ascii_randomized_index(chars: str, index: int, amount: float, x: int, y: int) -> int:
+    if amount <= 1e-9 or index < 0 or index >= len(chars):
+        return index
+    if chars[index] in _INTENTIONAL_BLANK_GLYPHS:
+        return index
+    visible = [i for i, ch in enumerate(chars) if ch not in _INTENTIONAL_BLANK_GLYPHS]
+    if len(visible) <= 1:
+        return index
+    chance = max(0.0, min(1.0, float(amount) / 100.0))
+    if _ascii_stable_random_unit(x, y, index, len(chars)) >= chance:
+        return index
+    radius = max(1, int(round(chance * max(1, len(visible) - 1))))
+    candidates = [i for i in visible if i != index and abs(i - index) <= radius]
+    if not candidates:
+        candidates = [i for i in visible if i != index]
+    if not candidates:
+        return index
+    weights = np.asarray([1.0 / (1.0 + abs(i - index)) for i in candidates], dtype=np.float64)
+    if chance < 0.999:
+        weights = weights ** max(0.35, 1.35 - chance)
+    cumulative = np.cumsum(weights)
+    pick = _ascii_stable_random_unit(x, y, index, radius, 17) * float(cumulative[-1])
+    return int(candidates[int(np.searchsorted(cumulative, pick, side="right"))])
+
+
 def _ascii_mapping_chars(
     character_set: str,
     custom_chars: str,
@@ -2358,6 +2434,8 @@ def _ascii_grid_data(
     auto_cell_aspect: bool = True,
     supersampling: str = "4×",
     color_sampling: str = "Glyph Weighted",
+    symbol_randomization: float = 0.0,
+    cell_mode: str = "Normal",
 ) -> tuple[list[str], list[list[np.ndarray]], dict[str, int | str | bool]]:
     cell_height = max(4, int(cell_size))
     font_size = max(2, round(cell_height * max(0.4, min(1.5, float(font_scale)))))
@@ -2371,17 +2449,21 @@ def _ascii_grid_data(
         font_size,
         inject_chars,
     )
-    high_detail = str(mapping) == "Structure Match"
+    mode_1_to_1 = str(cell_mode) == "1:1 Pixel Symbols"
+    high_detail = str(mapping) == "Structure Match" and not mode_1_to_1
     ss = _ascii_supersampling_factor(supersampling) if high_detail else 1
-    cell_width, cell_height, pitch_x, pitch_y = _ascii_cell_geometry(
-        chars,
-        font_name,
-        font_size,
-        cell_height,
-        spacing_x,
-        spacing_y,
-        bool(auto_cell_aspect) if high_detail else False,
-    )
+    if mode_1_to_1:
+        cell_width = cell_height = pitch_x = pitch_y = 1
+    else:
+        cell_width, cell_height, pitch_x, pitch_y = _ascii_cell_geometry(
+            chars,
+            font_name,
+            font_size,
+            cell_height,
+            spacing_x,
+            spacing_y,
+            bool(auto_cell_aspect) if high_detail else False,
+        )
 
     rgba = np.asarray(image.convert("RGBA"), dtype=np.uint8)
     rgb_all = rgba[..., :3].astype(np.float32)
@@ -2434,6 +2516,7 @@ def _ascii_grid_data(
                     if invert:
                         lum = 1.0 - lum
                     index = max(0, min(len(chars) - 1, int(round(lum * (len(chars) - 1)))))
+                    index = _ascii_randomized_index(chars, index, float(symbol_randomization), int(x), int(y))
                     record["char"] = chars[index]
             row_records.append(record)
         rows.append(row_records)
@@ -2471,7 +2554,14 @@ def _ascii_grid_data(
             chosen[begin:finish] = np.argmin(score, axis=1)
 
         for record, index in zip(opaque_records, chosen, strict=True):
-            record["char"] = chars[int(index)]
+            chosen_index = _ascii_randomized_index(
+                chars,
+                int(index),
+                float(symbol_randomization),
+                int(record.get("x", 0)),
+                int(record.get("y", 0)),
+            )
+            record["char"] = chars[int(chosen_index)]
 
     lines: list[str] = []
     colors: list[list[np.ndarray]] = []
@@ -2496,12 +2586,14 @@ def _ascii_grid_data(
                 ).astype(np.float32)
             line_chars.append(char)
             line_colors.append(mean)
-        lines.append("".join(line_chars).rstrip())
+        line_value = "".join(line_chars)
+        lines.append(line_value if mode_1_to_1 else line_value.rstrip())
         colors.append(line_colors)
 
-    while lines and lines[-1] == "":
-        lines.pop()
-        colors.pop()
+    if not mode_1_to_1:
+        while lines and lines[-1] == "":
+            lines.pop()
+            colors.pop()
 
     layout: dict[str, int | str | bool] = {
         "cell_width": cell_width,
@@ -2511,6 +2603,8 @@ def _ascii_grid_data(
         "font_size": font_size,
         "supersampling": ss,
         "high_detail": high_detail,
+        "cell_mode": "1:1 Pixel Symbols" if mode_1_to_1 else "Normal",
+        "proxy_cell": max(1, int(cell_size)),
     }
     return lines or [""], colors or [[]], layout
 
@@ -2536,6 +2630,8 @@ def ascii_text_grid(
     auto_cell_aspect: bool = True,
     supersampling: str = "4×",
     color_sampling: str = "Glyph Weighted",
+    symbol_randomization: float = 0.0,
+    cell_mode: str = "Normal",
 ) -> str:
     lines, _colors, _layout = _ascii_grid_data(
         image,
@@ -2558,6 +2654,8 @@ def ascii_text_grid(
         auto_cell_aspect=auto_cell_aspect,
         supersampling=supersampling,
         color_sampling=color_sampling,
+        symbol_randomization=symbol_randomization,
+        cell_mode=cell_mode,
     )
     return "\n".join(lines) + "\n"
 
@@ -2609,6 +2707,8 @@ def ascii_text_grid_for_stack(
         color_sampling=str(p.get("color_sampling", "Glyph Weighted")),
         font_name=str(p.get("font", "Mono")),
         font_scale=float(p.get("font_scale", 0.9)),
+        symbol_randomization=float(p.get("symbol_randomization", 0.0)),
+        cell_mode=str(p.get("cell_mode", "Normal")),
     )
 
 
@@ -2639,6 +2739,8 @@ def _ascii_glyph(
     auto_cell_aspect: bool = True,
     supersampling: str = "4×",
     color_sampling: str = "Glyph Weighted",
+    symbol_randomization: float = 0.0,
+    cell_mode: str = "Normal",
 ) -> Image.Image:
     lines, mean_colors, layout = _ascii_grid_data(
         image,
@@ -2661,24 +2763,43 @@ def _ascii_glyph(
         auto_cell_aspect=auto_cell_aspect,
         supersampling=supersampling,
         color_sampling=color_sampling,
+        symbol_randomization=symbol_randomization,
+        cell_mode=cell_mode,
     )
 
     mode = str(background_mode)
-    if mode == "Transparent":
-        canvas = Image.new("RGBA", image.size, (0, 0, 0, 0))
-    elif mode == "Source Image":
-        canvas = image.convert("RGBA")
+    cell_mode_value = str(layout.get("cell_mode", "Normal"))
+    if cell_mode_value == "1:1 Pixel Symbols":
+        max_side = max(1, max(image.size))
+        desired_proxy_cell = max(1, int(layout.get("proxy_cell", max(1, int(cell_size)))))
+        proxy_cell = max(1, min(desired_proxy_cell, max(1, 4096 // max_side)))
+        proxy_size = (max(1, image.width * proxy_cell), max(1, image.height * proxy_cell))
+        if mode == "Transparent":
+            canvas = Image.new("RGBA", proxy_size, (0, 0, 0, 0))
+        elif mode == "Source Image":
+            canvas = image.convert("RGBA").resize(proxy_size, Image.Resampling.NEAREST)
+        else:
+            canvas = Image.new("RGBA", proxy_size, (*hex_to_rgb(background), 255))
+        draw = ImageDraw.Draw(canvas)
+        cell_width = cell_height = pitch_x = pitch_y = proxy_cell
+        font_size = max(2, round(proxy_cell * max(0.75, min(1.5, float(font_scale)))))
+        ss = max(1, int(layout["supersampling"]))
+        high_detail = True
     else:
-        canvas = Image.new("RGBA", image.size, (*hex_to_rgb(background), 255))
-
-    draw = ImageDraw.Draw(canvas)
-    cell_width = int(layout["cell_width"])
-    cell_height = int(layout["cell_height"])
-    pitch_x = int(layout["pitch_x"])
-    pitch_y = int(layout["pitch_y"])
-    font_size = int(layout["font_size"])
-    ss = int(layout["supersampling"])
-    high_detail = bool(layout["high_detail"])
+        if mode == "Transparent":
+            canvas = Image.new("RGBA", image.size, (0, 0, 0, 0))
+        elif mode == "Source Image":
+            canvas = image.convert("RGBA")
+        else:
+            canvas = Image.new("RGBA", image.size, (*hex_to_rgb(background), 255))
+        draw = ImageDraw.Draw(canvas)
+        cell_width = int(layout["cell_width"])
+        cell_height = int(layout["cell_height"])
+        pitch_x = int(layout["pitch_x"])
+        pitch_y = int(layout["pitch_y"])
+        font_size = int(layout["font_size"])
+        ss = int(layout["supersampling"])
+        high_detail = bool(layout["high_detail"])
     single = hex_to_rgb(foreground)
 
     for row, line in enumerate(lines):
@@ -2719,6 +2840,8 @@ def _ascii_glyph(
                     font=font,
                     fill=(*color, 255),
                 )
+    if cell_mode_value == "1:1 Pixel Symbols" and canvas.size != image.size:
+        return canvas.resize(image.size, Image.Resampling.BOX)
     return canvas
 
 
@@ -3328,7 +3451,7 @@ def apply_normalized_effect_stack(
         elif kind == "Beam Width": img = _beam_width(img, int(p["spacing"]), float(p["width"]), float(p["strength"]))
         elif kind == "Horizontal Bloom": img = _horizontal_bloom(img, float(p["threshold"]), float(p["radius"]), float(p["intensity"]))
         elif kind == "Scanline Variation": img = _scanline_variation(img, int(p["spacing"]), float(p["strength"]), float(p["variation"]), float(p["speed"]), int(p["seed"]), frame_time)
-        elif kind == "CRT Curvature": img = _crt_curvature(img, float(p["curvature"]), float(p["zoom"]), float(p["edge_fade"]))
+        elif kind == "CRT Curvature": img = _crt_curvature(img, float(p["curvature"]), float(p["zoom"]), float(p["edge_fade"]), str(p.get("border_fill", "Solid Color")), str(p.get("border_color", "#000000")))
         elif kind == "Edge Distortion": img = _edge_distortion(img, float(p["amount"]), float(p["frequency"]), float(p["falloff"]))
         elif kind == "Vertical Sync Roll": img = _vertical_sync_roll(img, int(p["amount"]), float(p["speed"]), float(p["softness"]), frame_time)
         elif kind == "Field Flicker": img = _field_flicker(img, float(p["amount"]), str(p["field_rate"]), bool(p["interlaced"]), frame_time, frame_index)
@@ -3394,6 +3517,8 @@ def apply_normalized_effect_stack(
                 auto_cell_aspect=bool(p.get("auto_cell_aspect", True)),
                 supersampling=str(p.get("supersampling", "4×")),
                 color_sampling=str(p.get("color_sampling", "Glyph Weighted")),
+                symbol_randomization=float(p.get("symbol_randomization", 0.0)),
+                cell_mode=str(p.get("cell_mode", "Normal")),
             )
         elif kind == "Pixel Text": img = _pixel_text(img, str(p["text"]), float(p["x"]), float(p["y"]), int(p["size"]), str(p["color"]), str(p["font"]), str(p["alignment"]), float(p["wrap_width"]), int(p["letter_spacing"]), int(p["line_spacing"]), float(p["rotation"]), int(p["outline"]), int(p["shadow"]))
         elif kind == "Text Pattern": img = _text_pattern(img, str(p["text"]), int(p["size"]), str(p["color"]), str(p["font"]), int(p["spacing_x"]), int(p["spacing_y"]), int(p["offset_x"]), float(p["rotation"]), float(p["opacity"]))

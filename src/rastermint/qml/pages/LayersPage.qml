@@ -419,6 +419,8 @@ Item {
             if (param.key === "color_sampling")
                 return structureMatch && String(selectedParamValue("color_mode", "Source")) !== "Single Colour"
         }
+        if (backend.selectedLayerName === "CRT Curvature" && param.key === "border_color")
+            return String(selectedParamValue("border_fill", "Solid Color")) === "Solid Color"
         if (backend.selectedLayerName === "Text Mask" && param.key === "background")
             return String(selectedParamValue("background_mode", "Solid Colour")) === "Solid Colour"
         if (backend.selectedLayerName === "Dither") {

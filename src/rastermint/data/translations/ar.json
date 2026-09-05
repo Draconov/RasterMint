@@ -840,6 +840,14 @@
     "Native": "أصلي",
     "2× Supersampled": "أخذ عينات فائق 2×",
     "Preserve cropping position": "الحفاظ على موضع الاقتصاص",
-    "Keep the current crop position and size when importing a new image, GIF, or video. When off, each import starts uncropped.": "احتفظ بموضع الاقتصاص وحجمه الحاليين عند استيراد صورة أو GIF أو فيديو جديد. عند إيقافه، يبدأ كل استيراد بدون اقتصاص."
+    "Keep the current crop position and size when importing a new image, GIF, or video. When off, each import starts uncropped.": "احتفظ بموضع الاقتصاص وحجمه الحاليين عند استيراد صورة أو GIF أو فيديو جديد. عند إيقافه، يبدأ كل استيراد بدون اقتصاص.",
+    "Border Fill": "Border Fill",
+    "Black": "Black",
+    "Solid Color": "Solid Color",
+    "Auto": "Auto",
+    "Border Color": "Border Color",
+    "Symbol Randomization": "Symbol Randomization",
+    "Cell Mode": "Cell Mode",
+    "1:1 Pixel Symbols": "1:1 Pixel Symbols"
   }
 }

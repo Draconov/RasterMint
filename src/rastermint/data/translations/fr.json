@@ -840,6 +840,14 @@
     "Native": "Natif",
     "2× Supersampled": "Suréchantillonné 2×",
     "Preserve cropping position": "Conserver la position du recadrage",
-    "Keep the current crop position and size when importing a new image, GIF, or video. When off, each import starts uncropped.": "Conserve la position et la taille actuelles du recadrage lors de l’importation d’une nouvelle image, d’un GIF ou d’une vidéo. Si cette option est désactivée, chaque importation commence sans recadrage."
+    "Keep the current crop position and size when importing a new image, GIF, or video. When off, each import starts uncropped.": "Conserve la position et la taille actuelles du recadrage lors de l’importation d’une nouvelle image, d’un GIF ou d’une vidéo. Si cette option est désactivée, chaque importation commence sans recadrage.",
+    "Border Fill": "Border Fill",
+    "Black": "Black",
+    "Solid Color": "Solid Color",
+    "Auto": "Auto",
+    "Border Color": "Border Color",
+    "Symbol Randomization": "Symbol Randomization",
+    "Cell Mode": "Cell Mode",
+    "1:1 Pixel Symbols": "1:1 Pixel Symbols"
   }
 }

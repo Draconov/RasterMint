@@ -943,6 +943,13 @@
     "Native": "ネイティブ",
     "2× Supersampled": "2× スーパーサンプリング",
     "Preserve cropping position": "切り抜き位置を保持",
-    "Keep the current crop position and size when importing a new image, GIF, or video. When off, each import starts uncropped.": "新しい画像、GIF、または動画を読み込むときに、現在の切り抜き位置とサイズを保持します。オフの場合、読み込みのたびに切り抜きなしの状態から開始します。"
+    "Keep the current crop position and size when importing a new image, GIF, or video. When off, each import starts uncropped.": "新しい画像、GIF、または動画を読み込むときに、現在の切り抜き位置とサイズを保持します。オフの場合、読み込みのたびに切り抜きなしの状態から開始します。",
+    "Border Fill": "Border Fill",
+    "Solid Color": "Solid Color",
+    "Auto": "Auto",
+    "Border Color": "Border Color",
+    "Symbol Randomization": "Symbol Randomization",
+    "Cell Mode": "Cell Mode",
+    "1:1 Pixel Symbols": "1:1 Pixel Symbols"
   }
 }

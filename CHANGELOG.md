@@ -2,6 +2,9 @@
 
 ## 0.7.5 - 2026-09-04 — Snapshot Reliability
 
+- Added CRT Curvature border fill controls: Solid Color (black by default), Auto, and Transparent, with the color picker shown only for Solid Color.
+- Added ASCII / Glyph Symbol Randomization plus a 1:1 Pixel Symbols cell mode with exact per-pixel text-grid export and dense proxy rendering in the image output.
+
 - Repaired Capture Snapshot A/B by using the image provider's shared thread-safe image accessor instead of calling a nonexistent backend getter.
 - Snapshot capture now stores the settings and timeline time that actually produced the currently published preview, preventing pending edits from being paired with stale pixels.
 - Added a dedicated snapshot image revision so recaptured/restored A/B images refresh independently from the normal preview cache.

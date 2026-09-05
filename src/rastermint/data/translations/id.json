@@ -943,6 +943,13 @@
     "Native": "Asli",
     "2× Supersampled": "Supersampling 2×",
     "Preserve cropping position": "Pertahankan posisi pemotongan",
-    "Keep the current crop position and size when importing a new image, GIF, or video. When off, each import starts uncropped.": "Pertahankan posisi dan ukuran pemotongan saat ini ketika mengimpor gambar, GIF, atau video baru. Jika dimatikan, setiap impor dimulai tanpa pemotongan."
+    "Keep the current crop position and size when importing a new image, GIF, or video. When off, each import starts uncropped.": "Pertahankan posisi dan ukuran pemotongan saat ini ketika mengimpor gambar, GIF, atau video baru. Jika dimatikan, setiap impor dimulai tanpa pemotongan.",
+    "Border Fill": "Border Fill",
+    "Solid Color": "Solid Color",
+    "Auto": "Auto",
+    "Border Color": "Border Color",
+    "Symbol Randomization": "Symbol Randomization",
+    "Cell Mode": "Cell Mode",
+    "1:1 Pixel Symbols": "1:1 Pixel Symbols"
   }
 }

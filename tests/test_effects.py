@@ -5,7 +5,7 @@ import numpy as np
 from PIL import Image, ImageDraw
 
 from rastermint.core.animation import settings_at_time
-from rastermint.core.effect_stack import EFFECT_DEFINITIONS, _load_text_font, _render_text_block, apply_effect_stack, effect_categories, new_effect, normalize_effect_stack, scale_stack_for_preview
+from rastermint.core.effect_stack import EFFECT_DEFINITIONS, _load_text_font, _render_text_block, apply_effect_stack, ascii_text_grid, effect_categories, new_effect, normalize_effect_stack, scale_stack_for_preview
 from rastermint.core.settings import ProcessingSettings
 
 
@@ -331,3 +331,68 @@ def test_tonal_map_gradient_uses_background_and_softness_controls_transition():
     assert not np.array_equal(smooth, hard)
     allowed = {(0, 0, 0), (0, 0, 255), (0, 255, 0), (255, 255, 255)}
     assert {tuple(map(int, row)) for row in hard.reshape(-1, 3)} <= allowed
+
+
+def test_crt_curvature_border_modes_fill_edges():
+    source = Image.new("RGB", (32, 32), (20, 40, 60))
+    effect = new_effect("CRT Curvature")
+    effect["params"].update(curvature=0.5, zoom=1.0, edge_fade=0.0, border_fill="Solid Color", border_color="#FF0000")
+    out = apply_effect_stack(source, [effect], ["#000000", "#FFFFFF"])
+    assert out.getpixel((0, 0))[:3] == (255, 0, 0)
+
+    effect["params"].update(border_fill="Transparent")
+    transparent = apply_effect_stack(source, [effect], ["#000000", "#FFFFFF"])
+    assert transparent.mode == "RGBA"
+    assert transparent.getpixel((0, 0))[3] == 0
+
+
+def test_ascii_randomization_and_1_to_1_grid_mode():
+    source = Image.fromarray(np.array([[[0, 0, 0], [255, 255, 255]], [[255, 255, 255], [0, 0, 0]]], dtype=np.uint8), "RGB")
+    deterministic = ascii_text_grid(
+        source,
+        character_set="Custom",
+        custom_chars="0123456",
+        cell_size=4,
+        spacing_x=0,
+        spacing_y=0,
+        depth=7,
+        offset=0,
+        invert=False,
+        auto_density=False,
+        font_name="Mono",
+        font_scale=0.9,
+        symbol_randomization=0.0,
+        cell_mode="1:1 Pixel Symbols",
+    )
+    randomized = ascii_text_grid(
+        source,
+        character_set="Custom",
+        custom_chars="0123456",
+        cell_size=4,
+        spacing_x=0,
+        spacing_y=0,
+        depth=7,
+        offset=0,
+        invert=False,
+        auto_density=False,
+        font_name="Mono",
+        font_scale=0.9,
+        symbol_randomization=100.0,
+        cell_mode="1:1 Pixel Symbols",
+    )
+    deterministic_lines = deterministic.rstrip("\n").split("\n")
+    randomized_lines = randomized.rstrip("\n").split("\n")
+    assert len(deterministic_lines) == 2
+    assert all(len(line) == 2 for line in deterministic_lines)
+    assert deterministic != randomized
+    assert {ch for line in randomized_lines for ch in line} <= set("0123456")
+
+
+def test_crt_border_default_and_ascii_parameter_order():
+    crt_params = EFFECT_DEFINITIONS["CRT Curvature"]["params"]
+    assert crt_params["border_fill"]["default"] == "Solid Color"
+    assert crt_params["border_fill"]["options"] == ["Solid Color", "Auto", "Transparent"]
+    assert crt_params["border_color"]["default"] == "#000000"
+
+    ascii_keys = list(EFFECT_DEFINITIONS["ASCII / Glyph"]["params"])
+    assert ascii_keys.index("inject_chars") < ascii_keys.index("symbol_randomization") < ascii_keys.index("mapping")

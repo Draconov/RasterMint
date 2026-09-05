@@ -943,6 +943,13 @@
     "Native": "मूल",
     "2× Supersampled": "2× सुपर-सैंपल्ड",
     "Preserve cropping position": "क्रॉप की स्थिति बनाए रखें",
-    "Keep the current crop position and size when importing a new image, GIF, or video. When off, each import starts uncropped.": "नई छवि, GIF या वीडियो आयात करते समय वर्तमान क्रॉप की स्थिति और आकार बनाए रखें। बंद होने पर हर आयात बिना क्रॉप के शुरू होगा।"
+    "Keep the current crop position and size when importing a new image, GIF, or video. When off, each import starts uncropped.": "नई छवि, GIF या वीडियो आयात करते समय वर्तमान क्रॉप की स्थिति और आकार बनाए रखें। बंद होने पर हर आयात बिना क्रॉप के शुरू होगा।",
+    "Border Fill": "Border Fill",
+    "Solid Color": "Solid Color",
+    "Auto": "Auto",
+    "Border Color": "Border Color",
+    "Symbol Randomization": "Symbol Randomization",
+    "Cell Mode": "Cell Mode",
+    "1:1 Pixel Symbols": "1:1 Pixel Symbols"
   }
 }

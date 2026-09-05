@@ -186,6 +186,8 @@ EFFECT_DEFINITIONS: dict[str, dict[str, Any]] = {
         "curvature": {"type": "float", "label": "Curvature", "default": 0.12, "min": 0.0, "max": 0.5, "step": 0.005, "decimals": 3, "animatable": True},
         "zoom": {"type": "float", "label": "Overscan", "default": 1.03, "min": 1.0, "max": 1.3, "step": 0.005, "decimals": 3, "animatable": True},
         "edge_fade": {"type": "float", "label": "Edge fade", "default": 0.08, "min": 0.0, "max": 1.0, "step": 0.01, "decimals": 2, "animatable": True},
+        "border_fill": {"type": "choice", "label": "Border Fill", "default": "Solid Color", "options": ["Solid Color", "Auto", "Transparent"]},
+        "border_color": {"type": "color", "label": "Border Color", "default": "#000000"},
     }},
     "Edge Distortion": {"params": {
         "amount": {"type": "float", "label": "Amount", "default": 2.0, "min": 0.0, "max": 32.0, "step": 0.1, "decimals": 2, "suffix": " px", "animatable": True, "pixel_scaled": True},
@@ -339,6 +341,7 @@ EFFECT_DEFINITIONS: dict[str, dict[str, Any]] = {
         "character_set": {"type": "glyph_set", "label": "Character set", "default": "Classic ASCII"},
         "custom_chars": {"type": "text", "label": "Custom characters", "default": " .:-=+*#%@"},
         "inject_chars": {"type": "text", "label": "Inject characters", "default": ""},
+        "symbol_randomization": {"type": "float", "label": "Symbol Randomization", "default": 0.0, "min": 0.0, "max": 100.0, "step": 1.0, "decimals": 0, "suffix": "%", "animatable": True},
         "mapping": {"type": "choice", "label": "Mapping", "default": "Density", "options": ["Density", "Structure Match"]},
         "auto_density": {"type": "bool", "label": "Auto-sort by visual density", "default": True},
         "structure": {"type": "float", "label": "Structure", "default": 75.0, "min": 0.0, "max": 100.0, "step": 1.0, "decimals": 0, "suffix": "%", "animatable": True},
@@ -359,6 +362,7 @@ EFFECT_DEFINITIONS: dict[str, dict[str, Any]] = {
         "background": {"type": "color", "label": "Background colour", "default": "#101217"},
         "font": {"type": "choice", "label": "Font", "default": "Mono", "options": ["Pixel", "Mono", "Sans", "Serif"]},
         "font_scale": {"type": "float", "label": "Glyph scale", "default": 0.9, "min": 0.4, "max": 1.5, "step": 0.05, "decimals": 2, "suffix": "×", "animatable": True},
+        "cell_mode": {"type": "choice", "label": "Cell Mode", "default": "Normal", "options": ["Normal", "1:1 Pixel Symbols"]},
     }},
     "Pixel Text": {"params": {
         "text": {"type": "text", "label": "Text", "default": "RasterMint"},
