@@ -950,6 +950,12 @@
     "Border Color": "Border Color",
     "Symbol Randomization": "Symbol Randomization",
     "Cell Mode": "Cell Mode",
-    "1:1 Pixel Symbols": "1:1 Pixel Symbols"
+    "1:1 Pixel Symbols": "1:1 Pixel Symbols",
+    "Lookup": "Göz at",
+    "Import": "İçe aktar",
+    "Orange": "Turuncu",
+    "Pink": "Pembe",
+    "Purple": "Mor",
+    "Enabled": "Etkin"
   }
 }

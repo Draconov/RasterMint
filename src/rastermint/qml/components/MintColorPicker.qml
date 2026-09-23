@@ -169,6 +169,11 @@ Item {
     }
 
     function commitColor() {
+        // A focused HEX field may not have received editingFinished yet.
+        // Apply it before reading the working colour to avoid committing the
+        // previous swatch on repeated colour edits.
+        if (hexField.activeFocus && /^#?[0-9a-fA-F]{6}$/.test(hexField.text.trim()))
+            applyHexField()
         var includeAlpha = alphaEnabled && popup.workingColor.a < 0.999
         var committedValue = colorToHex(popup.workingColor, includeAlpha)
         addRecent(committedValue)
@@ -177,6 +182,7 @@ Item {
     }
 
     function openPicker(value) {
+        _eyedropperActive = false
         var selectedValue = root.colorValue
         if (value !== undefined && value !== null && String(value).length > 0)
             selectedValue = root.normalized(value)
@@ -511,7 +517,7 @@ Item {
                     }
                 }
 
-                Button {
+                MintButton {
                     text: qsTr("Eyedropper")
                     onClicked: root.openEyedropper()
                 }
@@ -591,7 +597,7 @@ Item {
                         font.pixelSize: 11
                         Layout.fillWidth: true
                     }
-                    Button {
+                    MintButton {
                         visible: root.recentColors.length > 0
                         text: qsTr("Clear")
                         onClicked: {
@@ -645,11 +651,11 @@ Item {
                 RowLayout {
                     Layout.fillWidth: true
                     Item { Layout.fillWidth: true }
-                    Button {
+                    MintButton {
                         text: qsTr("Cancel")
                         onClicked: popup.close()
                     }
-                    Button {
+                    MintButton {
                         text: qsTr("Apply")
                         onClicked: root.commitColor()
                     }

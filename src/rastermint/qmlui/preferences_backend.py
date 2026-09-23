@@ -124,6 +124,9 @@ class RasterMintBackend(BaseRasterMintBackend):
         self._debounce_full_timer.setSingleShot(True)
         self._debounce_full_timer.timeout.connect(lambda: self._request_preview(self._safe_full_side()))
 
+        # The base backend reads the old QSettings palette list during super().__init__.
+        # Migrate it before switching to the canonical on-disk user palette library.
+        legacy_palettes = list(self._user_palettes) if isinstance(self._user_palettes, list) else []
         self._user_palettes: dict[str, dict[str, object]] = {}
         self._user_presets: dict[str, dict[str, object]] = {}
         self._extension_presets: dict[str, dict[str, object]] = {}
@@ -131,6 +134,7 @@ class RasterMintBackend(BaseRasterMintBackend):
         self._preset_mutation_items: list[dict[str, object]] = []
         self._preset_mutation_generation = 0
         self._load_user_palettes()
+        self._migrate_legacy_palettes(legacy_palettes)
         self._load_user_presets()
         self._load_extension_presets()
         self._preset_meta = self._load_preset_meta()
@@ -401,6 +405,40 @@ class RasterMintBackend(BaseRasterMintBackend):
             payload["user"] = True
             self._user_palettes[palette_id] = payload
 
+    def _migrate_legacy_palettes(self, legacy_palettes: list[dict]) -> None:
+        """Import the previous QSettings library once, without overwriting existing files."""
+        folder = self._user_palette_folder()
+        for item in legacy_palettes:
+            try:
+                name = str(item.get("name", "")).strip()
+                if not name:
+                    continue
+                slug = slugify_palette_name(name)
+                palette_id = f"user-{slug}"
+                if palette_id in self._user_palettes:
+                    continue
+                folder.mkdir(parents=True, exist_ok=True)
+                path = folder / f"{slug}.json"
+                if path.exists():
+                    continue
+                write_palette_json(path, palette_id=palette_id, name=name,
+                    category=str(item.get("category") or "Custom"),
+                    colors=item.get("colors") or [],
+                    description=str(item.get("description") or ""),
+                    source="Migrated user palette")
+                record = load_palette_json(path)
+                record.update(file=str(path), user=True)
+                self._user_palettes[palette_id] = record
+            except (OSError, ValueError, TypeError):
+                continue
+
+    # Preserve the existing QML-facing property and its original notify signal.
+    # Other palette features already use backend.paletteLibrary rather than
+    # backend.allPaletteLibrary; both must read the same persistent records.
+    @Property("QVariantList", notify=BaseRasterMintBackend.paletteLibraryChanged)
+    def paletteLibrary(self) -> list[dict[str, object]]:
+        return self.allPaletteLibrary
+
     @Property("QVariantList", notify=userPaletteLibraryChanged)
     def allPaletteLibrary(self) -> list[dict[str, object]]:
         builtins = [
@@ -488,19 +526,20 @@ class RasterMintBackend(BaseRasterMintBackend):
         except Exception as exc:
             self.errorOccurred.emit("Could not import palette", str(exc))
 
-    @Slot(str, str)
-    def savePaletteToLibrary(self, name: str, category: str) -> None:
+    @Slot(str, str, result=bool)
+    def savePaletteToLibrary(self, name: str, category: str) -> bool:
         clean_name = str(name or "").strip() or "Custom Palette"
         clean_category = str(category or "").strip() or "Custom"
         slug = slugify_palette_name(clean_name)
         palette_id = f"user-{slug}"
         folder = self._user_palette_folder()
-        folder.mkdir(parents=True, exist_ok=True)
         path = folder / f"{slug}.json"
 
         try:
+            folder.mkdir(parents=True, exist_ok=True)
+            temporary_path = folder / f".{slug}.tmp.json"
             write_palette_json(
-                path,
+                temporary_path,
                 palette_id=palette_id,
                 name=clean_name,
                 category=clean_category,
@@ -508,11 +547,13 @@ class RasterMintBackend(BaseRasterMintBackend):
                 description=f"Custom {len(self.settings.palette)}-color palette.",
                 source="User palette library",
             )
-            payload = load_palette_json(path)
+            payload = load_palette_json(temporary_path)
+            temporary_path.replace(path)
             payload["file"] = str(path)
             payload["user"] = True
             self._user_palettes[palette_id] = payload
             self.userPaletteLibraryChanged.emit()
+            self.paletteLibraryChanged.emit()
 
             data = self.settings.to_dict()
             data.update(
@@ -526,8 +567,10 @@ class RasterMintBackend(BaseRasterMintBackend):
                 action=f"Saved palette: {clean_name}",
                 record_history=False,
             )
+            return True
         except Exception as exc:
             self.errorOccurred.emit("Could not save palette", str(exc))
+            return False
 
     @Slot(str)
     def deletePaletteFromLibrary(self, palette_id: str) -> None:
@@ -541,6 +584,7 @@ class RasterMintBackend(BaseRasterMintBackend):
             name = str(record.get("name", "Palette"))
             del self._user_palettes[str(palette_id)]
             self.userPaletteLibraryChanged.emit()
+            self.paletteLibraryChanged.emit()
             self._set_status(f"Removed palette from library: {name}")
         except Exception as exc:
             self.errorOccurred.emit("Could not remove palette", str(exc))

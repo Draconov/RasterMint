@@ -950,6 +950,12 @@
     "Border Color": "Border Color",
     "Symbol Randomization": "Symbol Randomization",
     "Cell Mode": "Cell Mode",
-    "1:1 Pixel Symbols": "1:1 Pixel Symbols"
+    "1:1 Pixel Symbols": "1:1 Pixel Symbols",
+    "Lookup": "দেখুন",
+    "Import": "আমদানি",
+    "Orange": "কমলা",
+    "Pink": "গোলাপি",
+    "Purple": "বেগুনি",
+    "Enabled": "সক্রিয়"
   }
 }

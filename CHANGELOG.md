@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.0 — Palette library and theme reliability
+
+- Unified the visible palette library with persistent JSON palettes in the user-data folder and migrated prior QSettings palettes.
+- Restored live palette/category refresh and atomic palette saving; added Lospec Lookup.
+- Improved repeated colour edits and themed the palette-save dialog and colour picker controls.
+
+
 ## 0.7.5 - 2026-09-04 — Snapshot Reliability
 
 - Added CRT Curvature border fill controls: Solid Color (black by default), Auto, and Transparent, with the color picker shown only for Solid Color.

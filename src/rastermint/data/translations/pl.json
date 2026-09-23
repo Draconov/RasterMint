@@ -848,6 +848,12 @@
     "Border Color": "Border Color",
     "Symbol Randomization": "Symbol Randomization",
     "Cell Mode": "Cell Mode",
-    "1:1 Pixel Symbols": "1:1 Pixel Symbols"
+    "1:1 Pixel Symbols": "1:1 Pixel Symbols",
+    "Lookup": "Przeglądaj",
+    "Import": "Importuj",
+    "Orange": "Pomarańczowy",
+    "Pink": "Różowy",
+    "Purple": "Fioletowy",
+    "Enabled": "Włączone"
   }
 }

@@ -600,8 +600,10 @@ class RasterMintBackend(QObject):
                     except RuntimeError:
                         pass
 
-        # Let the compositor remove the overlay before reading the desktop.
-        QTimer.singleShot(0, capture)
+        # Wait for the next compositor frame after hiding the overlay. An
+        # immediate screen grab can return the *previous* colour (or the
+        # eyedropper overlay) on Windows, especially on repeated picks.
+        QTimer.singleShot(60, capture)
 
     @Slot()
     def startScreenEyedropper(self) -> None:

@@ -858,6 +858,7 @@ Item {
                 Layout.fillWidth: true
                 MintTextField { id: lospecField; Layout.fillWidth: true; placeholderText: qsTr("slug or Lospec URL") }
                 MintButton { text: qsTr("Fetch"); enabled: lospecField.text.length > 0; onClicked: backend.fetchLospec(lospecField.text) }
+                MintButton { text: qsTr("Lookup"); onClicked: Qt.openUrlExternally("https://lospec.com/palette-list") }
             }
 
             MintLabel { text: qsTr("Gradient"); font.bold: true }
@@ -1075,6 +1076,27 @@ Item {
         x: Math.round((root.width - width) / 2)
         y: Math.max(12, Math.round((root.height - height) / 2))
         padding: 12
+        palette.window: theme.windowColor
+        palette.windowText: theme.textColor
+        palette.buttonText: theme.textColor
+        background: Rectangle {
+            radius: 8
+            color: theme.panelRaisedColor
+            border.color: theme.borderColor
+        }
+        header: Rectangle {
+            implicitHeight: 44
+            color: theme.panelRaisedColor
+            radius: 8
+            Text {
+                anchors.fill: parent
+                anchors.leftMargin: 12
+                text: savePaletteLibraryDialog.title
+                color: theme.textColor
+                font.bold: true
+                verticalAlignment: Text.AlignVCenter
+            }
+        }
 
         onOpened: {
             var currentName = String(backend.settingsMap.palette_name || "Custom Palette")
@@ -1120,8 +1142,8 @@ Item {
                 text: qsTr("Save")
                 enabled: savePaletteName.text.trim().length > 0 && root.categoryForSaveDialog().length > 0
                 onClicked: {
-                    backend.savePaletteToLibrary(savePaletteName.text.trim(), root.categoryForSaveDialog())
-                    savePaletteLibraryDialog.close()
+                    if (backend.savePaletteToLibrary(savePaletteName.text.trim(), root.categoryForSaveDialog()))
+                        savePaletteLibraryDialog.close()
                 }
             }
         }

@@ -950,6 +950,12 @@
     "Border Color": "Border Color",
     "Symbol Randomization": "Symbol Randomization",
     "Cell Mode": "Cell Mode",
-    "1:1 Pixel Symbols": "1:1 Pixel Symbols"
+    "1:1 Pixel Symbols": "1:1 Pixel Symbols",
+    "Lookup": "찾아보기",
+    "Import": "가져오기",
+    "Orange": "주황색",
+    "Pink": "분홍색",
+    "Purple": "보라색",
+    "Enabled": "활성화됨"
   }
 }

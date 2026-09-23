@@ -950,6 +950,12 @@
     "Border Color": "Border Color",
     "Symbol Randomization": "Symbol Randomization",
     "Cell Mode": "Cell Mode",
-    "1:1 Pixel Symbols": "1:1 Pixel Symbols"
+    "1:1 Pixel Symbols": "1:1 Pixel Symbols",
+    "Lookup": "ब्राउज़ करें",
+    "Import": "आयात",
+    "Orange": "नारंगी",
+    "Pink": "गुलाबी",
+    "Purple": "बैंगनी",
+    "Enabled": "सक्षम"
   }
 }
