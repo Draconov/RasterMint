@@ -42,7 +42,10 @@ Item {
         boundsBehavior: Flickable.StopAtBounds
         contentWidth: Math.max(width, imageFrame.width)
         contentHeight: Math.max(height, imageFrame.height)
-        interactive: backend.hasSource
+        // Crop interactions (including Space+drag panning) are handled by
+        // dedicated MouseAreas. Flickable otherwise steals their grab once
+        // the pointer passes the drag threshold and stops the ongoing drag.
+        interactive: backend.hasSource && !backend.cropEditing
 
         Item {
             id: imageFrame
@@ -221,10 +224,15 @@ Item {
         visible: backend.cropEditing && root.cropSpaceHeld && backend.hasSource
         enabled: visible
         acceptedButtons: Qt.LeftButton
+        preventStealing: true
         cursorShape: Qt.ClosedHandCursor
         property real previousX: 0
         property real previousY: 0
-        onPressed: function(mouse) { previousX = mouse.x; previousY = mouse.y }
+        onPressed: function(mouse) {
+            root.forceActiveFocus()
+            previousX = mouse.x
+            previousY = mouse.y
+        }
         onPositionChanged: function(mouse) {
             if (!pressed) return
             var dx = mouse.x - previousX
