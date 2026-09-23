@@ -5,6 +5,22 @@ import "components"
 Item {
     id: root
     property real zoomFactor: 1.0
+    property bool cropSpaceHeld: false
+    focus: backend.cropEditing
+    onVisibleChanged: { if (!visible) cropSpaceHeld = false }
+    Keys.onPressed: function(event) {
+        if (backend.cropEditing && event.key === Qt.Key_Space) {
+            cropSpaceHeld = true
+            event.accepted = true
+        }
+    }
+    Keys.onReleased: function(event) {
+        if (event.key === Qt.Key_Space) {
+            cropSpaceHeld = false
+            event.accepted = backend.cropEditing
+        }
+    }
+    onActiveFocusChanged: { if (!activeFocus) cropSpaceHeld = false }
     readonly property int logicalWidth: backend.cropEditing ? backend.cropDisplayWidth : backend.previewWidth
     readonly property int logicalHeight: backend.cropEditing ? backend.cropDisplayHeight : backend.previewHeight
     property real fitScale: logicalWidth > 0 && logicalHeight > 0 ? Math.max(0.01, Math.min(width / logicalWidth, height / logicalHeight)) : 1.0
@@ -196,6 +212,31 @@ Item {
         }
     }
 
+    // Space + left-drag pans the viewport instead of editing the crop rectangle.
+    // This sits above crop handles while Space is held; the crop geometry stays intact.
+    MouseArea {
+        id: cropPanArea
+        anchors.fill: parent
+        z: 30
+        visible: backend.cropEditing && root.cropSpaceHeld && backend.hasSource
+        enabled: visible
+        acceptedButtons: Qt.LeftButton
+        cursorShape: Qt.ClosedHandCursor
+        property real previousX: 0
+        property real previousY: 0
+        onPressed: function(mouse) { previousX = mouse.x; previousY = mouse.y }
+        onPositionChanged: function(mouse) {
+            if (!pressed) return
+            var dx = mouse.x - previousX
+            var dy = mouse.y - previousY
+            flick.contentX = Math.max(0, Math.min(flick.contentWidth - flick.width, flick.contentX - dx))
+            flick.contentY = Math.max(0, Math.min(flick.contentHeight - flick.height, flick.contentY - dy))
+            previousX = mouse.x
+            previousY = mouse.y
+        }
+        onWheel: function(wheel) { wheel.accepted = false }
+    }
+
     Rectangle {
         id: emptyPrompt
         objectName: "emptyDropPrompt"
@@ -246,7 +287,14 @@ Item {
         target: backend
         function onPreviewChanged() { grid.requestPaint() }
         function onSourceChanged() { root.resetView() }
-        function onCropChanged() { if (backend.cropEditing) grid.requestPaint() }
+        function onCropChanged() {
+            if (backend.cropEditing) {
+                root.forceActiveFocus()
+                grid.requestPaint()
+            } else {
+                root.cropSpaceHeld = false
+            }
+        }
     }
     onEffectiveScaleChanged: grid.requestPaint()
 }

@@ -854,6 +854,13 @@
     "Orange": "Oranžs",
     "Pink": "Rozā",
     "Purple": "Violets",
-    "Enabled": "Iespējots"
+    "Enabled": "Iespējots",
+    "Limit large image imports to Full HD": "Ierobežot lielu attēlu importu līdz Full HD",
+    "Images larger than 1920 × 1080 are fitted inside Full HD on import while preserving aspect ratio. Smaller images keep their native raster size.": "Importējot attēlus, kuru izmērs pārsniedz 1920 × 1080, tie tiek samazināti līdz Full HD, saglabājot malu attiecību. Mazāki attēli saglabā sākotnējo izšķirtspēju.",
+    "Slider Interaction": "Slīdņu mijiedarbība",
+    "Scroll Wheel Control": "Vadība ar peles ritenīti",
+    "When enabled, scrolling while the pointer is over a slider changes it by one smart step.": "Ja iespējots, ritināšana virs slīdņa maina tā vērtību par vienu piemērotu soli.",
+    "Debounce Slider Updates": "Aizkavēt slīdņu atjaunināšanu",
+    "Wait briefly while dragging expensive controls, then render when movement pauses or stops.": "Velkot resursietilpīgus slīdņus, īsu brīdi nogaidīt un renderēt, kad kustība apstājas vai ietur pauzi."
   }
 }

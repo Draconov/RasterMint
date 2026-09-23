@@ -35,6 +35,7 @@ ApplicationWindow {
         if (index === 11 && backend.hasSource && !backend.cropEditing) {
             backend.beginCropEdit()
             canvas.resetView()
+            canvas.forceActiveFocus()
         }
     }
 

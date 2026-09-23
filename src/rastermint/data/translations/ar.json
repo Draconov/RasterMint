@@ -854,6 +854,13 @@
     "Orange": "برتقالي",
     "Pink": "وردي",
     "Purple": "أرجواني",
-    "Enabled": "مفعّل"
+    "Enabled": "مفعّل",
+    "Limit large image imports to Full HD": "تقييد استيراد الصور الكبيرة بدقة Full HD",
+    "Images larger than 1920 × 1080 are fitted inside Full HD on import while preserving aspect ratio. Smaller images keep their native raster size.": "عند الاستيراد، تُصغَّر الصور الأكبر من 1920 × 1080 لتناسب دقة Full HD مع الحفاظ على نسبة الأبعاد. وتحتفظ الصور الأصغر بحجمها الأصلي.",
+    "Slider Interaction": "تفاعل أشرطة التمرير",
+    "Scroll Wheel Control": "التحكم بعجلة التمرير",
+    "When enabled, scrolling while the pointer is over a slider changes it by one smart step.": "عند التمكين، يؤدي تمرير العجلة فوق شريط التمرير إلى تغيير قيمته بخطوة مناسبة واحدة.",
+    "Debounce Slider Updates": "تأخير تحديثات أشرطة التمرير",
+    "Wait briefly while dragging expensive controls, then render when movement pauses or stops.": "انتظر قليلًا أثناء سحب عناصر التحكم المكلفة، ثم اعرض النتيجة عند توقف الحركة أو استقرارها."
   }
 }

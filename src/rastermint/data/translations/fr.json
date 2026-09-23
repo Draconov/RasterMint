@@ -854,6 +854,13 @@
     "Orange": "Orange",
     "Pink": "Rose",
     "Purple": "Violet",
-    "Enabled": "Activé"
+    "Enabled": "Activé",
+    "Limit large image imports to Full HD": "Limiter l’importation des grandes images au Full HD",
+    "Images larger than 1920 × 1080 are fitted inside Full HD on import while preserving aspect ratio. Smaller images keep their native raster size.": "À l’importation, les images dépassant 1920 × 1080 sont redimensionnées pour tenir dans le Full HD sans modifier leurs proportions. Les images plus petites conservent leur résolution d’origine.",
+    "Slider Interaction": "Interaction avec les curseurs",
+    "Scroll Wheel Control": "Contrôle à la molette",
+    "When enabled, scrolling while the pointer is over a slider changes it by one smart step.": "Si cette option est activée, faire défiler la molette sur un curseur modifie sa valeur d’un pas adapté.",
+    "Debounce Slider Updates": "Différer les mises à jour des curseurs",
+    "Wait briefly while dragging expensive controls, then render when movement pauses or stops.": "Attendez brièvement pendant le déplacement des réglages coûteux, puis effectuez le rendu lorsque le mouvement ralentit ou s’arrête."
   }
 }

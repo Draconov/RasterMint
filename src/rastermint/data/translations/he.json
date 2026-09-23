@@ -854,6 +854,13 @@
     "Orange": "כתום",
     "Pink": "ורוד",
     "Purple": "סגול",
-    "Enabled": "מופעל"
+    "Enabled": "מופעל",
+    "Limit large image imports to Full HD": "הגבלת ייבוא תמונות גדולות ל־Full HD",
+    "Images larger than 1920 × 1080 are fitted inside Full HD on import while preserving aspect ratio. Smaller images keep their native raster size.": "בעת הייבוא, תמונות הגדולות מ־1920 × 1080 מוקטנות כך שיתאימו ל־Full HD תוך שמירה על יחס הממדים. תמונות קטנות יותר שומרות על הרזולוציה המקורית שלהן.",
+    "Slider Interaction": "פעולת המחוונים",
+    "Scroll Wheel Control": "שליטה בגלגלת העכבר",
+    "When enabled, scrolling while the pointer is over a slider changes it by one smart step.": "כשהאפשרות פעילה, גלילה מעל מחוון משנה את ערכו בצעד מתאים אחד.",
+    "Debounce Slider Updates": "השהיית עדכוני מחוונים",
+    "Wait briefly while dragging expensive controls, then render when movement pauses or stops.": "המתן מעט בזמן גרירת פקדים הדורשים עיבוד רב, ולאחר מכן בצע רינדור כשהתנועה נעצרת או מושהית."
   }
 }

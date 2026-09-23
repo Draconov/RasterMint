@@ -956,6 +956,8 @@
     "Orange": "Turuncu",
     "Pink": "Pembe",
     "Purple": "Mor",
-    "Enabled": "Etkin"
+    "Enabled": "Etkin",
+    "Limit large image imports to Full HD": "Büyük görüntülerin içe aktarımını Full HD ile sınırla",
+    "Images larger than 1920 × 1080 are fitted inside Full HD on import while preserving aspect ratio. Smaller images keep their native raster size.": "1920 × 1080’den büyük görüntüler içe aktarılırken en-boy oranı korunarak Full HD boyutlarına sığacak şekilde küçültülür. Daha küçük görüntüler özgün çözünürlüklerini korur."
   }
 }

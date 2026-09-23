@@ -854,6 +854,13 @@
     "Orange": "Naranja",
     "Pink": "Rosa",
     "Purple": "Morado",
-    "Enabled": "Activado"
+    "Enabled": "Activado",
+    "Limit large image imports to Full HD": "Limitar la importación de imágenes grandes a Full HD",
+    "Images larger than 1920 × 1080 are fitted inside Full HD on import while preserving aspect ratio. Smaller images keep their native raster size.": "Las imágenes de más de 1920 × 1080 se ajustan a Full HD al importarlas sin cambiar su relación de aspecto. Las imágenes más pequeñas conservan su resolución original.",
+    "Slider Interaction": "Interacción con deslizadores",
+    "Scroll Wheel Control": "Control con la rueda del ratón",
+    "When enabled, scrolling while the pointer is over a slider changes it by one smart step.": "Si está activado, desplazar la rueda sobre un deslizador cambia su valor un paso adecuado.",
+    "Debounce Slider Updates": "Retrasar actualizaciones de deslizadores",
+    "Wait briefly while dragging expensive controls, then render when movement pauses or stops.": "Espera brevemente al arrastrar controles costosos y renderiza cuando el movimiento se pausa o termina."
   }
 }

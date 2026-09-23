@@ -956,6 +956,8 @@
     "Orange": "ਸੰਤਰੀ",
     "Pink": "ਗੁਲਾਬੀ",
     "Purple": "ਜਾਮਨੀ",
-    "Enabled": "ਚਾਲੂ"
+    "Enabled": "ਚਾਲੂ",
+    "Limit large image imports to Full HD": "ਵੱਡੀਆਂ ਤਸਵੀਰਾਂ ਦੀ ਆਯਾਤ Full HD ਤੱਕ ਸੀਮਿਤ ਕਰੋ",
+    "Images larger than 1920 × 1080 are fitted inside Full HD on import while preserving aspect ratio. Smaller images keep their native raster size.": "ਆਯਾਤ ਸਮੇਂ 1920 × 1080 ਤੋਂ ਵੱਡੀਆਂ ਤਸਵੀਰਾਂ ਨੂੰ ਆਕਾਰ ਅਨੁਪਾਤ ਕਾਇਮ ਰੱਖਦੇ ਹੋਏ Full HD ਵਿੱਚ ਫਿੱਟ ਕੀਤਾ ਜਾਂਦਾ ਹੈ। ਛੋਟੀਆਂ ਤਸਵੀਰਾਂ ਆਪਣਾ ਮੂਲ ਰੈਜ਼ੋਲਿਊਸ਼ਨ ਰੱਖਦੀਆਂ ਹਨ।"
   }
 }

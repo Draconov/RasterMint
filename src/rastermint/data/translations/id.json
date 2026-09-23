@@ -956,6 +956,8 @@
     "Orange": "Oranye",
     "Pink": "Merah muda",
     "Purple": "Ungu",
-    "Enabled": "Diaktifkan"
+    "Enabled": "Diaktifkan",
+    "Limit large image imports to Full HD": "Batasi impor gambar besar ke Full HD",
+    "Images larger than 1920 × 1080 are fitted inside Full HD on import while preserving aspect ratio. Smaller images keep their native raster size.": "Saat diimpor, gambar yang lebih besar dari 1920 × 1080 diperkecil agar muat dalam Full HD sambil mempertahankan rasio aspek. Gambar yang lebih kecil tetap menggunakan resolusi aslinya."
   }
 }

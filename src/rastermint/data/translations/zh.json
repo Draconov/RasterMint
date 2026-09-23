@@ -956,6 +956,8 @@
     "Orange": "橙色",
     "Pink": "粉色",
     "Purple": "紫色",
-    "Enabled": "已启用"
+    "Enabled": "已启用",
+    "Limit large image imports to Full HD": "将大图导入限制为全高清",
+    "Images larger than 1920 × 1080 are fitted inside Full HD on import while preserving aspect ratio. Smaller images keep their native raster size.": "导入时，超过 1920 × 1080 的图像将保持宽高比缩小至全高清范围内。较小的图像保留原始分辨率。"
   }
 }

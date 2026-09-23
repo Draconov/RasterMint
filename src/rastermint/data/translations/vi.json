@@ -956,6 +956,8 @@
     "Orange": "Cam",
     "Pink": "Hồng",
     "Purple": "Tím",
-    "Enabled": "Đã bật"
+    "Enabled": "Đã bật",
+    "Limit large image imports to Full HD": "Giới hạn nhập ảnh lớn ở độ phân giải Full HD",
+    "Images larger than 1920 × 1080 are fitted inside Full HD on import while preserving aspect ratio. Smaller images keep their native raster size.": "Khi nhập, ảnh lớn hơn 1920 × 1080 được thu nhỏ để vừa Full HD mà vẫn giữ nguyên tỷ lệ khung hình. Ảnh nhỏ hơn giữ nguyên độ phân giải gốc."
   }
 }

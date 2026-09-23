@@ -854,6 +854,13 @@
     "Orange": "Pomarańczowy",
     "Pink": "Różowy",
     "Purple": "Fioletowy",
-    "Enabled": "Włączone"
+    "Enabled": "Włączone",
+    "Limit large image imports to Full HD": "Ogranicz import dużych obrazów do Full HD",
+    "Images larger than 1920 × 1080 are fitted inside Full HD on import while preserving aspect ratio. Smaller images keep their native raster size.": "Podczas importu obrazy większe niż 1920 × 1080 są zmniejszane do rozmiaru Full HD z zachowaniem proporcji. Mniejsze obrazy zachowują oryginalną rozdzielczość.",
+    "Slider Interaction": "Obsługa suwaków",
+    "Scroll Wheel Control": "Sterowanie kółkiem myszy",
+    "When enabled, scrolling while the pointer is over a slider changes it by one smart step.": "Po włączeniu przewijanie kółkiem myszy nad suwakiem zmienia jego wartość o jeden odpowiedni krok.",
+    "Debounce Slider Updates": "Opóźniaj aktualizacje suwaków",
+    "Wait briefly while dragging expensive controls, then render when movement pauses or stops.": "Podczas przeciągania wymagających suwaków odczekaj chwilę, a następnie renderuj, gdy ruch zostanie wstrzymany lub zakończony."
   }
 }

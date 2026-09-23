@@ -956,6 +956,8 @@
     "Orange": "نارنجی",
     "Pink": "گلابی",
     "Purple": "جامنی",
-    "Enabled": "فعال"
+    "Enabled": "فعال",
+    "Limit large image imports to Full HD": "بڑی تصاویر کی درآمد کو Full HD تک محدود کریں",
+    "Images larger than 1920 × 1080 are fitted inside Full HD on import while preserving aspect ratio. Smaller images keep their native raster size.": "درآمد کرتے وقت 1920 × 1080 سے بڑی تصاویر کا تناسب برقرار رکھتے ہوئے انہیں Full HD میں فٹ کیا جاتا ہے۔ چھوٹی تصاویر اپنی اصل ریزولوشن برقرار رکھتی ہیں۔"
   }
 }

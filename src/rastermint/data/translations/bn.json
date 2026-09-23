@@ -956,6 +956,8 @@
     "Orange": "কমলা",
     "Pink": "গোলাপি",
     "Purple": "বেগুনি",
-    "Enabled": "সক্রিয়"
+    "Enabled": "সক্রিয়",
+    "Limit large image imports to Full HD": "বড় ছবি আমদানি Full HD-তে সীমাবদ্ধ করুন",
+    "Images larger than 1920 × 1080 are fitted inside Full HD on import while preserving aspect ratio. Smaller images keep their native raster size.": "আমদানির সময় 1920 × 1080-এর চেয়ে বড় ছবি অনুপাত বজায় রেখে Full HD-র মধ্যে মাপসই করা হয়। ছোট ছবিগুলো মূল আকারে থাকে।"
   }
 }

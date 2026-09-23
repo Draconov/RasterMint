@@ -956,6 +956,8 @@
     "Orange": "주황색",
     "Pink": "분홍색",
     "Purple": "보라색",
-    "Enabled": "활성화됨"
+    "Enabled": "활성화됨",
+    "Limit large image imports to Full HD": "큰 이미지 가져오기를 Full HD로 제한",
+    "Images larger than 1920 × 1080 are fitted inside Full HD on import while preserving aspect ratio. Smaller images keep their native raster size.": "1920 × 1080보다 큰 이미지는 종횡비를 유지하면서 Full HD 이내로 축소해 가져옵니다. 작은 이미지는 원래 해상도를 유지합니다."
   }
 }
