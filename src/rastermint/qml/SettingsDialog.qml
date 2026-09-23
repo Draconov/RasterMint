@@ -485,6 +485,7 @@ Dialog {
                 text: qsTr("Export user content…")
                 onClicked: exportUserContentDialog.open()
             }
+            Item { Layout.preferredWidth: 12; Layout.fillHeight: true }
             MintButton {
                 id: resetSettingsButton
                 text: qsTr("Reset Settings")

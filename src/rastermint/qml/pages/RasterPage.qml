@@ -16,20 +16,18 @@ ScrollView {
         spacing: 9
         MintLabel { text: qsTr("Target Raster"); font.bold: true; font.pixelSize: 15 }
         MintButton {
-            Layout.fillWidth: true
+            id: useSourceSizeButton
+            Layout.alignment: Qt.AlignLeft
             text: qsTr("Use source size")
             enabled: backend.hasSource
+            MintToolTip {
+                visible: useSourceSizeButton.hovered
+                text: qsTr("Processing uses exactly Width × Height pixels before dithering and effects.")
+            }
             onClicked: {
                 backend.useSourceRasterSize()
                 rasterPreset.currentIndex = 0
             }
-        }
-        MintLabel {
-            Layout.fillWidth: true
-            text: qsTr("Processing uses exactly Width × Height pixels before dithering and effects.")
-            color: theme.mutedTextColor
-            wrapMode: Text.WordWrap
-            font.pixelSize: 10
         }
 
         MintLabel { text: qsTr("Preset"); color: theme.mutedTextColor }
