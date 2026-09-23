@@ -67,7 +67,19 @@ Dialog {
     contentItem: ScrollView {
         id: settingsScroll
         clip: true
-        ScrollBar.vertical: MintScrollBar { policy: ScrollBar.AsNeeded }
+        // This is a vertical-only settings page. Do not let Qt create an
+        // implicit horizontal scroll indicator that can poke outside the
+        // popup when a control briefly reports a larger implicit width.
+        ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+        ScrollBar.vertical: MintScrollBar {
+            policy: ScrollBar.AsNeeded
+            // Keep the themed indicator inside the visible scroll viewport,
+            // even while the dialog is opening or its layout is changing.
+            parent: settingsScroll
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+        }
         contentWidth: availableWidth
 
         ColumnLayout {
