@@ -307,7 +307,7 @@ Item {
         clip: true
         contentWidth: availableWidth
         ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
-        ScrollBar.vertical.policy: ScrollBar.AsNeeded
+        ScrollBar.vertical: MintScrollBar { policy: ScrollBar.AsNeeded }
 
         ColumnLayout {
             width: pageScroll.availableWidth
@@ -329,7 +329,7 @@ Item {
                 contentHeight: height
                 clip: true
                 boundsBehavior: Flickable.StopAtBounds
-                ScrollBar.horizontal: ScrollBar { policy: ScrollBar.AsNeeded }
+                ScrollBar.horizontal: MintScrollBar { policy: ScrollBar.AsNeeded }
 
                 Row {
                     id: swatches
@@ -440,7 +440,7 @@ Item {
                         clip: true
                         contentWidth: availableWidth
                         ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
-                        ScrollBar.vertical.policy: ScrollBar.AsNeeded
+                        ScrollBar.vertical: MintScrollBar { policy: ScrollBar.AsNeeded }
 
                         ColumnLayout {
                             id: libraryColumn
@@ -916,7 +916,7 @@ Item {
                     clip: true
                     contentWidth: availableWidth
                     ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
-                    ScrollBar.vertical.policy: ScrollBar.AsNeeded
+                    ScrollBar.vertical: MintScrollBar { policy: ScrollBar.AsNeeded }
 
                     GridLayout {
                         width: parent.width

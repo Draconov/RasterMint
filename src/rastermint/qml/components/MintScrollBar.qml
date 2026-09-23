@@ -3,16 +3,18 @@ import QtQuick.Controls
 
 ScrollBar {
     id: control
-    implicitWidth: 9
-    implicitHeight: 9
-    padding: 2
+    implicitWidth: 10
+    implicitHeight: 10
+    minimumSize: 0.12
+    padding: 1
     contentItem: Rectangle {
-        implicitWidth: 5
-        implicitHeight: 5
-        radius: 3
-        color: control.pressed ? theme.accentColor
-             : (control.hovered ? theme.accentHoverColor : theme.mutedTextColor)
-        opacity: control.enabled && control.size < 1.0 ? 0.85 : 0.0
+        implicitWidth: 8
+        implicitHeight: 8
+        radius: 4
+        // The idle thumb is also theme-accented, not generic muted grey.
+        color: control.hovered || control.pressed ? theme.accentHoverColor : theme.accentColor
+        opacity: control.enabled && control.size < 1.0
+                 ? (control.hovered || control.pressed ? 1.0 : 0.8) : 0.0
     }
     background: Rectangle {
         radius: 4

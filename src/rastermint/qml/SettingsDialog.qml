@@ -492,36 +492,43 @@ Dialog {
     }
 
     footer: Item {
-        implicitHeight: 100
+        implicitHeight: 60
 
-        ColumnLayout {
+        RowLayout {
             anchors.fill: parent
-            anchors.leftMargin: 16
-            anchors.rightMargin: 16
+            anchors.leftMargin: 12
+            anchors.rightMargin: 12
             anchors.topMargin: 7
             anchors.bottomMargin: 10
-            spacing: 7
+            spacing: 6
 
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
-                MintButton { text: qsTr("Close"); onClicked: root.close() }
-                Item { Layout.fillWidth: true }
             MintButton {
+                text: qsTr("Close")
+                Layout.minimumWidth: 0
+                onClicked: root.close()
+            }
+            Item { Layout.fillWidth: true; Layout.minimumWidth: 0 }
+            MintButton {
+                id: importContentButton
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
                 text: qsTr("Import user content…")
+                MintToolTip { visible: importContentButton.hovered; text: importContentButton.text }
                 onClicked: importUserContentDialog.open()
             }
             MintButton {
+                id: exportContentButton
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
                 text: qsTr("Export user content…")
+                MintToolTip { visible: exportContentButton.hovered; text: exportContentButton.text }
                 onClicked: exportUserContentDialog.open()
             }
-            }
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
-                Item { Layout.fillWidth: true }
+            Item { Layout.preferredWidth: 10; Layout.minimumWidth: 10 }
             MintButton {
                 id: resetSettingsButton
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
                 text: qsTr("Reset Settings")
                 MintToolTip {
                     visible: resetSettingsButton.hovered
@@ -531,6 +538,8 @@ Dialog {
             }
             MintButton {
                 id: fullResetButton
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
                 text: qsTr("Full Reset")
                 MintToolTip {
                     visible: fullResetButton.hovered
@@ -540,7 +549,6 @@ Dialog {
                     root.resetWindowSettings()
                     backend.resetSettings()
                 }
-            }
             }
         }
     }

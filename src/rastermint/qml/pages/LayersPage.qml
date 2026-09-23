@@ -535,7 +535,7 @@ Item {
             spacing: root.layerRowSpacing
             clip: true
             currentIndex: backend.selectedLayerIndex
-            ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+            ScrollBar.vertical: MintScrollBar { policy: ScrollBar.AsNeeded }
 
             delegate: Item {
                 id: layerDelegate

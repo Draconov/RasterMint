@@ -4,10 +4,13 @@ import QtQuick.Controls
 Button {
     id: control
     property bool selected: false
+    // Icon-only controls should have the same width and height. A text label
+    // (including "+ Add colour") retains the ordinary text-button sizing.
+    readonly property bool iconOnly: ["+", "−", "-", "×", "✕", "↑", "↓", "←", "→", "‹", "›", "▲", "▼", "|‹", "›|"].indexOf(text) !== -1
     implicitHeight: 34
-    leftPadding: 12
-    implicitWidth: Math.max(70, contentItem.implicitWidth + leftPadding + rightPadding)
-    rightPadding: 12
+    leftPadding: iconOnly ? 0 : 12
+    rightPadding: iconOnly ? 0 : 12
+    implicitWidth: iconOnly ? implicitHeight : Math.max(70, contentItem.implicitWidth + leftPadding + rightPadding)
     font.pixelSize: 13
     palette.buttonText: theme.textColor
     contentItem: Text {

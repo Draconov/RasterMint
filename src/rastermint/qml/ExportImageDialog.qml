@@ -174,10 +174,10 @@ Dialog {
         contentWidth: availableWidth
         contentHeight: exportBody.height
 
-        ScrollBar.horizontal: ScrollBar {
+        ScrollBar.horizontal: MintScrollBar {
             policy: ScrollBar.AlwaysOff
         }
-        ScrollBar.vertical: ScrollBar {
+        ScrollBar.vertical: MintScrollBar {
             policy: exportScroll.contentHeight > exportScroll.availableHeight
                     ? ScrollBar.AsNeeded
                     : ScrollBar.AlwaysOff
