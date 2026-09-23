@@ -983,6 +983,7 @@
     "Merge": "Merge",
     "Replace": "Replace",
     "GPU-accelerated preview (experimental)": "GPU-ত্বরণযুক্ত প্রিভিউ (পরীক্ষামূলক)",
-    "Use an available OpenCL GPU for large palette mapping and RGB bit-depth preview steps. Falls back to CPU if unavailable. Exports remain CPU-rendered.": "বড় প্যালেট ম্যাপিং ও RGB বিট-ডেপথ প্রিভিউয়ের জন্য উপলব্ধ OpenCL GPU ব্যবহার করুন। উপলব্ধ না থাকলে CPU ব্যবহার করা হবে। এক্সপোর্টের রেন্ডারিং CPU-তেই হবে।"
+    "Use an available OpenCL GPU for large palette mapping and RGB bit-depth preview steps. Falls back to CPU if unavailable. Exports remain CPU-rendered.": "বড় প্যালেট ম্যাপিং ও RGB বিট-ডেপথ প্রিভিউয়ের জন্য উপলব্ধ OpenCL GPU ব্যবহার করুন। উপলব্ধ না থাকলে CPU ব্যবহার করা হবে। এক্সপোর্টের রেন্ডারিং CPU-তেই হবে।",
+    "User content": "ব্যবহারকারীর সামগ্রী"
   }
 }

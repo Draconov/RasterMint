@@ -983,6 +983,7 @@
     "Merge": "Merge",
     "Replace": "Replace",
     "GPU-accelerated preview (experimental)": "Pratinjau dipercepat GPU (eksperimental)",
-    "Use an available OpenCL GPU for large palette mapping and RGB bit-depth preview steps. Falls back to CPU if unavailable. Exports remain CPU-rendered.": "Gunakan GPU OpenCL yang tersedia untuk pemetaan palet besar dan pemrosesan kedalaman bit RGB pada pratinjau. Jika tidak tersedia, gunakan CPU. Ekspor tetap dirender oleh CPU."
+    "Use an available OpenCL GPU for large palette mapping and RGB bit-depth preview steps. Falls back to CPU if unavailable. Exports remain CPU-rendered.": "Gunakan GPU OpenCL yang tersedia untuk pemetaan palet besar dan pemrosesan kedalaman bit RGB pada pratinjau. Jika tidak tersedia, gunakan CPU. Ekspor tetap dirender oleh CPU.",
+    "User content": "Konten pengguna"
   }
 }

@@ -983,6 +983,7 @@
     "Merge": "Merge",
     "Replace": "Replace",
     "GPU-accelerated preview (experimental)": "GPU-त्वरित पूर्वावलोकन (प्रायोगिक)",
-    "Use an available OpenCL GPU for large palette mapping and RGB bit-depth preview steps. Falls back to CPU if unavailable. Exports remain CPU-rendered.": "बड़ी पैलेट मैपिंग और RGB बिट-डेप्थ पूर्वावलोकन के लिए उपलब्ध OpenCL GPU का उपयोग करें। उपलब्ध न होने पर CPU का उपयोग होगा। निर्यात अब भी CPU पर रेंडर होगा।"
+    "Use an available OpenCL GPU for large palette mapping and RGB bit-depth preview steps. Falls back to CPU if unavailable. Exports remain CPU-rendered.": "बड़ी पैलेट मैपिंग और RGB बिट-डेप्थ पूर्वावलोकन के लिए उपलब्ध OpenCL GPU का उपयोग करें। उपलब्ध न होने पर CPU का उपयोग होगा। निर्यात अब भी CPU पर रेंडर होगा।",
+    "User content": "उपयोगकर्ता सामग्री"
   }
 }

@@ -73,8 +73,7 @@ Dialog {
         ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
         ScrollBar.vertical: MintScrollBar {
             policy: ScrollBar.AsNeeded
-            // Keep the themed indicator inside the visible scroll viewport,
-            // even while the dialog is opening or its layout is changing.
+            // Align the slim overlay thumb flush with the right edge.
             parent: settingsScroll
             anchors.right: parent.right
             anchors.top: parent.top
@@ -226,6 +225,29 @@ Dialog {
                 function onHistoryLimitChanged() {
                     if (!historyLimitInput.activeFocus)
                         historyLimitInput.text = String(backend.historyLimit)
+                }
+            }
+
+            Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: theme.borderColor }
+            MintLabel { text: qsTr("User content"); font.bold: true }
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+                MintButton {
+                    id: importContentButton
+                    Layout.fillWidth: true
+                    Layout.minimumWidth: 0
+                    text: qsTr("Import user content…")
+                    MintToolTip { visible: importContentButton.hovered; text: importContentButton.text }
+                    onClicked: importUserContentDialog.open()
+                }
+                MintButton {
+                    id: exportContentButton
+                    Layout.fillWidth: true
+                    Layout.minimumWidth: 0
+                    text: qsTr("Export user content…")
+                    MintToolTip { visible: exportContentButton.hovered; text: exportContentButton.text }
+                    onClicked: exportUserContentDialog.open()
                 }
             }
 
@@ -504,7 +526,7 @@ Dialog {
     }
 
     footer: Item {
-        implicitHeight: 60
+        implicitHeight: 56
 
         RowLayout {
             anchors.fill: parent
@@ -520,23 +542,6 @@ Dialog {
                 onClicked: root.close()
             }
             Item { Layout.fillWidth: true; Layout.minimumWidth: 0 }
-            MintButton {
-                id: importContentButton
-                Layout.fillWidth: true
-                Layout.minimumWidth: 0
-                text: qsTr("Import user content…")
-                MintToolTip { visible: importContentButton.hovered; text: importContentButton.text }
-                onClicked: importUserContentDialog.open()
-            }
-            MintButton {
-                id: exportContentButton
-                Layout.fillWidth: true
-                Layout.minimumWidth: 0
-                text: qsTr("Export user content…")
-                MintToolTip { visible: exportContentButton.hovered; text: exportContentButton.text }
-                onClicked: exportUserContentDialog.open()
-            }
-            Item { Layout.preferredWidth: 10; Layout.minimumWidth: 10 }
             MintButton {
                 id: resetSettingsButton
                 Layout.fillWidth: true

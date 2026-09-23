@@ -983,6 +983,7 @@
     "Merge": "Merge",
     "Replace": "Replace",
     "GPU-accelerated preview (experimental)": "Xem trước tăng tốc GPU (thử nghiệm)",
-    "Use an available OpenCL GPU for large palette mapping and RGB bit-depth preview steps. Falls back to CPU if unavailable. Exports remain CPU-rendered.": "Dùng GPU OpenCL nếu có để ánh xạ bảng màu lớn và xử lý độ sâu bit RGB khi xem trước. Nếu không có GPU, dùng CPU. Việc xuất vẫn được kết xuất trên CPU."
+    "Use an available OpenCL GPU for large palette mapping and RGB bit-depth preview steps. Falls back to CPU if unavailable. Exports remain CPU-rendered.": "Dùng GPU OpenCL nếu có để ánh xạ bảng màu lớn và xử lý độ sâu bit RGB khi xem trước. Nếu không có GPU, dùng CPU. Việc xuất vẫn được kết xuất trên CPU.",
+    "User content": "Nội dung người dùng"
   }
 }

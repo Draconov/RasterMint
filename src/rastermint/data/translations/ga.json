@@ -983,6 +983,7 @@
     "Merge": "Merge",
     "Replace": "Replace",
     "GPU-accelerated preview (experimental)": "Réamhamharc luathaithe le GPU (turgnamhach)",
-    "Use an available OpenCL GPU for large palette mapping and RGB bit-depth preview steps. Falls back to CPU if unavailable. Exports remain CPU-rendered.": "Úsáidtear GPU OpenCL, má tá sé ar fáil, chun pailéid mhóra a mhapáil agus doimhneacht ghiotán RGB a phróiseáil sa réamhamharc. Úsáidtear an CPU mura bhfuil GPU ar fáil. Próiseáiltear easpórtálacha leis an CPU fós."
+    "Use an available OpenCL GPU for large palette mapping and RGB bit-depth preview steps. Falls back to CPU if unavailable. Exports remain CPU-rendered.": "Úsáidtear GPU OpenCL, má tá sé ar fáil, chun pailéid mhóra a mhapáil agus doimhneacht ghiotán RGB a phróiseáil sa réamhamharc. Úsáidtear an CPU mura bhfuil GPU ar fáil. Próiseáiltear easpórtálacha leis an CPU fós.",
+    "User content": "Ábhar úsáideora"
   }
 }

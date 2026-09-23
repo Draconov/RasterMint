@@ -983,6 +983,7 @@
     "Merge": "Merge",
     "Replace": "Replace",
     "GPU-accelerated preview (experimental)": "תצוגה מקדימה מואצת באמצעות GPU (ניסיוני)",
-    "Use an available OpenCL GPU for large palette mapping and RGB bit-depth preview steps. Falls back to CPU if unavailable. Exports remain CPU-rendered.": "שימוש ב-GPU זמין עם OpenCL למיפוי פלטות גדולות ולעיבוד עומק ביטים של RGB בתצוגה המקדימה. אם אינו זמין, נעשה שימוש ב-CPU. הייצוא ממשיך להתבצע ב-CPU."
+    "Use an available OpenCL GPU for large palette mapping and RGB bit-depth preview steps. Falls back to CPU if unavailable. Exports remain CPU-rendered.": "שימוש ב-GPU זמין עם OpenCL למיפוי פלטות גדולות ולעיבוד עומק ביטים של RGB בתצוגה המקדימה. אם אינו זמין, נעשה שימוש ב-CPU. הייצוא ממשיך להתבצע ב-CPU.",
+    "User content": "תוכן המשתמש"
   }
 }

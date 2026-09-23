@@ -983,6 +983,7 @@
     "Merge": "Merge",
     "Replace": "Replace",
     "GPU-accelerated preview (experimental)": "GPU paātrināts priekšskatījums (eksperimentāls)",
-    "Use an available OpenCL GPU for large palette mapping and RGB bit-depth preview steps. Falls back to CPU if unavailable. Exports remain CPU-rendered.": "Izmanto pieejamu OpenCL GPU lielu palešu kartēšanai un RGB bitu dziļuma apstrādei priekšskatījumā. Ja GPU nav pieejams, izmanto CPU. Eksportēšana joprojām notiek ar CPU."
+    "Use an available OpenCL GPU for large palette mapping and RGB bit-depth preview steps. Falls back to CPU if unavailable. Exports remain CPU-rendered.": "Izmanto pieejamu OpenCL GPU lielu palešu kartēšanai un RGB bitu dziļuma apstrādei priekšskatījumā. Ja GPU nav pieejams, izmanto CPU. Eksportēšana joprojām notiek ar CPU.",
+    "User content": "Lietotāja saturs"
   }
 }
