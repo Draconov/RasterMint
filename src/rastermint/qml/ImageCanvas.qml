@@ -15,9 +15,13 @@ Item {
         }
     }
     Keys.onReleased: function(event) {
-        if (event.key === Qt.Key_Space) {
-            cropSpaceHeld = false
-            event.accepted = backend.cropEditing
+        if (event.key === Qt.Key_Space && backend.cropEditing) {
+            // Holding Space generates synthetic release/press pairs on systems
+            // with keyboard auto-repeat. Only a physical release ends panning:
+            // hiding cropPanArea mid-drag would cancel its mouse grab.
+            if (!event.isAutoRepeat)
+                cropSpaceHeld = false
+            event.accepted = true
         }
     }
     onActiveFocusChanged: { if (!activeFocus) cropSpaceHeld = false }
@@ -221,7 +225,9 @@ Item {
         id: cropPanArea
         anchors.fill: parent
         z: 30
-        visible: backend.cropEditing && root.cropSpaceHeld && backend.hasSource
+        // Keep the MouseArea alive through the entire mouse gesture. Keyboard
+        // focus changes (or a Space release) must not cancel an active drag.
+        visible: backend.cropEditing && backend.hasSource && (root.cropSpaceHeld || pressed)
         enabled: visible
         acceptedButtons: Qt.LeftButton
         preventStealing: true
