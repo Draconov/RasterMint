@@ -973,6 +973,14 @@
     "Spot 5": "Inchiostro spot 5",
     "Spot 6": "Inchiostro spot 6",
     "Spot 7": "Inchiostro spot 7",
-    "Spot 8": "Inchiostro spot 8"
+    "Spot 8": "Inchiostro spot 8",
+    "Use source size": "Usa dimensioni sorgente",
+    "Export user content…": "Esporta contenuti utente…",
+    "Using the transformed source raster size. Select a preset to set a custom target size.": "Vengono usate le dimensioni raster della sorgente trasformata. Seleziona un predefinito per impostare dimensioni di destinazione personalizzate.",
+    "Import user content…": "Import user content…",
+    "Choose how RasterMint should restore the backup ZIP.": "Choose how RasterMint should restore the backup ZIP.",
+    "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.": "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.",
+    "Merge": "Merge",
+    "Replace": "Replace"
   }
 }

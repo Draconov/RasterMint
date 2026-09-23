@@ -973,6 +973,14 @@
     "Selected group": "Grup terpilih",
     "Solo Group": "Isolasi grup",
     "Ungroup Group": "Pisahkan grup",
-    "Unsolo Group": "Hentikan isolasi grup"
+    "Unsolo Group": "Hentikan isolasi grup",
+    "Use source size": "Gunakan ukuran sumber",
+    "Export user content…": "Ekspor konten pengguna…",
+    "Using the transformed source raster size. Select a preset to set a custom target size.": "Menggunakan ukuran raster sumber yang telah ditransformasi. Pilih prasetel untuk menetapkan ukuran target khusus.",
+    "Import user content…": "Import user content…",
+    "Choose how RasterMint should restore the backup ZIP.": "Choose how RasterMint should restore the backup ZIP.",
+    "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.": "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.",
+    "Merge": "Merge",
+    "Replace": "Replace"
   }
 }

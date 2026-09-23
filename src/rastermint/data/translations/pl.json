@@ -973,6 +973,14 @@
     "Spot 5": "Farba dodatkowa 5",
     "Spot 6": "Farba dodatkowa 6",
     "Spot 7": "Farba dodatkowa 7",
-    "Spot 8": "Farba dodatkowa 8"
+    "Spot 8": "Farba dodatkowa 8",
+    "Use source size": "Użyj rozmiaru źródła",
+    "Export user content…": "Eksportuj zawartość użytkownika…",
+    "Using the transformed source raster size. Select a preset to set a custom target size.": "Używany jest rozmiar rastra przekształconego obrazu źródłowego. Wybierz ustawienie wstępne, aby ustawić własny rozmiar docelowy.",
+    "Import user content…": "Import user content…",
+    "Choose how RasterMint should restore the backup ZIP.": "Choose how RasterMint should restore the backup ZIP.",
+    "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.": "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.",
+    "Merge": "Merge",
+    "Replace": "Replace"
   }
 }

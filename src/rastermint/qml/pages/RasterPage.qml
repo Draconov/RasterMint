@@ -15,12 +15,18 @@ ScrollView {
         width: root.availableWidth
         spacing: 9
         MintLabel { text: qsTr("Target Raster"); font.bold: true; font.pixelSize: 15 }
-        MintCheckBox { text: qsTr("Use exact target size"); checked: backend.settingsMap.target_enabled; onToggled: backend.setSetting("target_enabled", checked) }
+        MintButton {
+            Layout.fillWidth: true
+            text: qsTr("Use source size")
+            selected: !backend.settingsMap.target_enabled
+            enabled: backend.hasSource && backend.settingsMap.target_enabled
+            onClicked: backend.setSetting("target_enabled", false)
+        }
         MintLabel {
             Layout.fillWidth: true
             text: backend.settingsMap.target_enabled
                   ? qsTr("Processing uses exactly Width × Height pixels before dithering and effects.")
-                  : qsTr("Off: RasterMint keeps the transformed source raster size. Width and Height are ignored.")
+                  : qsTr("Using the transformed source raster size. Select a preset to set a custom target size.")
             color: theme.mutedTextColor
             wrapMode: Text.WordWrap
             font.pixelSize: 10
@@ -31,7 +37,12 @@ ScrollView {
             id: rasterPreset
             Layout.fillWidth: true
             model: [qsTr("Custom"), "Game Boy · 160 × 144", "GBA · 240 × 160", "SNES · 256 × 224", "NES · 256 × 240", "ZX Spectrum · 256 × 192", "320 × 200", "320 × 240", "640 × 480"]
-            onActivated: if (currentIndex > 0) backend.setRasterSize(root.rasterSizes[currentIndex][0], root.rasterSizes[currentIndex][1])
+            onActivated: {
+                if (currentIndex > 0)
+                    backend.setRasterSize(root.rasterSizes[currentIndex][0], root.rasterSizes[currentIndex][1])
+                else
+                    backend.setSetting("target_enabled", true)
+            }
             enabled: true
         }
 

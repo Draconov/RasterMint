@@ -973,6 +973,14 @@
     "Spot 5": "צבע ספוט 5",
     "Spot 6": "צבע ספוט 6",
     "Spot 7": "צבע ספוט 7",
-    "Spot 8": "צבע ספוט 8"
+    "Spot 8": "צבע ספוט 8",
+    "Use source size": "שימוש בגודל המקור",
+    "Export user content…": "ייצוא תוכן המשתמש…",
+    "Using the transformed source raster size. Select a preset to set a custom target size.": "נעשה שימוש בגודל הרסטר של המקור לאחר שינוי. בחרו הגדרה קבועה מראש כדי לקבוע גודל יעד מותאם אישית.",
+    "Import user content…": "Import user content…",
+    "Choose how RasterMint should restore the backup ZIP.": "Choose how RasterMint should restore the backup ZIP.",
+    "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.": "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.",
+    "Merge": "Merge",
+    "Replace": "Replace"
   }
 }

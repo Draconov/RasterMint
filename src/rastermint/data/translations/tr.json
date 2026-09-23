@@ -973,6 +973,14 @@
     "Selected group": "Seçili grup",
     "Solo Group": "Grubu tek başına göster",
     "Ungroup Group": "Grubu çöz",
-    "Unsolo Group": "Grubu tek başına göstermeyi kapat"
+    "Unsolo Group": "Grubu tek başına göstermeyi kapat",
+    "Use source size": "Kaynak boyutunu kullan",
+    "Export user content…": "Kullanıcı içeriğini dışa aktar…",
+    "Using the transformed source raster size. Select a preset to set a custom target size.": "Dönüştürülmüş kaynağın raster boyutu kullanılıyor. Özel bir hedef boyutu ayarlamak için ön ayar seçin.",
+    "Import user content…": "Import user content…",
+    "Choose how RasterMint should restore the backup ZIP.": "Choose how RasterMint should restore the backup ZIP.",
+    "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.": "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.",
+    "Merge": "Merge",
+    "Replace": "Replace"
   }
 }

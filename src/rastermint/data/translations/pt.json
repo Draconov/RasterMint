@@ -973,6 +973,14 @@
     "Spot 5": "Tinta direta 5",
     "Spot 6": "Tinta direta 6",
     "Spot 7": "Tinta direta 7",
-    "Spot 8": "Tinta direta 8"
+    "Spot 8": "Tinta direta 8",
+    "Use source size": "Usar tamanho da origem",
+    "Export user content…": "Exportar conteúdo do utilizador…",
+    "Using the transformed source raster size. Select a preset to set a custom target size.": "Está a ser utilizado o tamanho raster da origem transformada. Selecione uma predefinição para definir um tamanho de destino personalizado.",
+    "Import user content…": "Import user content…",
+    "Choose how RasterMint should restore the backup ZIP.": "Choose how RasterMint should restore the backup ZIP.",
+    "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.": "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.",
+    "Merge": "Merge",
+    "Replace": "Replace"
   }
 }

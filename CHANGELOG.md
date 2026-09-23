@@ -1,11 +1,14 @@
 # Changelog
 
-## 0.8.0 — Palette library and theme reliability
+## 0.8.0 - 2026-09-23 User content backup, palette library and theme reliability
 
+- Added a themed Settings button to import/export user-created palettes, presets, custom dithering/animation collections and preset category metadata to ZIP.
+- Added localized button text and source-sizing instructions in all 21 catalogs.
+
+- Replaced the target-size checkbox with a themed Use source size button; raster presets restore custom target sizing.
 - Unified the visible palette library with persistent JSON palettes in the user-data folder and migrated prior QSettings palettes.
 - Restored live palette/category refresh and atomic palette saving; added Lospec Lookup.
 - Improved repeated colour edits and themed the palette-save dialog and colour picker controls.
-
 
 ## 0.7.5 - 2026-09-04 — Snapshot Reliability
 

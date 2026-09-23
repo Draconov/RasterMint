@@ -973,6 +973,14 @@
     "Spot 5": "Dúch spota 5",
     "Spot 6": "Dúch spota 6",
     "Spot 7": "Dúch spota 7",
-    "Spot 8": "Dúch spota 8"
+    "Spot 8": "Dúch spota 8",
+    "Use source size": "Úsáid méid na foinse",
+    "Export user content…": "Easpórtáil ábhar an úsáideora…",
+    "Using the transformed source raster size. Select a preset to set a custom target size.": "Tá méid raster na foinse claochlaithe in úsáid. Roghnaigh réamhshocrú chun spriocmhéid saincheaptha a shocrú.",
+    "Import user content…": "Import user content…",
+    "Choose how RasterMint should restore the backup ZIP.": "Choose how RasterMint should restore the backup ZIP.",
+    "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.": "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.",
+    "Merge": "Merge",
+    "Replace": "Replace"
   }
 }

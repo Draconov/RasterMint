@@ -973,6 +973,14 @@
     "Selected group": "Вибрана група",
     "Solo Group": "Показати лише групу",
     "Ungroup Group": "Розгрупувати групу",
-    "Unsolo Group": "Показувати всі групи"
+    "Unsolo Group": "Показувати всі групи",
+    "Use source size": "Використати розмір джерела",
+    "Export user content…": "Експортувати вміст користувача…",
+    "Using the transformed source raster size. Select a preset to set a custom target size.": "Використовується розмір растра перетвореного джерела. Виберіть пресет, щоб установити власний цільовий розмір.",
+    "Import user content…": "Import user content…",
+    "Choose how RasterMint should restore the backup ZIP.": "Choose how RasterMint should restore the backup ZIP.",
+    "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.": "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.",
+    "Merge": "Merge",
+    "Replace": "Replace"
   }
 }

@@ -22,6 +22,7 @@ from rastermint.core.presets import (
 )
 from rastermint.core.preset_mutation import generate_preset_mutations
 from rastermint.core.settings import ProcessingSettings
+from rastermint.core.user_content_backup import export_user_content, import_user_content
 from rastermint.qmlui.backend import RasterMintBackend as BaseRasterMintBackend
 from rastermint.qmlui.workers import ProcessingWorker
 
@@ -610,6 +611,108 @@ class RasterMintBackend(BaseRasterMintBackend):
             self._set_status(f"Saved palette {path.name}")
         except Exception as exc:
             self.errorOccurred.emit("Could not export palette", str(exc))
+
+    @Slot(str)
+    def exportAllUserContent(self, value: str) -> None:
+        """Back up user-created libraries, their categories and saved custom patterns."""
+        try:
+            target = _local_path(value)
+            if target.suffix.lower() != ".zip":
+                target = target.with_suffix(".zip")
+            collections = {
+                "presetLibraryMetaV1": self._preset_meta,
+            }
+            for key in (
+                self._USER_PALETTES_SETTINGS_KEY,
+                self._DITHER_MATRIX_SETTINGS_KEY,
+                self._ANIMATION_CLIP_SETTINGS_KEY,
+            ):
+                raw = self.app_settings.value(key, "[]")
+                collections[key] = json.loads(str(raw or "[]"))
+            count = export_user_content(target, _app_data_root(), collections)
+            self._set_status(f"Exported user content: {count} files · {target.name}")
+        except Exception as exc:
+            self.errorOccurred.emit("Could not export user content", str(exc))
+
+    @staticmethod
+    def _merge_named_collection(existing: object, imported: object) -> list[dict[str, object]]:
+        merged: dict[str, dict[str, object]] = {}
+        for source in (existing, imported):
+            for item in source if isinstance(source, list) else []:
+                if not isinstance(item, dict):
+                    continue
+                name = str(item.get("name", "")).strip()
+                if not name:
+                    continue
+                merged[name.casefold()] = dict(item)
+        return list(merged.values())
+
+    @staticmethod
+    def _merge_preset_meta(existing: object, imported: object) -> dict[str, object]:
+        result = {"favorites": [], "recent": [], "categories": {}}
+        for payload in (existing, imported):
+            if not isinstance(payload, dict):
+                continue
+            favorites = result["favorites"]
+            for value in payload.get("favorites", []):
+                text = str(value)
+                if text and text not in favorites:
+                    favorites.append(text)
+            recent = result["recent"]
+            for value in payload.get("recent", []):
+                text = str(value)
+                if text and text not in recent:
+                    recent.append(text)
+            categories = result["categories"]
+            raw_categories = payload.get("categories", {})
+            if isinstance(raw_categories, dict):
+                for key, value in raw_categories.items():
+                    key_text = str(key).strip()
+                    value_text = str(value).strip()
+                    if key_text and value_text:
+                        categories[key_text] = value_text
+        result["recent"] = result["recent"][:20]
+        return result
+
+    @Slot(str, str)
+    def importAllUserContent(self, value: str, mode: str) -> None:
+        try:
+            source = _local_path(value)
+            import_mode = str(mode or "merge").strip().casefold()
+            count, collections = import_user_content(source, _app_data_root(), mode=import_mode)
+
+            if import_mode == "replace":
+                self._preset_meta = self._merge_preset_meta({}, collections.get(self._PRESET_META_KEY, {}))
+                self.app_settings.setValue(self._PRESET_META_KEY, json.dumps(self._preset_meta, ensure_ascii=False))
+                for key in (self._USER_PALETTES_SETTINGS_KEY, self._DITHER_MATRIX_SETTINGS_KEY, self._ANIMATION_CLIP_SETTINGS_KEY):
+                    payload = collections.get(key, [])
+                    self.app_settings.setValue(key, json.dumps(payload, ensure_ascii=False))
+            else:
+                self._preset_meta = self._merge_preset_meta(self._preset_meta, collections.get(self._PRESET_META_KEY, {}))
+                self.app_settings.setValue(self._PRESET_META_KEY, json.dumps(self._preset_meta, ensure_ascii=False))
+                for key in (self._USER_PALETTES_SETTINGS_KEY, self._DITHER_MATRIX_SETTINGS_KEY, self._ANIMATION_CLIP_SETTINGS_KEY):
+                    try:
+                        existing = json.loads(str(self.app_settings.value(key, "[]") or "[]"))
+                    except (TypeError, ValueError, json.JSONDecodeError):
+                        existing = []
+                    merged = self._merge_named_collection(existing, collections.get(key, []))
+                    self.app_settings.setValue(key, json.dumps(merged, ensure_ascii=False))
+
+            self.app_settings.sync()
+            self._load_user_palettes()
+            self._load_user_presets()
+            self._dither_matrix_library = self._load_dither_matrix_library()
+            self._animation_clip_library = self._load_animation_clip_library()
+            self.userPaletteLibraryChanged.emit()
+            self.paletteLibraryChanged.emit()
+            self.presetLibraryChanged.emit()
+            self.settingsChanged.emit()
+            self.refreshPresetThumbnails()
+            summary = "Merged" if import_mode == "merge" else "Replaced"
+            self._set_status(f"{summary} user content: {count} files · {source.name}")
+        except Exception as exc:
+            self.errorOccurred.emit("Could not import user content", str(exc))
+
 
     # ---------- persistent user preset library ----------
     @staticmethod

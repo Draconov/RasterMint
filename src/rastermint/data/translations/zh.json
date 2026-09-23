@@ -973,6 +973,14 @@
     "Selected group": "所选组",
     "Solo Group": "仅显示此组",
     "Ungroup Group": "取消编组",
-    "Unsolo Group": "取消组独显"
+    "Unsolo Group": "取消组独显",
+    "Use source size": "使用源图尺寸",
+    "Export user content…": "导出用户内容…",
+    "Using the transformed source raster size. Select a preset to set a custom target size.": "正在使用变换后的源图光栅尺寸。选择预设以设置自定义目标尺寸。",
+    "Import user content…": "Import user content…",
+    "Choose how RasterMint should restore the backup ZIP.": "Choose how RasterMint should restore the backup ZIP.",
+    "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.": "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.",
+    "Merge": "Merge",
+    "Replace": "Replace"
   }
 }

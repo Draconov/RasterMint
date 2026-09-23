@@ -973,6 +973,14 @@
     "Selected group": "নির্বাচিত গোষ্ঠী",
     "Solo Group": "গোষ্ঠী এককভাবে দেখুন",
     "Ungroup Group": "গোষ্ঠীর বিভাজন করুন",
-    "Unsolo Group": "গোষ্ঠীর একক প্রদর্শন বন্ধ করুন"
+    "Unsolo Group": "গোষ্ঠীর একক প্রদর্শন বন্ধ করুন",
+    "Use source size": "উৎসের আকার ব্যবহার করুন",
+    "Export user content…": "ব্যবহারকারীর সামগ্রী রপ্তানি করুন…",
+    "Using the transformed source raster size. Select a preset to set a custom target size.": "রূপান্তরিত উৎসের রাস্টার আকার ব্যবহার করা হচ্ছে। নিজস্ব লক্ষ্য আকার দিতে একটি প্রিসেট নির্বাচন করুন।",
+    "Import user content…": "Import user content…",
+    "Choose how RasterMint should restore the backup ZIP.": "Choose how RasterMint should restore the backup ZIP.",
+    "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.": "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.",
+    "Merge": "Merge",
+    "Replace": "Replace"
   }
 }

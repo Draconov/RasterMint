@@ -973,6 +973,14 @@
     "Selected group": "Nhóm đã chọn",
     "Solo Group": "Chỉ hiển thị nhóm",
     "Ungroup Group": "Bỏ nhóm",
-    "Unsolo Group": "Hủy chế độ chỉ hiển thị nhóm"
+    "Unsolo Group": "Hủy chế độ chỉ hiển thị nhóm",
+    "Use source size": "Sử dụng kích thước nguồn",
+    "Export user content…": "Xuất nội dung người dùng…",
+    "Using the transformed source raster size. Select a preset to set a custom target size.": "Đang sử dụng kích thước raster nguồn đã biến đổi. Chọn một thiết lập sẵn để đặt kích thước đích tùy chỉnh.",
+    "Import user content…": "Import user content…",
+    "Choose how RasterMint should restore the backup ZIP.": "Choose how RasterMint should restore the backup ZIP.",
+    "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.": "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.",
+    "Merge": "Merge",
+    "Replace": "Replace"
   }
 }

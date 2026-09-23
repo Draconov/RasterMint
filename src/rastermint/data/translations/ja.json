@@ -973,6 +973,14 @@
     "Selected group": "選択中のグループ",
     "Solo Group": "グループを単独表示",
     "Ungroup Group": "グループを解除",
-    "Unsolo Group": "グループの単独表示を解除"
+    "Unsolo Group": "グループの単独表示を解除",
+    "Use source size": "元画像のサイズを使用",
+    "Export user content…": "ユーザーコンテンツをエクスポート…",
+    "Using the transformed source raster size. Select a preset to set a custom target size.": "変換後の元画像のラスターサイズを使用しています。カスタムの出力サイズを指定するにはプリセットを選択してください。",
+    "Import user content…": "Import user content…",
+    "Choose how RasterMint should restore the backup ZIP.": "Choose how RasterMint should restore the backup ZIP.",
+    "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.": "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.",
+    "Merge": "Merge",
+    "Replace": "Replace"
   }
 }

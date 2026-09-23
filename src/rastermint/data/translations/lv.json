@@ -973,6 +973,14 @@
     "Spot 5": "Atsevišķā tinte 5",
     "Spot 6": "Atsevišķā tinte 6",
     "Spot 7": "Atsevišķā tinte 7",
-    "Spot 8": "Atsevišķā tinte 8"
+    "Spot 8": "Atsevišķā tinte 8",
+    "Use source size": "Izmantot avota izmēru",
+    "Export user content…": "Eksportēt lietotāja saturu…",
+    "Using the transformed source raster size. Select a preset to set a custom target size.": "Tiek izmantots pārveidotā avota rastra izmērs. Izvēlieties sākotnējo iestatījumu, lai noteiktu pielāgotu mērķa izmēru.",
+    "Import user content…": "Import user content…",
+    "Choose how RasterMint should restore the backup ZIP.": "Choose how RasterMint should restore the backup ZIP.",
+    "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.": "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.",
+    "Merge": "Merge",
+    "Replace": "Replace"
   }
 }

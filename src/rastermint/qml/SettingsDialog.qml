@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Dialogs
 import "components"
 
 Dialog {
@@ -395,6 +396,75 @@ Dialog {
         }
     }
 
+    FileDialog {
+        id: exportUserContentDialog
+        title: qsTr("Export user content…")
+        fileMode: FileDialog.SaveFile
+        defaultSuffix: "zip"
+        nameFilters: ["RasterMint ZIP (*.zip)"]
+        onAccepted: backend.exportAllUserContent(selectedFile.toString())
+    }
+
+    FileDialog {
+        id: importUserContentDialog
+        title: qsTr("Import user content…")
+        fileMode: FileDialog.OpenFile
+        nameFilters: ["RasterMint ZIP (*.zip)"]
+        onAccepted: importUserContentModeDialog.open()
+    }
+
+    MintDialog {
+        id: importUserContentModeDialog
+        title: qsTr("Import user content…")
+        width: Math.min(520, Overlay.overlay ? Overlay.overlay.width - 32 : 520)
+        contentItem: ColumnLayout {
+            spacing: 10
+            MintLabel {
+                Layout.fillWidth: true
+                text: qsTr("Choose how RasterMint should restore the backup ZIP.")
+                wrapMode: Text.WordWrap
+            }
+            MintLabel {
+                Layout.fillWidth: true
+                text: qsTr("Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.")
+                color: theme.mutedTextColor
+                font.pixelSize: 11
+                wrapMode: Text.WordWrap
+            }
+        }
+        footer: Rectangle {
+            implicitHeight: 56
+            color: theme.panelRaisedColor
+            border.color: theme.borderColor
+            border.width: 1
+            RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 12
+                anchors.rightMargin: 12
+                spacing: 8
+                MintButton {
+                    text: qsTr("Close")
+                    onClicked: importUserContentModeDialog.close()
+                }
+                Item { Layout.fillWidth: true }
+                MintButton {
+                    text: qsTr("Merge")
+                    onClicked: {
+                        importUserContentModeDialog.close()
+                        backend.importAllUserContent(importUserContentDialog.selectedFile.toString(), "merge")
+                    }
+                }
+                MintButton {
+                    text: qsTr("Replace")
+                    onClicked: {
+                        importUserContentModeDialog.close()
+                        backend.importAllUserContent(importUserContentDialog.selectedFile.toString(), "replace")
+                    }
+                }
+            }
+        }
+    }
+
     footer: Item {
         implicitHeight: 58
 
@@ -407,6 +477,14 @@ Dialog {
 
             MintButton { text: qsTr("Close"); onClicked: root.close() }
             Item { Layout.fillWidth: true }
+            MintButton {
+                text: qsTr("Import user content…")
+                onClicked: importUserContentDialog.open()
+            }
+            MintButton {
+                text: qsTr("Export user content…")
+                onClicked: exportUserContentDialog.open()
+            }
             MintButton {
                 id: resetSettingsButton
                 text: qsTr("Reset Settings")

@@ -973,6 +973,14 @@
     "Selected group": "ਚੁਣਿਆ ਗਰੁੱਪ",
     "Solo Group": "ਗਰੁੱਪ ਵੱਖਰਾ ਦਿਖਾਓ",
     "Ungroup Group": "ਗਰੁੱਪ ਖੋਲ੍ਹੋ",
-    "Unsolo Group": "ਗਰੁੱਪ ਵੱਖਰਾ ਦਿਖਾਉਣਾ ਬੰਦ ਕਰੋ"
+    "Unsolo Group": "ਗਰੁੱਪ ਵੱਖਰਾ ਦਿਖਾਉਣਾ ਬੰਦ ਕਰੋ",
+    "Use source size": "ਸਰੋਤ ਦਾ ਆਕਾਰ ਵਰਤੋ",
+    "Export user content…": "ਵਰਤੋਂਕਾਰ ਸਮੱਗਰੀ ਨਿਰਯਾਤ ਕਰੋ…",
+    "Using the transformed source raster size. Select a preset to set a custom target size.": "ਬਦਲੇ ਹੋਏ ਸਰੋਤ ਦਾ ਰਾਸਟਰ ਆਕਾਰ ਵਰਤਿਆ ਜਾ ਰਿਹਾ ਹੈ। ਆਪਣਾ ਨਿਸ਼ਾਨਾ ਆਕਾਰ ਸੈੱਟ ਕਰਨ ਲਈ ਪ੍ਰੀਸੈੱਟ ਚੁਣੋ।",
+    "Import user content…": "Import user content…",
+    "Choose how RasterMint should restore the backup ZIP.": "Choose how RasterMint should restore the backup ZIP.",
+    "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.": "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.",
+    "Merge": "Merge",
+    "Replace": "Replace"
   }
 }
