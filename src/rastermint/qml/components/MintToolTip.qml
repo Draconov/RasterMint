@@ -17,14 +17,15 @@ ToolTip {
     bottomPadding: 6
     closePolicy: Popup.NoAutoClose
 
-    implicitWidth: Math.ceil(contentItem.implicitWidth) + leftPadding + rightPadding
+    implicitWidth: Math.min(360, Math.ceil(contentItem.implicitWidth) + leftPadding + rightPadding)
     implicitHeight: Math.ceil(contentItem.implicitHeight) + topPadding + bottomPadding
 
     contentItem: Text {
         text: control.text
         color: control.safeTextColor
         font.pixelSize: 11
-        wrapMode: Text.NoWrap
+        width: Math.min(340, implicitWidth)
+        wrapMode: Text.WordWrap
         maximumLineCount: 6
         elide: Text.ElideRight
     }

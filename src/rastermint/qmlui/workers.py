@@ -37,6 +37,7 @@ class ProcessingWorker(QRunnable):
         tiled_processing: bool = True,
         tile_size: int = 1024,
         cancel_callback: Any | None = None,
+        gpu_preview: bool = False,
     ) -> None:
         super().__init__()
         self.job_id = job_id
@@ -54,6 +55,7 @@ class ProcessingWorker(QRunnable):
         self.tiled_processing = bool(tiled_processing)
         self.tile_size = max(256, int(tile_size))
         self.cancel_callback = cancel_callback
+        self.gpu_preview = bool(gpu_preview) and purpose == "preview"
         self.signals = WorkerSignals()
 
     @Slot()
@@ -74,21 +76,24 @@ class ProcessingWorker(QRunnable):
                     str(label or ""),
                 )
 
-            result = process_image(
-                self.image,
-                self.settings,
-                frame_time=self.frame_time,
-                frame_index=self.frame_index,
-                display_mode=self.display_mode,
-                include_grid=self.include_grid,
-                temporal_state=self.temporal_state,
-                render_cache=self.render_cache,
-                cache_context=self.cache_context,
-                tiled_processing=self.tiled_processing,
-                tile_size=self.tile_size,
-                progress_callback=progress,
-                cancel_callback=self.cancel_callback,
-            )
+            from rastermint.core.gpu_accel import preview_gpu
+
+            with preview_gpu(self.gpu_preview):
+                result = process_image(
+                    self.image,
+                    self.settings,
+                    frame_time=self.frame_time,
+                    frame_index=self.frame_index,
+                    display_mode=self.display_mode,
+                    include_grid=self.include_grid,
+                    temporal_state=self.temporal_state,
+                    render_cache=self.render_cache,
+                    cache_context=self.cache_context,
+                    tiled_processing=self.tiled_processing,
+                    tile_size=self.tile_size,
+                    progress_callback=progress,
+                    cancel_callback=self.cancel_callback,
+                )
             self.signals.finished.emit(
                 self.job_id, self.purpose, result, self.context
             )

@@ -924,7 +924,7 @@
     "Reset to Full Image": "Скинути до повного зображення",
     "Enter applies · Esc cancels · Double-click inside the crop applies": "Enter — застосувати · Esc — скасувати · Подвійний клік усередині — застосувати",
     "Full image · %1 × %2": "Повне зображення · %1 × %2",
-    "%1 × %2 px · X %3 · Y %4": "%1 × %2 px · X %3 · Y %4",
+    "%1 × %2 px · X %3 · Y %4": "%1 × %2 пікс. · X %3 · Y %4",
     "Edit Crop…": "Редагувати обрізання…",
     "Tonal Map": "Тональна карта",
     "Map image luminance through configurable mono, duotone, tritone, or four-colour tonal anchors.": "Відображає яскравість зображення через настроювані моно-, дуотонні, тритонні або чотириколірні тональні опорні точки.",
@@ -981,6 +981,8 @@
     "Choose how RasterMint should restore the backup ZIP.": "Choose how RasterMint should restore the backup ZIP.",
     "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.": "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.",
     "Merge": "Merge",
-    "Replace": "Replace"
+    "Replace": "Replace",
+    "GPU-accelerated preview (experimental)": "Попередній перегляд із прискоренням GPU (експериментально)",
+    "Use an available OpenCL GPU for large palette mapping and RGB bit-depth preview steps. Falls back to CPU if unavailable. Exports remain CPU-rendered.": "Використовує доступний GPU OpenCL для зіставлення великих палітр і обробки бітової глибини RGB під час попереднього перегляду. За відсутності GPU використовується CPU. Експорт і далі обробляється на CPU."
   }
 }

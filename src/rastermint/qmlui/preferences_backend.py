@@ -108,6 +108,7 @@ class RasterMintBackend(BaseRasterMintBackend):
             )
         except (TypeError, ValueError):
             self._layer_cache_megabytes = DEFAULT_LAYER_CACHE_MEGABYTES
+        self._gpu_preview_enabled = str(self.app_settings.value("performance/gpuPreviewEnabled", "false")).lower() in {"1", "true", "yes", "on"}
         self._tiled_processing_enabled = str(self.app_settings.value("performance/tiledProcessingEnabled", "true")).lower() not in {"0", "false", "no"}
         try:
             raw_tile = int(self.app_settings.value("performance/tileSize", DEFAULT_PROCESSING_TILE_SIZE))
@@ -163,6 +164,22 @@ class RasterMintBackend(BaseRasterMintBackend):
     )
 
     # ---------- performance preferences ----------
+    @Property(bool, notify=performanceSettingsChanged)
+    def gpuPreviewEnabled(self) -> bool:
+        return bool(self._gpu_preview_enabled)
+
+    @Slot(bool)
+    def setGpuPreviewEnabled(self, enabled: bool) -> None:
+        enabled = bool(enabled)
+        if enabled == self._gpu_preview_enabled:
+            return
+        self._gpu_preview_enabled = enabled
+        self.app_settings.setValue("performance/gpuPreviewEnabled", enabled)
+        self._clear_layer_render_cache()
+        self.performanceSettingsChanged.emit()
+        self._set_status("GPU preview: " + ("On" if enabled else "Off"))
+        self.schedulePreview(force=True)
+
     @Property(bool, notify=performanceSettingsChanged)
     def layerCacheEnabled(self) -> bool:
         return bool(self._layer_cache_enabled)

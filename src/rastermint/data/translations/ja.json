@@ -981,6 +981,8 @@
     "Choose how RasterMint should restore the backup ZIP.": "Choose how RasterMint should restore the backup ZIP.",
     "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.": "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.",
     "Merge": "Merge",
-    "Replace": "Replace"
+    "Replace": "Replace",
+    "GPU-accelerated preview (experimental)": "GPU アクセラレーションプレビュー（試験的）",
+    "Use an available OpenCL GPU for large palette mapping and RGB bit-depth preview steps. Falls back to CPU if unavailable. Exports remain CPU-rendered.": "利用可能な OpenCL GPU を使い、大きなパレットのマッピングと RGB ビット深度処理をプレビューで高速化します。利用できない場合は CPU を使用します。書き出し処理は引き続き CPU で行います。"
   }
 }

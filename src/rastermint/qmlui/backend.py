@@ -4395,6 +4395,7 @@ class RasterMintBackend(QObject):
             tiled_processing=bool(getattr(self, "tiledProcessingEnabled", True)),
             tile_size=int(getattr(self, "processingTileSize", 1024) or 1024),
             cancel_callback=preview_cancelled,
+            gpu_preview=bool(getattr(self, "gpuPreviewEnabled", False)),
         )
         self._connect_worker(worker)
         self.thread_pool.start(worker)

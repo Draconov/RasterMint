@@ -12,7 +12,7 @@ Dialog {
     // Localized labels can be substantially longer than English. Use the
     // available application width instead of forcing the old 460 px dialog,
     // while still keeping the settings window compact on large screens.
-    width: Math.min(620, Math.max(420, Overlay.overlay ? Overlay.overlay.width - 32 : 560))
+    width: Math.min(680, Math.max(320, Overlay.overlay ? Overlay.overlay.width - 24 : 560))
     height: Math.min(680, Overlay.overlay ? Overlay.overlay.height - 32 : 680)
     anchors.centerIn: Overlay.overlay
     standardButtons: Dialog.NoButton
@@ -23,6 +23,7 @@ Dialog {
         localization.resetLanguage()
         backend.historyLimit = 50
         backend.setLayerCacheEnabled(true)
+        backend.setGpuPreviewEnabled(false)
         backend.setLayerCacheMegabytes(192)
         backend.setTiledProcessingEnabled(true)
         backend.setProcessingTileSize(1024)
@@ -66,7 +67,7 @@ Dialog {
     contentItem: ScrollView {
         id: settingsScroll
         clip: true
-        ScrollBar.vertical.policy: ScrollBar.AsNeeded
+        ScrollBar.vertical: MintScrollBar { policy: ScrollBar.AsNeeded }
         contentWidth: availableWidth
 
         ColumnLayout {
@@ -261,6 +262,31 @@ Dialog {
 
             Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: theme.borderColor }
             MintLabel { text: qsTr("Performance"); font.bold: true }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+                MintCheckBox {
+                    checked: backend.gpuPreviewEnabled
+                    onToggled: backend.setGpuPreviewEnabled(checked)
+                }
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 2
+                    MintLabel {
+                        Layout.fillWidth: true
+                        text: qsTr("GPU-accelerated preview (experimental)")
+                        wrapMode: Text.WordWrap
+                    }
+                    MintLabel {
+                        Layout.fillWidth: true
+                        text: qsTr("Use an available OpenCL GPU for large palette mapping and RGB bit-depth preview steps. Falls back to CPU if unavailable. Exports remain CPU-rendered.")
+                        color: theme.mutedTextColor
+                        font.pixelSize: 10
+                        wrapMode: Text.WordWrap
+                    }
+                }
+            }
 
             RowLayout {
                 Layout.fillWidth: true
@@ -466,17 +492,21 @@ Dialog {
     }
 
     footer: Item {
-        implicitHeight: 58
+        implicitHeight: 100
 
-        RowLayout {
+        ColumnLayout {
             anchors.fill: parent
             anchors.leftMargin: 16
             anchors.rightMargin: 16
+            anchors.topMargin: 7
             anchors.bottomMargin: 10
-            spacing: 6
+            spacing: 7
 
-            MintButton { text: qsTr("Close"); onClicked: root.close() }
-            Item { Layout.fillWidth: true }
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+                MintButton { text: qsTr("Close"); onClicked: root.close() }
+                Item { Layout.fillWidth: true }
             MintButton {
                 text: qsTr("Import user content…")
                 onClicked: importUserContentDialog.open()
@@ -485,7 +515,11 @@ Dialog {
                 text: qsTr("Export user content…")
                 onClicked: exportUserContentDialog.open()
             }
-            Item { Layout.preferredWidth: 12; Layout.fillHeight: true }
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+                Item { Layout.fillWidth: true }
             MintButton {
                 id: resetSettingsButton
                 text: qsTr("Reset Settings")
@@ -506,6 +540,7 @@ Dialog {
                     root.resetWindowSettings()
                     backend.resetSettings()
                 }
+            }
             }
         }
     }

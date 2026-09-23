@@ -12,7 +12,7 @@ ComboBox {
     contentItem: Text {
         leftPadding: 2
         text: control.translateModel ? localization.translateRuntime(localization.effectiveLanguageId, String(control.displayText)) : control.displayText
-        color: theme.textColor
+        color: control.enabled ? theme.textColor : theme.mutedTextColor
         verticalAlignment: Text.AlignVCenter
         elide: Text.ElideRight
     }
@@ -20,11 +20,11 @@ ComboBox {
         x: control.width - width - 10
         anchors.verticalCenter: parent.verticalCenter
         text: "▾"
-        color: theme.mutedTextColor
+        color: control.enabled ? theme.mutedTextColor : theme.borderColor
     }
     background: Rectangle {
         radius: 6
-        color: control.hovered ? theme.panelHoverColor : theme.panelRaisedColor
+        color: !control.enabled ? theme.panelColor : (control.hovered ? theme.panelHoverColor : theme.panelRaisedColor)
         border.color: control.activeFocus ? theme.accentColor : theme.borderColor
         border.width: control.activeFocus ? 2 : 1
         Behavior on color { ColorAnimation { duration: 90 } }
@@ -45,7 +45,7 @@ ComboBox {
             implicitHeight: contentHeight
             model: control.popup.visible ? control.delegateModel : null
             currentIndex: control.highlightedIndex
-            ScrollIndicator.vertical: ScrollIndicator { }
+            ScrollBar.vertical: MintScrollBar { policy: ScrollBar.AsNeeded }
         }
     }
     delegate: ItemDelegate {
@@ -59,7 +59,7 @@ ComboBox {
         contentItem: Text {
             visible: !delegateItem.isSeparator
             text: control.translateModel ? localization.translateRuntime(localization.effectiveLanguageId, String(modelData)) : modelData
-            color: theme.textColor
+            color: delegateItem.enabled ? theme.textColor : theme.mutedTextColor
             elide: Text.ElideRight
             verticalAlignment: Text.AlignVCenter
         }

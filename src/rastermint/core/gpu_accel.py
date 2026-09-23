@@ -14,6 +14,7 @@ Set ``RASTERMINT_GPU=0`` (or ``off``/``false``/``cpu``) to force CPU rendering.
 from __future__ import annotations
 
 import ctypes
+from contextlib import contextmanager
 from ctypes import byref, c_char_p, c_int, c_size_t, c_uint, c_ulong, c_void_p
 import os
 import platform
@@ -107,9 +108,23 @@ __kernel void rm_channel_bits(
 """
 
 
+_PREVIEW_POLICY = threading.local()
+
+
+@contextmanager
+def preview_gpu(enabled: bool):
+    """Opt in on this preview worker only; exports remain on the CPU path."""
+    old = getattr(_PREVIEW_POLICY, "enabled", False)
+    _PREVIEW_POLICY.enabled = bool(enabled)
+    try:
+        yield
+    finally:
+        _PREVIEW_POLICY.enabled = old
+
+
 def _gpu_allowed() -> bool:
     value = str(os.environ.get("RASTERMINT_GPU", "auto") or "auto").strip().lower()
-    return value not in {"0", "off", "false", "no", "cpu", "disabled"}
+    return bool(getattr(_PREVIEW_POLICY, "enabled", False)) and value not in {"0", "off", "false", "no", "cpu", "disabled"}
 
 
 def _library_candidates() -> tuple[str, ...]:

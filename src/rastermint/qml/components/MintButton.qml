@@ -6,6 +6,7 @@ Button {
     property bool selected: false
     implicitHeight: 34
     leftPadding: 12
+    implicitWidth: Math.max(70, contentItem.implicitWidth + leftPadding + rightPadding)
     rightPadding: 12
     font.pixelSize: 13
     palette.buttonText: theme.textColor
@@ -19,7 +20,7 @@ Button {
     }
     background: Rectangle {
         radius: 6
-        color: control.selected || control.down ? theme.selectionColor : (control.hovered ? theme.panelHoverColor : theme.panelRaisedColor)
+        color: !control.enabled ? theme.panelColor : (control.selected || control.down ? theme.selectionColor : (control.hovered ? theme.panelHoverColor : theme.panelRaisedColor))
         border.color: control.activeFocus ? theme.accentColor : theme.borderColor
         border.width: control.activeFocus ? 2 : 1
         Behavior on color { ColorAnimation { duration: 90 } }

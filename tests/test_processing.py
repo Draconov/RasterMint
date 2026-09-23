@@ -648,3 +648,25 @@ def test_use_source_size_populates_editable_target_after_crop_and_rotation():
     assert (backend.settings.target_width, backend.settings.target_height) == (640, 600)
     RasterMintBackend.useSourceRasterSize(backend)
     assert (backend.settings.target_width, backend.settings.target_height) == (800, 600)
+
+
+def test_gpu_preview_is_opt_in_and_does_not_leak_to_export_threads(monkeypatch):
+    import threading
+    from rastermint.core.gpu_accel import _gpu_allowed, preview_gpu
+
+    monkeypatch.setenv("RASTERMINT_GPU", "auto")
+    assert not _gpu_allowed()
+    with preview_gpu(True):
+        assert _gpu_allowed()
+        outcome = []
+        thread = threading.Thread(target=lambda: outcome.append(_gpu_allowed()))
+        thread.start()
+        thread.join()
+        assert outcome == [False]
+        with preview_gpu(False):
+            assert not _gpu_allowed()
+        assert _gpu_allowed()
+    assert not _gpu_allowed()
+    monkeypatch.setenv("RASTERMINT_GPU", "0")
+    with preview_gpu(True):
+        assert not _gpu_allowed()

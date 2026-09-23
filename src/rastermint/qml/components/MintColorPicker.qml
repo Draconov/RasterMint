@@ -567,7 +567,7 @@ Item {
                     font.pixelSize: 11
                 }
 
-                TextField {
+                MintTextField {
                     id: hexField
                     Layout.fillWidth: true
                     placeholderText: "#RRGGBB"

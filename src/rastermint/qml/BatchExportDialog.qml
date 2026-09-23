@@ -95,8 +95,8 @@ Dialog {
         contentWidth: availableWidth
         contentHeight: batchBody.implicitHeight
 
-        ScrollBar.horizontal: ScrollBar { policy: ScrollBar.AlwaysOff }
-        ScrollBar.vertical: ScrollBar {
+        ScrollBar.horizontal: MintScrollBar { policy: ScrollBar.AlwaysOff }
+        ScrollBar.vertical: MintScrollBar {
             policy: batchScroll.contentHeight > batchScroll.availableHeight
                     ? ScrollBar.AsNeeded
                     : ScrollBar.AlwaysOff
