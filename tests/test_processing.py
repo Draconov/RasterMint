@@ -611,3 +611,40 @@ def test_project_schema_round_trips_snapshot_metadata_without_image_blobs(tmp_pa
     assert restored["enabled"] is True
     assert "image" not in restored["a"]
     assert "image" not in restored["b"]
+
+
+def test_use_source_size_populates_editable_target_after_crop_and_rotation():
+    from types import SimpleNamespace
+    import pytest
+    pytest.importorskip("PySide6")
+    from rastermint.qmlui.backend import RasterMintBackend
+
+    class FakeBackend:
+        def __init__(self):
+            self.settings = ProcessingSettings(
+                target_enabled=False, target_width=320, target_height=200,
+                crop_x=0.25, crop_y=0.0, crop_width=0.5, crop_height=1.0,
+                rotation=90, keep_aspect=False,
+            )
+            self.source = SimpleNamespace(width=1200, height=800)
+
+        def _active_source(self):
+            return self.source
+
+        def _target_source_size(self):
+            return self.source.width, self.source.height
+
+        def _replace_settings(self, settings, *, action):
+            self.settings = settings
+
+    backend = FakeBackend()
+    RasterMintBackend.useSourceRasterSize(backend)
+    assert backend.settings.target_enabled
+    assert (backend.settings.target_width, backend.settings.target_height) == (800, 600)
+
+    # The next manual edit is applied immediately; users need not toggle a mode.
+    RasterMintBackend.setTargetRasterWidth(backend, 640)
+    assert backend.settings.target_enabled
+    assert (backend.settings.target_width, backend.settings.target_height) == (640, 600)
+    RasterMintBackend.useSourceRasterSize(backend)
+    assert (backend.settings.target_width, backend.settings.target_height) == (800, 600)

@@ -18,15 +18,15 @@ ScrollView {
         MintButton {
             Layout.fillWidth: true
             text: qsTr("Use source size")
-            selected: !backend.settingsMap.target_enabled
-            enabled: backend.hasSource && backend.settingsMap.target_enabled
-            onClicked: backend.setSetting("target_enabled", false)
+            enabled: backend.hasSource
+            onClicked: {
+                backend.useSourceRasterSize()
+                rasterPreset.currentIndex = 0
+            }
         }
         MintLabel {
             Layout.fillWidth: true
-            text: backend.settingsMap.target_enabled
-                  ? qsTr("Processing uses exactly Width × Height pixels before dithering and effects.")
-                  : qsTr("Using the transformed source raster size. Select a preset to set a custom target size.")
+            text: qsTr("Processing uses exactly Width × Height pixels before dithering and effects.")
             color: theme.mutedTextColor
             wrapMode: Text.WordWrap
             font.pixelSize: 10
@@ -51,18 +51,18 @@ ScrollView {
             ColumnLayout {
                 Layout.fillWidth: true
                 MintLabel { text: qsTr("Width"); color: theme.mutedTextColor }
-                MintSpinBox { Layout.fillWidth: true; from: 1; to: 16384; value: backend.settingsMap.target_enabled ? Math.max(1, backend.settingsMap.target_width || 1) : backend.sourceWidth; editable: true; enabled: backend.settingsMap.target_enabled; onValueModified: backend.setTargetRasterWidth(value) }
+                MintSpinBox { Layout.fillWidth: true; from: 1; to: 16384; value: Math.max(1, backend.settingsMap.target_width || 1); editable: true; onValueModified: { backend.setTargetRasterWidth(value); rasterPreset.currentIndex = 0 } }
             }
             ColumnLayout {
                 Layout.fillWidth: true
                 MintLabel { text: qsTr("Height"); color: theme.mutedTextColor }
-                MintSpinBox { Layout.fillWidth: true; from: 1; to: 16384; value: backend.settingsMap.target_enabled ? Math.max(1, backend.settingsMap.target_height || 1) : backend.sourceHeight; editable: true; enabled: backend.settingsMap.target_enabled; onValueModified: backend.setTargetRasterHeight(value) }
+                MintSpinBox { Layout.fillWidth: true; from: 1; to: 16384; value: Math.max(1, backend.settingsMap.target_height || 1); editable: true; onValueModified: { backend.setTargetRasterHeight(value); rasterPreset.currentIndex = 0 } }
             }
         }
-        MintCheckBox { text: qsTr("Keep aspect ratio"); checked: backend.settingsMap.keep_aspect; enabled: backend.settingsMap.target_enabled; onToggled: backend.setSetting("keep_aspect", checked) }
+        MintCheckBox { text: qsTr("Keep aspect ratio"); checked: backend.settingsMap.keep_aspect; onToggled: backend.setSetting("keep_aspect", checked) }
         MintLabel {
             Layout.fillWidth: true
-            visible: backend.settingsMap.target_enabled && backend.settingsMap.keep_aspect
+            visible: backend.settingsMap.keep_aspect
             text: qsTr("Width and Height are linked to the cropped/rotated source aspect ratio. Editing either dimension updates the other.")
             color: theme.mutedTextColor
             wrapMode: Text.WordWrap

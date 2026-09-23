@@ -2089,10 +2089,26 @@ class RasterMintBackend(QObject):
         self.schedulePreview(force=True)
         self._set_status(f"Preview render: {label}")
 
+    @Slot()
+    def useSourceRasterSize(self) -> None:
+        """Copy the cropped/rotated source size into editable target dimensions."""
+        if self._active_source() is None:
+            return
+        from rastermint.core.processor import source_raster_size
+
+        width, height = source_raster_size(self._target_source_size(), self.settings)
+        data = self.settings.to_dict()
+        data.update(target_enabled=True, target_width=width, target_height=height)
+        self._replace_settings(
+            ProcessingSettings.from_dict(data),
+            action=f"Target raster: {width} × {height} · source size",
+        )
+
     @Slot(int)
     def setTargetRasterWidth(self, width: int) -> None:
         width = max(1, min(16384, int(width)))
         data = self.settings.to_dict()
+        data["target_enabled"] = True
         if bool(self.settings.keep_aspect):
             width, height = self._linked_target_size(width=width)
             data.update(target_width=width, target_height=height)
@@ -2106,6 +2122,7 @@ class RasterMintBackend(QObject):
     def setTargetRasterHeight(self, height: int) -> None:
         height = max(1, min(16384, int(height)))
         data = self.settings.to_dict()
+        data["target_enabled"] = True
         if bool(self.settings.keep_aspect):
             width, height = self._linked_target_size(height=height)
             data.update(target_width=width, target_height=height)
