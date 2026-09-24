@@ -232,16 +232,16 @@ Dialog {
                 spacing: 8
                 MintButton {
                     id: importContentButton
-                    Layout.fillWidth: true
-                    Layout.minimumWidth: 0
+                    Layout.preferredWidth: implicitWidth
+                    Layout.minimumWidth: implicitWidth
                     text: qsTr("Import user content…")
                     MintToolTip { visible: importContentButton.hovered; text: importContentButton.text }
                     onClicked: importUserContentDialog.open()
                 }
                 MintButton {
                     id: exportContentButton
-                    Layout.fillWidth: true
-                    Layout.minimumWidth: 0
+                    Layout.preferredWidth: implicitWidth
+                    Layout.minimumWidth: implicitWidth
                     text: qsTr("Export user content…")
                     MintToolTip { visible: exportContentButton.hovered; text: exportContentButton.text }
                     onClicked: exportUserContentDialog.open()
@@ -568,14 +568,15 @@ Dialog {
 
             MintButton {
                 text: qsTr("Close")
-                Layout.minimumWidth: 0
+                Layout.preferredWidth: implicitWidth
+                Layout.minimumWidth: implicitWidth
                 onClicked: root.close()
             }
             Item { Layout.fillWidth: true; Layout.minimumWidth: 0 }
             MintButton {
                 id: resetSettingsButton
-                Layout.fillWidth: true
-                Layout.minimumWidth: 0
+                Layout.preferredWidth: implicitWidth
+                Layout.minimumWidth: implicitWidth
                 text: qsTr("Reset Settings")
                 MintToolTip {
                     visible: resetSettingsButton.hovered
@@ -585,8 +586,8 @@ Dialog {
             }
             MintButton {
                 id: fullResetButton
-                Layout.fillWidth: true
-                Layout.minimumWidth: 0
+                Layout.preferredWidth: implicitWidth
+                Layout.minimumWidth: implicitWidth
                 text: qsTr("Full Reset")
                 MintToolTip {
                     visible: fullResetButton.hovered
