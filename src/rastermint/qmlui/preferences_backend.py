@@ -22,7 +22,7 @@ from rastermint.core.presets import (
 )
 from rastermint.core.preset_mutation import generate_preset_mutations
 from rastermint.core.settings import ProcessingSettings
-from rastermint.core.user_content_backup import export_user_content, import_user_content
+from rastermint.core.user_content_backup import export_user_content, import_user_content, preview_user_content
 from rastermint.qmlui.backend import RasterMintBackend as BaseRasterMintBackend
 from rastermint.qmlui.workers import ProcessingWorker
 
@@ -690,6 +690,15 @@ class RasterMintBackend(BaseRasterMintBackend):
                         categories[key_text] = value_text
         result["recent"] = result["recent"][:20]
         return result
+
+    @Slot(str, result="QVariantMap")
+    def previewUserContentBackup(self, value: str) -> dict[str, object]:
+        """Validate and list the contents of a backup before applying it."""
+        try:
+            return {"valid": True, **preview_user_content(_local_path(value), _app_data_root())}
+        except Exception as exc:
+            self.errorOccurred.emit("Could not read user content backup", str(exc))
+            return {"valid": False}
 
     @Slot(str, str)
     def importAllUserContent(self, value: str, mode: str) -> None:

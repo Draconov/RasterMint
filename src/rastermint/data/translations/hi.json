@@ -977,13 +977,23 @@
     "Use source size": "स्रोत आकार का उपयोग करें",
     "Export user content…": "उपयोगकर्ता की सामग्री निर्यात करें…",
     "Using the transformed source raster size. Select a preset to set a custom target size.": "रूपांतरित स्रोत रास्टर आकार का उपयोग हो रहा है। कस्टम लक्ष्य आकार सेट करने के लिए कोई प्रीसेट चुनें।",
-    "Import user content…": "Import user content…",
+    "Import user content…": "उपयोगकर्ता सामग्री आयात करें…",
     "Choose how RasterMint should restore the backup ZIP.": "Choose how RasterMint should restore the backup ZIP.",
     "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.": "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.",
-    "Merge": "Merge",
-    "Replace": "Replace",
+    "Merge": "मिलाएँ",
+    "Replace": "बदलें",
     "GPU-accelerated preview (experimental)": "GPU-त्वरित पूर्वावलोकन (प्रायोगिक)",
     "Use an available OpenCL GPU for large palette mapping and RGB bit-depth preview steps. Falls back to CPU if unavailable. Exports remain CPU-rendered.": "बड़ी पैलेट मैपिंग और RGB बिट-डेप्थ पूर्वावलोकन के लिए उपलब्ध OpenCL GPU का उपयोग करें। उपलब्ध न होने पर CPU का उपयोग होगा। निर्यात अब भी CPU पर रेंडर होगा।",
-    "User content": "उपयोगकर्ता सामग्री"
+    "User content": "उपयोगकर्ता सामग्री",
+    "Backup contents": "बैकअप की सामग्री",
+    "Files": "फ़ाइलें",
+    "Palettes": "पैलेट",
+    "Custom dither matrices": "कस्टम डिथर मैट्रिक्स",
+    "Animation clips": "एनिमेशन क्लिप",
+    "Existing files with matching names": "समान नाम वाली मौजूदा फ़ाइलें",
+    "Zoom to crop": "क्रॉप पर ज़ूम करें",
+    "Fit image": "छवि फिट करें",
+    "Saved palettes": "सहेजे गए पैलेट",
+    "Preset categories": "प्रीसेट श्रेणियाँ"
   }
 }

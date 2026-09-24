@@ -977,13 +977,23 @@
     "Use source size": "使用源图尺寸",
     "Export user content…": "导出用户内容…",
     "Using the transformed source raster size. Select a preset to set a custom target size.": "正在使用变换后的源图光栅尺寸。选择预设以设置自定义目标尺寸。",
-    "Import user content…": "Import user content…",
+    "Import user content…": "导入用户内容…",
     "Choose how RasterMint should restore the backup ZIP.": "Choose how RasterMint should restore the backup ZIP.",
     "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.": "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.",
-    "Merge": "Merge",
-    "Replace": "Replace",
+    "Merge": "合并",
+    "Replace": "替换",
     "GPU-accelerated preview (experimental)": "GPU 加速预览（实验性）",
     "Use an available OpenCL GPU for large palette mapping and RGB bit-depth preview steps. Falls back to CPU if unavailable. Exports remain CPU-rendered.": "使用可用的 OpenCL GPU 加速预览中的大调色板映射和 RGB 位深处理。不可用时回退到 CPU。导出仍由 CPU 渲染。",
-    "User content": "用户内容"
+    "User content": "用户内容",
+    "Backup contents": "备份内容",
+    "Files": "文件",
+    "Palettes": "调色板",
+    "Custom dither matrices": "自定义抖动矩阵",
+    "Animation clips": "动画片段",
+    "Existing files with matching names": "同名现有文件",
+    "Zoom to crop": "缩放至裁剪区域",
+    "Fit image": "适应图像",
+    "Saved palettes": "已保存的调色板",
+    "Preset categories": "预设类别"
   }
 }

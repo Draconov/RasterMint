@@ -977,13 +977,23 @@
     "Use source size": "Kaynak boyutunu kullan",
     "Export user content…": "Kullanıcı içeriğini dışa aktar…",
     "Using the transformed source raster size. Select a preset to set a custom target size.": "Dönüştürülmüş kaynağın raster boyutu kullanılıyor. Özel bir hedef boyutu ayarlamak için ön ayar seçin.",
-    "Import user content…": "Import user content…",
+    "Import user content…": "Kullanıcı içeriğini içe aktar…",
     "Choose how RasterMint should restore the backup ZIP.": "Choose how RasterMint should restore the backup ZIP.",
     "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.": "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.",
-    "Merge": "Merge",
-    "Replace": "Replace",
+    "Merge": "Birleştir",
+    "Replace": "Değiştir",
     "GPU-accelerated preview (experimental)": "GPU hızlandırmalı önizleme (deneysel)",
     "Use an available OpenCL GPU for large palette mapping and RGB bit-depth preview steps. Falls back to CPU if unavailable. Exports remain CPU-rendered.": "Önizlemede büyük palet eşlemesi ve RGB bit derinliği işlemleri için varsa OpenCL GPU kullanır. Kullanılamıyorsa CPU’ya döner. Dışa aktarma işlemleri yine CPU ile gerçekleştirilir.",
-    "User content": "Kullanıcı içeriği"
+    "User content": "Kullanıcı içeriği",
+    "Backup contents": "Yedek içeriği",
+    "Files": "Dosyalar",
+    "Palettes": "Paletler",
+    "Custom dither matrices": "Özel titretme matrisleri",
+    "Animation clips": "Animasyon klipleri",
+    "Existing files with matching names": "Aynı adlı mevcut dosyalar",
+    "Zoom to crop": "Kırpmaya yakınlaştır",
+    "Fit image": "Resmi sığdır",
+    "Saved palettes": "Kaydedilmiş paletler",
+    "Preset categories": "Ön ayar kategorileri"
   }
 }

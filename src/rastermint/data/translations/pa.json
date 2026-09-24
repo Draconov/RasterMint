@@ -977,13 +977,23 @@
     "Use source size": "ਸਰੋਤ ਦਾ ਆਕਾਰ ਵਰਤੋ",
     "Export user content…": "ਵਰਤੋਂਕਾਰ ਸਮੱਗਰੀ ਨਿਰਯਾਤ ਕਰੋ…",
     "Using the transformed source raster size. Select a preset to set a custom target size.": "ਬਦਲੇ ਹੋਏ ਸਰੋਤ ਦਾ ਰਾਸਟਰ ਆਕਾਰ ਵਰਤਿਆ ਜਾ ਰਿਹਾ ਹੈ। ਆਪਣਾ ਨਿਸ਼ਾਨਾ ਆਕਾਰ ਸੈੱਟ ਕਰਨ ਲਈ ਪ੍ਰੀਸੈੱਟ ਚੁਣੋ।",
-    "Import user content…": "Import user content…",
+    "Import user content…": "ਵਰਤੋਂਕਾਰ ਸਮੱਗਰੀ ਆਯਾਤ ਕਰੋ…",
     "Choose how RasterMint should restore the backup ZIP.": "Choose how RasterMint should restore the backup ZIP.",
     "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.": "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.",
-    "Merge": "Merge",
-    "Replace": "Replace",
+    "Merge": "ਮਿਲਾਓ",
+    "Replace": "ਬਦਲੋ",
     "GPU-accelerated preview (experimental)": "GPU-ਤੇਜ਼ ਪੂਰਵਦਰਸ਼ਨ (ਪ੍ਰਯੋਗਾਤਮਕ)",
     "Use an available OpenCL GPU for large palette mapping and RGB bit-depth preview steps. Falls back to CPU if unavailable. Exports remain CPU-rendered.": "ਵੱਡੀਆਂ ਪੈਲੇਟਾਂ ਦੀ ਮੈਪਿੰਗ ਅਤੇ RGB ਬਿੱਟ ਡੈਪਥ ਦੇ ਪੂਰਵਦਰਸ਼ਨ ਲਈ ਉਪਲਬਧ OpenCL GPU ਵਰਤੋ। ਜੇ ਉਪਲਬਧ ਨਾ ਹੋਵੇ ਤਾਂ CPU ਵਰਤਿਆ ਜਾਵੇਗਾ। ਐਕਸਪੋਰਟ CPU ਉੱਤੇ ਹੀ ਰੈਂਡਰ ਹੋਵੇਗਾ।",
-    "User content": "ਵਰਤੋਂਕਾਰ ਸਮੱਗਰੀ"
+    "User content": "ਵਰਤੋਂਕਾਰ ਸਮੱਗਰੀ",
+    "Backup contents": "ਬੈਕਅੱਪ ਦੀ ਸਮੱਗਰੀ",
+    "Files": "ਫ਼ਾਈਲਾਂ",
+    "Palettes": "ਪੈਲੇਟ",
+    "Custom dither matrices": "ਕਸਟਮ ਡਿਥਰ ਮੈਟ੍ਰਿਕਸ",
+    "Animation clips": "ਐਨੀਮੇਸ਼ਨ ਕਲਿੱਪ",
+    "Existing files with matching names": "ਇੱਕੋ ਨਾਮ ਵਾਲੀਆਂ ਮੌਜੂਦਾ ਫ਼ਾਈਲਾਂ",
+    "Zoom to crop": "ਕਰਾਪ ਉੱਤੇ ਜ਼ੂਮ ਕਰੋ",
+    "Fit image": "ਚਿੱਤਰ ਫਿੱਟ ਕਰੋ",
+    "Saved palettes": "ਸੰਭਾਲੇ ਪੈਲੇਟ",
+    "Preset categories": "ਪ੍ਰੀਸੈੱਟ ਸ਼੍ਰੇਣੀਆਂ"
   }
 }

@@ -70,14 +70,11 @@ Dialog {
         // This is a vertical-only settings page. Do not let Qt create an
         // implicit horizontal scroll indicator that can poke outside the
         // popup when a control briefly reports a larger implicit width.
-        ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+        ScrollBar.horizontal: MintScrollBar { policy: ScrollBar.AlwaysOff }
         ScrollBar.vertical: MintScrollBar {
             policy: ScrollBar.AsNeeded
-            // Align the slim overlay thumb flush with the right edge.
-            parent: settingsScroll
-            anchors.right: parent.right
-            anchors.top: parent.top
-            anchors.bottom: parent.bottom
+            // Keep the ScrollView's own attached geometry. Reparenting and
+            // anchoring a scrollbar here creates an extra protruding strip.
         }
         contentWidth: availableWidth
 
@@ -465,20 +462,53 @@ Dialog {
         onAccepted: backend.exportAllUserContent(selectedFile.toString())
     }
 
+    property var pendingBackupPreview: ({})
+
     FileDialog {
         id: importUserContentDialog
         title: qsTr("Import user content…")
         fileMode: FileDialog.OpenFile
         nameFilters: ["RasterMint ZIP (*.zip)"]
-        onAccepted: importUserContentModeDialog.open()
+        onAccepted: {
+            root.pendingBackupPreview = backend.previewUserContentBackup(selectedFile.toString())
+            if (root.pendingBackupPreview.valid)
+                importUserContentModeDialog.open()
+        }
     }
 
     MintDialog {
         id: importUserContentModeDialog
         title: qsTr("Import user content…")
-        width: Math.min(520, Overlay.overlay ? Overlay.overlay.width - 32 : 520)
+        width: Math.min(560, Overlay.overlay ? Overlay.overlay.width - 32 : 560)
         contentItem: ColumnLayout {
             spacing: 10
+            MintLabel {
+                Layout.fillWidth: true
+                font.bold: true
+                text: qsTr("Backup contents")
+            }
+            MintLabel {
+                Layout.fillWidth: true
+                text: qsTr("Presets") + ": " + root.pendingBackupPreview.presets
+                      + "  ·  " + qsTr("Palettes") + ": " + root.pendingBackupPreview.palettes
+                      + "  ·  " + qsTr("Files") + ": " + root.pendingBackupPreview.files
+                wrapMode: Text.WordWrap
+            }
+            MintLabel {
+                Layout.fillWidth: true
+                text: qsTr("Custom dither matrices") + ": " + root.pendingBackupPreview.matrices
+                      + "  ·  " + qsTr("Animation clips") + ": " + root.pendingBackupPreview.animations
+                      + "  ·  " + qsTr("Saved palettes") + ": " + root.pendingBackupPreview.saved_palettes
+                      + "  ·  " + qsTr("Preset categories") + ": " + root.pendingBackupPreview.categories
+                wrapMode: Text.WordWrap
+            }
+            MintLabel {
+                Layout.fillWidth: true
+                visible: root.pendingBackupPreview.conflicts > 0
+                text: qsTr("Existing files with matching names") + ": " + root.pendingBackupPreview.conflicts
+                color: theme.mutedTextColor
+                wrapMode: Text.WordWrap
+            }
             MintLabel {
                 Layout.fillWidth: true
                 text: qsTr("Choose how RasterMint should restore the backup ZIP.")
@@ -486,7 +516,7 @@ Dialog {
             }
             MintLabel {
                 Layout.fillWidth: true
-                text: qsTr("Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.")
+                text: qsTr("Merge keeps existing content and updates matching filenames. Replace removes current user presets and palettes first. Both restore the listed collections.")
                 color: theme.mutedTextColor
                 font.pixelSize: 11
                 wrapMode: Text.WordWrap

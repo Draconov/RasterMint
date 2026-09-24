@@ -4,6 +4,7 @@ import "components"
 
 Item {
     id: root
+    objectName: "imageCanvas"
     property real zoomFactor: 1.0
     property bool cropSpaceHeld: false
     focus: backend.cropEditing
@@ -24,23 +25,54 @@ Item {
             event.accepted = true
         }
     }
-    onActiveFocusChanged: { if (!activeFocus) cropSpaceHeld = false }
+    // Do not clear Space on focus loss during a grabbed mouse gesture. Focus
+    // can briefly move to an overlay during a long pan; the grab still owns it.
+    onActiveFocusChanged: { if (!activeFocus && !cropPanArea.pressed) cropSpaceHeld = false }
     readonly property int logicalWidth: backend.cropEditing ? backend.cropDisplayWidth : backend.previewWidth
     readonly property int logicalHeight: backend.cropEditing ? backend.cropDisplayHeight : backend.previewHeight
     property real fitScale: logicalWidth > 0 && logicalHeight > 0 ? Math.max(0.01, Math.min(width / logicalWidth, height / logicalHeight)) : 1.0
     property real effectiveScale: fitScale * zoomFactor
 
+    function clampPan(value, extent, viewport) {
+        return Math.max(0, Math.min(Math.max(0, extent - viewport), value))
+    }
+
     function resetView() {
         zoomFactor = 1.0
-        flick.contentX = Math.max(0, (flick.contentWidth - flick.width) / 2)
-        flick.contentY = Math.max(0, (flick.contentHeight - flick.height) / 2)
+        flick.contentX = clampPan(imageFrame.x + imageFrame.width / 2 - flick.width / 2,
+                                flick.contentWidth, flick.width)
+        flick.contentY = clampPan(imageFrame.y + imageFrame.height / 2 - flick.height / 2,
+                                flick.contentHeight, flick.height)
         grid.requestPaint()
+    }
+
+    function zoomToCrop() {
+        if (!backend.cropEditing || !backend.hasSource) return
+        var w = Math.max(1e-6, Number(backend.cropDraftNormWidth))
+        var h = Math.max(1e-6, Number(backend.cropDraftNormHeight))
+        // Fit the whole rectangle with a small margin and preserve the zoom
+        // range used by the wheel control. Handle full-image crops as Fit.
+        zoomFactor = Math.max(0.15, Math.min(64,
+            Math.min(flick.width / Math.max(1, logicalWidth * fitScale * w),
+                     flick.height / Math.max(1, logicalHeight * fitScale * h)) * 0.9))
+        var cx = Number(backend.cropDraftNormX) + w / 2
+        var cy = Number(backend.cropDraftNormY) + h / 2
+        // Image/frame dimensions depend on zoomFactor; synchronize geometry
+        // before centering instead of centering against the previous frame.
+        Qt.callLater(function() {
+            flick.contentX = clampPan(imageFrame.x + imageFrame.width * cx - flick.width / 2,
+                                     flick.contentWidth, flick.width)
+            flick.contentY = clampPan(imageFrame.y + imageFrame.height * cy - flick.height / 2,
+                                     flick.contentHeight, flick.height)
+            grid.requestPaint()
+        })
     }
 
     Rectangle { anchors.fill: parent; color: theme.canvasColor }
 
     Flickable {
         id: flick
+        objectName: "cropViewport"
         anchors.fill: parent
         clip: true
         boundsBehavior: Flickable.StopAtBounds
@@ -223,31 +255,41 @@ Item {
     // This sits above crop handles while Space is held; the crop geometry stays intact.
     MouseArea {
         id: cropPanArea
+        objectName: "cropPanArea"
         anchors.fill: parent
         z: 30
         // Keep the MouseArea alive through the entire mouse gesture. Keyboard
         // focus changes (or a Space release) must not cancel an active drag.
         visible: backend.cropEditing && backend.hasSource && (root.cropSpaceHeld || pressed)
-        enabled: visible
+        enabled: backend.cropEditing && backend.hasSource && (root.cropSpaceHeld || pressed)
         acceptedButtons: Qt.LeftButton
         preventStealing: true
         cursorShape: Qt.ClosedHandCursor
-        property real previousX: 0
-        property real previousY: 0
+        property real anchorX: 0
+        property real anchorY: 0
+        property real initialContentX: 0
+        property real initialContentY: 0
+        property bool gestureActive: false
         onPressed: function(mouse) {
             root.forceActiveFocus()
-            previousX = mouse.x
-            previousY = mouse.y
+            gestureActive = true
+            anchorX = mouse.x
+            anchorY = mouse.y
+            initialContentX = flick.contentX
+            initialContentY = flick.contentY
+            mouse.accepted = true
         }
         onPositionChanged: function(mouse) {
-            if (!pressed) return
-            var dx = mouse.x - previousX
-            var dy = mouse.y - previousY
-            flick.contentX = Math.max(0, Math.min(flick.contentWidth - flick.width, flick.contentX - dx))
-            flick.contentY = Math.max(0, Math.min(flick.contentHeight - flick.height, flick.contentY - dy))
-            previousX = mouse.x
-            previousY = mouse.y
+            if (!gestureActive || !pressed) return
+            // Absolute displacement avoids drift or early interruption when
+            // the pointer crosses a crop handle or Qt repeats the Space key.
+            flick.contentX = root.clampPan(initialContentX - (mouse.x - anchorX),
+                                           flick.contentWidth, flick.width)
+            flick.contentY = root.clampPan(initialContentY - (mouse.y - anchorY),
+                                           flick.contentHeight, flick.height)
         }
+        onReleased: { gestureActive = false }
+        onCanceled: { gestureActive = false }
         onWheel: function(wheel) { wheel.accepted = false }
     }
 

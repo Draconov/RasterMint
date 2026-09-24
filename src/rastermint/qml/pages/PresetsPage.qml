@@ -526,11 +526,12 @@ Item {
 
         ScrollView {
             id: presetScroll
+            ScrollBar.vertical: MintScrollBar { policy: ScrollBar.AsNeeded }
             Layout.fillWidth: true
             Layout.fillHeight: true
             contentWidth: availableWidth
             clip: true
-            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+            ScrollBar.horizontal: MintScrollBar { policy: ScrollBar.AlwaysOff }
 
             ColumnLayout {
                 width: presetScroll.availableWidth

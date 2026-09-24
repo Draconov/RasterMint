@@ -43,6 +43,11 @@ def export_user_content(destination: Path, data_root: Path, collections: dict[st
 
 
 def _safe_archive_relative_path(name: str) -> tuple[str, Path] | None:
+    if "\\" in name or ":" in name or "\x00" in name or name.startswith("/"):
+        return None
+    raw_parts = name.split("/")
+    if not raw_parts or any(part in {"", ".", ".."} for part in raw_parts):
+        return None
     pure = PurePosixPath(name)
     parts = pure.parts
     if not parts or pure.is_absolute() or any(part in {"", ".", ".."} for part in parts):
@@ -56,56 +61,107 @@ def _safe_archive_relative_path(name: str) -> tuple[str, Path] | None:
     return root, rel
 
 
-def import_user_content(source: Path, data_root: Path, *, mode: str = "merge") -> tuple[int, dict[str, object]]:
-    """Import a RasterMint user-content backup ZIP.
+# Keep imported backup sizes bounded. Preview and import follow the exact same
+# validation route; a ZIP is always validated before Replace deletes anything.
+_MAX_BACKUP_BYTES = 256 * 1024 * 1024
+_MAX_BACKUP_FILES = 5000
 
-    Returns ``(file_count, collections)``. ``mode`` can be ``merge`` or ``replace``.
-    Replace clears the managed library folders before restoring the archive.
-    """
-    source = Path(source)
-    data_root = Path(data_root)
-    mode = str(mode or "merge").strip().casefold()
-    if mode not in {"merge", "replace"}:
-        raise ValueError("unsupported import mode")
 
+def _read_backup(source: Path) -> tuple[dict[str, object], list[tuple[str, Path, bytes]]]:
+    """Read and validate the same archive members used for preview and import."""
     with ZipFile(source, "r") as archive:
         try:
             manifest = json.loads(archive.read("manifest.json").decode("utf-8"))
         except KeyError as exc:
             raise ValueError("backup is missing manifest.json") from exc
-        except Exception as exc:
-            raise ValueError("backup manifest could not be read") from exc
-
+        except (ValueError, UnicodeError) as exc:
+            raise ValueError("backup manifest is invalid") from exc
         if not isinstance(manifest, dict) or manifest.get("format") != "rastermint-user-content":
             raise ValueError("unsupported RasterMint backup format")
-        if int(manifest.get("version", 0)) != 1:
+        if manifest.get("version") != 1:
             raise ValueError("unsupported RasterMint backup version")
-        collections = manifest.get("collections")
-        if not isinstance(collections, dict):
-            collections = {}
-
+        if not isinstance(manifest.get("collections"), dict):
+            raise ValueError("backup collections must be a JSON object")
         members: list[tuple[str, Path, bytes]] = []
+        seen: set[tuple[str, str]] = set()
+        total = 0
         for info in archive.infolist():
             if info.is_dir() or info.filename == "manifest.json":
                 continue
             resolved = _safe_archive_relative_path(info.filename)
             if resolved is None:
-                continue
+                raise ValueError("backup contains an unsafe or unsupported file path")
             root, rel = resolved
             if rel.suffix.lower() not in {".json", ".png", ".webp", ".jpg", ".jpeg"}:
-                continue
-            members.append((root, rel, archive.read(info)))
+                raise ValueError("backup contains an unsupported file type")
+            # Reject Unix symlinks and duplicate filenames, including paths
+            # that collide on Windows' case-insensitive filesystem.
+            if (info.external_attr >> 16) & 0o170000 == 0o120000:
+                raise ValueError("backup contains a symbolic link")
+            key = (root, rel.as_posix().casefold())
+            if key in seen:
+                raise ValueError("backup contains duplicate filenames")
+            seen.add(key)
+            total += info.file_size
+            if total > _MAX_BACKUP_BYTES or len(seen) > _MAX_BACKUP_FILES:
+                raise ValueError("backup exceeds size or file-count limits")
+            payload = archive.read(info)
+            if len(payload) != info.file_size:
+                raise ValueError("backup contains a damaged file")
+            if rel.suffix.lower() == ".json":
+                try:
+                    json.loads(payload.decode("utf-8"))
+                except (UnicodeError, ValueError) as exc:
+                    raise ValueError("backup contains an invalid JSON file") from exc
+            members.append((root, rel, payload))
+        return manifest, members
 
+
+def preview_user_content(source: Path, data_root: Path) -> dict[str, int]:
+    """Report what an archive will restore, without modifying user data."""
+    manifest, members = _read_backup(Path(source))
+    collections = manifest["collections"]
+    def number(key: str) -> int:
+        value = collections.get(key, [])
+        return len(value) if isinstance(value, list) else 0
+    return {
+        "files": len(members),
+        "presets": sum(root == "presets" and rel.suffix.lower() == ".json" for root, rel, _ in members),
+        "palettes": sum(root == "palettes" and rel.suffix.lower() == ".json" for root, rel, _ in members),
+        "matrices": number("customDitherMatricesV1"),
+        "animations": number("animationClipLibraryV1"),
+        "saved_palettes": number("userPalettesV1"),
+        "categories": len(collections.get("presetLibraryMetaV1", {}).get("categories", {}))
+            if isinstance(collections.get("presetLibraryMetaV1"), dict)
+            and isinstance(collections["presetLibraryMetaV1"].get("categories", {}), dict) else 0,
+        "conflicts": sum((Path(data_root) / root / rel).exists() for root, rel, _ in members),
+    }
+
+
+def import_user_content(source: Path, data_root: Path, *, mode: str = "merge") -> tuple[int, dict[str, object]]:
+    """Restore validated library files and return the QSettings collections."""
+    data_root = Path(data_root)
+    mode = str(mode or "merge").strip().casefold()
+    if mode not in {"merge", "replace"}:
+        raise ValueError("unsupported import mode")
+    manifest, members = _read_backup(Path(source))
+    # Never traverse symlinked library roots or ancestor directories inside the
+    # managed libraries. This is particularly important for Replace.
+    for root in LIBRARY_DIRECTORIES:
+        directory = data_root / root
+        if directory.is_symlink():
+            raise ValueError("user library is a symbolic link")
+    for root, rel, _ in members:
+        target = data_root / root / rel
+        if any(ancestor.is_symlink() for ancestor in target.parents if ancestor != data_root.parent):
+            raise ValueError("backup target traverses a symbolic link")
     if mode == "replace":
         for dirname in LIBRARY_DIRECTORIES:
             directory = data_root / dirname
-            if directory.exists() and not directory.is_symlink():
+            if directory.exists():
                 shutil.rmtree(directory)
-
-    count = 0
     for root, rel, payload in members:
         target = data_root / root / rel
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(payload)
-        count += 1
-    return count, collections
+    return len(members), manifest["collections"]

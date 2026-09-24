@@ -165,3 +165,47 @@ def test_user_content_backup_import_rejects_invalid_zip(tmp_path):
         assert "unsupported" in str(exc) or "missing" in str(exc)
     else:
         raise AssertionError("expected invalid backup to raise ValueError")
+
+
+def test_user_content_backup_preview_is_read_only_and_matches_import(tmp_path):
+    import json
+    from rastermint.core.user_content_backup import export_user_content, preview_user_content, import_user_content
+
+    source = tmp_path / "source"
+    (source / "presets").mkdir(parents=True)
+    (source / "palettes").mkdir()
+    (source / "presets" / "a.json").write_text('{"name":"Sample"}', encoding="utf-8")
+    (source / "palettes" / "b.json").write_text('{"name":"Palette"}', encoding="utf-8")
+    backup = tmp_path / "content.zip"
+    collections = {"customDitherMatricesV1": [{"name": "Grid"}], "animationClipLibraryV1": [{"name": "Clip"}]}
+    export_user_content(backup, source, collections)
+    target = tmp_path / "target"
+    (target / "presets").mkdir(parents=True)
+    (target / "presets" / "a.json").write_text('"existing"', encoding="utf-8")
+    preview = preview_user_content(backup, target)
+    assert preview == {"files": 2, "presets": 1, "palettes": 1, "matrices": 1, "animations": 1, "saved_palettes": 0, "categories": 0, "conflicts": 1}
+    assert (target / "presets" / "a.json").read_text(encoding="utf-8") == '"existing"'
+    assert not (target / "palettes").exists()
+    count, imported = import_user_content(backup, target, mode="merge")
+    assert count == preview["files"] and imported == collections
+
+
+def test_user_content_backup_does_not_touch_user_files_for_unsafe_archive(tmp_path):
+    import pytest
+    from zipfile import ZipFile
+    from rastermint.core.user_content_backup import preview_user_content, import_user_content
+
+    root = tmp_path / "content"
+    (root / "presets").mkdir(parents=True)
+    existing = root / "presets" / "original.json"
+    existing.write_text('{"name":"original"}', encoding="utf-8")
+    backup = tmp_path / "bad.zip"
+    with ZipFile(backup, "w") as archive:
+        archive.writestr("manifest.json", '{"format":"rastermint-user-content","version":1,"collections":{}}')
+        archive.writestr("presets/../../escape.json", '{"name":"evil"}')
+    with pytest.raises(ValueError):
+        preview_user_content(backup, root)
+    with pytest.raises(ValueError):
+        import_user_content(backup, root, mode="replace")
+    assert existing.read_text(encoding="utf-8") == '{"name":"original"}'
+    assert not (tmp_path / "escape.json").exists()

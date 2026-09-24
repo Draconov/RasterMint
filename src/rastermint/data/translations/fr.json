@@ -977,13 +977,23 @@
     "Use source size": "Utiliser la taille source",
     "Export user content…": "Exporter le contenu utilisateur…",
     "Using the transformed source raster size. Select a preset to set a custom target size.": "Utilisation de la taille de la trame source transformée. Sélectionnez un préréglage pour définir une taille cible personnalisée.",
-    "Import user content…": "Import user content…",
+    "Import user content…": "Importer le contenu utilisateur…",
     "Choose how RasterMint should restore the backup ZIP.": "Choose how RasterMint should restore the backup ZIP.",
     "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.": "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.",
-    "Merge": "Merge",
-    "Replace": "Replace",
+    "Merge": "Fusionner",
+    "Replace": "Remplacer",
     "GPU-accelerated preview (experimental)": "Aperçu accéléré par GPU (expérimental)",
     "Use an available OpenCL GPU for large palette mapping and RGB bit-depth preview steps. Falls back to CPU if unavailable. Exports remain CPU-rendered.": "Utilise un GPU OpenCL disponible pour la correspondance avec de grandes palettes et la profondeur de couleur RGB dans l’aperçu. Repli sur le CPU si indisponible. Les exportations restent calculées sur le CPU.",
-    "User content": "Contenu utilisateur"
+    "User content": "Contenu utilisateur",
+    "Backup contents": "Contenu de la sauvegarde",
+    "Files": "Fichiers",
+    "Palettes": "Palettes",
+    "Custom dither matrices": "Matrices de tramage personnalisées",
+    "Animation clips": "Séquences d’animation",
+    "Existing files with matching names": "Fichiers existants portant le même nom",
+    "Zoom to crop": "Zoomer sur le recadrage",
+    "Fit image": "Ajuster l’image",
+    "Saved palettes": "Palettes enregistrées",
+    "Preset categories": "Catégories de préréglages"
   }
 }

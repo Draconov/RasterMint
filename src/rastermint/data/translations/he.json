@@ -977,13 +977,23 @@
     "Use source size": "שימוש בגודל המקור",
     "Export user content…": "ייצוא תוכן המשתמש…",
     "Using the transformed source raster size. Select a preset to set a custom target size.": "נעשה שימוש בגודל הרסטר של המקור לאחר שינוי. בחרו הגדרה קבועה מראש כדי לקבוע גודל יעד מותאם אישית.",
-    "Import user content…": "Import user content…",
+    "Import user content…": "ייבוא תוכן משתמש…",
     "Choose how RasterMint should restore the backup ZIP.": "Choose how RasterMint should restore the backup ZIP.",
     "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.": "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.",
-    "Merge": "Merge",
-    "Replace": "Replace",
+    "Merge": "מיזוג",
+    "Replace": "החלפה",
     "GPU-accelerated preview (experimental)": "תצוגה מקדימה מואצת באמצעות GPU (ניסיוני)",
     "Use an available OpenCL GPU for large palette mapping and RGB bit-depth preview steps. Falls back to CPU if unavailable. Exports remain CPU-rendered.": "שימוש ב-GPU זמין עם OpenCL למיפוי פלטות גדולות ולעיבוד עומק ביטים של RGB בתצוגה המקדימה. אם אינו זמין, נעשה שימוש ב-CPU. הייצוא ממשיך להתבצע ב-CPU.",
-    "User content": "תוכן המשתמש"
+    "User content": "תוכן המשתמש",
+    "Backup contents": "תוכן הגיבוי",
+    "Files": "קבצים",
+    "Palettes": "לוחות צבעים",
+    "Custom dither matrices": "מטריצות דיטרינג מותאמות אישית",
+    "Animation clips": "קטעי הנפשה",
+    "Existing files with matching names": "קבצים קיימים בעלי שם זהה",
+    "Zoom to crop": "התמקדות בחיתוך",
+    "Fit image": "התאמת התמונה",
+    "Saved palettes": "לוחות צבעים שמורים",
+    "Preset categories": "קטגוריות של ערכות מוגדרות מראש"
   }
 }

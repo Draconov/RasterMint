@@ -977,13 +977,23 @@
     "Use source size": "Użyj rozmiaru źródła",
     "Export user content…": "Eksportuj zawartość użytkownika…",
     "Using the transformed source raster size. Select a preset to set a custom target size.": "Używany jest rozmiar rastra przekształconego obrazu źródłowego. Wybierz ustawienie wstępne, aby ustawić własny rozmiar docelowy.",
-    "Import user content…": "Import user content…",
+    "Import user content…": "Importuj zawartość użytkownika…",
     "Choose how RasterMint should restore the backup ZIP.": "Choose how RasterMint should restore the backup ZIP.",
     "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.": "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.",
-    "Merge": "Merge",
-    "Replace": "Replace",
+    "Merge": "Scal",
+    "Replace": "Zastąp",
     "GPU-accelerated preview (experimental)": "Podgląd z akceleracją GPU (eksperymentalny)",
     "Use an available OpenCL GPU for large palette mapping and RGB bit-depth preview steps. Falls back to CPU if unavailable. Exports remain CPU-rendered.": "Używa dostępnego GPU OpenCL do mapowania dużych palet i przetwarzania głębi bitowej RGB w podglądzie. W razie niedostępności używa CPU. Eksport nadal jest renderowany przez CPU.",
-    "User content": "Zawartość użytkownika"
+    "User content": "Zawartość użytkownika",
+    "Backup contents": "Zawartość kopii zapasowej",
+    "Files": "Pliki",
+    "Palettes": "Palety",
+    "Custom dither matrices": "Niestandardowe macierze ditheringu",
+    "Animation clips": "Klipy animacji",
+    "Existing files with matching names": "Istniejące pliki o takich samych nazwach",
+    "Zoom to crop": "Powiększ do kadru",
+    "Fit image": "Dopasuj obraz",
+    "Saved palettes": "Zapisane palety",
+    "Preset categories": "Kategorie ustawień wstępnych"
   }
 }

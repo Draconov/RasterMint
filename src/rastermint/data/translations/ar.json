@@ -977,13 +977,23 @@
     "Use source size": "استخدام حجم المصدر",
     "Export user content…": "تصدير محتوى المستخدم…",
     "Using the transformed source raster size. Select a preset to set a custom target size.": "استخدام حجم المصدر المحوّل. اختر إعدادًا مسبقًا لتعيين حجم مخصص.",
-    "Import user content…": "Import user content…",
+    "Import user content…": "استيراد محتوى المستخدم…",
     "Choose how RasterMint should restore the backup ZIP.": "Choose how RasterMint should restore the backup ZIP.",
     "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.": "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.",
-    "Merge": "Merge",
-    "Replace": "Replace",
+    "Merge": "دمج",
+    "Replace": "استبدال",
     "GPU-accelerated preview (experimental)": "معاينة مسرّعة باستخدام GPU (تجريبية)",
     "Use an available OpenCL GPU for large palette mapping and RGB bit-depth preview steps. Falls back to CPU if unavailable. Exports remain CPU-rendered.": "استخدم GPU متوافقًا مع OpenCL، إن توفر، لتسريع معاينة مطابقة لوحات الألوان الكبيرة وعمق بتات RGB. عند عدم توفره يُستخدم CPU. يظل التصدير معالجًا باستخدام CPU.",
-    "User content": "محتوى المستخدم"
+    "User content": "محتوى المستخدم",
+    "Backup contents": "محتويات النسخة الاحتياطية",
+    "Files": "الملفات",
+    "Palettes": "لوحات الألوان",
+    "Custom dither matrices": "مصفوفات تنقيط مخصصة",
+    "Animation clips": "مقاطع الرسوم المتحركة",
+    "Existing files with matching names": "ملفات موجودة بأسماء مطابقة",
+    "Zoom to crop": "تكبير منطقة الاقتصاص",
+    "Fit image": "ملاءمة الصورة",
+    "Saved palettes": "لوحات الألوان المحفوظة",
+    "Preset categories": "فئات الإعدادات المسبقة"
   }
 }

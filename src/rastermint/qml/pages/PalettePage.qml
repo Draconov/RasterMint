@@ -306,7 +306,7 @@ Item {
         anchors.fill: parent
         clip: true
         contentWidth: availableWidth
-        ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+        ScrollBar.horizontal: MintScrollBar { policy: ScrollBar.AlwaysOff }
         ScrollBar.vertical: MintScrollBar { policy: ScrollBar.AsNeeded }
 
         ColumnLayout {
@@ -439,7 +439,7 @@ Item {
                         Layout.fillHeight: true
                         clip: true
                         contentWidth: availableWidth
-                        ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                        ScrollBar.horizontal: MintScrollBar { policy: ScrollBar.AlwaysOff }
                         ScrollBar.vertical: MintScrollBar { policy: ScrollBar.AsNeeded }
 
                         ColumnLayout {
@@ -812,6 +812,8 @@ Item {
                         anchors.fill: parent; anchors.margins: 7
                         contentWidth: matrixGrid.implicitWidth; contentHeight: matrixGrid.implicitHeight
                         clip: true
+                        ScrollBar.horizontal: MintScrollBar { policy: ScrollBar.AsNeeded }
+                        ScrollBar.vertical: MintScrollBar { policy: ScrollBar.AsNeeded }
                         GridLayout {
                             id: matrixGrid
                             columns: Math.max(2, backend.customDitherMatrixSize)
@@ -915,7 +917,7 @@ Item {
                     anchors.margins: 7
                     clip: true
                     contentWidth: availableWidth
-                    ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                    ScrollBar.horizontal: MintScrollBar { policy: ScrollBar.AlwaysOff }
                     ScrollBar.vertical: MintScrollBar { policy: ScrollBar.AsNeeded }
 
                     GridLayout {

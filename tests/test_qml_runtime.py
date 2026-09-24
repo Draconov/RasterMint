@@ -462,3 +462,66 @@ def test_split_view_requires_two_render_ready_snapshots_and_clamps_divider():
         assert backend.comparisonSplit == pytest.approx(1.0)
     finally:
         backend.shutdown()
+
+
+def test_crop_space_drag_continues_after_long_hold(tmp_path):
+    """Real offscreen Qt input test: a held Space+mouse pan survives >1 second."""
+    from PIL import Image
+    from PySide6.QtCore import QPoint, QPointF
+    from PySide6.QtTest import QTest
+    from PySide6.QtQuick import QQuickItem
+
+    app = _app()
+    engine, backend, provider, theme = _engine_with_context()
+    image = tmp_path / "crop-pan-test.png"
+    Image.new("RGB", (640, 480), (60, 100, 140)).save(image)
+    engine.load(QUrl.fromLocalFile(str(QML_DIR / "Main.qml")))
+    app.processEvents()
+    assert engine.rootObjects()
+    window = engine.rootObjects()[0]
+    try:
+        backend.openFile(str(image))
+        backend.beginCropEdit()
+        app.processEvents()
+        canvas = window.findChild(QQuickItem, "imageCanvas")
+        pan_area = window.findChild(QQuickItem, "cropPanArea")
+        viewport = window.findChild(QQuickItem, "cropViewport")
+        assert canvas is not None and pan_area is not None and viewport is not None
+        assert backend.cropEditing
+        canvas.setProperty("zoomFactor", 4.0)
+        app.processEvents()
+        max_x = viewport.property("contentWidth") - viewport.width()
+        max_y = viewport.property("contentHeight") - viewport.height()
+        assert max_x > 200 and max_y > 200
+        viewport.setProperty("contentX", max_x / 2)
+        viewport.setProperty("contentY", max_y / 2)
+        app.processEvents()
+        canvas.forceActiveFocus()
+        app.processEvents()
+        origin = pan_area.mapToScene(QPointF(pan_area.width() / 2, pan_area.height() / 2))
+        point = lambda dx, dy: QPoint(int(origin.x() + dx), int(origin.y() + dy))
+        QTest.keyPress(window, Qt.Key.Key_Space)
+        app.processEvents()
+        assert bool(canvas.property("cropSpaceHeld"))
+        QTest.mousePress(window, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, point(0, 0))
+        start_x = float(viewport.property("contentX"))
+        start_y = float(viewport.property("contentY"))
+        QTest.mouseMove(window, point(45, 30))
+        app.processEvents()
+        first_x = float(viewport.property("contentX"))
+        first_y = float(viewport.property("contentY"))
+        assert first_x < start_x - 15 and first_y < start_y - 10
+        assert bool(pan_area.property("pressed"))
+        # Long key repeat and pointer grab retention are the actual regression.
+        QTest.qWait(1400)
+        QTest.mouseMove(window, point(105, 85))
+        app.processEvents()
+        assert bool(pan_area.property("pressed"))
+        assert float(viewport.property("contentX")) < first_x - 30
+        assert float(viewport.property("contentY")) < first_y - 30
+        QTest.mouseRelease(window, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, point(105, 85))
+        QTest.keyRelease(window, Qt.Key.Key_Space)
+        app.processEvents()
+        assert not bool(pan_area.property("pressed"))
+    finally:
+        backend.shutdown()

@@ -977,13 +977,23 @@
     "Use source size": "원본 크기 사용",
     "Export user content…": "사용자 콘텐츠 내보내기…",
     "Using the transformed source raster size. Select a preset to set a custom target size.": "변환된 원본 래스터 크기를 사용합니다. 사용자 지정 대상 크기를 설정하려면 프리셋을 선택하세요.",
-    "Import user content…": "Import user content…",
+    "Import user content…": "사용자 콘텐츠 가져오기…",
     "Choose how RasterMint should restore the backup ZIP.": "Choose how RasterMint should restore the backup ZIP.",
     "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.": "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.",
-    "Merge": "Merge",
-    "Replace": "Replace",
+    "Merge": "병합",
+    "Replace": "교체",
     "GPU-accelerated preview (experimental)": "GPU 가속 미리보기(실험적)",
     "Use an available OpenCL GPU for large palette mapping and RGB bit-depth preview steps. Falls back to CPU if unavailable. Exports remain CPU-rendered.": "사용 가능한 OpenCL GPU로 큰 팔레트 매핑과 RGB 비트 심도 미리보기 처리를 가속합니다. 사용할 수 없으면 CPU로 전환합니다. 내보내기는 계속 CPU로 렌더링됩니다.",
-    "User content": "사용자 콘텐츠"
+    "User content": "사용자 콘텐츠",
+    "Backup contents": "백업 내용",
+    "Files": "파일",
+    "Palettes": "팔레트",
+    "Custom dither matrices": "사용자 지정 디더링 행렬",
+    "Animation clips": "애니메이션 클립",
+    "Existing files with matching names": "이름이 같은 기존 파일",
+    "Zoom to crop": "자르기 영역 확대",
+    "Fit image": "이미지 맞춤",
+    "Saved palettes": "저장된 팔레트",
+    "Preset categories": "프리셋 카테고리"
   }
 }

@@ -35,7 +35,7 @@ ScrollView {
         bezierY2.text = Number(bezier[3]).toFixed(2)
     }
     clip: true
-    ScrollBar.vertical.policy: ScrollBar.AlwaysOff
+    ScrollBar.vertical: MintScrollBar { policy: ScrollBar.AlwaysOff }
 
     function resetEditorFromTarget() {
         if (targetCombo.currentIndex < 0 || targetCombo.currentIndex >= backend.animationTargets.length) return
@@ -129,7 +129,7 @@ ScrollView {
             clip: true
             spacing: 3
             model: backend.animationTracks
-            ScrollBar.vertical: ScrollBar { policy: ScrollBar.AlwaysOff }
+            ScrollBar.vertical: MintScrollBar { policy: ScrollBar.AlwaysOff }
             delegate: Rectangle {
                 width: trackList.width; height: 44; radius: 6
                 color: index === root.selectedTrack ? theme.selectionColor : (trackHover.hovered ? theme.panelHoverColor : theme.panelRaisedColor)

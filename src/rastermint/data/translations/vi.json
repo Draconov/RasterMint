@@ -977,13 +977,23 @@
     "Use source size": "Sử dụng kích thước nguồn",
     "Export user content…": "Xuất nội dung người dùng…",
     "Using the transformed source raster size. Select a preset to set a custom target size.": "Đang sử dụng kích thước raster nguồn đã biến đổi. Chọn một thiết lập sẵn để đặt kích thước đích tùy chỉnh.",
-    "Import user content…": "Import user content…",
+    "Import user content…": "Nhập nội dung người dùng…",
     "Choose how RasterMint should restore the backup ZIP.": "Choose how RasterMint should restore the backup ZIP.",
     "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.": "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.",
-    "Merge": "Merge",
-    "Replace": "Replace",
+    "Merge": "Hợp nhất",
+    "Replace": "Thay thế",
     "GPU-accelerated preview (experimental)": "Xem trước tăng tốc GPU (thử nghiệm)",
     "Use an available OpenCL GPU for large palette mapping and RGB bit-depth preview steps. Falls back to CPU if unavailable. Exports remain CPU-rendered.": "Dùng GPU OpenCL nếu có để ánh xạ bảng màu lớn và xử lý độ sâu bit RGB khi xem trước. Nếu không có GPU, dùng CPU. Việc xuất vẫn được kết xuất trên CPU.",
-    "User content": "Nội dung người dùng"
+    "User content": "Nội dung người dùng",
+    "Backup contents": "Nội dung bản sao lưu",
+    "Files": "Tệp",
+    "Palettes": "Bảng màu",
+    "Custom dither matrices": "Ma trận phối màu tùy chỉnh",
+    "Animation clips": "Đoạn hoạt ảnh",
+    "Existing files with matching names": "Tệp hiện có trùng tên",
+    "Zoom to crop": "Phóng to vùng cắt",
+    "Fit image": "Vừa khung hình",
+    "Saved palettes": "Bảng màu đã lưu",
+    "Preset categories": "Danh mục cài đặt sẵn"
   }
 }

@@ -977,13 +977,23 @@
     "Use source size": "ماخذ کا سائز استعمال کریں",
     "Export user content…": "صارف کا مواد برآمد کریں…",
     "Using the transformed source raster size. Select a preset to set a custom target size.": "تبدیل شدہ ماخذ کا راسٹر سائز استعمال ہو رہا ہے۔ حسبِ ضرورت ہدف کا سائز مقرر کرنے کے لیے پری سیٹ منتخب کریں۔",
-    "Import user content…": "Import user content…",
+    "Import user content…": "صارف کا مواد درآمد کریں…",
     "Choose how RasterMint should restore the backup ZIP.": "Choose how RasterMint should restore the backup ZIP.",
     "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.": "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.",
-    "Merge": "Merge",
-    "Replace": "Replace",
+    "Merge": "ضم کریں",
+    "Replace": "تبدیل کریں",
     "GPU-accelerated preview (experimental)": "GPU سے تیز پیش منظر (تجرباتی)",
     "Use an available OpenCL GPU for large palette mapping and RGB bit-depth preview steps. Falls back to CPU if unavailable. Exports remain CPU-rendered.": "بڑے پیلیٹ کی میپنگ اور RGB بِٹ ڈیپتھ کے پیش منظر کے لیے دستیاب OpenCL GPU استعمال کریں۔ دستیاب نہ ہونے پر CPU استعمال ہوگا۔ ایکسپورٹ کی رینڈرنگ CPU پر ہی ہوگی۔",
-    "User content": "صارف کا مواد"
+    "User content": "صارف کا مواد",
+    "Backup contents": "بیک اپ کا مواد",
+    "Files": "فائلیں",
+    "Palettes": "پیلیٹس",
+    "Custom dither matrices": "حسب ضرورت ڈِتھر میٹرکس",
+    "Animation clips": "اینیمیشن کلپس",
+    "Existing files with matching names": "ایک جیسے نام کی موجودہ فائلیں",
+    "Zoom to crop": "کراپ پر زوم کریں",
+    "Fit image": "تصویر فٹ کریں",
+    "Saved palettes": "محفوظ شدہ پیلیٹس",
+    "Preset categories": "پری سیٹ زمرے"
   }
 }

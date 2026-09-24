@@ -977,13 +977,23 @@
     "Use source size": "元画像のサイズを使用",
     "Export user content…": "ユーザーコンテンツをエクスポート…",
     "Using the transformed source raster size. Select a preset to set a custom target size.": "変換後の元画像のラスターサイズを使用しています。カスタムの出力サイズを指定するにはプリセットを選択してください。",
-    "Import user content…": "Import user content…",
+    "Import user content…": "ユーザーコンテンツをインポート…",
     "Choose how RasterMint should restore the backup ZIP.": "Choose how RasterMint should restore the backup ZIP.",
     "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.": "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.",
-    "Merge": "Merge",
-    "Replace": "Replace",
+    "Merge": "統合",
+    "Replace": "置換",
     "GPU-accelerated preview (experimental)": "GPU アクセラレーションプレビュー（試験的）",
     "Use an available OpenCL GPU for large palette mapping and RGB bit-depth preview steps. Falls back to CPU if unavailable. Exports remain CPU-rendered.": "利用可能な OpenCL GPU を使い、大きなパレットのマッピングと RGB ビット深度処理をプレビューで高速化します。利用できない場合は CPU を使用します。書き出し処理は引き続き CPU で行います。",
-    "User content": "ユーザーコンテンツ"
+    "User content": "ユーザーコンテンツ",
+    "Backup contents": "バックアップの内容",
+    "Files": "ファイル",
+    "Palettes": "パレット",
+    "Custom dither matrices": "カスタムディザ行列",
+    "Animation clips": "アニメーションクリップ",
+    "Existing files with matching names": "同名の既存ファイル",
+    "Zoom to crop": "切り抜き範囲にズーム",
+    "Fit image": "画像全体を表示",
+    "Saved palettes": "保存済みパレット",
+    "Preset categories": "プリセットのカテゴリー"
   }
 }

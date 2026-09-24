@@ -977,13 +977,23 @@
     "Use source size": "Використати розмір джерела",
     "Export user content…": "Експортувати вміст користувача…",
     "Using the transformed source raster size. Select a preset to set a custom target size.": "Використовується розмір растра перетвореного джерела. Виберіть пресет, щоб установити власний цільовий розмір.",
-    "Import user content…": "Import user content…",
+    "Import user content…": "Імпортувати вміст користувача…",
     "Choose how RasterMint should restore the backup ZIP.": "Choose how RasterMint should restore the backup ZIP.",
     "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.": "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.",
-    "Merge": "Merge",
-    "Replace": "Replace",
+    "Merge": "Об’єднати",
+    "Replace": "Замінити",
     "GPU-accelerated preview (experimental)": "Попередній перегляд із прискоренням GPU (експериментально)",
     "Use an available OpenCL GPU for large palette mapping and RGB bit-depth preview steps. Falls back to CPU if unavailable. Exports remain CPU-rendered.": "Використовує доступний GPU OpenCL для зіставлення великих палітр і обробки бітової глибини RGB під час попереднього перегляду. За відсутності GPU використовується CPU. Експорт і далі обробляється на CPU.",
-    "User content": "Вміст користувача"
+    "User content": "Вміст користувача",
+    "Backup contents": "Вміст резервної копії",
+    "Files": "Файли",
+    "Palettes": "Палітри",
+    "Custom dither matrices": "Користувацькі матриці дизерингу",
+    "Animation clips": "Анімаційні кліпи",
+    "Existing files with matching names": "Наявні файли з однаковими назвами",
+    "Zoom to crop": "Масштабувати до обрізаної ділянки",
+    "Fit image": "Вмістити зображення",
+    "Saved palettes": "Збережені палітри",
+    "Preset categories": "Категорії пресетів"
   }
 }

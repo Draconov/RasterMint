@@ -575,7 +575,7 @@ ApplicationWindow {
                             Pages.AnimationPage { }
                             Pages.MediaPage { }
                             Pages.PrintLabPage { }
-                            Pages.CropPage { }
+                            Pages.CropPage { onZoomCropRequested: canvas.zoomToCrop(); onFitCropRequested: canvas.resetView() }
                         }
                     }
                 }

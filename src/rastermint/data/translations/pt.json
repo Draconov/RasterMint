@@ -977,13 +977,23 @@
     "Use source size": "Usar tamanho da origem",
     "Export user content…": "Exportar conteúdo do utilizador…",
     "Using the transformed source raster size. Select a preset to set a custom target size.": "Está a ser utilizado o tamanho raster da origem transformada. Selecione uma predefinição para definir um tamanho de destino personalizado.",
-    "Import user content…": "Import user content…",
+    "Import user content…": "Importar conteúdo do utilizador…",
     "Choose how RasterMint should restore the backup ZIP.": "Choose how RasterMint should restore the backup ZIP.",
     "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.": "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.",
-    "Merge": "Merge",
-    "Replace": "Replace",
+    "Merge": "Combinar",
+    "Replace": "Substituir",
     "GPU-accelerated preview (experimental)": "Pré-visualização acelerada por GPU (experimental)",
     "Use an available OpenCL GPU for large palette mapping and RGB bit-depth preview steps. Falls back to CPU if unavailable. Exports remain CPU-rendered.": "Usa uma GPU OpenCL disponível para mapear paletas grandes e processar a profundidade de bits RGB na pré-visualização. Caso não esteja disponível, usa a CPU. As exportações continuam a ser processadas pela CPU.",
-    "User content": "Conteúdo do utilizador"
+    "User content": "Conteúdo do utilizador",
+    "Backup contents": "Conteúdo da cópia de segurança",
+    "Files": "Ficheiros",
+    "Palettes": "Paletas",
+    "Custom dither matrices": "Matrizes de pontilhamento personalizadas",
+    "Animation clips": "Clipes de animação",
+    "Existing files with matching names": "Ficheiros existentes com nomes iguais",
+    "Zoom to crop": "Ampliar para o recorte",
+    "Fit image": "Ajustar imagem",
+    "Saved palettes": "Paletas guardadas",
+    "Preset categories": "Categorias de predefinições"
   }
 }

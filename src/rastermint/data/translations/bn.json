@@ -977,13 +977,23 @@
     "Use source size": "উৎসের আকার ব্যবহার করুন",
     "Export user content…": "ব্যবহারকারীর সামগ্রী রপ্তানি করুন…",
     "Using the transformed source raster size. Select a preset to set a custom target size.": "রূপান্তরিত উৎসের রাস্টার আকার ব্যবহার করা হচ্ছে। নিজস্ব লক্ষ্য আকার দিতে একটি প্রিসেট নির্বাচন করুন।",
-    "Import user content…": "Import user content…",
+    "Import user content…": "ব্যবহারকারীর সামগ্রী আমদানি করুন…",
     "Choose how RasterMint should restore the backup ZIP.": "Choose how RasterMint should restore the backup ZIP.",
     "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.": "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.",
-    "Merge": "Merge",
-    "Replace": "Replace",
+    "Merge": "একত্র করুন",
+    "Replace": "প্রতিস্থাপন করুন",
     "GPU-accelerated preview (experimental)": "GPU-ত্বরণযুক্ত প্রিভিউ (পরীক্ষামূলক)",
     "Use an available OpenCL GPU for large palette mapping and RGB bit-depth preview steps. Falls back to CPU if unavailable. Exports remain CPU-rendered.": "বড় প্যালেট ম্যাপিং ও RGB বিট-ডেপথ প্রিভিউয়ের জন্য উপলব্ধ OpenCL GPU ব্যবহার করুন। উপলব্ধ না থাকলে CPU ব্যবহার করা হবে। এক্সপোর্টের রেন্ডারিং CPU-তেই হবে।",
-    "User content": "ব্যবহারকারীর সামগ্রী"
+    "User content": "ব্যবহারকারীর সামগ্রী",
+    "Backup contents": "ব্যাকআপের বিষয়বস্তু",
+    "Files": "ফাইল",
+    "Palettes": "প্যালেট",
+    "Custom dither matrices": "কাস্টম ডিথার ম্যাট্রিক্স",
+    "Animation clips": "অ্যানিমেশন ক্লিপ",
+    "Existing files with matching names": "একই নামের বিদ্যমান ফাইল",
+    "Zoom to crop": "ক্রপে জুম করুন",
+    "Fit image": "ছবি ফিট করুন",
+    "Saved palettes": "সংরক্ষিত প্যালেট",
+    "Preset categories": "প্রিসেটের বিভাগ"
   }
 }

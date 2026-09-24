@@ -977,13 +977,23 @@
     "Use source size": "Úsáid méid na foinse",
     "Export user content…": "Easpórtáil ábhar an úsáideora…",
     "Using the transformed source raster size. Select a preset to set a custom target size.": "Tá méid raster na foinse claochlaithe in úsáid. Roghnaigh réamhshocrú chun spriocmhéid saincheaptha a shocrú.",
-    "Import user content…": "Import user content…",
+    "Import user content…": "Iompórtáil ábhar úsáideora…",
     "Choose how RasterMint should restore the backup ZIP.": "Choose how RasterMint should restore the backup ZIP.",
     "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.": "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.",
-    "Merge": "Merge",
-    "Replace": "Replace",
+    "Merge": "Cumaisc",
+    "Replace": "Ionadaigh",
     "GPU-accelerated preview (experimental)": "Réamhamharc luathaithe le GPU (turgnamhach)",
     "Use an available OpenCL GPU for large palette mapping and RGB bit-depth preview steps. Falls back to CPU if unavailable. Exports remain CPU-rendered.": "Úsáidtear GPU OpenCL, má tá sé ar fáil, chun pailéid mhóra a mhapáil agus doimhneacht ghiotán RGB a phróiseáil sa réamhamharc. Úsáidtear an CPU mura bhfuil GPU ar fáil. Próiseáiltear easpórtálacha leis an CPU fós.",
-    "User content": "Ábhar úsáideora"
+    "User content": "Ábhar úsáideora",
+    "Backup contents": "Ábhar an chúltaca",
+    "Files": "Comhaid",
+    "Palettes": "Pailéid",
+    "Custom dither matrices": "Maitrísí saincheaptha díodraithe",
+    "Animation clips": "Gearrthóga beochana",
+    "Existing files with matching names": "Comhaid atá ann cheana leis an ainm céanna",
+    "Zoom to crop": "Súmáil chuig an mbarradh",
+    "Fit image": "Feistigh an íomhá",
+    "Saved palettes": "Pailéid shábháilte",
+    "Preset categories": "Catagóirí réamhshocruithe"
   }
 }

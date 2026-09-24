@@ -444,8 +444,9 @@ Item {
         contentItem: ScrollView {
             id: pickerScroll
             clip: true
+            ScrollBar.vertical: MintScrollBar { policy: ScrollBar.AsNeeded }
             contentWidth: availableWidth
-            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+            ScrollBar.horizontal: MintScrollBar { policy: ScrollBar.AlwaysOff }
 
             ColumnLayout {
                 id: pickerColumn

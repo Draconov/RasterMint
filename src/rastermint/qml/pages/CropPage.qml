@@ -5,15 +5,36 @@ import "../components"
 
 ScrollView {
     id: root
+    signal zoomCropRequested()
+    signal fitCropRequested()
     contentWidth: availableWidth
     clip: true
-    ScrollBar.vertical.policy: ScrollBar.AlwaysOff
+    ScrollBar.vertical: MintScrollBar { policy: ScrollBar.AlwaysOff }
 
     ColumnLayout {
         width: root.availableWidth
         spacing: 10
 
         MintLabel { text: qsTr("Crop"); font.bold: true; font.pixelSize: 15 }
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 6
+            MintButton {
+                text: qsTr("Reset crop")
+                enabled: backend.hasSource
+                onClicked: backend.resetCropDraft()
+            }
+            MintButton {
+                text: qsTr("Zoom to crop")
+                enabled: backend.hasSource
+                onClicked: root.zoomCropRequested()
+            }
+            MintButton {
+                text: qsTr("Fit image")
+                enabled: backend.hasSource
+                onClicked: root.fitCropRequested()
+            }
+        }
         MintLabel {
             text: qsTr("Drag the image handles, then Apply. Preview rendering waits until the crop is accepted.")
             color: theme.mutedTextColor
@@ -100,12 +121,6 @@ ScrollView {
             translateModel: true
             currentIndex: Math.max(0, model.indexOf(backend.cropOverlay))
             onActivated: backend.setCropOverlay(String(model[index]))
-        }
-
-        MintButton {
-            Layout.fillWidth: true
-            text: qsTr("Reset to Full Image")
-            onClicked: backend.resetCropDraft()
         }
 
         Item { Layout.preferredHeight: 4 }

@@ -8,7 +8,7 @@ ScrollView {
     contentWidth: availableWidth
     signal fitRequested()
     clip: true
-    ScrollBar.vertical.policy: ScrollBar.AlwaysOff
+    ScrollBar.vertical: MintScrollBar { policy: ScrollBar.AlwaysOff }
     ColumnLayout {
         width: root.availableWidth
         spacing: 12

@@ -9,7 +9,7 @@ ScrollView {
     property var rasterSizes: [[0,0], [160,144], [240,160], [256,224], [256,240], [256,192], [320,200], [320,240], [640,480]]
     property var pixelAspects: [[1,1], [5,6], [7,6], [14,15], [5,3]]
     clip: true
-    ScrollBar.vertical.policy: ScrollBar.AlwaysOff
+    ScrollBar.vertical: MintScrollBar { policy: ScrollBar.AlwaysOff }
 
     ColumnLayout {
         width: root.availableWidth

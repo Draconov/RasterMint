@@ -977,13 +977,23 @@
     "Use source size": "Gunakan ukuran sumber",
     "Export user content…": "Ekspor konten pengguna…",
     "Using the transformed source raster size. Select a preset to set a custom target size.": "Menggunakan ukuran raster sumber yang telah ditransformasi. Pilih prasetel untuk menetapkan ukuran target khusus.",
-    "Import user content…": "Import user content…",
+    "Import user content…": "Impor konten pengguna…",
     "Choose how RasterMint should restore the backup ZIP.": "Choose how RasterMint should restore the backup ZIP.",
     "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.": "Merge keeps your existing user content and adds or updates items from the backup. Replace clears the current user libraries first.",
-    "Merge": "Merge",
-    "Replace": "Replace",
+    "Merge": "Gabungkan",
+    "Replace": "Ganti",
     "GPU-accelerated preview (experimental)": "Pratinjau dipercepat GPU (eksperimental)",
     "Use an available OpenCL GPU for large palette mapping and RGB bit-depth preview steps. Falls back to CPU if unavailable. Exports remain CPU-rendered.": "Gunakan GPU OpenCL yang tersedia untuk pemetaan palet besar dan pemrosesan kedalaman bit RGB pada pratinjau. Jika tidak tersedia, gunakan CPU. Ekspor tetap dirender oleh CPU.",
-    "User content": "Konten pengguna"
+    "User content": "Konten pengguna",
+    "Backup contents": "Isi cadangan",
+    "Files": "Berkas",
+    "Palettes": "Palet",
+    "Custom dither matrices": "Matriks dithering kustom",
+    "Animation clips": "Klip animasi",
+    "Existing files with matching names": "Berkas yang ada dengan nama sama",
+    "Zoom to crop": "Perbesar ke area potong",
+    "Fit image": "Sesuaikan gambar",
+    "Saved palettes": "Palet tersimpan",
+    "Preset categories": "Kategori preset"
   }
 }

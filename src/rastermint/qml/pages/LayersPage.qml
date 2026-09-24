@@ -1116,7 +1116,7 @@ Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
             contentWidth: availableWidth
-            ScrollBar.vertical.policy: ScrollBar.AlwaysOff
+            ScrollBar.vertical: MintScrollBar { policy: ScrollBar.AlwaysOff }
 
             ColumnLayout {
                 width: paramScroll.availableWidth
@@ -1291,7 +1291,7 @@ Item {
             id: categoryScroll
             clip: true
             contentWidth: availableWidth
-            ScrollBar.vertical.policy: ScrollBar.AlwaysOff
+            ScrollBar.vertical: MintScrollBar { policy: ScrollBar.AlwaysOff }
 
             ColumnLayout {
                 id: categoryColumn
@@ -1569,7 +1569,7 @@ Item {
                     id: glyphScroll
                     clip: true
                     contentWidth: availableWidth
-                    ScrollBar.vertical.policy: ScrollBar.AlwaysOff
+                    ScrollBar.vertical: MintScrollBar { policy: ScrollBar.AlwaysOff }
 
                     ColumnLayout {
                         id: glyphCategoryColumn
