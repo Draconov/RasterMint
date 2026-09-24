@@ -409,6 +409,8 @@ class RasterMintBackend(QObject):
         self._snapshot_revision = 0
         self._comparison_split = 0.5
         self._comparison_enabled = False
+        # Independent source/result comparison, separate from saved A/B snapshots.
+        self._before_after_enabled = False
         self._published_preview_settings: dict[str, Any] | None = None
         self._published_preview_time = 0.0
         self._rendered_preview_settings: dict[str, Any] | None = None
@@ -1624,6 +1626,24 @@ class RasterMintBackend(QObject):
             and self._snapshot_b_ready
         )
 
+    @Property(bool, notify=comparisonChanged)
+    def beforeAfterEnabled(self) -> bool:
+        return bool(self._before_after_enabled and self.hasSource and not self._crop_editing)
+
+    @Slot(bool)
+    def setBeforeAfterEnabled(self, enabled: bool) -> None:
+        enabled = bool(enabled) and self.hasSource and not self._crop_editing
+        if enabled == self._before_after_enabled:
+            return
+        self._before_after_enabled = enabled
+        if enabled:
+            # The snapshot comparison and the source/result comparison cannot
+            # both own the same draggable divider.
+            self._comparison_enabled = False
+            self.provider.clear("before-preview")
+            self.schedulePreview(force=True)
+        self.comparisonChanged.emit()
+
     def _project_extra_state(self) -> dict[str, Any]:
         return {}
 
@@ -1674,6 +1694,8 @@ class RasterMintBackend(QObject):
         self._snapshot_a_ready = False
         self._snapshot_b_ready = False
         self._comparison_enabled = False
+        self._before_after_enabled = False
+        self.provider.clear("before-preview")
         self.provider.clear("snapshot-a")
         self.provider.clear("snapshot-b")
         self._snapshot_revision += 1
@@ -1865,6 +1887,8 @@ class RasterMintBackend(QObject):
     @Slot(bool)
     def setComparisonEnabled(self, enabled: bool) -> None:
         self._comparison_enabled = bool(enabled)
+        if self._comparison_enabled:
+            self._before_after_enabled = False
         self.comparisonChanged.emit()
 
     # ---------- basic mutation ----------
@@ -4371,6 +4395,10 @@ class RasterMintBackend(QObject):
             "time": self._current_time,
             "settings_payload": settings_payload,
         }
+        if self._before_after_enabled:
+            # preview_source has the exact same crop, rotation and target raster
+            # geometry as the processed preview, but no effects have been applied.
+            context["before_image"] = _pil_to_qimage(preview_source)
 
         def preview_cancelled() -> bool:
             return source_revision != self._source_revision or settings_revision != self._settings_revision
@@ -4431,6 +4459,7 @@ class RasterMintBackend(QObject):
                     result,
                     settings_payload=context.get("settings_payload"),
                     time_seconds=float(context.get("time", self._current_time) or 0.0),
+                    before_image=context.get("before_image"),
                 )
             pending = self._pending_preview_side
             self._pending_preview_side = 0
@@ -4589,9 +4618,12 @@ class RasterMintBackend(QObject):
         *,
         settings_payload: object = None,
         time_seconds: float | None = None,
+        before_image: QImage | None = None,
     ) -> None:
         qimage = _pil_to_qimage(image)
         self.provider.set_image("preview", qimage)
+        if self._before_after_enabled and isinstance(before_image, QImage) and not before_image.isNull():
+            self.provider.set_image("before-preview", before_image)
         self._preview_width = max(1, image.width)
         self._preview_height = max(1, image.height)
         if isinstance(settings_payload, dict):

@@ -994,6 +994,7 @@
     "Zoom to crop": "切り抜き範囲にズーム",
     "Fit image": "画像全体を表示",
     "Saved palettes": "保存済みパレット",
-    "Preset categories": "プリセットのカテゴリー"
+    "Preset categories": "プリセットのカテゴリー",
+    "Before / After": "処理前 / 処理後"
   }
 }

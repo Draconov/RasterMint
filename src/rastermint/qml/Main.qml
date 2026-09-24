@@ -249,6 +249,14 @@ ApplicationWindow {
                 onTriggered: backend.setShowHotkeys(checked)
             }
             MintMenuSeparator { }
+            Action {
+                text: qsTr("Before / After")
+                enabled: backend.hasSource && !backend.cropEditing
+                checkable: true
+                checked: backend.beforeAfterEnabled
+                onTriggered: backend.setBeforeAfterEnabled(checked)
+            }
+            MintMenuSeparator { }
             Action { text: qsTr("Capture Snapshot A"); enabled: backend.hasSource && !backend.cropEditing; shortcut: "Ctrl+Alt+1"; onTriggered: backend.captureSnapshot("A") }
             Action { text: qsTr("Capture Snapshot B"); enabled: backend.hasSource && !backend.cropEditing; shortcut: "Ctrl+Alt+2"; onTriggered: backend.captureSnapshot("B") }
             Action { text: qsTr("Apply Snapshot A"); enabled: backend.snapshotAReady && !backend.cropEditing; onTriggered: backend.applySnapshot("A") }

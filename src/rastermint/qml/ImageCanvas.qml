@@ -105,6 +105,72 @@ Item {
                 smooth: root.effectiveScale < 5
             }
 
+            // Compare the original, cropped/rotated target raster with the
+            // processed preview. This is independent of saved A/B snapshots.
+            Item {
+                id: beforeAfterOverlay
+                anchors.fill: parent
+                visible: backend.beforeAfterEnabled && !backend.cropEditing
+                z: 6
+
+                Item {
+                    id: beforeClip
+                    width: parent.width * backend.comparisonSplit
+                    height: parent.height
+                    clip: true
+                    Image {
+                        width: beforeAfterOverlay.width
+                        height: beforeAfterOverlay.height
+                        cache: false
+                        asynchronous: false
+                        fillMode: Image.Stretch
+                        source: "image://rastermint/before-preview?r=" + backend.previewRevision
+                        smooth: root.effectiveScale < 5
+                    }
+                }
+                Rectangle {
+                    id: beforeAfterDivider
+                    width: 2
+                    height: parent.height
+                    x: Math.round(parent.width * backend.comparisonSplit) - 1
+                    color: theme.accentColor
+                    Rectangle {
+                        width: 26; height: 26; radius: 13
+                        anchors.centerIn: parent
+                        color: theme.panelRaisedColor
+                        border.color: theme.accentColor
+                        Text { anchors.centerIn: parent; text: "↔"; color: theme.accentColor; font.bold: true }
+                    }
+                    MouseArea {
+                        anchors.centerIn: parent
+                        width: 32; height: parent.height
+                        preventStealing: true
+                        cursorShape: Qt.SizeHorCursor
+                        function updateSplit(mouse) {
+                            var point = mapToItem(beforeAfterOverlay, mouse.x, mouse.y)
+                            backend.setComparisonSplit(Math.max(0, Math.min(1,
+                                point.x / Math.max(1, beforeAfterOverlay.width))))
+                        }
+                        onPressed: function(mouse) { updateSplit(mouse) }
+                        onPositionChanged: function(mouse) { if (pressed) updateSplit(mouse) }
+                    }
+                }
+                Text {
+                    anchors.left: parent.left; anchors.top: parent.top
+                    anchors.margins: 8
+                    text: qsTr("Source")
+                    color: theme.textColor
+                    font.bold: true
+                }
+                Text {
+                    anchors.right: parent.right; anchors.top: parent.top
+                    anchors.margins: 8
+                    text: qsTr("Preview")
+                    color: theme.textColor
+                    font.bold: true
+                }
+            }
+
             Item {
                 id: comparisonOverlay
                 anchors.fill: parent
