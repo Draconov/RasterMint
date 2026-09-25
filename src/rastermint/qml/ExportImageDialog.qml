@@ -517,14 +517,10 @@ Dialog {
                     contentHeight: Math.max(availableHeight, asciiPreviewField.implicitHeight)
 
                     ScrollBar.horizontal: MintScrollBar {
-                        policy: asciiPreviewScroll.contentWidth > asciiPreviewScroll.availableWidth
-                                ? ScrollBar.AsNeeded
-                                : ScrollBar.AlwaysOff
+                        policy: ScrollBar.AlwaysOff
                     }
                     ScrollBar.vertical: MintScrollBar {
-                        policy: asciiPreviewScroll.contentHeight > asciiPreviewScroll.availableHeight
-                                ? ScrollBar.AsNeeded
-                                : ScrollBar.AlwaysOff
+                        policy: ScrollBar.AlwaysOff
                     }
 
                     TextArea {
