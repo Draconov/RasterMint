@@ -995,6 +995,14 @@
     "Fit image": "ملاءمة الصورة",
     "Saved palettes": "لوحات الألوان المحفوظة",
     "Preset categories": "فئات الإعدادات المسبقة",
-    "Before / After": "قبل / بعد"
+    "Before / After": "قبل / بعد",
+    "Exit RasterMint": "الخروج من RasterMint",
+    "Are you sure you want to exit with unfinished export?": "هل أنت متأكد من أنك تريد الخروج مع وجود عملية تصدير غير مكتملة؟",
+    "Yes": "نعم",
+    "No": "لا",
+    "Exporting image": "جارٍ تصدير الصورة",
+    "Preparing export": "جارٍ تحضير التصدير",
+    "Export cancelled": "تم إلغاء التصدير",
+    "Preparing batch export": "جارٍ تحضير التصدير الدفعي"
   }
 }

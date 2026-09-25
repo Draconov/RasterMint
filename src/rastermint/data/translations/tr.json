@@ -995,6 +995,14 @@
     "Fit image": "Resmi sığdır",
     "Saved palettes": "Kaydedilmiş paletler",
     "Preset categories": "Ön ayar kategorileri",
-    "Before / After": "Önce / Sonra"
+    "Before / After": "Önce / Sonra",
+    "Exit RasterMint": "RasterMint'ten Çık",
+    "Are you sure you want to exit with unfinished export?": "Tamamlanmamış bir dışa aktarma varken çıkmak istediğinizden emin misiniz?",
+    "Yes": "Evet",
+    "No": "Hayır",
+    "Exporting image": "Görüntü dışa aktarılıyor",
+    "Preparing export": "Dışa aktarma hazırlanıyor",
+    "Export cancelled": "Dışa aktarma iptal edildi",
+    "Preparing batch export": "Toplu dışa aktarma hazırlanıyor"
   }
 }

@@ -995,6 +995,14 @@
     "Fit image": "تصویر فٹ کریں",
     "Saved palettes": "محفوظ شدہ پیلیٹس",
     "Preset categories": "پری سیٹ زمرے",
-    "Before / After": "پہلے / بعد"
+    "Before / After": "پہلے / بعد",
+    "Exit RasterMint": "RasterMint سے باہر نکلیں",
+    "Are you sure you want to exit with unfinished export?": "کیا آپ واقعی نامکمل برآمد کے دوران باہر نکلنا چاہتے ہیں؟",
+    "Yes": "ہاں",
+    "No": "نہیں",
+    "Exporting image": "تصویر برآمد ہو رہی ہے",
+    "Preparing export": "برآمد تیار کی جا رہی ہے",
+    "Export cancelled": "برآمد منسوخ کر دی گئی",
+    "Preparing batch export": "بیچ برآمد تیار کی جا رہی ہے"
   }
 }

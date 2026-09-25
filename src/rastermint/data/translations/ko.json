@@ -995,6 +995,14 @@
     "Fit image": "이미지 맞춤",
     "Saved palettes": "저장된 팔레트",
     "Preset categories": "프리셋 카테고리",
-    "Before / After": "이전 / 이후"
+    "Before / After": "이전 / 이후",
+    "Exit RasterMint": "RasterMint 종료",
+    "Are you sure you want to exit with unfinished export?": "완료되지 않은 내보내기가 있습니다. 종료하시겠습니까?",
+    "Yes": "예",
+    "No": "아니요",
+    "Exporting image": "이미지 내보내는 중",
+    "Preparing export": "내보내기 준비 중",
+    "Export cancelled": "내보내기 취소됨",
+    "Preparing batch export": "일괄 내보내기 준비 중"
   }
 }

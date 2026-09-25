@@ -995,6 +995,14 @@
     "Fit image": "התאמת התמונה",
     "Saved palettes": "לוחות צבעים שמורים",
     "Preset categories": "קטגוריות של ערכות מוגדרות מראש",
-    "Before / After": "לפני / אחרי"
+    "Before / After": "לפני / אחרי",
+    "Exit RasterMint": "יציאה מ־RasterMint",
+    "Are you sure you want to exit with unfinished export?": "האם אתה בטוח שברצונך לצאת כשיש ייצוא שטרם הסתיים?",
+    "Yes": "כן",
+    "No": "לא",
+    "Exporting image": "מייצא תמונה",
+    "Preparing export": "מכין ייצוא",
+    "Export cancelled": "הייצוא בוטל",
+    "Preparing batch export": "מכין ייצוא באצווה"
   }
 }

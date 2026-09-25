@@ -995,6 +995,14 @@
     "Fit image": "Adatta immagine",
     "Saved palettes": "Tavolozze salvate",
     "Preset categories": "Categorie di preset",
-    "Before / After": "Prima / Dopo"
+    "Before / After": "Prima / Dopo",
+    "Exit RasterMint": "Esci da RasterMint",
+    "Are you sure you want to exit with unfinished export?": "Sei sicuro di voler uscire mentre c’è un’esportazione non completata?",
+    "Yes": "Sì",
+    "No": "No",
+    "Exporting image": "Esportazione immagine",
+    "Preparing export": "Preparazione esportazione",
+    "Export cancelled": "Esportazione annullata",
+    "Preparing batch export": "Preparazione esportazione batch"
   }
 }

@@ -995,6 +995,14 @@
     "Fit image": "Вмістити зображення",
     "Saved palettes": "Збережені палітри",
     "Preset categories": "Категорії пресетів",
-    "Before / After": "До / Після"
+    "Before / After": "До / Після",
+    "Exit RasterMint": "Вийти з RasterMint",
+    "Are you sure you want to exit with unfinished export?": "Ви впевнені, що хочете вийти, коли експорт ще не завершено?",
+    "Yes": "Так",
+    "No": "Ні",
+    "Exporting image": "Експорт зображення",
+    "Preparing export": "Підготовка експорту",
+    "Export cancelled": "Експорт скасовано",
+    "Preparing batch export": "Підготовка пакетного експорту"
   }
 }

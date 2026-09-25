@@ -995,6 +995,14 @@
     "Fit image": "Sesuaikan gambar",
     "Saved palettes": "Palet tersimpan",
     "Preset categories": "Kategori preset",
-    "Before / After": "Sebelum / Sesudah"
+    "Before / After": "Sebelum / Sesudah",
+    "Exit RasterMint": "Keluar dari RasterMint",
+    "Are you sure you want to exit with unfinished export?": "Yakin ingin keluar saat masih ada ekspor yang belum selesai?",
+    "Yes": "Ya",
+    "No": "Tidak",
+    "Exporting image": "Mengekspor gambar",
+    "Preparing export": "Menyiapkan ekspor",
+    "Export cancelled": "Ekspor dibatalkan",
+    "Preparing batch export": "Menyiapkan ekspor massal"
   }
 }

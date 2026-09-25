@@ -995,6 +995,14 @@
     "Fit image": "Vừa khung hình",
     "Saved palettes": "Bảng màu đã lưu",
     "Preset categories": "Danh mục cài đặt sẵn",
-    "Before / After": "Trước / Sau"
+    "Before / After": "Trước / Sau",
+    "Exit RasterMint": "Thoát RasterMint",
+    "Are you sure you want to exit with unfinished export?": "Bạn có chắc muốn thoát khi quá trình xuất chưa hoàn tất không?",
+    "Yes": "Có",
+    "No": "Không",
+    "Exporting image": "Đang xuất ảnh",
+    "Preparing export": "Đang chuẩn bị xuất",
+    "Export cancelled": "Đã hủy xuất",
+    "Preparing batch export": "Đang chuẩn bị xuất hàng loạt"
   }
 }

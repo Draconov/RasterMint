@@ -995,6 +995,14 @@
     "Fit image": "Ietilpināt attēlu",
     "Saved palettes": "Saglabātās paletes",
     "Preset categories": "Sākotnējo iestatījumu kategorijas",
-    "Before / After": "Pirms / Pēc"
+    "Before / After": "Pirms / Pēc",
+    "Exit RasterMint": "Iziet no RasterMint",
+    "Are you sure you want to exit with unfinished export?": "Vai tiešām vēlaties iziet, kamēr eksportēšana nav pabeigta?",
+    "Yes": "Jā",
+    "No": "Nē",
+    "Exporting image": "Attēla eksportēšana",
+    "Preparing export": "Eksporta sagatavošana",
+    "Export cancelled": "Eksports atcelts",
+    "Preparing batch export": "Pakešu eksporta sagatavošana"
   }
 }

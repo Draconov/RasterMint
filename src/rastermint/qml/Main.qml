@@ -16,6 +16,17 @@ ApplicationWindow {
     color: theme.windowColor
 
     property int inspectorIndex: 7
+    property bool confirmedCloseAfterExport: false
+
+    onClosing: function(close) {
+        if (backend.hasUnfinishedExport && !confirmedCloseAfterExport) {
+            close.accepted = false
+            exitDuringExportDialog.open()
+            return
+        }
+        backend.shutdown()
+        close.accepted = true
+    }
 
     function urlString(value) {
         return value ? value.toString() : ""
@@ -52,14 +63,45 @@ ApplicationWindow {
         return typeName.indexOf("TextInput") < 0 && typeName.indexOf("TextEdit") < 0
     }
 
-    function renderEtaLabel() {
-        var eta = Number(backend.renderEtaSeconds)
+    function progressEtaLabel(etaSeconds) {
+        var eta = Number(etaSeconds)
         if (!isFinite(eta) || eta < 0)
             return qsTr("Estimating…")
         if (eta < 0.1)
             return qsTr("Finishing…")
         var value = eta < 10 ? eta.toFixed(1) : String(Math.ceil(eta))
         return qsTr("~%1 s remaining").arg(value)
+    }
+
+    function renderEtaLabel() {
+        return progressEtaLabel(backend.renderEtaSeconds)
+    }
+
+    function activeProgressBusy() {
+        return backend.exportBusy || backend.renderBusy
+    }
+
+    function activeProgressVisible() {
+        return (backend.exportBusy && backend.exportProgressVisible)
+                || (!backend.exportBusy && backend.renderBusy && backend.renderProgressVisible)
+    }
+
+    function activeProgressStage() {
+        if (backend.exportBusy)
+            return backend.exportStage.length > 0 ? backend.exportStage : qsTr("Exporting image")
+        return backend.renderStage.length > 0 ? backend.renderStage : qsTr("Rendering preview")
+    }
+
+    function activeProgressValue() {
+        return backend.exportBusy
+                ? Math.max(0, Math.min(1, backend.exportProgress))
+                : Math.max(0, Math.min(1, backend.renderProgress))
+    }
+
+    function activeProgressEtaLabel() {
+        return backend.exportBusy
+                ? progressEtaLabel(backend.exportEtaSeconds)
+                : renderEtaLabel()
     }
 
     function openQuickExportImageDialog() {
@@ -185,7 +227,7 @@ ApplicationWindow {
             MintMenuSeparator { }
             Action { text: qsTr("Clear Imported File"); enabled: backend.hasSource; onTriggered: backend.clearSource() }
             MintMenuSeparator { }
-            Action { text: qsTr("Quit"); shortcut: StandardKey.Quit; onTriggered: Qt.quit() }
+            Action { text: qsTr("Quit"); shortcut: StandardKey.Quit; onTriggered: window.close() }
         }
 
         MintMenu {
@@ -317,7 +359,7 @@ ApplicationWindow {
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.bottom: parent.bottom
                 anchors.bottomMargin: 18
-                visible: backend.renderBusy && backend.renderProgressVisible
+                visible: window.activeProgressBusy() && window.activeProgressVisible()
                 z: 110
                 width: Math.min(parent.width - 48, 520)
                 height: 62
@@ -337,7 +379,7 @@ ApplicationWindow {
 
                         Text {
                             Layout.fillWidth: true
-                            text: backend.renderStage.length > 0 ? backend.renderStage : qsTr("Rendering preview")
+                            text: window.activeProgressStage()
                             color: theme.textColor
                             font.pixelSize: 11
                             font.bold: true
@@ -345,7 +387,7 @@ ApplicationWindow {
                         }
 
                         Text {
-                            text: window.renderEtaLabel()
+                            text: window.activeProgressEtaLabel()
                             color: theme.mutedTextColor
                             font.pixelSize: 10
                             horizontalAlignment: Text.AlignRight
@@ -359,7 +401,7 @@ ApplicationWindow {
                         Layout.preferredHeight: 8
                         from: 0
                         to: 1
-                        value: Math.max(0, Math.min(1, backend.renderProgress))
+                        value: window.activeProgressValue()
                         padding: 0
 
                         background: Rectangle {
@@ -633,6 +675,55 @@ ApplicationWindow {
 
     MintMessageDialog { id: errorDialog; title: "RasterMint" }
     MintMessageDialog { id: infoDialog; title: "RasterMint" }
+
+    MintDialog {
+        id: exitDuringExportDialog
+        title: qsTr("Exit RasterMint")
+        width: Math.min(520, Overlay.overlay ? Overlay.overlay.width - 32 : 520)
+
+        contentItem: ColumnLayout {
+            spacing: 12
+            Text {
+                Layout.fillWidth: true
+                text: qsTr("Are you sure you want to exit with unfinished export?")
+                color: theme.textColor
+                font.pixelSize: 13
+                wrapMode: Text.Wrap
+                textFormat: Text.PlainText
+            }
+        }
+
+        footer: Rectangle {
+            implicitHeight: 56
+            color: theme.panelRaisedColor
+            border.color: theme.borderColor
+            border.width: 1
+
+            RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 12
+                anchors.rightMargin: 12
+                spacing: 8
+
+                Item { Layout.fillWidth: true }
+                MintButton {
+                    text: qsTr("Yes")
+                    onClicked: {
+                        exitDuringExportDialog.close()
+                        confirmedCloseAfterExport = true
+                        backend.cancelActiveExports()
+                        window.close()
+                    }
+                }
+                MintButton {
+                    text: qsTr("No")
+                    selected: true
+                    onClicked: exitDuringExportDialog.close()
+                }
+            }
+        }
+    }
+
     Connections {
         target: backend
         function onErrorOccurred(title, message) { errorDialog.title = title; errorDialog.text = message; errorDialog.open() }

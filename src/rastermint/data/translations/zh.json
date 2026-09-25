@@ -995,6 +995,14 @@
     "Fit image": "适应图像",
     "Saved palettes": "已保存的调色板",
     "Preset categories": "预设类别",
-    "Before / After": "处理前 / 处理后"
+    "Before / After": "处理前 / 处理后",
+    "Exit RasterMint": "退出 RasterMint",
+    "Are you sure you want to exit with unfinished export?": "确定要在导出尚未完成时退出吗？",
+    "Yes": "是",
+    "No": "否",
+    "Exporting image": "正在导出图像",
+    "Preparing export": "正在准备导出",
+    "Export cancelled": "导出已取消",
+    "Preparing batch export": "正在准备批量导出"
   }
 }

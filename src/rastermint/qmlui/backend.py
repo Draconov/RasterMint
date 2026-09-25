@@ -12,6 +12,7 @@ import re
 import traceback
 import time
 from pathlib import Path
+from threading import Event
 from typing import Any
 from uuid import uuid4
 
@@ -384,6 +385,16 @@ class RasterMintBackend(QObject):
         self._render_job_id = 0
         self._render_estimate_key = ""
         self._render_estimates: dict[str, float] = {}
+        self._export_busy = False
+        self._export_progress = 0.0
+        self._export_eta_seconds = -1.0
+        self._export_stage = ""
+        self._export_progress_visible = False
+        self._export_started_at = 0.0
+        self._export_job_id = 0
+        self._export_estimate_cache_key = ""
+        self._export_estimates: dict[str, float] = {}
+        self._export_cancel_events: dict[int, Event] = {}
         self._history = UndoHistory(limit=120)
         self._screen_eyedropper_windows: list[_ScreenEyedropperWindow] = []
         self._screen_eyedropper_loupe: _ScreenEyedropperLoupe | None = None
@@ -798,6 +809,30 @@ class RasterMintBackend(QObject):
     @Property(str, notify=renderProgressChanged)
     def renderStage(self) -> str:
         return self._render_stage
+
+    @Property(bool, notify=renderProgressChanged)
+    def exportBusy(self) -> bool:
+        return self._export_busy
+
+    @Property(float, notify=renderProgressChanged)
+    def exportProgress(self) -> float:
+        return self._export_progress
+
+    @Property(float, notify=renderProgressChanged)
+    def exportEtaSeconds(self) -> float:
+        return self._export_eta_seconds
+
+    @Property(bool, notify=renderProgressChanged)
+    def exportProgressVisible(self) -> bool:
+        return self._export_progress_visible
+
+    @Property(str, notify=renderProgressChanged)
+    def exportStage(self) -> str:
+        return self._export_stage
+
+    @Property(bool, notify=renderProgressChanged)
+    def hasUnfinishedExport(self) -> bool:
+        return self._export_busy or bool(self._export_jobs)
 
     @Property(bool, notify=showHotkeysChanged)
     def showHotkeys(self) -> bool:
@@ -2581,8 +2616,12 @@ class RasterMintBackend(QObject):
         if not path.suffix:
             path = path.with_suffix(".png")
         animated = settings_at_time(self.settings, self._current_time)
+        output_width, output_height = processed_raster_size(source.size, animated)
         job = self._next_job()
         self._export_jobs.add(job)
+        cancel_event = Event()
+        self._export_cancel_events[job] = cancel_event
+        self._begin_export_task(job, "export-image", animated, width=int(output_width), height=int(output_height), stage="Preparing export")
         worker = ProcessingWorker(
             job,
             "export-image",
@@ -2593,6 +2632,7 @@ class RasterMintBackend(QObject):
             frame_index=max(0, round(self._current_time * (self._video_info.fps if self._video_info else animated.animation_fps))),
             display_mode=animated.display_mode if animated.display_export else "raw",
             include_grid=False,
+            cancel_callback=cancel_event.is_set,
         )
         self._connect_worker(worker)
         self.thread_pool.start(worker)
@@ -2606,6 +2646,7 @@ class RasterMintBackend(QObject):
             return
         job = self._next_job()
         self._export_jobs.add(job)
+        self._begin_export_task(job, "media-export", self.settings, stage="Preparing export")
         worker = MediaExportWorker(
             job,
             self.settings,
@@ -2629,6 +2670,7 @@ class RasterMintBackend(QObject):
         output_dir.mkdir(parents=True, exist_ok=True)
         job = self._next_job()
         self._export_jobs.add(job)
+        self._begin_export_task(job, "png-sequence", self.settings, stage="Preparing export")
         worker = SequenceExportWorker(
             job,
             self.settings,
@@ -2650,6 +2692,7 @@ class RasterMintBackend(QObject):
             return
         job = self._next_job()
         self._export_jobs.add(job)
+        self._begin_export_task(job, "batch", self.settings, stage="Preparing batch export")
         worker = BatchWorker(job, paths, output, self.settings)
         self._connect_worker(worker)
         self.thread_pool.start(worker)
@@ -4339,6 +4382,101 @@ class RasterMintBackend(QObject):
             self._render_progress_visible = False
         self.renderProgressChanged.emit()
 
+    def _export_estimate_key(self, purpose: str, width: int, height: int, settings: ProcessingSettings) -> str:
+        enabled_layers = sum(
+            1 for step in (settings.effect_stack or [])
+            if isinstance(step, dict) and bool(step.get("enabled", True))
+        )
+        side = max(1, int(max(width, height, 1)))
+        side_bucket = max(64, int(round(side / 64.0) * 64))
+        return f"{str(purpose or 'export-image')}:{side_bucket}:{enabled_layers}"
+
+    def _begin_export_task(
+        self,
+        job_id: int,
+        purpose: str,
+        settings: ProcessingSettings,
+        *,
+        width: int = 0,
+        height: int = 0,
+        stage: str = "",
+    ) -> None:
+        key = self._export_estimate_key(purpose, width, height, settings)
+        self._export_job_id = int(job_id)
+        self._export_estimate_cache_key = key
+        self._export_started_at = time.perf_counter()
+        self._export_busy = True
+        self._export_progress = 0.0
+        prior_estimate = self._export_estimates.get(key)
+        self._export_eta_seconds = float(prior_estimate if prior_estimate is not None else -1.0)
+        self._export_progress_visible = bool(prior_estimate is not None and float(prior_estimate) >= 5.0)
+        self._export_stage = _tr(stage or "Preparing export")
+        self.renderProgressChanged.emit()
+
+    def _update_export_task(self, job_id: int, current: int, total: int, label: str, purpose: str = "") -> None:
+        if int(job_id) != self._export_job_id or not self._export_busy:
+            return
+        fraction = max(0.0, min(1.0, float(current) / max(1.0, float(total))))
+        self._export_progress = fraction
+        if label:
+            self._export_stage = _tr(str(label))
+        elif purpose:
+            self._export_stage = _tr(str(purpose).replace('-', ' ').title())
+
+        elapsed = max(0.0, time.perf_counter() - self._export_started_at)
+        live_eta = -1.0
+        if fraction >= 0.03 and fraction < 0.999 and elapsed > 0.02:
+            live_eta = max(0.0, elapsed * (1.0 - fraction) / fraction)
+        prior_total = self._export_estimates.get(self._export_estimate_cache_key)
+        prior_eta = -1.0
+        if prior_total is not None:
+            prior_eta = max(0.0, float(prior_total) - elapsed)
+
+        if live_eta >= 0.0 and prior_eta >= 0.0:
+            live_weight = max(0.25, min(0.9, fraction))
+            self._export_eta_seconds = live_eta * live_weight + prior_eta * (1.0 - live_weight)
+        elif live_eta >= 0.0:
+            self._export_eta_seconds = live_eta
+        elif prior_eta >= 0.0:
+            self._export_eta_seconds = prior_eta
+        else:
+            self._export_eta_seconds = -1.0
+
+        if not self._export_progress_visible:
+            estimated_total = -1.0
+            if self._export_eta_seconds >= 0.0:
+                estimated_total = elapsed + self._export_eta_seconds
+            elif prior_total is not None:
+                estimated_total = float(prior_total)
+            if estimated_total >= 5.0 or elapsed >= 5.0:
+                self._export_progress_visible = True
+        self.renderProgressChanged.emit()
+
+    def _finish_export_task(self, job_id: int, *, cancelled: bool = False) -> None:
+        self._export_cancel_events.pop(int(job_id), None)
+        if int(job_id) != self._export_job_id:
+            return
+        elapsed = max(0.0, time.perf_counter() - self._export_started_at)
+        key = self._export_estimate_cache_key
+        if key and elapsed > 0.0 and not cancelled:
+            previous = self._export_estimates.get(key)
+            self._export_estimates[key] = elapsed if previous is None else (0.65 * float(previous) + 0.35 * elapsed)
+        self._export_progress = 1.0 if not cancelled else 0.0
+        self._export_eta_seconds = 0.0
+        self._export_stage = _tr("Complete") if not cancelled else _tr("Cancelled")
+        self._export_busy = False
+        self._export_job_id = 0
+        self._export_progress_visible = False
+        self.renderProgressChanged.emit()
+
+    @Slot()
+    def cancelActiveExports(self) -> None:
+        for cancel_event in list(self._export_cancel_events.values()):
+            try:
+                cancel_event.set()
+            except Exception:
+                pass
+
     # ---------- preview pipeline ----------
     @Slot()
     def schedulePreview(self, force: bool = False) -> None:
@@ -4507,19 +4645,26 @@ class RasterMintBackend(QObject):
                 self._preview_revision += 1
                 self.previewChanged.emit()
             return
-        if purpose == "export-image" and _is_pil_image(result) and isinstance(context, dict):
+        if purpose == "export-image" and isinstance(context, dict):
             self._export_jobs.discard(job_id)
             path = Path(str(context.get("path", "output.png")))
-            try:
-                if path.suffix.lower() == ".svg":
-                    save_svg(result, path)
-                else:
-                    save_image = result.convert("RGB") if path.suffix.lower() in {".jpg", ".jpeg"} else result
-                    save_image.save(path)
-                self._set_status(f"Exported {path.name}")
-            except Exception as exc:
-                self.errorOccurred.emit("Could not export image", str(exc))
-            return
+            if result is None:
+                self._finish_export_task(job_id, cancelled=True)
+                self._set_status(_tr("Export cancelled"))
+                return
+            if _is_pil_image(result):
+                try:
+                    if path.suffix.lower() == ".svg":
+                        save_svg(result, path)
+                    else:
+                        save_image = result.convert("RGB") if path.suffix.lower() in {".jpg", ".jpeg"} else result
+                        save_image.save(path)
+                    self._finish_export_task(job_id)
+                    self._set_status(f"Exported {path.name}")
+                except Exception as exc:
+                    self._finish_export_task(job_id)
+                    self.errorOccurred.emit("Could not export image", str(exc))
+                return
         if purpose == "audio-envelope" and isinstance(result, dict):
             data = self.settings.to_dict()
             data["audio_envelope"] = list(result.get("envelope") or [])
@@ -4542,6 +4687,7 @@ class RasterMintBackend(QObject):
             return
         if purpose == "print-separations":
             self._export_jobs.discard(job_id)
+            self._export_cancel_events.pop(int(job_id), None)
             if self._render_job_id == job_id:
                 self._render_busy = False
                 self._render_progress = 1.0
@@ -4555,6 +4701,7 @@ class RasterMintBackend(QObject):
             return
         if purpose in {"media-export", "png-sequence", "batch"}:
             self._export_jobs.discard(job_id)
+            self._finish_export_task(job_id)
             self._set_status("Export complete")
 
     @Slot(int, str, str, object)
@@ -4586,6 +4733,8 @@ class RasterMintBackend(QObject):
             self._render_progress_visible = False
             self._render_job_id = 0
             self.renderProgressChanged.emit()
+        if purpose in {"export-image", "media-export", "png-sequence", "batch", "print-separations"}:
+            self._finish_export_task(job_id, cancelled="cancel" in trace.lower())
         last = trace.strip().splitlines()[-1] if trace.strip() else "Unknown error"
         self.errorOccurred.emit("RasterMint error", last)
 
@@ -4609,6 +4758,8 @@ class RasterMintBackend(QObject):
             if elapsed >= 5.0:
                 self._render_progress_visible = True
             self.renderProgressChanged.emit()
+        if purpose in {"export-image", "media-export", "png-sequence", "batch"}:
+            self._update_export_task(job_id, current, total, label, purpose)
         if total > 0:
             self._set_status(f"{purpose.replace('-', ' ').title()}: {current}/{total} {label}")
 
@@ -4666,6 +4817,7 @@ class RasterMintBackend(QObject):
         if self._shutdown_complete:
             return
         self._shutdown_complete = True
+        self.cancelActiveExports()
         self._close_screen_eyedropper()
         self._quick_timer.stop(); self._stable_timer.stop(); self._play_timer.stop()
         self.thread_pool.clear()

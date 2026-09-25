@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from pathlib import Path
+from threading import Event
 from typing import Any
 
 from PySide6.QtCore import QUrl, Slot
@@ -12,7 +13,7 @@ from PySide6.QtGui import QGuiApplication, QImage
 from rastermint.core.animation import settings_at_time
 from rastermint.core.settings import ProcessingSettings
 
-from .backend import _local_path
+from .backend import _local_path, _tr
 from .batch_worker import BatchWorker
 from .preferences_backend import RasterMintBackend as PreferencesBackend
 from .workers import ProcessingWorker
@@ -557,6 +558,16 @@ class RasterMintBackend(PreferencesBackend):
         }
         job = self._next_job()
         self._export_jobs.add(job)
+        cancel_event = Event()
+        self._export_cancel_events[job] = cancel_event
+        self._begin_export_task(
+            job,
+            "export-image",
+            animated,
+            width=int(alpha_source.width),
+            height=int(alpha_source.height),
+            stage="Preparing export",
+        )
         worker = ProcessingWorker(
             job,
             "export-image",
@@ -573,6 +584,7 @@ class RasterMintBackend(PreferencesBackend):
             ),
             display_mode=animated.display_mode if animated.display_export else "raw",
             include_grid=False,
+            cancel_callback=cancel_event.is_set,
         )
         self._connect_worker(worker)
         self.thread_pool.start(worker)
@@ -647,6 +659,16 @@ class RasterMintBackend(PreferencesBackend):
         }
         job = self._next_job()
         self._export_jobs.add(job)
+        cancel_event = Event()
+        self._export_cancel_events[job] = cancel_event
+        self._begin_export_task(
+            job,
+            "export-image",
+            animated,
+            width=int(width),
+            height=int(height),
+            stage="Preparing export",
+        )
         worker = ProcessingWorker(
             job,
             "export-image",
@@ -663,6 +685,7 @@ class RasterMintBackend(PreferencesBackend):
             ),
             display_mode=animated.display_mode if animated.display_export else "raw",
             include_grid=False,
+            cancel_callback=cancel_event.is_set,
         )
         self._connect_worker(worker)
         self.thread_pool.start(worker)
@@ -809,41 +832,53 @@ class RasterMintBackend(PreferencesBackend):
             return
         if (
             purpose == "export-image"
-            and _is_pil_image(result)
             and isinstance(context, dict)
             and bool(context.get("quick_alpha_export"))
         ):
             self._export_jobs.discard(job_id)
             path = Path(str(context.get("path", "output.png")))
-            try:
-                output = result.convert("RGBA")
-                alpha_mask = context.get("alpha_mask")
-                if _is_pil_image(alpha_mask):
-                    mask = alpha_mask.convert("L")
-                    if mask.size != output.size:
-                        mask = mask.resize(output.size, _resampling("NEAREST"))
-                    existing_alpha = output.getchannel("A")
-                    mask = _image_chops_module().multiply(existing_alpha, mask)
-                    output.putalpha(mask)
-                if path.suffix.lower() == ".svg":
-                    save_svg(output, path)
-                else:
-                    output.save(path)
-                self._set_status(f"Exported {path.name}")
-            except Exception as exc:
-                self.errorOccurred.emit("Could not export image", str(exc))
-            return
+            if result is None:
+                self._finish_export_task(job_id, cancelled=True)
+                self._set_status(_tr("Export cancelled"))
+                return
+            if _is_pil_image(result):
+                try:
+                    output = result.convert("RGBA")
+                    alpha_mask = context.get("alpha_mask")
+                    if _is_pil_image(alpha_mask):
+                        mask = alpha_mask.convert("L")
+                        if mask.size != output.size:
+                            mask = mask.resize(output.size, _resampling("NEAREST"))
+                        existing_alpha = output.getchannel("A")
+                        mask = _image_chops_module().multiply(existing_alpha, mask)
+                        output.putalpha(mask)
+                    if path.suffix.lower() == ".svg":
+                        save_svg(output, path)
+                    else:
+                        output.save(path)
+                    self._finish_export_task(job_id)
+                    self._set_status(f"Exported {path.name}")
+                except Exception as exc:
+                    self._finish_export_task(job_id)
+                    self.errorOccurred.emit("Could not export image", str(exc))
+                return
         if (
             purpose == "export-image"
-            and _is_pil_image(result)
             and isinstance(context, dict)
             and bool(context.get("advanced_export"))
         ):
             self._export_jobs.discard(job_id)
-            try:
-                path = self._save_advanced_image(result, context)
-                self._set_status(f"Exported {path.name}")
-            except Exception as exc:
-                self.errorOccurred.emit("Could not export image", str(exc))
-            return
+            if result is None:
+                self._finish_export_task(job_id, cancelled=True)
+                self._set_status(_tr("Export cancelled"))
+                return
+            if _is_pil_image(result):
+                try:
+                    path = self._save_advanced_image(result, context)
+                    self._finish_export_task(job_id)
+                    self._set_status(f"Exported {path.name}")
+                except Exception as exc:
+                    self._finish_export_task(job_id)
+                    self.errorOccurred.emit("Could not export image", str(exc))
+                return
         super()._worker_finished(job_id, purpose, result, context)

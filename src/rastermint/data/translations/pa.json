@@ -995,6 +995,14 @@
     "Fit image": "ਚਿੱਤਰ ਫਿੱਟ ਕਰੋ",
     "Saved palettes": "ਸੰਭਾਲੇ ਪੈਲੇਟ",
     "Preset categories": "ਪ੍ਰੀਸੈੱਟ ਸ਼੍ਰੇਣੀਆਂ",
-    "Before / After": "ਪਹਿਲਾਂ / ਬਾਅਦ"
+    "Before / After": "ਪਹਿਲਾਂ / ਬਾਅਦ",
+    "Exit RasterMint": "RasterMint ਤੋਂ ਬਾਹਰ ਨਿਕਲੋ",
+    "Are you sure you want to exit with unfinished export?": "ਕੀ ਤੁਸੀਂ ਯਕੀਨੀ ਤੌਰ 'ਤੇ ਅਧੂਰਾ ਐਕਸਪੋਰਟ ਹੋਣ ਦੌਰਾਨ ਬਾਹਰ ਨਿਕਲਣਾ ਚਾਹੁੰਦੇ ਹੋ?",
+    "Yes": "ਹਾਂ",
+    "No": "ਨਹੀਂ",
+    "Exporting image": "ਤਸਵੀਰ ਐਕਸਪੋਰਟ ਕੀਤੀ ਜਾ ਰਹੀ ਹੈ",
+    "Preparing export": "ਐਕਸਪੋਰਟ ਤਿਆਰ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ",
+    "Export cancelled": "ਐਕਸਪੋਰਟ ਰੱਦ ਕੀਤਾ ਗਿਆ",
+    "Preparing batch export": "ਬੈਚ ਐਕਸਪੋਰਟ ਤਿਆਰ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ"
   }
 }

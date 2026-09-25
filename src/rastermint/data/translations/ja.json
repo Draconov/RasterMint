@@ -995,6 +995,14 @@
     "Fit image": "画像全体を表示",
     "Saved palettes": "保存済みパレット",
     "Preset categories": "プリセットのカテゴリー",
-    "Before / After": "処理前 / 処理後"
+    "Before / After": "処理前 / 処理後",
+    "Exit RasterMint": "RasterMint を終了",
+    "Are you sure you want to exit with unfinished export?": "未完了のエクスポートがあります。終了してもよろしいですか？",
+    "Yes": "はい",
+    "No": "いいえ",
+    "Exporting image": "画像をエクスポート中",
+    "Preparing export": "エクスポートを準備中",
+    "Export cancelled": "エクスポートをキャンセルしました",
+    "Preparing batch export": "一括エクスポートを準備中"
   }
 }

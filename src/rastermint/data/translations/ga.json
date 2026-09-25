@@ -995,6 +995,14 @@
     "Fit image": "Feistigh an íomhá",
     "Saved palettes": "Pailéid shábháilte",
     "Preset categories": "Catagóirí réamhshocruithe",
-    "Before / After": "Roimh / Ina dhiaidh"
+    "Before / After": "Roimh / Ina dhiaidh",
+    "Exit RasterMint": "Scoir as RasterMint",
+    "Are you sure you want to exit with unfinished export?": "An bhfuil tú cinnte gur mhaith leat scoir agus easpórtáil fós ar siúl?",
+    "Yes": "Tá",
+    "No": "Níl",
+    "Exporting image": "Íomhá á heaspórtáil",
+    "Preparing export": "Easpórtáil á hullmhú",
+    "Export cancelled": "Easpórtáil curtha ar ceal",
+    "Preparing batch export": "Easpórtáil baisce á hullmhú"
   }
 }
