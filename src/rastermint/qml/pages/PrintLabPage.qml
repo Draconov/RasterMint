@@ -112,6 +112,7 @@ Item {
         ScrollView {
             Layout.fillWidth: true; Layout.fillHeight: true
             clip: true; contentWidth: availableWidth
+            ScrollBar.horizontal: MintScrollBar { policy: ScrollBar.AlwaysOff }
             ScrollBar.vertical: MintScrollBar { policy: ScrollBar.AsNeeded }
             ColumnLayout {
                 width: parent.width

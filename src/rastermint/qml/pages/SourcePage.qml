@@ -8,6 +8,7 @@ ScrollView {
     signal cropRequested()
     contentWidth: availableWidth
     clip: true
+    ScrollBar.horizontal: MintScrollBar { policy: ScrollBar.AlwaysOff }
     ScrollBar.vertical: MintScrollBar { policy: ScrollBar.AlwaysOff }
     ColumnLayout {
         width: root.availableWidth

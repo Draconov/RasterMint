@@ -35,6 +35,7 @@ ScrollView {
         bezierY2.text = Number(bezier[3]).toFixed(2)
     }
     clip: true
+    ScrollBar.horizontal: MintScrollBar { policy: ScrollBar.AlwaysOff }
     ScrollBar.vertical: MintScrollBar { policy: ScrollBar.AlwaysOff }
 
     function resetEditorFromTarget() {

@@ -9,6 +9,7 @@ ScrollView {
     property var modeValues: ["Visual", "Strict"]
     contentWidth: availableWidth
     clip: true
+    ScrollBar.horizontal: MintScrollBar { policy: ScrollBar.AlwaysOff }
     ScrollBar.vertical: MintScrollBar { policy: ScrollBar.AlwaysOff }
 
     property var profileModel: []

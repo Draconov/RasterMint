@@ -439,6 +439,7 @@ Item {
                         Layout.fillHeight: true
                         clip: true
                         contentWidth: availableWidth
+                        contentHeight: libraryColumn.implicitHeight
                         ScrollBar.horizontal: MintScrollBar { policy: ScrollBar.AlwaysOff }
                         ScrollBar.vertical: MintScrollBar { policy: ScrollBar.AsNeeded }
 
@@ -913,15 +914,18 @@ Item {
                 clip: true
 
                 ScrollView {
+                    id: gradientPresetScroll
                     anchors.fill: parent
                     anchors.margins: 7
                     clip: true
                     contentWidth: availableWidth
+                    contentHeight: gradientPresetGrid.implicitHeight
                     ScrollBar.horizontal: MintScrollBar { policy: ScrollBar.AlwaysOff }
                     ScrollBar.vertical: MintScrollBar { policy: ScrollBar.AsNeeded }
 
                     GridLayout {
-                        width: parent.width
+                        id: gradientPresetGrid
+                        width: gradientPresetScroll.availableWidth
                         columns: width >= 500 ? 4 : (width >= 350 ? 3 : 2)
                         columnSpacing: 6
                         rowSpacing: 6

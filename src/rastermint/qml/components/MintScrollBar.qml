@@ -3,21 +3,69 @@ import QtQuick.Controls
 
 ScrollBar {
     id: control
-    // Overlay indicator: no track, border or padding. The control occupies
-    // only the final pixels of its scroll viewport.
-    implicitWidth: 5
-    implicitHeight: 5
-    minimumSize: 0.12
+
+    // Thin overlay indicator with no track, border, or surrounding padding.
+    // Attached vertical scrollbars keep Qt's normal right-edge placement.
+    implicitWidth: 4
+    implicitHeight: 4
+    minimumSize: 0.08
     padding: 0
     hoverEnabled: true
-    opacity: control.enabled && control.size < 1.0 &&
-             (control.active || control.hovered || control.pressed) ? 1.0 : 0.0
-    Behavior on opacity { NumberAnimation { duration: 120 } }
-    contentItem: Rectangle {
-        implicitWidth: 5
-        implicitHeight: 5
-        radius: 2.5
-        color: control.pressed || control.hovered ? theme.accentHoverColor : theme.accentColor
+
+    property bool indicatorVisible: false
+
+    function revealIndicator() {
+        hideDelay.stop()
+        indicatorVisible = true
     }
+
+    function scheduleHide() {
+        if (!active && !pressed && !hovered && indicatorVisible)
+            hideDelay.restart()
+    }
+
+    onActiveChanged: active ? revealIndicator() : scheduleHide()
+    onPressedChanged: pressed ? revealIndicator() : scheduleHide()
+    onHoveredChanged: hovered ? revealIndicator() : scheduleHide()
+    // Some wheel/touchpad paths can update the attached scrollbar position
+    // without keeping `active` true for a full frame. Treat any real scroll
+    // movement as activity so the thumb is always revealed to the user.
+    onPositionChanged: {
+        if (enabled && size < 1.0) {
+            revealIndicator()
+            scheduleHide()
+        }
+    }
+    onSizeChanged: {
+        if (size >= 1.0) {
+            hideDelay.stop()
+            indicatorVisible = false
+        }
+    }
+
+    Timer {
+        id: hideDelay
+        interval: 300
+        repeat: false
+        onTriggered: {
+            if (!control.active && !control.pressed && !control.hovered)
+                control.indicatorVisible = false
+        }
+    }
+
+    contentItem: Rectangle {
+        implicitWidth: 4
+        implicitHeight: 4
+        radius: 2
+        color: control.hovered || control.pressed
+               ? theme.accentHoverColor
+               : theme.accentColor
+        opacity: control.enabled && control.size < 1.0 && control.indicatorVisible ? 1.0 : 0.0
+
+        Behavior on opacity {
+            NumberAnimation { duration: 80 }
+        }
+    }
+
     background: Item { }
 }

@@ -1116,6 +1116,7 @@ Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
             contentWidth: availableWidth
+            ScrollBar.horizontal: MintScrollBar { policy: ScrollBar.AlwaysOff }
             ScrollBar.vertical: MintScrollBar { policy: ScrollBar.AlwaysOff }
 
             ColumnLayout {
@@ -1291,6 +1292,7 @@ Item {
             id: categoryScroll
             clip: true
             contentWidth: availableWidth
+            ScrollBar.horizontal: MintScrollBar { policy: ScrollBar.AlwaysOff }
             ScrollBar.vertical: MintScrollBar { policy: ScrollBar.AlwaysOff }
 
             ColumnLayout {
@@ -1569,6 +1571,7 @@ Item {
                     id: glyphScroll
                     clip: true
                     contentWidth: availableWidth
+                    ScrollBar.horizontal: MintScrollBar { policy: ScrollBar.AlwaysOff }
                     ScrollBar.vertical: MintScrollBar { policy: ScrollBar.AlwaysOff }
 
                     ColumnLayout {
