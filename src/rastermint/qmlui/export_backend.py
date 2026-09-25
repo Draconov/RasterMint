@@ -505,6 +505,33 @@ class RasterMintBackend(PreferencesBackend):
         except Exception as exc:
             self.errorOccurred.emit("Could not copy ASCII text", str(exc))
 
+    @Slot(result=str)
+    def asciiExportPreviewText(self) -> str:
+        """Return the exact UTF-8 text grid used by TXT export for preview."""
+        source = self._active_source()
+        if source is None:
+            return ""
+
+        animated = settings_at_time(self.settings, self._current_time)
+        raster_source = prepare_raster_source(source, animated)
+        runtime_stack = _processor_call("runtime_effect_stack", animated)
+        grid = ascii_text_grid_for_stack(
+            raster_source,
+            runtime_stack,
+            animated.palette,
+            frame_time=self._current_time,
+            frame_index=max(
+                0,
+                round(
+                    self._current_time
+                    * (self._video_info.fps if self._video_info else animated.animation_fps)
+                ),
+            ),
+            normalized=True,
+            preserve_grid_extent=True,
+        )
+        return grid if grid is not None else ""
+
     @Slot(str)
     def exportImage(self, value: str) -> None:
         """Quick export; alpha-capable formats preserve source transparency automatically."""

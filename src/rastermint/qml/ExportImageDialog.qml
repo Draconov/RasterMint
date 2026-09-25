@@ -36,6 +36,7 @@ Dialog {
     property int asciiColumns: 0
     property int asciiRows: 0
     property string asciiCellMode: ""
+    property string asciiPreviewText: ""
 
     readonly property real baseAspect: baseHeight > 0 ? baseWidth / baseHeight : 1.0
     readonly property string selectedFormat: formatCombo.currentText
@@ -88,6 +89,10 @@ Dialog {
         scaleCombo.currentIndex = scaleCombo.count - 1
     }
 
+    function refreshAsciiPreview() {
+        asciiPreviewText = sourceHasAsciiLayer ? backend.asciiExportPreviewText() : ""
+    }
+
     function refreshOutputSize() {
         var info = backend.exportImageInfo()
         sourceWidth = Math.max(1, Number(info.sourceWidth || 1))
@@ -112,6 +117,7 @@ Dialog {
         asciiColumns = Math.max(0, Number(info.asciiColumns || 0))
         asciiRows = Math.max(0, Number(info.asciiRows || 0))
         asciiCellMode = String(info.asciiCellMode || "")
+        refreshAsciiPreview()
         aspectLock.checked = true
         scaleCombo.currentIndex = 2
         formatCombo.currentIndex = 0
@@ -491,30 +497,99 @@ Dialog {
                 wrapMode: Text.WordWrap
             }
 
-            Item { Layout.preferredHeight: 2 }
-
-            RowLayout {
+            Rectangle {
                 Layout.fillWidth: true
-                MintButton {
-                    text: qsTr("Cancel")
-                    onClicked: root.close()
-                }
-                Item { Layout.fillWidth: true }
-                MintButton {
-                    text: qsTr("Reset to 100%")
-                    visible: !root.textFormat
-                    onClicked: {
-                        scaleCombo.currentIndex = 2
-                        root.applyScale(1.0)
+                Layout.preferredHeight: 240
+                Layout.minimumHeight: 180
+                visible: root.textFormat
+                radius: 6
+                color: theme.panelRaisedColor
+                border.color: theme.borderColor
+                border.width: 1
+                clip: true
+
+                ScrollView {
+                    id: asciiPreviewScroll
+                    anchors.fill: parent
+                    anchors.margins: 1
+                    clip: true
+                    contentWidth: Math.max(availableWidth, asciiPreviewField.implicitWidth)
+                    contentHeight: Math.max(availableHeight, asciiPreviewField.implicitHeight)
+
+                    ScrollBar.horizontal: MintScrollBar {
+                        policy: asciiPreviewScroll.contentWidth > asciiPreviewScroll.availableWidth
+                                ? ScrollBar.AsNeeded
+                                : ScrollBar.AlwaysOff
                     }
-                }
-                MintButton {
-                    text: qsTr("Export…")
-                    selected: true
-                    onClicked: root.openExportFileDialog()
+                    ScrollBar.vertical: MintScrollBar {
+                        policy: asciiPreviewScroll.contentHeight > asciiPreviewScroll.availableHeight
+                                ? ScrollBar.AsNeeded
+                                : ScrollBar.AlwaysOff
+                    }
+
+                    TextArea {
+                        id: asciiPreviewField
+                        readOnly: true
+                        selectByMouse: true
+                        textFormat: TextEdit.PlainText
+                        wrapMode: TextEdit.NoWrap
+                        text: root.asciiPreviewText
+                        color: theme.textColor
+                        selectionColor: theme.selectionColor
+                        selectedTextColor: theme.textColor
+                        font.family: "monospace"
+                        font.pixelSize: 12
+                        topPadding: 10
+                        bottomPadding: 10
+                        leftPadding: 10
+                        rightPadding: 10
+                        background: Rectangle {
+                            color: "transparent"
+                        }
+                    }
                 }
             }
         }
+        }
+    }
+
+
+    footer: Rectangle {
+        implicitHeight: 58
+        color: theme.panelColor
+
+        Rectangle {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            height: 1
+            color: theme.borderColor
+        }
+
+        RowLayout {
+            anchors.fill: parent
+            anchors.leftMargin: 16
+            anchors.rightMargin: 16
+            spacing: 8
+
+            MintButton {
+                text: qsTr("Cancel")
+                onClicked: root.close()
+            }
+            Item { Layout.fillWidth: true }
+            MintButton {
+                text: qsTr("Reset to 100%")
+                visible: !root.textFormat
+                onClicked: {
+                    scaleCombo.currentIndex = 2
+                    root.applyScale(1.0)
+                }
+            }
+            MintButton {
+                text: qsTr("Export…")
+                selected: true
+                onClicked: root.openExportFileDialog()
+            }
         }
     }
 
