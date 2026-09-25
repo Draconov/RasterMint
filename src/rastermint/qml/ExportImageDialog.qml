@@ -33,6 +33,9 @@ Dialog {
     property bool updatingDimensions: false
     property bool sourceHasTransparency: false
     property bool sourceHasAsciiLayer: false
+    property int asciiColumns: 0
+    property int asciiRows: 0
+    property string asciiCellMode: ""
 
     readonly property real baseAspect: baseHeight > 0 ? baseWidth / baseHeight : 1.0
     readonly property string selectedFormat: formatCombo.currentText
@@ -106,6 +109,9 @@ Dialog {
         exportQuality = 90
         sourceHasTransparency = Boolean(info.hasTransparency)
         sourceHasAsciiLayer = Boolean(info.hasAsciiLayer)
+        asciiColumns = Math.max(0, Number(info.asciiColumns || 0))
+        asciiRows = Math.max(0, Number(info.asciiRows || 0))
+        asciiCellMode = String(info.asciiCellMode || "")
         aspectLock.checked = true
         scaleCombo.currentIndex = 2
         formatCombo.currentIndex = 0
@@ -192,6 +198,7 @@ Dialog {
         Rectangle {
             Layout.preferredWidth: 330
             Layout.fillHeight: true
+            visible: !root.textFormat
             radius: 8
             color: theme.canvasColor
             border.color: theme.borderColor
@@ -333,6 +340,49 @@ Dialog {
                 text: qsTr("Export Settings")
                 font.bold: true
                 font.pixelSize: 14
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                visible: root.textFormat
+                implicitHeight: asciiInfoColumn.implicitHeight + 20
+                radius: 6
+                color: theme.panelRaisedColor
+                border.color: theme.borderColor
+                border.width: 1
+
+                ColumnLayout {
+                    id: asciiInfoColumn
+                    anchors.fill: parent
+                    anchors.margins: 10
+                    spacing: 6
+
+                    MintLabel {
+                        text: "TXT"
+                        font.bold: true
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        MintLabel { text: qsTr("Text"); color: theme.mutedTextColor }
+                        Item { Layout.fillWidth: true }
+                        MintLabel {
+                            text: root.asciiColumns + " × " + root.asciiRows
+                            font.bold: true
+                        }
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        MintLabel { text: "UTF-8"; color: theme.mutedTextColor }
+                        Item { Layout.fillWidth: true }
+                        MintLabel {
+                            text: qsTr("Cell Mode") + ": "
+                                  + localization.translateRuntime(
+                                      localization.effectiveLanguageId,
+                                      root.asciiCellMode.length > 0 ? root.asciiCellMode : "Normal"
+                                  )
+                        }
+                    }
+                }
             }
 
             RowLayout {

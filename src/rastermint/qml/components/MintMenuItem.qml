@@ -14,9 +14,6 @@ MenuItem {
     leftPadding: 12
     rightPadding: 10
     spacing: 6
-
-    // RasterMint handles checked-state visuals itself.
-    // Do not show the native Qt menu indicator/checkmark.
     indicator: null
 
     Shortcut {
@@ -50,7 +47,7 @@ MenuItem {
             anchors.top: parent.top
             anchors.bottom: parent.bottom
             visible: backend.showHotkeys && text.length > 0
-            text: shortcutFormatter.nativeText
+            text: shortcutFormatter.portableText
             color: control.safeMutedTextColor
             font.pixelSize: 11
             verticalAlignment: Text.AlignVCenter

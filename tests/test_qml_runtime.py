@@ -68,6 +68,22 @@ QML_DIR = Path(str(resources.files("rastermint").joinpath("qml")))
 QML_COMPONENTS = sorted(path.relative_to(QML_DIR) for path in QML_DIR.rglob("*.qml"))
 
 
+def test_hotkey_combinations_use_untranslated_portable_text_but_menu_label_stays_localized():
+    import json
+
+    menu_item = (QML_DIR / "components/MintMenuItem.qml").read_text(encoding="utf-8")
+    main_qml = (QML_DIR / "Main.qml").read_text(encoding="utf-8")
+
+    assert "shortcutFormatter.portableText" in menu_item
+    assert "shortcutFormatter.nativeText" not in menu_item
+    assert 'text: qsTr("Show Hotkeys")' in main_qml
+
+    translations_dir = QML_DIR.parent / "data" / "translations"
+    for path in translations_dir.glob("*.json"):
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        assert payload.get("messages", {}).get("Show Hotkeys"), f"missing Show Hotkeys translation in {path.name}"
+
+
 @pytest.mark.parametrize("relative_path", QML_COMPONENTS, ids=lambda p: str(p))
 def test_every_qml_component_compiles_offscreen(relative_path):
     app = _app()

@@ -2436,6 +2436,7 @@ def _ascii_grid_data(
     color_sampling: str = "Glyph Weighted",
     symbol_randomization: float = 0.0,
     cell_mode: str = "Normal",
+    preserve_grid_extent: bool = False,
 ) -> tuple[list[str], list[list[np.ndarray]], dict[str, int | str | bool]]:
     cell_height = max(4, int(cell_size))
     font_size = max(2, round(cell_height * max(0.4, min(1.5, float(font_scale)))))
@@ -2587,10 +2588,10 @@ def _ascii_grid_data(
             line_chars.append(char)
             line_colors.append(mean)
         line_value = "".join(line_chars)
-        lines.append(line_value if mode_1_to_1 else line_value.rstrip())
+        lines.append(line_value if mode_1_to_1 or preserve_grid_extent else line_value.rstrip())
         colors.append(line_colors)
 
-    if not mode_1_to_1:
+    if not mode_1_to_1 and not preserve_grid_extent:
         while lines and lines[-1] == "":
             lines.pop()
             colors.pop()
@@ -2632,6 +2633,7 @@ def ascii_text_grid(
     color_sampling: str = "Glyph Weighted",
     symbol_randomization: float = 0.0,
     cell_mode: str = "Normal",
+    preserve_grid_extent: bool = False,
 ) -> str:
     lines, _colors, _layout = _ascii_grid_data(
         image,
@@ -2656,8 +2658,126 @@ def ascii_text_grid(
         color_sampling=color_sampling,
         symbol_randomization=symbol_randomization,
         cell_mode=cell_mode,
+        preserve_grid_extent=preserve_grid_extent,
     )
     return "\n".join(lines) + "\n"
+
+
+def _ascii_target_index(
+    stack: list[dict[str, Any]],
+    target_effect_id: str = "",
+) -> int:
+    requested_id = str(target_effect_id or "")
+    target_index = -1
+    for index, step in enumerate(stack):
+        if not step.get("enabled", True) or step.get("kind") != "ASCII / Glyph":
+            continue
+        if requested_id:
+            if str(step.get("id", "") or "") == requested_id:
+                return index
+            continue
+        target_index = index
+    return target_index
+
+
+def _ascii_prefix_for_target(
+    stack: list[dict[str, Any]],
+    target_index: int,
+) -> list[dict[str, Any]]:
+    """Return the exact image-processing prefix that feeds an ASCII layer.
+
+    Runtime group metadata normally composites every still-open group when a
+    truncated stack ends. For a target inside a group that would be too early:
+    the ASCII layer receives the group's in-progress image, before the group's
+    own opacity/blend is applied. Removing only the target's ancestor groups
+    from the prefix preserves nested groups that really do close before the
+    target while leaving the target ancestors open conceptually.
+    """
+    prefix = list(stack[:max(0, int(target_index))])
+    if not prefix or target_index < 0 or target_index >= len(stack):
+        return prefix
+
+    target_path = {
+        str(group_id)
+        for group_id in (stack[target_index].get("_group_path") or [])
+        if str(group_id)
+    }
+    if not target_path:
+        return prefix
+
+    adjusted: list[dict[str, Any]] = []
+    for step in prefix:
+        raw_path = [str(group_id) for group_id in (step.get("_group_path") or []) if str(group_id)]
+        raw_settings = list(step.get("_group_settings") or [])
+        filtered_path = [group_id for group_id in raw_path if group_id not in target_path]
+        filtered_settings = [
+            group for group in raw_settings
+            if str(group.get("id", "") or "") not in target_path
+        ]
+        if filtered_path == raw_path and len(filtered_settings) == len(raw_settings):
+            adjusted.append(step)
+            continue
+        updated = dict(step)
+        if filtered_path:
+            updated["_group_path"] = filtered_path
+            updated["_group_settings"] = filtered_settings
+        else:
+            updated.pop("_group_path", None)
+            updated.pop("_group_settings", None)
+        adjusted.append(updated)
+    return adjusted
+
+
+def ascii_text_grid_info_for_stack(
+    image_size: tuple[int, int],
+    stack: list[dict[str, Any]],
+    *,
+    normalized: bool = False,
+    target_effect_id: str = "",
+) -> dict[str, int | str] | None:
+    """Return exact text-grid dimensions without rendering the image."""
+    runtime = list(stack) if normalized else normalize_effect_stack(stack)
+    target_index = _ascii_target_index(runtime, target_effect_id)
+    if target_index < 0:
+        return None
+
+    width, height = effect_stack_output_size(
+        (max(1, int(image_size[0])), max(1, int(image_size[1]))),
+        runtime[:target_index],
+    )
+
+    params = runtime[target_index].get("params", {})
+    cell_mode = str(params.get("cell_mode", "Normal"))
+    if cell_mode == "1:1 Pixel Symbols":
+        return {"columns": width, "rows": height, "cellMode": cell_mode}
+
+    cell_height = max(4, int(params.get("cell_size", 10)))
+    font_scale = max(0.4, min(1.5, float(params.get("font_scale", 0.9))))
+    font_size = max(2, round(cell_height * font_scale))
+    chars = _ascii_mapping_chars(
+        str(params.get("character_set", "Classic ASCII")),
+        str(params.get("custom_chars", " .:-=+*#%@")),
+        int(params.get("depth", 9)),
+        int(params.get("offset", 0)),
+        bool(params.get("auto_density", True)),
+        str(params.get("font", "Mono")),
+        font_size,
+        str(params.get("inject_chars", "")),
+    )
+    mapping = str(params.get("mapping", "Density"))
+    _cell_width, _cell_height, pitch_x, pitch_y = _ascii_cell_geometry(
+        chars,
+        str(params.get("font", "Mono")),
+        font_size,
+        cell_height,
+        int(params.get("spacing_x", 0)),
+        int(params.get("spacing_y", 0)),
+        bool(params.get("auto_cell_aspect", True)) and mapping == "Structure Match",
+    )
+
+    columns = max(1, math.ceil(width / pitch_x))
+    rows = max(1, math.ceil(height / pitch_y))
+    return {"columns": columns, "rows": rows, "cellMode": cell_mode}
 
 
 def ascii_text_grid_for_stack(
@@ -2667,25 +2787,25 @@ def ascii_text_grid_for_stack(
     *,
     frame_time: float = 0.0,
     frame_index: int = 0,
+    normalized: bool = False,
+    target_effect_id: str = "",
+    preserve_grid_extent: bool = False,
 ) -> str | None:
-    normalized = normalize_effect_stack(stack)
-    target_index = -1
-    for index, step in enumerate(normalized):
-        if step.get("enabled", True) and step.get("kind") == "ASCII / Glyph":
-            target_index = index
+    runtime = list(stack) if normalized else normalize_effect_stack(stack)
+    target_index = _ascii_target_index(runtime, target_effect_id)
     if target_index < 0:
         return None
     if target_index == 0:
         before = image
     else:
-        before = apply_effect_stack(
+        before = apply_normalized_effect_stack(
             image,
-            normalized[:target_index],
+            _ascii_prefix_for_target(runtime, target_index),
             palette,
             frame_time=frame_time,
             frame_index=frame_index,
         )
-    p = normalized[target_index]["params"]
+    p = runtime[target_index]["params"]
     return ascii_text_grid(
         before,
         character_set=str(p.get("character_set", "Classic ASCII")),
@@ -2709,6 +2829,7 @@ def ascii_text_grid_for_stack(
         font_scale=float(p.get("font_scale", 0.9)),
         symbol_randomization=float(p.get("symbol_randomization", 0.0)),
         cell_mode=str(p.get("cell_mode", "Normal")),
+        preserve_grid_extent=preserve_grid_extent,
     )
 
 

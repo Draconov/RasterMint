@@ -10,7 +10,6 @@ from typing import Any
 from PySide6.QtCore import QUrl, Slot
 from PySide6.QtGui import QGuiApplication, QImage
 from rastermint.core.animation import settings_at_time
-from rastermint.core.effect_schema import normalize_effect_stack
 from rastermint.core.settings import ProcessingSettings
 
 from .backend import _local_path
@@ -91,6 +90,11 @@ def target_raster_size(size: tuple[int, int], settings: ProcessingSettings) -> t
 
 def ascii_text_grid_for_stack(*args, **kwargs):
     from rastermint.core.effect_stack import ascii_text_grid_for_stack as impl
+    return impl(*args, **kwargs)
+
+
+def ascii_text_grid_info_for_stack(*args, **kwargs):
+    from rastermint.core.effect_stack import ascii_text_grid_info_for_stack as impl
     return impl(*args, **kwargs)
 
 
@@ -368,9 +372,19 @@ class RasterMintBackend(PreferencesBackend):
                 "height": 1,
                 "hasTransparency": False,
                 "hasAsciiLayer": False,
+                "asciiColumns": 0,
+                "asciiRows": 0,
+                "asciiCellMode": "",
             }
 
         animated = settings_at_time(self.settings, self._current_time)
+        runtime_stack = _processor_call("runtime_effect_stack", animated)
+        raster_size = target_raster_size(source.size, animated)
+        ascii_info = ascii_text_grid_info_for_stack(
+            raster_size,
+            runtime_stack,
+            normalized=True,
+        )
         if animated.display_export:
             width, height = display_output_size(source.size, animated)
         else:
@@ -381,10 +395,10 @@ class RasterMintBackend(PreferencesBackend):
             "width": max(1, int(width)),
             "height": max(1, int(height)),
             "hasTransparency": self._source_has_transparency(),
-            "hasAsciiLayer": any(
-                step.get("enabled", True) and step.get("kind") == "ASCII / Glyph"
-                for step in normalize_effect_stack(animated.effect_stack, animated)
-            ),
+            "hasAsciiLayer": ascii_info is not None,
+            "asciiColumns": int(ascii_info.get("columns", 0)) if ascii_info else 0,
+            "asciiRows": int(ascii_info.get("rows", 0)) if ascii_info else 0,
+            "asciiCellMode": str(ascii_info.get("cellMode", "")) if ascii_info else "",
         }
 
     @Slot(str, result=str)
@@ -447,6 +461,49 @@ class RasterMintBackend(PreferencesBackend):
         self._connect_worker(worker)
         self.thread_pool.start(worker)
         self._set_status("Rendering raster image for clipboard…")
+
+    @Slot()
+    def copySelectedAsciiToClipboard(self) -> None:
+        """Copy the selected ASCII / Glyph layer's exact UTF-8 character grid."""
+        source = self._active_source()
+        if source is None:
+            return
+        item = self.layer_model.item(self._selected_layer)
+        if not item or str(item.get("kind", "")) != "ASCII / Glyph":
+            self.errorOccurred.emit("Could not copy ASCII text", "Select an ASCII / Glyph layer first.")
+            return
+
+        target_effect_id = str(item.get("id", "") or "")
+        animated = settings_at_time(self.settings, self._current_time)
+        runtime_stack = _processor_call("runtime_effect_stack", animated)
+        raster_source = prepare_raster_source(source, animated)
+        grid = ascii_text_grid_for_stack(
+            raster_source,
+            runtime_stack,
+            animated.palette,
+            frame_time=self._current_time,
+            frame_index=max(
+                0,
+                round(
+                    self._current_time
+                    * (self._video_info.fps if self._video_info else animated.animation_fps)
+                ),
+            ),
+            normalized=True,
+            target_effect_id=target_effect_id,
+            preserve_grid_extent=True,
+        )
+        if grid is None:
+            self.errorOccurred.emit(
+                "Could not copy ASCII text",
+                "The selected ASCII / Glyph layer is disabled or hidden by its group/solo state.",
+            )
+            return
+        try:
+            QGuiApplication.clipboard().setText(grid)
+            self._set_status("Copied ASCII text to clipboard")
+        except Exception as exc:
+            self.errorOccurred.emit("Could not copy ASCII text", str(exc))
 
     @Slot(str)
     def exportImage(self, value: str) -> None:
@@ -512,9 +569,10 @@ class RasterMintBackend(PreferencesBackend):
         animated = settings_at_time(self.settings, self._current_time)
         if format_name == "TXT":
             raster_source = prepare_raster_source(source, animated)
+            runtime_stack = _processor_call("runtime_effect_stack", animated)
             grid = ascii_text_grid_for_stack(
                 raster_source,
-                animated.effect_stack,
+                runtime_stack,
                 animated.palette,
                 frame_time=self._current_time,
                 frame_index=max(
@@ -524,12 +582,14 @@ class RasterMintBackend(PreferencesBackend):
                         * (self._video_info.fps if self._video_info else animated.animation_fps)
                     ),
                 ),
+                normalized=True,
+                preserve_grid_extent=True,
             )
             if grid is None:
                 self.errorOccurred.emit("Could not export text", "Add and enable an ASCII / Glyph layer first.")
                 return
             try:
-                path.write_text(grid, encoding="utf-8")
+                path.write_bytes(grid.encode("utf-8"))
                 self._set_status(f"Exported {path.name}")
             except Exception as exc:
                 self.errorOccurred.emit("Could not export text", str(exc))

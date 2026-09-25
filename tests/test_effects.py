@@ -5,8 +5,9 @@ import numpy as np
 from PIL import Image, ImageDraw
 
 from rastermint.core.animation import settings_at_time
-from rastermint.core.effect_stack import EFFECT_DEFINITIONS, _load_text_font, _render_text_block, apply_effect_stack, ascii_text_grid, effect_categories, new_effect, normalize_effect_stack, scale_stack_for_preview
+from rastermint.core.effect_stack import EFFECT_DEFINITIONS, _load_text_font, _render_text_block, apply_effect_stack, ascii_text_grid, ascii_text_grid_for_stack, ascii_text_grid_info_for_stack, effect_categories, new_effect, normalize_effect_stack, scale_stack_for_preview
 from rastermint.core.settings import ProcessingSettings
+from rastermint.core.processor import runtime_effect_stack
 
 
 def test_effect_stack_executes_in_order():
@@ -386,6 +387,76 @@ def test_ascii_randomization_and_1_to_1_grid_mode():
     assert all(len(line) == 2 for line in deterministic_lines)
     assert deterministic != randomized
     assert {ch for line in randomized_lines for ch in line} <= set("0123456")
+
+
+def test_ascii_text_export_preserves_full_grid_extent_and_reports_dimensions():
+    source = Image.new("RGB", (8, 4), "black")
+    layer = new_effect("ASCII / Glyph")
+    layer["params"].update(
+        character_set="Custom",
+        custom_chars=" @",
+        auto_density=False,
+        cell_size=4,
+        spacing_x=0,
+        spacing_y=0,
+        depth=2,
+        mapping="Density",
+        cell_mode="Normal",
+    )
+
+    grid = ascii_text_grid_for_stack(
+        source,
+        [layer],
+        ["#000000", "#FFFFFF"],
+        preserve_grid_extent=True,
+    )
+    info = ascii_text_grid_info_for_stack(source.size, [layer])
+
+    assert grid == "  \n"
+    assert info == {"columns": 2, "rows": 1, "cellMode": "Normal"}
+
+
+def test_ascii_text_export_keeps_target_group_open_until_ascii_layer():
+    source = Image.new("RGB", (8, 4), "black")
+    invert = new_effect("Invert")
+    ascii_layer = new_effect("ASCII / Glyph")
+    invert["group_id"] = "g1"
+    ascii_layer["group_id"] = "g1"
+    ascii_layer["params"].update(
+        character_set="Custom",
+        custom_chars="AB",
+        auto_density=False,
+        cell_size=4,
+        spacing_x=0,
+        spacing_y=0,
+        depth=2,
+        mapping="Density",
+        cell_mode="Normal",
+    )
+
+    settings = ProcessingSettings()
+    settings.effect_stack = [invert, ascii_layer]
+    settings.layer_groups = [{
+        "id": "g1",
+        "name": "Group 1",
+        "enabled": True,
+        "opacity": 0.0,
+        "blend_mode": "Normal",
+    }]
+    runtime = runtime_effect_stack(settings)
+
+    grid = ascii_text_grid_for_stack(
+        source,
+        runtime,
+        settings.palette,
+        normalized=True,
+        preserve_grid_extent=True,
+    )
+
+    # The invert is inside the same still-open group as ASCII. Group opacity is
+    # applied after the ASCII layer, so the text grid must see white, not the
+    # group's zero-opacity composite over the original black source.
+    assert grid == "BB\n"
 
 
 def test_crt_border_default_and_ascii_parameter_order():

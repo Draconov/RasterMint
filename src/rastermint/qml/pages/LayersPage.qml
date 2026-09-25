@@ -1234,6 +1234,20 @@ Item {
                         }
                     }
                 }
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    height: 1
+                    color: theme.borderColor
+                    visible: backend.selectedLayerName === "ASCII / Glyph"
+                }
+                MintButton {
+                    Layout.fillWidth: true
+                    visible: backend.selectedLayerName === "ASCII / Glyph"
+                    enabled: backend.hasSource
+                    text: qsTr("Copy") + " ASCII → " + qsTr("Clipboard")
+                    onClicked: backend.copySelectedAsciiToClipboard()
+                }
             }
         }
     }
