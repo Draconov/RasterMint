@@ -1006,6 +1006,20 @@
     "Preparing batch export": "מכין ייצוא באצווה",
     "Remove %1 from library?": "להסיר את %1 מהספרייה?",
     "This cannot be undone.": "לא ניתן לבטל פעולה זו.",
-    "Presets in this category will be kept.": "ההגדרות המוכנות בקטגוריה זו יישמרו."
+    "Presets in this category will be kept.": "ההגדרות המוכנות בקטגוריה זו יישמרו.",
+    "Show Reference Image": "הצגת תמונת ייחוס",
+    "Reference Image": "תמונת ייחוס",
+    "Open Reference Image": "פתיחת תמונת ייחוס",
+    "Open an image to use as reference": "פתחו תמונה לשימוש כייחוס",
+    "Hide reference": "הסתרת תמונת ייחוס",
+    "Open…": "פתיחה…",
+    "Recover Unfinished Project": "שחזור פרויקט שלא הושלם",
+    "RasterMint found an autosaved project from the previous session. Restore it?": "RasterMint מצאה פרויקט שנשמר אוטומטית בהפעלה הקודמת. לשחזר אותו?",
+    "Discard": "ביטול השחזור",
+    "Restore": "שחזור",
+    "Could not recover project": "לא ניתן לשחזר את הפרויקט",
+    "Autosave failed": "השמירה האוטומטית נכשלה",
+    "Could not open reference image": "לא ניתן לפתוח את תמונת הייחוס",
+    "Merge keeps existing content and updates matching filenames. Replace removes current user presets and palettes first. Both restore the listed collections.": "מיזוג שומר על התוכן הקיים ומעדכן קבצים בעלי שמות זהים. החלפה מסירה תחילה את ערכות ההגדרות ואת לוחות הצבעים הנוכחיים של המשתמש. שתי האפשרויות משחזרות את האוספים המפורטים."
   }
 }

@@ -1006,6 +1006,20 @@
     "Preparing batch export": "Menyiapkan ekspor massal",
     "Remove %1 from library?": "Hapus %1 dari pustaka?",
     "This cannot be undone.": "Tindakan ini tidak dapat dibatalkan.",
-    "Presets in this category will be kept.": "Preset dalam kategori ini akan tetap disimpan."
+    "Presets in this category will be kept.": "Preset dalam kategori ini akan tetap disimpan.",
+    "Show Reference Image": "Tampilkan Gambar Referensi",
+    "Reference Image": "Gambar Referensi",
+    "Open Reference Image": "Buka Gambar Referensi",
+    "Open an image to use as reference": "Buka gambar untuk digunakan sebagai referensi",
+    "Hide reference": "Sembunyikan referensi",
+    "Open…": "Buka…",
+    "Recover Unfinished Project": "Pulihkan Proyek yang Belum Selesai",
+    "RasterMint found an autosaved project from the previous session. Restore it?": "RasterMint menemukan proyek yang disimpan otomatis dari sesi sebelumnya. Pulihkan proyek tersebut?",
+    "Discard": "Buang",
+    "Restore": "Pulihkan",
+    "Could not recover project": "Gagal memulihkan proyek",
+    "Autosave failed": "Penyimpanan otomatis gagal",
+    "Could not open reference image": "Gagal membuka gambar referensi",
+    "Merge keeps existing content and updates matching filenames. Replace removes current user presets and palettes first. Both restore the listed collections.": "Gabungkan mempertahankan konten yang ada dan memperbarui berkas dengan nama yang sama. Ganti terlebih dahulu menghapus preset dan palet pengguna saat ini. Kedua opsi memulihkan koleksi yang tercantum."
   }
 }

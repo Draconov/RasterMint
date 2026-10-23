@@ -1006,6 +1006,20 @@
     "Preparing batch export": "正在准备批量导出",
     "Remove %1 from library?": "要从素材库中移除 %1 吗？",
     "This cannot be undone.": "此操作无法撤销。",
-    "Presets in this category will be kept.": "此分类中的预设将被保留。"
+    "Presets in this category will be kept.": "此分类中的预设将被保留。",
+    "Show Reference Image": "显示参考图像",
+    "Reference Image": "参考图像",
+    "Open Reference Image": "打开参考图像",
+    "Open an image to use as reference": "打开一张图像作为参考",
+    "Hide reference": "隐藏参考图像",
+    "Open…": "打开…",
+    "Recover Unfinished Project": "恢复未完成的项目",
+    "RasterMint found an autosaved project from the previous session. Restore it?": "RasterMint 找到了上次会话自动保存的项目。是否恢复？",
+    "Discard": "放弃",
+    "Restore": "恢复",
+    "Could not recover project": "无法恢复项目",
+    "Autosave failed": "自动保存失败",
+    "Could not open reference image": "无法打开参考图像",
+    "Merge keeps existing content and updates matching filenames. Replace removes current user presets and palettes first. Both restore the listed collections.": "合并会保留现有内容，并更新同名文件。替换会先删除当前的用户预设和调色板。两种方式都会恢复列出的资源集合。"
   }
 }

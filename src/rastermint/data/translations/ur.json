@@ -1006,6 +1006,20 @@
     "Preparing batch export": "بیچ برآمد تیار کی جا رہی ہے",
     "Remove %1 from library?": "لائبریری سے %1 ہٹا دیں؟",
     "This cannot be undone.": "یہ عمل واپس نہیں لیا جا سکتا۔",
-    "Presets in this category will be kept.": "اس زمرے کے پری سیٹس محفوظ رہیں گے۔"
+    "Presets in this category will be kept.": "اس زمرے کے پری سیٹس محفوظ رہیں گے۔",
+    "Show Reference Image": "حوالہ جاتی تصویر دکھائیں",
+    "Reference Image": "حوالہ جاتی تصویر",
+    "Open Reference Image": "حوالہ جاتی تصویر کھولیں",
+    "Open an image to use as reference": "حوالہ کے لیے تصویر کھولیں",
+    "Hide reference": "حوالہ چھپائیں",
+    "Open…": "کھولیں…",
+    "Recover Unfinished Project": "نامکمل پروجیکٹ بحال کریں",
+    "RasterMint found an autosaved project from the previous session. Restore it?": "RasterMint کو پچھلے سیشن کا خودکار طور پر محفوظ شدہ پروجیکٹ ملا ہے۔ کیا آپ اسے بحال کرنا چاہتے ہیں؟",
+    "Discard": "مسترد کریں",
+    "Restore": "بحال کریں",
+    "Could not recover project": "پروجیکٹ بحال نہیں ہو سکا",
+    "Autosave failed": "خودکار محفوظ کرنے میں ناکامی",
+    "Could not open reference image": "حوالہ جاتی تصویر نہیں کھل سکی",
+    "Merge keeps existing content and updates matching filenames. Replace removes current user presets and palettes first. Both restore the listed collections.": "ضم کرنے سے موجودہ مواد برقرار رہتا ہے اور ایک جیسے نام والی فائلیں اپ ڈیٹ ہو جاتی ہیں۔ تبدیل کرنے سے پہلے موجودہ صارف کے پری سیٹس اور پیلیٹس حذف ہوتے ہیں۔ دونوں طریقے درج کردہ مجموعے بحال کرتے ہیں۔"
   }
 }

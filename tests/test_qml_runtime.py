@@ -22,7 +22,7 @@ from PySide6.QtGui import QColor, QGuiApplication, QImage  # noqa: E402
 from PySide6.QtQml import QQmlApplicationEngine, QQmlComponent  # noqa: E402
 from PySide6.QtQuickControls2 import QQuickStyle  # noqa: E402
 
-from rastermint.qmlui.backend import RasterMintBackend  # noqa: E402
+from rastermint.qmlui.export_backend import RasterMintBackend  # noqa: E402
 from rastermint.qmlui.image_provider import RasterImageProvider  # noqa: E402
 from rastermint.qmlui.localization import LocalizationManager  # noqa: E402
 from rastermint.qmlui.theme import ThemeManager  # noqa: E402
@@ -590,3 +590,71 @@ def test_user_saved_libraries_can_be_deleted_without_touching_builtin_content(tm
         assert backend.presetUserCategories == []
     finally:
         backend.shutdown()
+
+
+def test_reference_image_panel_can_toggle_without_modifying_working_image(tmp_path):
+    app = _app()
+    engine, backend, provider, theme = _engine_with_context()
+    engine.load(QUrl.fromLocalFile(str(QML_DIR / "Main.qml")))
+    app.processEvents()
+    assert engine.rootObjects()
+    window = engine.rootObjects()[0]
+    try:
+        from PIL import Image
+
+        reference = tmp_path / "reference.png"
+        Image.new("RGB", (36, 24), "purple").save(reference)
+        backend.setReferenceVisible(True)
+        backend.openReferenceImage(str(reference))
+        app.processEvents()
+        panel = window.findChild(QObject, "referenceImagePanel")
+        assert panel is not None
+        assert panel.property("visible") is True
+        assert backend.referenceImagePath == str(reference.resolve())
+        assert not provider.image("reference").isNull()
+        assert backend._source_image is None
+        backend.setReferenceVisible(False)
+        app.processEvents()
+        assert panel.property("visible") is False
+    finally:
+        backend.shutdown()
+
+
+def test_autosave_can_restore_previous_session(tmp_path, monkeypatch):
+    app = _app()
+    provider = RasterImageProvider()
+    backend = RasterMintBackend(provider)
+    recovered_backend = None
+    try:
+        from PIL import Image
+        from rastermint.core.project import load_project_file
+
+        target = tmp_path / "autosave.rastermint"
+        source = tmp_path / "source.png"
+        Image.new("RGB", (24, 24), "orange").save(source)
+        monkeypatch.setattr(RasterMintBackend, "schedulePreview", lambda self, force=False: None)
+        monkeypatch.setattr(RasterMintBackend, "refreshPresetThumbnails", lambda self: None)
+        backend._recovery_path = target
+        backend._autosave_pending_path = tmp_path / "autosave.pending.rastermint"
+        backend._project_asset_cache = tmp_path / "assets"
+        backend._recovery_pending = False
+        backend.openFile(str(source))
+        backend._autosave_checkpoint()
+        assert backend.thread_pool.waitForDone(15000)
+        app.processEvents()
+        assert target.exists()
+        assert load_project_file(target)["source"]["path"].startswith("asset://")
+        source.unlink()
+
+        recovered_backend = RasterMintBackend(RasterImageProvider())
+        recovered_backend._recovery_path = target
+        recovered_backend._project_asset_cache = tmp_path / "restored-assets"
+        recovered_backend._recovery_pending = True
+        recovered_backend.recoverAutosave()
+        assert not recovered_backend.recoveryAvailable
+        assert recovered_backend._source_image is not None
+        assert recovered_backend._source_image.size == (24, 24)
+    finally:
+        backend.shutdown()
+        if recovered_backend is not None:
+            recovered_backend.shutdown()

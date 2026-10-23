@@ -1006,6 +1006,20 @@
     "Preparing batch export": "Preparando exportación por lotes",
     "Remove %1 from library?": "¿Eliminar %1 de la biblioteca?",
     "This cannot be undone.": "Esta acción no se puede deshacer.",
-    "Presets in this category will be kept.": "Se conservarán los ajustes preestablecidos de esta categoría."
+    "Presets in this category will be kept.": "Se conservarán los ajustes preestablecidos de esta categoría.",
+    "Show Reference Image": "Mostrar imagen de referencia",
+    "Reference Image": "Imagen de referencia",
+    "Open Reference Image": "Abrir imagen de referencia",
+    "Open an image to use as reference": "Abre una imagen para usarla como referencia",
+    "Hide reference": "Ocultar referencia",
+    "Open…": "Abrir…",
+    "Recover Unfinished Project": "Recuperar proyecto sin terminar",
+    "RasterMint found an autosaved project from the previous session. Restore it?": "RasterMint encontró un proyecto guardado automáticamente de la sesión anterior. ¿Quieres restaurarlo?",
+    "Discard": "Descartar",
+    "Restore": "Restaurar",
+    "Could not recover project": "No se pudo recuperar el proyecto",
+    "Autosave failed": "Error de guardado automático",
+    "Could not open reference image": "No se pudo abrir la imagen de referencia",
+    "Merge keeps existing content and updates matching filenames. Replace removes current user presets and palettes first. Both restore the listed collections.": "Combinar conserva el contenido existente y actualiza los archivos con nombres coincidentes. Reemplazar elimina primero los ajustes preestablecidos y las paletas del usuario. Ambas opciones restauran las colecciones indicadas."
   }
 }

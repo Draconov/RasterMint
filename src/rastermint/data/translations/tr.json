@@ -1006,6 +1006,20 @@
     "Preparing batch export": "Toplu dışa aktarma hazırlanıyor",
     "Remove %1 from library?": "%1 kitaplıktan kaldırılsın mı?",
     "This cannot be undone.": "Bu işlem geri alınamaz.",
-    "Presets in this category will be kept.": "Bu kategorideki hazır ayarlar korunacaktır."
+    "Presets in this category will be kept.": "Bu kategorideki hazır ayarlar korunacaktır.",
+    "Show Reference Image": "Referans Görselini Göster",
+    "Reference Image": "Referans Görseli",
+    "Open Reference Image": "Referans Görseli Aç",
+    "Open an image to use as reference": "Referans olarak kullanılacak bir görsel açın",
+    "Hide reference": "Referansı gizle",
+    "Open…": "Aç…",
+    "Recover Unfinished Project": "Tamamlanmamış Projeyi Kurtar",
+    "RasterMint found an autosaved project from the previous session. Restore it?": "RasterMint önceki oturumdan otomatik kaydedilmiş bir proje buldu. Geri yüklensin mi?",
+    "Discard": "At",
+    "Restore": "Geri Yükle",
+    "Could not recover project": "Proje kurtarılamadı",
+    "Autosave failed": "Otomatik kaydetme başarısız oldu",
+    "Could not open reference image": "Referans görseli açılamadı",
+    "Merge keeps existing content and updates matching filenames. Replace removes current user presets and palettes first. Both restore the listed collections.": "Birleştir mevcut içeriği korur ve aynı ada sahip dosyaları günceller. Değiştir önce mevcut kullanıcı ön ayarlarını ve paletlerini kaldırır. Her iki seçenek de listelenen koleksiyonları geri yükler."
   }
 }

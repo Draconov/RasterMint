@@ -1006,6 +1006,20 @@
     "Preparing batch export": "一括エクスポートを準備中",
     "Remove %1 from library?": "%1 をライブラリから削除しますか？",
     "This cannot be undone.": "この操作は元に戻せません。",
-    "Presets in this category will be kept.": "このカテゴリ内のプリセットは保持されます。"
+    "Presets in this category will be kept.": "このカテゴリ内のプリセットは保持されます。",
+    "Show Reference Image": "参照画像を表示",
+    "Reference Image": "参照画像",
+    "Open Reference Image": "参照画像を開く",
+    "Open an image to use as reference": "参照用の画像を開いてください",
+    "Hide reference": "参照を非表示",
+    "Open…": "開く…",
+    "Recover Unfinished Project": "未完了のプロジェクトを復元",
+    "RasterMint found an autosaved project from the previous session. Restore it?": "前回のセッションで自動保存されたプロジェクトが見つかりました。復元しますか？",
+    "Discard": "破棄",
+    "Restore": "復元",
+    "Could not recover project": "プロジェクトを復元できませんでした",
+    "Autosave failed": "自動保存に失敗しました",
+    "Could not open reference image": "参照画像を開けませんでした",
+    "Merge keeps existing content and updates matching filenames. Replace removes current user presets and palettes first. Both restore the listed collections.": "結合は既存の内容を保持し、同じ名前のファイルを更新します。置き換えは、現在のユーザープリセットとパレットを先に削除します。どちらの方法でも、一覧にあるコレクションを復元します。"
   }
 }

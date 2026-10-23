@@ -1006,6 +1006,20 @@
     "Preparing batch export": "جارٍ تحضير التصدير الدفعي",
     "Remove %1 from library?": "هل تريد إزالة %1 من المكتبة؟",
     "This cannot be undone.": "لا يمكن التراجع عن هذا الإجراء.",
-    "Presets in this category will be kept.": "سيتم الاحتفاظ بالإعدادات المسبقة الموجودة في هذه الفئة."
+    "Presets in this category will be kept.": "سيتم الاحتفاظ بالإعدادات المسبقة الموجودة في هذه الفئة.",
+    "Show Reference Image": "إظهار الصورة المرجعية",
+    "Reference Image": "الصورة المرجعية",
+    "Open Reference Image": "فتح صورة مرجعية",
+    "Open an image to use as reference": "افتح صورة لاستخدامها كمرجع",
+    "Hide reference": "إخفاء المرجع",
+    "Open…": "فتح…",
+    "Recover Unfinished Project": "استعادة مشروع غير مكتمل",
+    "RasterMint found an autosaved project from the previous session. Restore it?": "عثر RasterMint على مشروع حُفظ تلقائيًا في الجلسة السابقة. هل تريد استعادته؟",
+    "Discard": "تجاهل",
+    "Restore": "استعادة",
+    "Could not recover project": "تعذرت استعادة المشروع",
+    "Autosave failed": "فشل الحفظ التلقائي",
+    "Could not open reference image": "تعذر فتح الصورة المرجعية",
+    "Merge keeps existing content and updates matching filenames. Replace removes current user presets and palettes first. Both restore the listed collections.": "يحافظ الدمج على المحتوى الموجود ويحدّث الملفات ذات الأسماء المتطابقة. أما الاستبدال فيحذف أولًا الإعدادات المسبقة ولوحات الألوان الحالية الخاصة بالمستخدم. ويستعيد الخياران المجموعات المدرجة."
   }
 }

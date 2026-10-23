@@ -15,7 +15,7 @@ from rastermint.core.settings import ProcessingSettings
 
 from .backend import _local_path, _tr
 from .batch_worker import BatchWorker
-from .preferences_backend import RasterMintBackend as PreferencesBackend
+from .session_backend import RasterMintBackend as PreferencesBackend
 from .workers import ProcessingWorker
 
 _FORMAT_SUFFIXES = {

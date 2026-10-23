@@ -1006,6 +1006,20 @@
     "Preparing batch export": "Đang chuẩn bị xuất hàng loạt",
     "Remove %1 from library?": "Xóa %1 khỏi thư viện?",
     "This cannot be undone.": "Không thể hoàn tác thao tác này.",
-    "Presets in this category will be kept.": "Các cài đặt sẵn trong danh mục này sẽ được giữ lại."
+    "Presets in this category will be kept.": "Các cài đặt sẵn trong danh mục này sẽ được giữ lại.",
+    "Show Reference Image": "Hiển thị ảnh tham chiếu",
+    "Reference Image": "Ảnh tham chiếu",
+    "Open Reference Image": "Mở ảnh tham chiếu",
+    "Open an image to use as reference": "Mở một ảnh để dùng làm tham chiếu",
+    "Hide reference": "Ẩn ảnh tham chiếu",
+    "Open…": "Mở…",
+    "Recover Unfinished Project": "Khôi phục dự án chưa hoàn thành",
+    "RasterMint found an autosaved project from the previous session. Restore it?": "RasterMint tìm thấy dự án được lưu tự động từ phiên trước. Bạn có muốn khôi phục không?",
+    "Discard": "Bỏ qua",
+    "Restore": "Khôi phục",
+    "Could not recover project": "Không thể khôi phục dự án",
+    "Autosave failed": "Lưu tự động thất bại",
+    "Could not open reference image": "Không thể mở ảnh tham chiếu",
+    "Merge keeps existing content and updates matching filenames. Replace removes current user presets and palettes first. Both restore the listed collections.": "Gộp giữ lại nội dung hiện có và cập nhật các tệp trùng tên. Thay thế sẽ xóa các thiết lập sẵn và bảng màu hiện tại của người dùng trước. Cả hai cách đều khôi phục các bộ sưu tập được liệt kê."
   }
 }

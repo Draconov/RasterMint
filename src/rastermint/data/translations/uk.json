@@ -1006,6 +1006,20 @@
     "Preparing batch export": "Підготовка пакетного експорту",
     "Remove %1 from library?": "Видалити %1 з бібліотеки?",
     "This cannot be undone.": "Цю дію неможливо скасувати.",
-    "Presets in this category will be kept.": "Пресети з цієї категорії залишаться збереженими."
+    "Presets in this category will be kept.": "Пресети з цієї категорії залишаться збереженими.",
+    "Show Reference Image": "Показати еталонне зображення",
+    "Reference Image": "Еталонне зображення",
+    "Open Reference Image": "Відкрити еталонне зображення",
+    "Open an image to use as reference": "Відкрийте зображення для порівняння",
+    "Hide reference": "Сховати еталон",
+    "Open…": "Відкрити…",
+    "Recover Unfinished Project": "Відновити незавершений проєкт",
+    "RasterMint found an autosaved project from the previous session. Restore it?": "RasterMint знайшов автоматично збережений проєкт із попереднього сеансу. Відновити його?",
+    "Discard": "Відхилити",
+    "Restore": "Відновити",
+    "Could not recover project": "Не вдалося відновити проєкт",
+    "Autosave failed": "Помилка автозбереження",
+    "Could not open reference image": "Не вдалося відкрити еталонне зображення",
+    "Merge keeps existing content and updates matching filenames. Replace removes current user presets and palettes first. Both restore the listed collections.": "Об’єднання зберігає наявний вміст і оновлює файли з однаковими назвами. Заміна спочатку видаляє поточні користувацькі пресети й палітри. Обидва варіанти відновлюють перелічені колекції."
   }
 }

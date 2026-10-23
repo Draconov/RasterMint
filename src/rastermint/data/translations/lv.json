@@ -1006,6 +1006,20 @@
     "Preparing batch export": "Pakešu eksporta sagatavošana",
     "Remove %1 from library?": "Vai noņemt %1 no bibliotēkas?",
     "This cannot be undone.": "Šo darbību nevar atsaukt.",
-    "Presets in this category will be kept.": "Šīs kategorijas priekšiestatījumi tiks saglabāti."
+    "Presets in this category will be kept.": "Šīs kategorijas priekšiestatījumi tiks saglabāti.",
+    "Show Reference Image": "Rādīt atsauces attēlu",
+    "Reference Image": "Atsauces attēls",
+    "Open Reference Image": "Atvērt atsauces attēlu",
+    "Open an image to use as reference": "Atveriet attēlu, ko izmantot kā atsauci",
+    "Hide reference": "Paslēpt atsauci",
+    "Open…": "Atvērt…",
+    "Recover Unfinished Project": "Atjaunot nepabeigtu projektu",
+    "RasterMint found an autosaved project from the previous session. Restore it?": "RasterMint atrada iepriekšējās sesijas automātiski saglabātu projektu. Vai to atjaunot?",
+    "Discard": "Atmest",
+    "Restore": "Atjaunot",
+    "Could not recover project": "Neizdevās atjaunot projektu",
+    "Autosave failed": "Automātiskā saglabāšana neizdevās",
+    "Could not open reference image": "Neizdevās atvērt atsauces attēlu",
+    "Merge keeps existing content and updates matching filenames. Replace removes current user presets and palettes first. Both restore the listed collections.": "Apvienošana saglabā esošo saturu un atjaunina failus ar vienādiem nosaukumiem. Aizstāšana vispirms noņem pašreizējos lietotāja sākotnējos iestatījumus un paletes. Abas iespējas atjauno norādītās kolekcijas."
   }
 }

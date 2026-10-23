@@ -1006,6 +1006,20 @@
     "Preparing batch export": "Preparazione esportazione batch",
     "Remove %1 from library?": "Rimuovere %1 dalla libreria?",
     "This cannot be undone.": "Questa azione non può essere annullata.",
-    "Presets in this category will be kept.": "I preset di questa categoria saranno conservati."
+    "Presets in this category will be kept.": "I preset di questa categoria saranno conservati.",
+    "Show Reference Image": "Mostra immagine di riferimento",
+    "Reference Image": "Immagine di riferimento",
+    "Open Reference Image": "Apri immagine di riferimento",
+    "Open an image to use as reference": "Apri un’immagine da usare come riferimento",
+    "Hide reference": "Nascondi riferimento",
+    "Open…": "Apri…",
+    "Recover Unfinished Project": "Recupera progetto incompleto",
+    "RasterMint found an autosaved project from the previous session. Restore it?": "RasterMint ha trovato un progetto salvato automaticamente nella sessione precedente. Vuoi ripristinarlo?",
+    "Discard": "Scarta",
+    "Restore": "Ripristina",
+    "Could not recover project": "Impossibile recuperare il progetto",
+    "Autosave failed": "Salvataggio automatico non riuscito",
+    "Could not open reference image": "Impossibile aprire l’immagine di riferimento",
+    "Merge keeps existing content and updates matching filenames. Replace removes current user presets and palettes first. Both restore the listed collections.": "Unisci mantiene i contenuti esistenti e aggiorna i file con lo stesso nome. Sostituisci rimuove prima i preset e le tavolozze dell’utente attuali. Entrambe le opzioni ripristinano le raccolte elencate."
   }
 }

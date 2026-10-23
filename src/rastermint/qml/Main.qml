@@ -284,6 +284,12 @@ ApplicationWindow {
 
             Action { text: qsTr("Fit Preview"); enabled: backend.hasSource; shortcut: "F"; onTriggered: { canvas.resetView(); backend.reportAction("Fit preview") } }
             Action {
+                text: qsTr("Show Reference Image")
+                checkable: true
+                checked: backend.referenceVisible
+                onTriggered: backend.setReferenceVisible(checked)
+            }
+            Action {
                 text: qsTr("Show Hotkeys")
                 shortcut: "Ctrl+Alt+K"
                 checkable: true
@@ -343,14 +349,28 @@ ApplicationWindow {
         Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            ImageCanvas { id: canvas; anchors.fill: parent }
-            DropArea {
+            RowLayout {
                 anchors.fill: parent
-                onDropped: function(drop) {
-                    if (drop.urls.length > 0) {
-                        backend.openFile(window.urlString(drop.urls[0]))
-                        drop.acceptProposedAction()
+                spacing: 0
+                Item {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    ImageCanvas { id: canvas; anchors.fill: parent }
+                    DropArea {
+                        anchors.fill: parent
+                        onDropped: function(drop) {
+                            if (drop.urls.length > 0) {
+                                backend.openFile(window.urlString(drop.urls[0]))
+                                drop.acceptProposedAction()
+                            }
+                        }
                     }
+                }
+                ReferenceImagePanel {
+                    Layout.fillHeight: true
+                    Layout.preferredWidth: Math.min(310, Math.max(190, window.width * 0.2))
+                    visible: backend.referenceVisible
+                    chooseReference: function() { referenceImageDialog.open() }
                 }
             }
             Rectangle {
@@ -646,6 +666,12 @@ ApplicationWindow {
     }
 
     FileDialog {
+        id: referenceImageDialog
+        title: qsTr("Open Reference Image")
+        nameFilters: ["Images (*.png *.jpg *.jpeg *.webp *.bmp *.gif *.tif *.tiff)"]
+        onAccepted: backend.openReferenceImage(window.urlString(selectedFile))
+    }
+    FileDialog {
         id: openDialog
         title: qsTr("Open media")
         nameFilters: ["Supported media (*.png *.jpg *.jpeg *.bmp *.webp *.tif *.tiff *.gif *.mp4 *.mov *.mkv *.webm *.avi *.m4v)", "All files (*)"]
@@ -675,6 +701,52 @@ ApplicationWindow {
 
     MintMessageDialog { id: errorDialog; title: "RasterMint" }
     MintMessageDialog { id: infoDialog; title: "RasterMint" }
+
+    MintDialog {
+        id: recoveryDialog
+        objectName: "recoveryDialog"
+        closePolicy: Popup.NoAutoClose
+        title: qsTr("Recover Unfinished Project")
+        width: Math.min(520, Overlay.overlay ? Overlay.overlay.width - 32 : 520)
+        contentItem: ColumnLayout {
+            Text {
+                Layout.fillWidth: true
+                text: qsTr("RasterMint found an autosaved project from the previous session. Restore it?")
+                color: theme.textColor
+                wrapMode: Text.WordWrap
+                font.pixelSize: 13
+            }
+        }
+        footer: Rectangle {
+            implicitHeight: 56
+            color: theme.panelRaisedColor
+            RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 12
+                anchors.rightMargin: 12
+                spacing: 8
+                Item { Layout.fillWidth: true }
+                MintButton {
+                    text: qsTr("Discard")
+                    onClicked: { backend.discardAutosave(); recoveryDialog.close() }
+                }
+                MintButton {
+                    text: qsTr("Restore")
+                    selected: true
+                    onClicked: {
+                        backend.recoverAutosave()
+                        if (!backend.recoveryAvailable)
+                            recoveryDialog.close()
+                    }
+                }
+            }
+        }
+    }
+
+    Component.onCompleted: {
+        if (backend.recoveryAvailable)
+            Qt.callLater(function() { recoveryDialog.open() })
+    }
 
     MintDialog {
         id: exitDuringExportDialog

@@ -1006,6 +1006,20 @@
     "Preparing batch export": "Easpórtáil baisce á hullmhú",
     "Remove %1 from library?": "An bhfuil tú ag iarraidh %1 a bhaint den leabharlann?",
     "This cannot be undone.": "Ní féidir an gníomh seo a chealú.",
-    "Presets in this category will be kept.": "Coinneofar na réamhshocruithe sa chatagóir seo."
+    "Presets in this category will be kept.": "Coinneofar na réamhshocruithe sa chatagóir seo.",
+    "Show Reference Image": "Taispeáin Íomhá Thagartha",
+    "Reference Image": "Íomhá Thagartha",
+    "Open Reference Image": "Oscail Íomhá Thagartha",
+    "Open an image to use as reference": "Oscail íomhá le húsáid mar thagairt",
+    "Hide reference": "Folaigh an tagairt",
+    "Open…": "Oscail…",
+    "Recover Unfinished Project": "Aisghabh Tionscadal Neamhchríochnaithe",
+    "RasterMint found an autosaved project from the previous session. Restore it?": "D’aimsigh RasterMint tionscadal a sábháladh go huathoibríoch sa seisiún roimhe seo. Ar mhaith leat é a athchóiriú?",
+    "Discard": "Caith amach",
+    "Restore": "Athchóirigh",
+    "Could not recover project": "Níorbh fhéidir an tionscadal a aisghabháil",
+    "Autosave failed": "Theip ar an uathshábháil",
+    "Could not open reference image": "Níorbh fhéidir an íomhá thagartha a oscailt",
+    "Merge keeps existing content and updates matching filenames. Replace removes current user presets and palettes first. Both restore the listed collections.": "Coinníonn cumasc an t-ábhar atá ann agus nuashonraíonn sé comhaid leis na hainmneacha céanna. Baineann ionadú réamhshocruithe agus pailéid reatha an úsáideora ar dtús. Athchóiríonn an dá rogha na bailiúcháin liostaithe."
   }
 }

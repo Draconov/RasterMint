@@ -1006,6 +1006,20 @@
     "Preparing batch export": "Przygotowywanie eksportu wsadowego",
     "Remove %1 from library?": "Usunąć %1 z biblioteki?",
     "This cannot be undone.": "Tej operacji nie można cofnąć.",
-    "Presets in this category will be kept.": "Presety w tej kategorii zostaną zachowane."
+    "Presets in this category will be kept.": "Presety w tej kategorii zostaną zachowane.",
+    "Show Reference Image": "Pokaż obraz referencyjny",
+    "Reference Image": "Obraz referencyjny",
+    "Open Reference Image": "Otwórz obraz referencyjny",
+    "Open an image to use as reference": "Otwórz obraz, aby użyć go jako wzorca",
+    "Hide reference": "Ukryj obraz referencyjny",
+    "Open…": "Otwórz…",
+    "Recover Unfinished Project": "Odzyskaj niedokończony projekt",
+    "RasterMint found an autosaved project from the previous session. Restore it?": "RasterMint znalazł automatycznie zapisany projekt z poprzedniej sesji. Przywrócić go?",
+    "Discard": "Odrzuć",
+    "Restore": "Przywróć",
+    "Could not recover project": "Nie udało się odzyskać projektu",
+    "Autosave failed": "Automatyczny zapis nie powiódł się",
+    "Could not open reference image": "Nie można otworzyć obrazu referencyjnego",
+    "Merge keeps existing content and updates matching filenames. Replace removes current user presets and palettes first. Both restore the listed collections.": "Scalanie zachowuje istniejącą zawartość i aktualizuje pliki o tych samych nazwach. Zastąpienie najpierw usuwa bieżące presety i palety użytkownika. Obie opcje przywracają wymienione kolekcje."
   }
 }

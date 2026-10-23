@@ -1820,31 +1820,52 @@ class RasterMintBackend(QObject):
         if self._snapshot_b is not None:
             self._restore_snapshot_image("B")
 
+    def _project_payload(self) -> dict[str, Any]:
+        source_ref = str(self._current_file) if self._current_file else ""
+        payload = {
+            "app_version": self.version,
+            "source": {"path": source_ref, "kind": "video" if self._video_path else ("image" if source_ref else "clipboard")},
+            "settings": self.settings.to_dict(),
+            "timeline": {
+                "current_time": float(self._current_time),
+                "playback_mode": str(self._playback_mode),
+                "playback_speed": float(self._playback_speed),
+            },
+            "ui": {
+                "selected_layer": int(self._selected_layer),
+                "preview_mode": str(self._preview_mode),
+                "reference_path": str(getattr(self, "_reference_path", "")),
+                "reference_visible": bool(getattr(self, "_reference_visible", False)),
+            },
+            "snapshots": {
+                "a": deepcopy(self._snapshot_a),
+                "b": deepcopy(self._snapshot_b),
+                "split": float(self._comparison_split),
+                "enabled": bool(self._comparison_enabled),
+            },
+            "export": self._project_extra_state(),
+        }
+        # Clipboard-only projects must still be recoverable after restart.
+        if not source_ref and self._source_image is not None:
+            import base64
+            from io import BytesIO
+            encoded = getattr(self, "_clipboard_snapshot_b64", "")
+            if getattr(self, "_clipboard_snapshot_revision", -1) != self._source_revision:
+                output = BytesIO()
+                (self._clipboard_source_image or self._source_image).save(output, format="PNG")
+                encoded = base64.b64encode(output.getvalue()).decode("ascii")
+                self._clipboard_snapshot_b64 = encoded
+                self._clipboard_snapshot_revision = self._source_revision
+            payload["source"]["embedded_png"] = encoded
+        return payload
+
     @Slot(str)
     def saveProject(self, value: str) -> None:
         try:
             from rastermint.core.project import save_project_file
             path = Path(_local_path(value))
-            source_ref = str(self._current_file) if self._current_file else ""
-            payload = {
-                "app_version": self.version,
-                "source": {"path": source_ref, "kind": "video" if self._video_path else ("image" if source_ref else "clipboard")},
-                "settings": self.settings.to_dict(),
-                "timeline": {
-                    "current_time": float(self._current_time),
-                    "playback_mode": str(self._playback_mode),
-                    "playback_speed": float(self._playback_speed),
-                },
-                "ui": {"selected_layer": int(self._selected_layer), "preview_mode": str(self._preview_mode)},
-                "snapshots": {
-                    "a": deepcopy(self._snapshot_a),
-                    "b": deepcopy(self._snapshot_b),
-                    "split": float(self._comparison_split),
-                    "enabled": bool(self._comparison_enabled),
-                },
-                "export": self._project_extra_state(),
-            }
-            self._project_path = save_project_file(path, payload)
+            payload = self._project_payload()
+            self._project_path = save_project_file(path, payload, package_assets=True)
             self.projectChanged.emit()
             self._set_status(f"Saved project: {self._project_path.name}")
         except Exception as exc:
@@ -1855,19 +1876,46 @@ class RasterMintBackend(QObject):
         try:
             from rastermint.core.project import load_project_file
             path = Path(_local_path(value))
-            payload = load_project_file(path)
+            asset_cache = getattr(self, "_project_asset_cache", None)
+            payload = load_project_file(path, extract_assets_to=asset_cache)
             source = payload.get("source") if isinstance(payload.get("source"), dict) else {}
             source_path = Path(str(source.get("path", ""))) if str(source.get("path", "")) else None
             if source_path is not None:
+                if not source_path.is_absolute():
+                    source_path = path.parent / source_path
                 if not source_path.exists():
                     raise FileNotFoundError(f"Project source file is missing: {source_path}")
                 self.openFile(str(source_path))
+            elif isinstance(source.get("embedded_png"), str) and source.get("embedded_png"):
+                import base64
+                from io import BytesIO
+                from PIL import Image
+                encoded = source["embedded_png"]
+                if len(encoded) > 180_000_000:
+                    raise ValueError("Embedded clipboard image exceeds recovery limit")
+                image = Image.open(BytesIO(base64.b64decode(encoded, validate=True))).convert("RGBA")
+                alpha_min, _alpha_max = image.getchannel("A").getextrema()
+                self._current_file = None
+                self._video_path = None
+                self._video_info = None
+                self._current_frame = None
+                self._source_image = image.convert("RGB")
+                self._clipboard_source_image = image.copy() if int(alpha_min) < 255 else None
+                self._source_revision += 1
+                self._sync_import_target_raster()
+                self.sourceChanged.emit()
             settings_payload = payload.get("settings") if isinstance(payload.get("settings"), dict) else {}
             loaded = ProcessingSettings.from_dict(settings_payload)
             ui = payload.get("ui") if isinstance(payload.get("ui"), dict) else {}
             selected = int(ui.get("selected_layer", 0) or 0)
             self._replace_settings(loaded, action=f"Loaded project: {path.name}", selected_layer=selected, record_history=False)
             self._preview_mode = str(ui.get("preview_mode", self._preview_mode) or self._preview_mode)
+            reference_path = str(ui.get("reference_path", "") or "")
+            if reference_path and hasattr(self, "openReferenceImage"):
+                if not Path(reference_path).is_absolute():
+                    reference_path = str(path.parent / reference_path)
+                self.openReferenceImage(reference_path)
+                self.setReferenceVisible(bool(ui.get("reference_visible", True)))
             timeline = payload.get("timeline") if isinstance(payload.get("timeline"), dict) else {}
             self._current_time = max(0.0, min(self.timelineDuration, float(timeline.get("current_time", 0.0) or 0.0)))
             self._playback_mode = str(timeline.get("playback_mode", self._playback_mode) or self._playback_mode)

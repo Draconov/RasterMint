@@ -1006,6 +1006,20 @@
     "Preparing batch export": "ਬੈਚ ਐਕਸਪੋਰਟ ਤਿਆਰ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ",
     "Remove %1 from library?": "ਲਾਇਬ੍ਰੇਰੀ ਵਿੱਚੋਂ %1 ਹਟਾਉਣਾ ਹੈ?",
     "This cannot be undone.": "ਇਸ ਕਾਰਵਾਈ ਨੂੰ ਵਾਪਸ ਨਹੀਂ ਕੀਤਾ ਜਾ ਸਕਦਾ।",
-    "Presets in this category will be kept.": "ਇਸ ਸ਼੍ਰੇਣੀ ਦੇ ਪ੍ਰੀਸੈੱਟ ਸੰਭਾਲੇ ਜਾਣਗੇ।"
+    "Presets in this category will be kept.": "ਇਸ ਸ਼੍ਰੇਣੀ ਦੇ ਪ੍ਰੀਸੈੱਟ ਸੰਭਾਲੇ ਜਾਣਗੇ।",
+    "Show Reference Image": "ਹਵਾਲਾ ਚਿੱਤਰ ਦਿਖਾਓ",
+    "Reference Image": "ਹਵਾਲਾ ਚਿੱਤਰ",
+    "Open Reference Image": "ਹਵਾਲਾ ਚਿੱਤਰ ਖੋਲ੍ਹੋ",
+    "Open an image to use as reference": "ਹਵਾਲੇ ਵਜੋਂ ਵਰਤਣ ਲਈ ਚਿੱਤਰ ਖੋਲ੍ਹੋ",
+    "Hide reference": "ਹਵਾਲਾ ਲੁਕਾਓ",
+    "Open…": "ਖੋਲ੍ਹੋ…",
+    "Recover Unfinished Project": "ਅਧੂਰਾ ਪ੍ਰੋਜੈਕਟ ਮੁੜ ਪ੍ਰਾਪਤ ਕਰੋ",
+    "RasterMint found an autosaved project from the previous session. Restore it?": "RasterMint ਨੂੰ ਪਿਛਲੇ ਸੈਸ਼ਨ ਦਾ ਆਪਣੇ ਆਪ ਸੰਭਾਲਿਆ ਪ੍ਰੋਜੈਕਟ ਮਿਲਿਆ ਹੈ। ਕੀ ਇਸਨੂੰ ਮੁੜ ਬਹਾਲ ਕਰਨਾ ਹੈ?",
+    "Discard": "ਰੱਦ ਕਰੋ",
+    "Restore": "ਬਹਾਲ ਕਰੋ",
+    "Could not recover project": "ਪ੍ਰੋਜੈਕਟ ਮੁੜ ਪ੍ਰਾਪਤ ਨਹੀਂ ਹੋ ਸਕਿਆ",
+    "Autosave failed": "ਆਪਣੇ ਆਪ ਸੰਭਾਲਣਾ ਅਸਫਲ ਰਿਹਾ",
+    "Could not open reference image": "ਹਵਾਲਾ ਚਿੱਤਰ ਨਹੀਂ ਖੋਲ੍ਹਿਆ ਜਾ ਸਕਿਆ",
+    "Merge keeps existing content and updates matching filenames. Replace removes current user presets and palettes first. Both restore the listed collections.": "ਮਿਲਾਉਣ ਨਾਲ ਮੌਜੂਦਾ ਸਮੱਗਰੀ ਬਣੀ ਰਹਿੰਦੀ ਹੈ ਅਤੇ ਇੱਕੋ ਨਾਮ ਵਾਲੀਆਂ ਫ਼ਾਈਲਾਂ ਅੱਪਡੇਟ ਹੁੰਦੀਆਂ ਹਨ। ਬਦਲਣ ਨਾਲ ਪਹਿਲਾਂ ਮੌਜੂਦਾ ਵਰਤੋਂਕਾਰ ਪ੍ਰੀਸੈਟ ਅਤੇ ਪੈਲਟਾਂ ਹਟਾ ਦਿੱਤੀਆਂ ਜਾਂਦੀਆਂ ਹਨ। ਦੋਵੇਂ ਵਿਕਲਪ ਸੂਚੀਬੱਧ ਸੰਗ੍ਰਹਿ ਮੁੜ ਬਹਾਲ ਕਰਦੇ ਹਨ।"
   }
 }
