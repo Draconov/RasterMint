@@ -17,7 +17,7 @@ PySide6 = pytest.importorskip("PySide6")
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 os.environ.setdefault("QSG_RHI_BACKEND", "software")
 
-from PySide6.QtCore import QCoreApplication, QMetaObject, QObject, QSize, QUrl, Qt  # noqa: E402
+from PySide6.QtCore import QCoreApplication, QMetaObject, QObject, QPoint, QPointF, QSize, QUrl, Qt  # noqa: E402
 from PySide6.QtGui import QColor, QGuiApplication, QImage  # noqa: E402
 from PySide6.QtQml import QQmlApplicationEngine, QQmlComponent  # noqa: E402
 from PySide6.QtQuickControls2 import QQuickStyle  # noqa: E402
@@ -618,6 +618,133 @@ def test_reference_image_panel_can_toggle_without_modifying_working_image(tmp_pa
         assert panel.property("visible") is False
     finally:
         backend.shutdown()
+
+
+def test_reference_panel_follows_imported_source_and_viewed_video_frame():
+    """The floating reference tracks raw input, not the effected preview."""
+    from PIL import Image
+
+    app = _app()
+    engine, backend, provider, theme = _engine_with_context()
+    engine.load(QUrl.fromLocalFile(str(QML_DIR / "Main.qml")))
+    app.processEvents()
+    assert engine.rootObjects()
+    window = engine.rootObjects()[0]
+    try:
+        backend.setReferenceVisible(True)
+        backend._source_image = Image.new("RGB", (100, 50), (244, 30, 22))
+        backend.sourceChanged.emit()
+        app.processEvents()
+
+        panel = window.findChild(QObject, "referenceImagePanel")
+        viewport = window.findChild(QObject, "referenceViewport")
+        panel_drag = window.findChild(QObject, "referencePanelDragHandle")
+        image_drag = window.findChild(QObject, "referenceViewportDragArea")
+        assert all(item is not None for item in (panel, viewport, panel_drag, image_drag))
+        assert panel.property("visible") is True
+        assert backend.referenceWidth == 100 and backend.referenceHeight == 50
+        first = provider.image("reference")
+        assert not first.isNull()
+        assert first.pixelColor(0, 0).red() == 244
+        assert float(panel.property("width")) > 300
+
+        # A video frame replaces the reference image, preserving an existing
+        # custom zoom, as the user plays or scrubs through the video.
+        panel.setProperty("zoomFactor", 2.0)
+        backend._current_frame = Image.new("RGB", (100, 50), (15, 210, 40))
+        backend.sourceChanged.emit()
+        app.processEvents()
+        second = provider.image("reference")
+        assert second.pixelColor(0, 0).green() == 210
+        assert abs(float(panel.property("zoomFactor")) - 2.0) < 0.001
+        assert backend._source_image.getpixel((0, 0)) == (244, 30, 22)
+
+        # Portraits should create a taller, narrower floating panel.
+        backend._current_frame = Image.new("RGB", (50, 100), (20, 30, 240))
+        backend.sourceChanged.emit()
+        app.processEvents()
+        assert float(panel.property("height")) > float(panel.property("width"))
+
+        backend.setReferenceVisible(False)
+        app.processEvents()
+        assert panel.property("visible") is False
+        backend.setReferenceVisible(True)
+        app.processEvents()
+        assert panel.property("visible") is True
+    finally:
+        backend.shutdown()
+
+
+def test_fit_shortcuts_follow_pointer_target():
+    """F fits the reference only when the pointer is over its image area.
+
+    Everywhere else, including when the reference has focus, F still fits the
+    working canvas.
+    """
+    from PIL import Image
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    app = _app()
+    engine, backend, provider, theme = _engine_with_context()
+    engine.load(QUrl.fromLocalFile(str(QML_DIR / "Main.qml")))
+    app.processEvents()
+    assert engine.rootObjects()
+    window = engine.rootObjects()[0]
+    try:
+        backend._source_image = Image.new("RGB", (200, 100), "blue")
+        backend.sourceChanged.emit()
+        backend.setReferenceVisible(True)
+        app.processEvents()
+        canvas = window.findChild(QQuickItem, "imageCanvas")
+        panel = window.findChild(QQuickItem, "referenceImagePanel")
+        viewport_drag = window.findChild(QQuickItem, "referenceViewportDragArea")
+        assert canvas is not None and panel is not None and viewport_drag is not None
+        assert panel.property("visible")
+
+        # Pointer outside the reference image area: fit the main canvas.
+        canvas.setProperty("zoomFactor", 3.0)
+        panel.setProperty("zoomFactor", 2.0)
+        panel.forceActiveFocus()
+        app.processEvents()
+        assert panel.hasActiveFocus()
+
+        QTest.mouseMove(window, QPoint(20, 20))
+        app.processEvents()
+        QTest.keyClick(window, Qt.Key.Key_F)
+        app.processEvents()
+        assert float(canvas.property("zoomFactor")) == pytest.approx(1.0)
+        assert float(panel.property("zoomFactor")) == pytest.approx(2.0)
+
+        # Pointer over the reference image area: fit the floating reference.
+        canvas.setProperty("zoomFactor", 2.5)
+        panel.setProperty("zoomFactor", 3.0)
+        panel_pos = viewport_drag.mapToScene(QPointF(10, 10))
+        QTest.mouseMove(window, QPoint(round(panel_pos.x()), round(panel_pos.y())))
+        app.processEvents()
+        assert bool(panel.property("pointerOverImageArea")) is True
+        QTest.keyClick(window, Qt.Key.Key_F)
+        app.processEvents()
+        assert float(canvas.property("zoomFactor")) == pytest.approx(2.5)
+        assert float(panel.property("zoomFactor")) == pytest.approx(1.0)
+    finally:
+        backend.shutdown()
+
+
+def test_reference_panel_has_no_close_or_independent_file_controls():
+    """The View menu owns visibility; the reference follows current source."""
+    main = (QML_DIR / "Main.qml").read_text(encoding="utf-8")
+    panel = (QML_DIR / "components/ReferenceImagePanel.qml").read_text(encoding="utf-8")
+    assert "referenceImageDialog" not in main
+    assert "chooseReference" not in main
+    assert 'onTriggered: backend.setReferenceVisible(checked)' in main
+    assert 'backend.clearReferenceImage()' not in panel
+    assert 'backend.openReferenceImage(' not in panel
+    assert 'backend.setReferenceVisible(false)' not in panel
+    assert 'referenceViewportDragArea' in panel
+    assert 'referencePanelDragHandle' in panel
+    assert 'onWheel: function(wheel)' in panel
+    assert 'root.fitImage()' in panel
 
 
 def test_autosave_can_restore_previous_session(tmp_path, monkeypatch):

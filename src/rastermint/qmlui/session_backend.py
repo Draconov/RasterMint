@@ -14,7 +14,7 @@ from PySide6.QtCore import Property, QRunnable, QStandardPaths, QTimer, Signal, 
 from PySide6.QtGui import QImage
 
 from rastermint.core.project import save_project_file
-from .backend import _local_path
+from .backend import _local_path, _pil_to_qimage
 from .preferences_backend import RasterMintBackend as PreferencesBackend
 from .workers import WorkerSignals
 
@@ -62,15 +62,17 @@ class RasterMintBackend(PreferencesBackend):
         self._autosave_timer.start()
 
         self._reference_visible = str(self.app_settings.value("referenceVisible", "false")).lower() in {"true", "1", "yes"}
-        self._reference_path = str(self.app_settings.value("referenceImagePath", "") or "")
+        # A reference is now a live view of the imported source or the current
+        # video frame, not an independently selected picture. Keep the legacy
+        # path API for older project files, without loading a stale reference
+        # from application preferences on a new session.
+        self._reference_path = ""
         self._reference_revision = 0
-        if self._reference_path and Path(self._reference_path).is_file():
-            try:
-                self._load_reference_image(Path(self._reference_path), persist=False)
-            except Exception:
-                self._reference_path = ""
-        else:
-            self._reference_path = ""
+        self._reference_width = 0
+        self._reference_height = 0
+        self._reference_source_object = None
+        self.sourceChanged.connect(self._sync_current_source_reference)
+        self._sync_current_source_reference()
 
     @Property(bool, notify=recoveryChanged)
     def recoveryAvailable(self) -> bool:
@@ -168,13 +170,65 @@ class RasterMintBackend(PreferencesBackend):
     def referenceRevision(self) -> int:
         return self._reference_revision
 
+    @Property(int, notify=referenceChanged)
+    def referenceWidth(self) -> int:
+        return self._reference_width
+
+    @Property(int, notify=referenceChanged)
+    def referenceHeight(self) -> int:
+        return self._reference_height
+
+    @Property(str, notify=referenceChanged)
+    def referenceSourceName(self) -> str:
+        if self._active_source() is not None and self._current_file is not None:
+            return self._current_file.name
+        return ""
+
     @Slot(bool)
     def setReferenceVisible(self, enabled: bool) -> None:
         enabled = bool(enabled)
         if enabled != self._reference_visible:
             self._reference_visible = enabled
             self.app_settings.setValue("referenceVisible", enabled)
+            if enabled:
+                self._sync_current_source_reference()
+            else:
+                self._reference_source_object = None
             self.referenceChanged.emit()
+
+    @Slot()
+    def _sync_current_source_reference(self) -> None:
+        """Show the real source image/frame, independent from effect rendering."""
+        source = self._active_source()
+        if source is None:
+            # Clear immediately when switching to an empty document; otherwise
+            # the previous image would remain displayed as the reference.
+            if self._reference_width or self._reference_height or self._reference_source_object is not None:
+                self.provider.clear("reference")
+                self._reference_width = 0
+                self._reference_height = 0
+                self._reference_source_object = None
+                self._reference_revision += 1
+                self.referenceChanged.emit()
+            return
+        if not self._reference_visible:
+            self._reference_source_object = None
+            return
+        if source is self._reference_source_object:
+            return
+        # Rendering a 4K frame to the reference every video frame is wasteful.
+        # Bound the UI thumbnail, while retaining the original source aspect.
+        preview = source
+        if max(source.width, source.height) > 2048:
+            from PIL import Image
+            preview = source.copy()
+            preview.thumbnail((2048, 2048), Image.Resampling.BILINEAR)
+        self.provider.set_image("reference", _pil_to_qimage(preview))
+        self._reference_source_object = source
+        self._reference_width = int(source.width)
+        self._reference_height = int(source.height)
+        self._reference_revision += 1
+        self.referenceChanged.emit()
 
     def _load_reference_image(self, path: Path, *, persist: bool = True) -> None:
         image = QImage(str(path))
@@ -184,12 +238,19 @@ class RasterMintBackend(PreferencesBackend):
             image = image.scaled(2048, 2048, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
         self.provider.set_image("reference", image)
         self._reference_path = str(path)
+        self._reference_width = image.width()
+        self._reference_height = image.height()
+        self._reference_source_object = None
         self._reference_revision += 1
         if persist:
             self.app_settings.setValue("referenceImagePath", str(path))
             self._reference_visible = True
             self.app_settings.setValue("referenceVisible", True)
         self.referenceChanged.emit()
+        # Old project files can still provide a separate reference asset, but
+        # while editing a source the floating panel always follows that source.
+        if self._active_source() is not None:
+            self._sync_current_source_reference()
 
     @Slot(str)
     def openReferenceImage(self, value: str) -> None:
@@ -203,9 +264,13 @@ class RasterMintBackend(PreferencesBackend):
     def clearReferenceImage(self) -> None:
         self.provider.clear("reference")
         self._reference_path = ""
+        self._reference_width = 0
+        self._reference_height = 0
+        self._reference_source_object = None
         self._reference_revision += 1
         self.app_settings.remove("referenceImagePath")
         self.referenceChanged.emit()
+        self._sync_current_source_reference()
 
     @Slot()
     def shutdown(self) -> None:

@@ -282,7 +282,18 @@ ApplicationWindow {
             menuWidth: 280
             onClosed: viewMenuButton.focus = false
 
-            Action { text: qsTr("Fit Preview"); enabled: backend.hasSource; shortcut: "F"; onTriggered: { canvas.resetView(); backend.reportAction("Fit preview") } }
+            Action {
+                text: qsTr("Fit Preview")
+                enabled: backend.hasSource
+                shortcut: "F"
+                onTriggered: {
+                    if (backend.referenceVisible && referencePanel.pointerOverImageArea)
+                        referencePanel.fitImage()
+                    else
+                        canvas.resetView()
+                    backend.reportAction(qsTr("Fit Preview"))
+                }
+            }
             Action {
                 text: qsTr("Show Reference Image")
                 checkable: true
@@ -314,6 +325,10 @@ ApplicationWindow {
             Action { text: qsTr("About RasterMint"); shortcut: "F1"; onTriggered: aboutDialog.open() }
         }
     }
+
+    // F is handled directly by the View → Fit Preview action above.
+    // Its routing is hover-based: mouse over the reference image area fits the
+    // floating reference; everywhere else fits the main working canvas.
 
     Shortcut {
         sequence: "Return"
@@ -349,29 +364,19 @@ ApplicationWindow {
         Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            RowLayout {
+            ImageCanvas { id: canvas; anchors.fill: parent }
+            DropArea {
                 anchors.fill: parent
-                spacing: 0
-                Item {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    ImageCanvas { id: canvas; anchors.fill: parent }
-                    DropArea {
-                        anchors.fill: parent
-                        onDropped: function(drop) {
-                            if (drop.urls.length > 0) {
-                                backend.openFile(window.urlString(drop.urls[0]))
-                                drop.acceptProposedAction()
-                            }
-                        }
+                onDropped: function(drop) {
+                    if (drop.urls.length > 0) {
+                        backend.openFile(window.urlString(drop.urls[0]))
+                        drop.acceptProposedAction()
                     }
                 }
-                ReferenceImagePanel {
-                    Layout.fillHeight: true
-                    Layout.preferredWidth: Math.min(310, Math.max(190, window.width * 0.2))
-                    visible: backend.referenceVisible
-                    chooseReference: function() { referenceImageDialog.open() }
-                }
+            }
+            ReferenceImagePanel {
+                id: referencePanel
+                visible: backend.referenceVisible
             }
             Rectangle {
                 id: renderProgressPanel
@@ -665,12 +670,6 @@ ApplicationWindow {
         urlNormalizer: function(selectedFolder) { return window.urlString(selectedFolder) }
     }
 
-    FileDialog {
-        id: referenceImageDialog
-        title: qsTr("Open Reference Image")
-        nameFilters: ["Images (*.png *.jpg *.jpeg *.webp *.bmp *.gif *.tif *.tiff)"]
-        onAccepted: backend.openReferenceImage(window.urlString(selectedFile))
-    }
     FileDialog {
         id: openDialog
         title: qsTr("Open media")
