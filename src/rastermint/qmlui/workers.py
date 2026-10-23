@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 import traceback
 from pathlib import Path
 from typing import Any
@@ -17,6 +18,88 @@ class WorkerSignals(QObject):
     failed = Signal(int, str, str, object)
     progress = Signal(int, str, int, int, str)
 
+
+
+
+def _save_processed_image(result: Any, context: dict[str, Any]) -> str:
+    from rastermint.core.svg_export import save_svg
+    from PIL import Image, ImageChops
+
+    path = Path(str(context.get("path", "output.png")))
+    output = result
+    alpha_mask = context.get("alpha_mask")
+
+    if bool(context.get("quick_export")) or bool(context.get("quick_alpha_export")):
+        if bool(context.get("quick_alpha_export")):
+            output = output.convert("RGBA")
+            if isinstance(alpha_mask, Image.Image):
+                mask = alpha_mask.convert("L")
+                if mask.size != output.size:
+                    mask = mask.resize(output.size, Image.Resampling.NEAREST)
+                existing_alpha = output.getchannel("A")
+                output.putalpha(ImageChops.multiply(existing_alpha, mask))
+        if path.suffix.lower() == ".svg":
+            save_svg(output, path)
+        else:
+            (output.convert("RGB") if path.suffix.lower() in {".jpg", ".jpeg"} else output).save(path)
+        return str(path)
+
+    width = max(1, min(32768, int(context.get("width", result.width) or result.width)))
+    height = max(1, min(32768, int(context.get("height", result.height) or result.height)))
+    format_name = str(context.get("format", "PNG") or "PNG").strip().upper()
+    quality = max(1, min(100, int(context.get("quality", 90) or 90)))
+    resampling_name = str(context.get("resampling", "Nearest (pixel-perfect)") or "Nearest (pixel-perfect)").strip().upper()
+    resampling = getattr(Image.Resampling, {
+        "NEAREST": "NEAREST",
+        "NEAREST (PIXEL-PERFECT)": "NEAREST",
+        "BILINEAR": "BILINEAR",
+        "BICUBIC": "BICUBIC",
+        "LANCZOS": "LANCZOS",
+    }.get(resampling_name, "NEAREST"))
+
+    if bool(context.get("preserve_transparency")) and format_name in {"PNG", "WEBP", "TIFF", "SVG"} and isinstance(alpha_mask, Image.Image):
+        mask = alpha_mask.convert("L")
+        if mask.size != output.size:
+            mask = mask.resize(output.size, Image.Resampling.NEAREST)
+        existing_alpha = output.getchannel("A") if "A" in output.getbands() else None
+        output = output.convert("RGBA")
+        if existing_alpha is not None:
+            if existing_alpha.size != mask.size:
+                existing_alpha = existing_alpha.resize(mask.size, Image.Resampling.NEAREST)
+            mask = ImageChops.multiply(existing_alpha, mask)
+        output.putalpha(mask)
+    if output.size != (width, height):
+        output = output.resize((width, height), resampling)
+    if format_name == "SVG":
+        save_svg(output, path)
+    elif format_name == "JPEG":
+        output.convert("RGB").save(path, format="JPEG", quality=quality, optimize=True, subsampling=0)
+    elif format_name == "WEBP":
+        output.save(path, format="WEBP", quality=quality, method=6)
+    elif format_name == "TIFF":
+        output.save(path, format="TIFF", compression="tiff_deflate")
+    else:
+        output.save(path, format="PNG", optimize=True)
+    return str(path)
+
+
+class ImageSaveWorker(QRunnable):
+    """Write a rendered still image to disk off the UI thread."""
+
+    def __init__(self, job_id: int, image: Any, context: dict[str, Any]):
+        super().__init__()
+        self.job_id = int(job_id)
+        self.image = image
+        self.context = deepcopy(context)
+        self.signals = WorkerSignals()
+
+    @Slot()
+    def run(self) -> None:
+        try:
+            path = _save_processed_image(self.image, self.context)
+            self.signals.finished.emit(self.job_id, "image-save", path, self.context)
+        except Exception:
+            self.signals.failed.emit(self.job_id, "image-save", traceback.format_exc(), self.context)
 
 class ProcessingWorker(QRunnable):
     def __init__(

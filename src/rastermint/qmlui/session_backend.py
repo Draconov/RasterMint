@@ -4,11 +4,13 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 import hashlib
 import json
 import os
 import traceback
 from pathlib import Path
+from typing import Any
 
 from PySide6.QtCore import Property, QRunnable, QStandardPaths, QTimer, Signal, Slot, Qt
 from PySide6.QtGui import QImage
@@ -20,22 +22,58 @@ from .workers import WorkerSignals
 
 
 class ProjectAutosaveWorker(QRunnable):
-    """Package autosave assets without blocking QML's event loop."""
+    """Build and package an autosave fully off the UI thread."""
 
-    def __init__(self, temp_path: Path, payload: dict, digest: str):
+    def __init__(
+        self,
+        temp_path: Path,
+        *,
+        app_version: str,
+        source_ref: str,
+        source_kind: str,
+        settings: Any,
+        timeline: dict[str, Any],
+        ui: dict[str, Any],
+        snapshots: dict[str, Any],
+        export_state: dict[str, Any],
+        project_path: str,
+    ):
         super().__init__()
         self.temp_path = Path(temp_path)
-        self.payload = payload
-        self.digest = digest
+        self.app_version = str(app_version)
+        self.source_ref = str(source_ref)
+        self.source_kind = str(source_kind)
+        self.settings = settings.clone() if hasattr(settings, "clone") else deepcopy(settings)
+        self.timeline = deepcopy(timeline)
+        self.ui = deepcopy(ui)
+        self.snapshots = deepcopy(snapshots)
+        self.export_state = deepcopy(export_state)
+        self.project_path = str(project_path or "")
         self.signals = WorkerSignals()
 
     @Slot()
     def run(self) -> None:
         try:
-            save_project_file(self.temp_path, self.payload, package_assets=True)
-            self.signals.finished.emit(0, "autosave", str(self.temp_path), self.digest)
+            settings_payload = self.settings.to_dict() if hasattr(self.settings, "to_dict") else deepcopy(self.settings)
+            payload = {
+                "app_version": self.app_version,
+                "source": {"path": self.source_ref, "kind": self.source_kind},
+                "settings": settings_payload,
+                "timeline": deepcopy(self.timeline),
+                "ui": deepcopy(self.ui),
+                "snapshots": deepcopy(self.snapshots),
+                "export": deepcopy(self.export_state),
+                "autosave_session": {
+                    "project_path": self.project_path,
+                    "automatic": True,
+                },
+            }
+            serialized = json.dumps(payload, sort_keys=True, ensure_ascii=False)
+            digest = hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+            save_project_file(self.temp_path, payload, package_assets=True)
+            self.signals.finished.emit(0, "autosave", str(self.temp_path), digest)
         except Exception:
-            self.signals.failed.emit(0, "autosave", traceback.format_exc(), self.digest)
+            self.signals.failed.emit(0, "autosave", traceback.format_exc(), None)
 
 
 class RasterMintBackend(PreferencesBackend):
@@ -71,6 +109,9 @@ class RasterMintBackend(PreferencesBackend):
         self._reference_width = 0
         self._reference_height = 0
         self._reference_source_object = None
+        self._reference_preview_hint_width = 0
+        self._reference_preview_hint_height = 0
+        self._reference_preview_max_side = 960
         self.sourceChanged.connect(self._sync_current_source_reference)
         self._sync_current_source_reference()
 
@@ -110,21 +151,67 @@ class RasterMintBackend(PreferencesBackend):
         except Exception as exc:
             self.errorOccurred.emit("Could not recover project", str(exc))
 
+
+    def _reference_target_max_side(self) -> int:
+        hint_width = max(0, int(self._reference_preview_hint_width))
+        hint_height = max(0, int(self._reference_preview_hint_height))
+        if hint_width > 0 and hint_height > 0:
+            side = max(hint_width, hint_height)
+            return max(320, min(1600, int(side * 2.0)))
+        return int(self._reference_preview_max_side)
+
+    def _project_payload(self) -> dict[str, Any]:
+        source_ref = str(self._current_file) if getattr(self, "_current_file", None) else ""
+        return {
+            "app_version": getattr(self, "version", ""),
+            "source": {"path": source_ref, "kind": "video" if getattr(self, "_video_path", None) else ("image" if source_ref else "clipboard")},
+            "settings": self.settings.to_dict(),
+            "timeline": {
+                "current_time": float(getattr(self, "_current_time", 0.0)),
+                "playback_mode": str(getattr(self, "_playback_mode", "")),
+                "playback_speed": float(getattr(self, "_playback_speed", 1.0)),
+            },
+            "ui": {"selected_layer": int(getattr(self, "_selected_layer", 0)), "preview_mode": str(getattr(self, "_preview_mode", ""))},
+            "snapshots": {
+                "a": deepcopy(getattr(self, "_snapshot_a", None)),
+                "b": deepcopy(getattr(self, "_snapshot_b", None)),
+                "split": float(getattr(self, "_comparison_split", 0.5)),
+                "enabled": bool(getattr(self, "_comparison_enabled", False)),
+            },
+            "export": self._project_extra_state() if hasattr(self, "_project_extra_state") else {},
+        }
+
     def _autosave_checkpoint(self) -> None:
         if self._autosave_shutdown or self._recovery_pending or self._autosave_running or not (self.hasSource or self._project_path is not None):
             return
         try:
-            payload = self._project_payload()
-            payload["autosave_session"] = {
-                "project_path": str(self._project_path) if self._project_path else "",
-                "automatic": True,
-            }
-            serialized = json.dumps(payload, sort_keys=True, ensure_ascii=False)
-            digest = hashlib.sha256(serialized.encode("utf-8")).hexdigest()
-            if digest == self._autosave_last_digest:
-                return
+            source_ref = str(self._current_file) if getattr(self, "_current_file", None) else ""
+            source_kind = "video" if getattr(self, "_video_path", None) else ("image" if source_ref else "clipboard")
+            worker = ProjectAutosaveWorker(
+                self._autosave_pending_path,
+                app_version=getattr(self, "version", ""),
+                source_ref=source_ref,
+                source_kind=source_kind,
+                settings=self.settings,
+                timeline={
+                    "current_time": float(getattr(self, "_current_time", 0.0)),
+                    "playback_mode": str(getattr(self, "_playback_mode", "")),
+                    "playback_speed": float(getattr(self, "_playback_speed", 1.0)),
+                },
+                ui={
+                    "selected_layer": int(getattr(self, "_selected_layer", 0)),
+                    "preview_mode": str(getattr(self, "_preview_mode", "")),
+                },
+                snapshots={
+                    "a": deepcopy(getattr(self, "_snapshot_a", None)),
+                    "b": deepcopy(getattr(self, "_snapshot_b", None)),
+                    "split": float(getattr(self, "_comparison_split", 0.5)),
+                    "enabled": bool(getattr(self, "_comparison_enabled", False)),
+                },
+                export_state=self._project_extra_state() if hasattr(self, "_project_extra_state") else {},
+                project_path=str(self._project_path) if self._project_path else "",
+            )
             self._autosave_running = True
-            worker = ProjectAutosaveWorker(self._autosave_pending_path, payload, digest)
             worker.signals.finished.connect(self._autosave_finished)
             worker.signals.failed.connect(self._autosave_failed)
             self.thread_pool.start(worker, -1)
@@ -132,14 +219,19 @@ class RasterMintBackend(PreferencesBackend):
             self._autosave_running = False
             self._report_autosave_error(str(exc))
 
+
     @Slot(int, str, object, object)
     def _autosave_finished(self, job_id: int, purpose: str, result: object, digest: object) -> None:
         del job_id, purpose
         self._autosave_running = False
         try:
             if not self._autosave_shutdown and not self._recovery_pending:
+                if str(digest or "") == self._autosave_last_digest:
+                    Path(str(result)).unlink(missing_ok=True)
+                    self._autosave_error_reported = False
+                    return
                 os.replace(str(result), self._recovery_path)
-                self._autosave_last_digest = str(digest)
+                self._autosave_last_digest = str(digest or "")
                 self._autosave_error_reported = False
             else:
                 Path(str(result)).unlink(missing_ok=True)
@@ -196,6 +288,19 @@ class RasterMintBackend(PreferencesBackend):
                 self._reference_source_object = None
             self.referenceChanged.emit()
 
+
+    @Slot(int, int)
+    def setReferencePreviewHint(self, width: int, height: int) -> None:
+        width = max(0, int(width))
+        height = max(0, int(height))
+        if width == self._reference_preview_hint_width and height == self._reference_preview_hint_height:
+            return
+        self._reference_preview_hint_width = width
+        self._reference_preview_hint_height = height
+        if self._reference_visible and self._active_source() is not None:
+            self._reference_source_object = None
+            self._sync_current_source_reference()
+
     @Slot()
     def _sync_current_source_reference(self) -> None:
         """Show the real source image/frame, independent from effect rendering."""
@@ -216,13 +321,15 @@ class RasterMintBackend(PreferencesBackend):
             return
         if source is self._reference_source_object:
             return
-        # Rendering a 4K frame to the reference every video frame is wasteful.
-        # Bound the UI thumbnail, while retaining the original source aspect.
+        # Rendering full-size video frames for the floating reference is
+        # wasteful. Use an adaptive target tied to the panel viewport, with a
+        # small oversampling margin for crisp zooming.
         preview = source
-        if max(source.width, source.height) > 2048:
+        target_side = self._reference_target_max_side()
+        if max(source.width, source.height) > target_side:
             from PIL import Image
             preview = source.copy()
-            preview.thumbnail((2048, 2048), Image.Resampling.BILINEAR)
+            preview.thumbnail((target_side, target_side), Image.Resampling.BILINEAR)
         self.provider.set_image("reference", _pil_to_qimage(preview))
         self._reference_source_object = source
         self._reference_width = int(source.width)
@@ -234,8 +341,9 @@ class RasterMintBackend(PreferencesBackend):
         image = QImage(str(path))
         if image.isNull():
             raise ValueError("Selected file is not a readable image")
-        if max(image.width(), image.height()) > 2048:
-            image = image.scaled(2048, 2048, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+        target_side = self._reference_target_max_side()
+        if max(image.width(), image.height()) > target_side:
+            image = image.scaled(target_side, target_side, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
         self.provider.set_image("reference", image)
         self._reference_path = str(path)
         self._reference_width = image.width()

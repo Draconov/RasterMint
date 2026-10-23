@@ -84,7 +84,10 @@ Rectangle {
     onVisibleChanged: {
         if (visible) {
             Qt.callLater(keepInWorkspace)
+            Qt.callLater(function() { backend.setReferencePreviewHint(imageViewport.width, imageViewport.height) })
             fitImage()
+        } else {
+            backend.setReferencePreviewHint(0, 0)
         }
     }
 
@@ -92,6 +95,11 @@ Rectangle {
         target: root.parent
         function onWidthChanged() { root.keepInWorkspace() }
         function onHeightChanged() { root.keepInWorkspace() }
+    }
+    Connections {
+        target: imageViewport
+        function onWidthChanged() { if (root.visible) backend.setReferencePreviewHint(imageViewport.width, imageViewport.height) }
+        function onHeightChanged() { if (root.visible) backend.setReferencePreviewHint(imageViewport.width, imageViewport.height) }
     }
     Connections {
         target: backend

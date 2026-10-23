@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import json
 import math
 from typing import Callable
 
@@ -21,6 +22,39 @@ PREVIEW_MAX_SIDE = 640
 FAST_PREVIEW_MAX_SIDE = 320
 
 
+def _normalized_stack_signature(settings: ProcessingSettings) -> str:
+    """Compact content signature for normalized-stack caching."""
+    payload = {
+        "effect_stack": settings.effect_stack or [],
+        "palette_len": len(settings.palette or []),
+    }
+    return json.dumps(payload, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+
+
+def _runtime_stack_signature(settings: ProcessingSettings) -> str:
+    payload = {
+        "effect_stack": settings.effect_stack or [],
+        "layer_groups": settings.layer_groups or [],
+        "solo_layer_id": str(getattr(settings, "solo_layer_id", "") or ""),
+        "solo_group_id": str(getattr(settings, "solo_group_id", "") or ""),
+        "palette_len": len(settings.palette or []),
+    }
+    return json.dumps(payload, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+
+
+def normalized_effect_stack_cached(settings: ProcessingSettings) -> list[dict[str, object]]:
+    signature = _normalized_stack_signature(settings)
+    if (
+        getattr(settings, "_normalized_stack_cache_value", None) is not None
+        and getattr(settings, "_normalized_stack_cache_signature", "") == signature
+    ):
+        return [dict(step) for step in settings._normalized_stack_cache_value]
+    stack = normalize_effect_stack(settings.effect_stack, settings)
+    settings._normalized_stack_cache_signature = signature
+    settings._normalized_stack_cache_value = [dict(step) for step in stack]
+    return stack
+
+
 def runtime_effect_stack(settings: ProcessingSettings) -> list[dict[str, object]]:
     """Return the normalized stack with UI group/solo visibility applied.
 
@@ -29,36 +63,68 @@ def runtime_effect_stack(settings: ProcessingSettings) -> list[dict[str, object]
     the authored layer stack, so runtime visibility/compositing metadata is
     derived on shallow copies only when needed.
     """
-    stack = normalize_effect_stack(settings.effect_stack, settings)
+    signature = _runtime_stack_signature(settings)
+    if (
+        getattr(settings, "_runtime_stack_cache_value", None) is not None
+        and getattr(settings, "_runtime_stack_cache_signature", "") == signature
+    ):
+        return [dict(step) for step in settings._runtime_stack_cache_value]
+
+    stack = normalized_effect_stack_cached(settings)
     groups = canonicalize_layer_groups(list(getattr(settings, "layer_groups", []) or []))
     solo_id = str(getattr(settings, "solo_layer_id", "") or "")
     solo_group_id = str(getattr(settings, "solo_group_id", "") or "")
     if not groups and not solo_id and not solo_group_id:
+        settings._runtime_stack_cache_signature = signature
+        settings._runtime_stack_cache_value = [dict(step) for step in stack]
         return stack
 
     group_by_id = {str(group.get("id", "")): dict(group) for group in groups}
+    ancestry: dict[str, tuple[str, ...]] = {"": ()}
+    path_enabled: dict[str, bool] = {"": True}
+    forced_ancestors = set(group_path(solo_group_id, groups)) if solo_group_id else set()
+
+    def get_path(group_id: str) -> tuple[str, ...]:
+        if group_id not in ancestry:
+            ancestry[group_id] = tuple(group_path(group_id, groups))
+        return ancestry[group_id]
+
+    def groups_enabled(group_id: str, path_ids: tuple[str, ...]) -> bool:
+        if group_id not in path_enabled:
+            path_enabled[group_id] = all(bool(group_by_id[gid].get("enabled", True)) for gid in path_ids)
+        return path_enabled[group_id]
+
     runtime: list[dict[str, object]] = []
     for step in stack:
         group_id = str(step.get("group_id", "") or "")
-        path_ids = group_path(group_id, groups)
-        path_groups = [dict(group_by_id[gid]) for gid in path_ids if gid in group_by_id]
-        visible = step_effective_enabled_for_solo(
-            step,
-            groups,
-            solo_layer_id=solo_id,
-            solo_group_id=solo_group_id,
-        )
+        path_ids = get_path(group_id)
+        authored_enabled = bool(step.get("enabled", True))
+        if solo_id:
+            visible = str(step.get("id", "")) == solo_id
+        elif solo_group_id:
+            visible = (
+                authored_enabled
+                and solo_group_id in path_ids
+                and all(
+                    gid in forced_ancestors or bool(group_by_id[gid].get("enabled", True))
+                    for gid in path_ids
+                )
+            )
+        else:
+            visible = authored_enabled and groups_enabled(group_id, path_ids)
 
-        needs_copy = bool(path_groups) or visible != bool(step.get("enabled", True))
+        needs_copy = bool(path_ids) or visible != authored_enabled
         if needs_copy:
             updated = dict(step)
             updated["enabled"] = visible
             if path_ids:
                 updated["_group_path"] = list(path_ids)
-                updated["_group_settings"] = path_groups
+                updated["_group_settings"] = [dict(group_by_id[gid]) for gid in path_ids]
             runtime.append(updated)
         else:
             runtime.append(step)
+    settings._runtime_stack_cache_signature = signature
+    settings._runtime_stack_cache_value = [dict(step) for step in runtime]
     return runtime
 
 
@@ -394,6 +460,20 @@ def _apply_alpha_source_transform(alpha: Image.Image, settings: ProcessingSettin
     return mask
 
 
+def _mirrored_axis_indices(length: int, normalized_axis: float) -> tuple[np.ndarray, np.ndarray]:
+    """Map reflected destination columns/rows to in-bounds source indices.
+
+    Use NumPy's nearest-even rounding to match Python's ``round`` exactly,
+    including non-central axes.  This avoids a Python iteration per column or
+    row during every full-size frame render and alpha-mask transform.
+    """
+    axis = max(0.0, min(1.0, normalized_axis)) * (length - 1)
+    destination = np.arange(max(0, math.floor(axis) + 1), length, dtype=np.intp)
+    source = np.rint(2.0 * axis - destination).astype(np.intp)
+    valid = (source >= 0) & (source < length)
+    return destination[valid], source[valid]
+
+
 def _apply_axis_mirror_alpha(alpha: Image.Image, settings: ProcessingSettings) -> Image.Image:
     if not settings.mirror_horizontal and not settings.mirror_vertical:
         return alpha.convert("L")
@@ -401,17 +481,11 @@ def _apply_axis_mirror_alpha(alpha: Image.Image, settings: ProcessingSettings) -
     arr = np.asarray(alpha.convert("L"), dtype=np.uint8).copy()
     height, width = arr.shape
     if settings.mirror_horizontal and width > 1:
-        axis = max(0.0, min(1.0, settings.mirror_horizontal_axis)) * (width - 1)
-        for x in range(max(0, math.floor(axis) + 1), width):
-            source_x = int(round(2.0 * axis - x))
-            if 0 <= source_x < width:
-                arr[:, x] = arr[:, source_x]
+        destination, source = _mirrored_axis_indices(width, settings.mirror_horizontal_axis)
+        arr[:, destination] = arr[:, source]
     if settings.mirror_vertical and height > 1:
-        axis = max(0.0, min(1.0, settings.mirror_vertical_axis)) * (height - 1)
-        for y in range(max(0, math.floor(axis) + 1), height):
-            source_y = int(round(2.0 * axis - y))
-            if 0 <= source_y < height:
-                arr[y, :] = arr[source_y, :]
+        destination, source = _mirrored_axis_indices(height, settings.mirror_vertical_axis)
+        arr[destination, :] = arr[source, :]
     return Image.fromarray(arr, "L")
 
 
@@ -529,24 +603,26 @@ def _apply_axis_mirror(image: Image.Image, settings: ProcessingSettings) -> Imag
     if not settings.mirror_horizontal and not settings.mirror_vertical:
         return image
 
-    arr = np.asarray(image.convert("RGB"), dtype=np.uint8).copy()
-    height, width = arr.shape[:2]
+    pixels = np.asarray(image.convert("RGB"), dtype=np.uint8)
+    height, width = pixels.shape[:2]
 
-    if settings.mirror_horizontal and width > 1:
-        axis = max(0.0, min(1.0, settings.mirror_horizontal_axis)) * (width - 1)
-        for x in range(max(0, math.floor(axis) + 1), width):
-            source_x = int(round(2.0 * axis - x))
-            if 0 <= source_x < width:
-                arr[:, x, :] = arr[:, source_x, :]
-
+    # Row-major bulk gathers are faster than writing hundreds/thousands of
+    # individual non-contiguous NumPy column slices. Build the complete axis
+    # map, retaining source pixels in positions outside the mirrored region.
+    # A vertical and a horizontal remap commute, so the row-major order is
+    # pixel-identical to the original horizontal-then-vertical implementation.
     if settings.mirror_vertical and height > 1:
-        axis = max(0.0, min(1.0, settings.mirror_vertical_axis)) * (height - 1)
-        for y in range(max(0, math.floor(axis) + 1), height):
-            source_y = int(round(2.0 * axis - y))
-            if 0 <= source_y < height:
-                arr[y, :, :] = arr[source_y, :, :]
+        destination, source = _mirrored_axis_indices(height, settings.mirror_vertical_axis)
+        rows = np.arange(height, dtype=np.intp)
+        rows[destination] = source
+        pixels = np.take(pixels, rows, axis=0)
+    if settings.mirror_horizontal and width > 1:
+        destination, source = _mirrored_axis_indices(width, settings.mirror_horizontal_axis)
+        columns = np.arange(width, dtype=np.intp)
+        columns[destination] = source
+        pixels = np.take(pixels, columns, axis=1)
 
-    return Image.fromarray(arr, "RGB")
+    return Image.fromarray(pixels, "RGB")
 
 def _fit_to_target(
     image: Image.Image,

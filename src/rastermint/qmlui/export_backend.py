@@ -16,7 +16,7 @@ from rastermint.core.settings import ProcessingSettings
 from .backend import _local_path, _tr
 from .batch_worker import BatchWorker
 from .session_backend import RasterMintBackend as PreferencesBackend
-from .workers import ProcessingWorker
+from .workers import ImageSaveWorker, ProcessingWorker
 
 _FORMAT_SUFFIXES = {
     "PNG": ".png",
@@ -544,15 +544,14 @@ class RasterMintBackend(PreferencesBackend):
             path = path.with_suffix(".png")
         format_name = self._format_from_path(path)
         alpha_source = self._transparency_source() if format_name in _ALPHA_FORMATS else None
-        if alpha_source is None:
-            super().exportImage(str(path))
-            return
 
         animated = settings_at_time(self.settings, self._current_time)
-        alpha_mask = prepare_transparency_mask(alpha_source, animated)
+        source_for_worker = alpha_source if alpha_source is not None else source
+        alpha_mask = prepare_transparency_mask(alpha_source, animated) if alpha_source is not None else None
         context = {
             "path": str(path),
-            "quick_alpha_export": True,
+            "quick_export": alpha_source is None,
+            "quick_alpha_export": alpha_source is not None,
             "format": format_name,
             "alpha_mask": alpha_mask,
         }
@@ -564,14 +563,14 @@ class RasterMintBackend(PreferencesBackend):
             job,
             "export-image",
             animated,
-            width=int(alpha_source.width),
-            height=int(alpha_source.height),
+            width=int(source_for_worker.width),
+            height=int(source_for_worker.height),
             stage="Preparing export",
         )
         worker = ProcessingWorker(
             job,
             "export-image",
-            alpha_source.copy(),
+            source_for_worker.copy(),
             animated,
             context,
             frame_time=self._current_time,
@@ -739,6 +738,13 @@ class RasterMintBackend(PreferencesBackend):
         self.thread_pool.start(worker)
         self._set_status(f"Batch exporting {len(source_paths)} image(s)…")
 
+    def _start_image_save_worker(self, job_id: int, image: Any, context: dict[str, Any]) -> None:
+        self._export_stage = _tr("Writing file")
+        self.renderProgressChanged.emit()
+        worker = ImageSaveWorker(job_id, image, context)
+        self._connect_worker(worker)
+        self.thread_pool.start(worker)
+
     @staticmethod
     def _save_advanced_image(result: Any, context: dict[str, Any]) -> Path:
         path = Path(str(context.get("path", "output.png")))
@@ -833,34 +839,15 @@ class RasterMintBackend(PreferencesBackend):
         if (
             purpose == "export-image"
             and isinstance(context, dict)
-            and bool(context.get("quick_alpha_export"))
+            and (bool(context.get("quick_alpha_export")) or bool(context.get("quick_export")))
         ):
             self._export_jobs.discard(job_id)
-            path = Path(str(context.get("path", "output.png")))
             if result is None:
                 self._finish_export_task(job_id, cancelled=True)
                 self._set_status(_tr("Export cancelled"))
                 return
             if _is_pil_image(result):
-                try:
-                    output = result.convert("RGBA")
-                    alpha_mask = context.get("alpha_mask")
-                    if _is_pil_image(alpha_mask):
-                        mask = alpha_mask.convert("L")
-                        if mask.size != output.size:
-                            mask = mask.resize(output.size, _resampling("NEAREST"))
-                        existing_alpha = output.getchannel("A")
-                        mask = _image_chops_module().multiply(existing_alpha, mask)
-                        output.putalpha(mask)
-                    if path.suffix.lower() == ".svg":
-                        save_svg(output, path)
-                    else:
-                        output.save(path)
-                    self._finish_export_task(job_id)
-                    self._set_status(f"Exported {path.name}")
-                except Exception as exc:
-                    self._finish_export_task(job_id)
-                    self.errorOccurred.emit("Could not export image", str(exc))
+                self._start_image_save_worker(job_id, result, context)
                 return
         if (
             purpose == "export-image"
@@ -873,12 +860,11 @@ class RasterMintBackend(PreferencesBackend):
                 self._set_status(_tr("Export cancelled"))
                 return
             if _is_pil_image(result):
-                try:
-                    path = self._save_advanced_image(result, context)
-                    self._finish_export_task(job_id)
-                    self._set_status(f"Exported {path.name}")
-                except Exception as exc:
-                    self._finish_export_task(job_id)
-                    self.errorOccurred.emit("Could not export image", str(exc))
+                self._start_image_save_worker(job_id, result, context)
                 return
+        if purpose == "image-save" and isinstance(context, dict):
+            path = Path(str(result)) if isinstance(result, str) else Path(str(context.get("path", "output.png")))
+            self._finish_export_task(job_id)
+            self._set_status(f"Exported {path.name}")
+            return
         super()._worker_finished(job_id, purpose, result, context)

@@ -111,6 +111,13 @@ class ProcessingSettings:
 
     random_locks: dict[str, bool] = field(default_factory=_default_random_locks)
 
+    # Internal runtime caches. They are intentionally excluded from saved
+    # project data and reset on clones/imports.
+    _normalized_stack_cache_signature: str = field(default="", init=False, repr=False)
+    _normalized_stack_cache_value: list[dict[str, Any]] | None = field(default=None, init=False, repr=False)
+    _runtime_stack_cache_signature: str = field(default="", init=False, repr=False)
+    _runtime_stack_cache_value: list[dict[str, Any]] | None = field(default=None, init=False, repr=False)
+
     def __post_init__(self) -> None:
         # Keep direct construction and JSON loading canonical. In particular,
         # palette lock state always has one entry per swatch so preset
@@ -195,6 +202,10 @@ class ProcessingSettings:
         cloned.animation_tracks = deepcopy(self.animation_tracks)
         cloned.audio_envelope = list(self.audio_envelope)
         cloned.random_locks = dict(self.random_locks)
+        cloned._normalized_stack_cache_signature = ""
+        cloned._normalized_stack_cache_value = None
+        cloned._runtime_stack_cache_signature = ""
+        cloned._runtime_stack_cache_value = None
         return cloned
 
     def for_source_import(self, preserve_crop: bool) -> "ProcessingSettings":
@@ -213,7 +224,11 @@ class ProcessingSettings:
         return imported
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        data = asdict(self)
+        for key in list(data.keys()):
+            if str(key).startswith("_"):
+                data.pop(key, None)
+        return data
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "ProcessingSettings":

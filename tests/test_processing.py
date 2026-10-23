@@ -670,3 +670,45 @@ def test_gpu_preview_is_opt_in_and_does_not_leak_to_export_threads(monkeypatch):
     monkeypatch.setenv("RASTERMINT_GPU", "0")
     with preview_gpu(True):
         assert not _gpu_allowed()
+
+
+def test_vectorized_axis_mirroring_matches_legacy_pixel_by_pixel():
+    """Keep RGB, alpha, and off-center mirror behavior pixel-identical."""
+    import math
+
+    from rastermint.core.processor import _apply_axis_mirror, _apply_axis_mirror_alpha
+
+    def legacy_mirror(array, horizontal, vertical, horizontal_axis, vertical_axis):
+        output = array.copy()
+        height, width = output.shape[:2]
+        if horizontal and width > 1:
+            axis = max(0.0, min(1.0, horizontal_axis)) * (width - 1)
+            for x in range(max(0, math.floor(axis) + 1), width):
+                source_x = int(round(2.0 * axis - x))
+                if 0 <= source_x < width:
+                    output[:, x] = output[:, source_x]
+        if vertical and height > 1:
+            axis = max(0.0, min(1.0, vertical_axis)) * (height - 1)
+            for y in range(max(0, math.floor(axis) + 1), height):
+                source_y = int(round(2.0 * axis - y))
+                if 0 <= source_y < height:
+                    output[y] = output[source_y]
+        return output
+
+    rng = np.random.default_rng(2026)
+    for width, height in [(1, 1), (1, 17), (29, 1), (2, 3), (33, 23), (64, 45)]:
+        rgb = rng.integers(0, 256, size=(height, width, 3), dtype=np.uint8)
+        alpha = rng.integers(0, 256, size=(height, width), dtype=np.uint8)
+        for horizontal, vertical in [(True, False), (False, True), (True, True)]:
+            for h_axis, v_axis in [(0.0, 0.0), (0.5, 0.5), (1.0, 1.0),
+                                   (0.13, 0.72), (0.97, 0.03), (0.33, 0.66)]:
+                settings = ProcessingSettings(
+                    mirror_horizontal=horizontal,
+                    mirror_vertical=vertical,
+                    mirror_horizontal_axis=h_axis,
+                    mirror_vertical_axis=v_axis,
+                )
+                result_rgb = np.asarray(_apply_axis_mirror(Image.fromarray(rgb, "RGB"), settings))
+                result_alpha = np.asarray(_apply_axis_mirror_alpha(Image.fromarray(alpha, "L"), settings))
+                assert np.array_equal(result_rgb, legacy_mirror(rgb, horizontal, vertical, h_axis, v_axis))
+                assert np.array_equal(result_alpha, legacy_mirror(alpha, horizontal, vertical, h_axis, v_axis))

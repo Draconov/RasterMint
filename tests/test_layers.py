@@ -403,3 +403,56 @@ def test_group_toggle_state_reflects_temporary_solo_scope():
     assert group_effective_enabled_for_solo("outer", stack, groups, solo_layer_id="layer") is True
     assert group_effective_enabled_for_solo("target", stack, groups, solo_layer_id="layer") is True
     assert group_effective_enabled_for_solo("other", stack, groups, solo_layer_id="layer") is False
+
+
+def test_runtime_group_visibility_memoization_matches_original_rules():
+    """Nested/solo/disabled/unknown group logic remains byte-for-byte equivalent."""
+    from rastermint.core.effect_schema import normalize_effect_stack
+    from rastermint.core.layer_groups import step_effective_enabled_for_solo, group_path
+
+    settings = ProcessingSettings()
+    settings.layer_groups = [
+        _nested_group("g1", "G1", enabled=False),
+        _nested_group("g2", "G2", "g1", enabled=True),
+        _nested_group("g3", "G3", "g2", enabled=False),
+        _nested_group("g4", "G4", enabled=True),
+    ]
+    settings.effect_stack = []
+    for i in range(84):
+        layer = new_effect("Invert" if i % 2 else "Grayscale")
+        layer["group_id"] = ["", "g1", "g2", "g3", "g4", "unknown"][i % 6]
+        layer["enabled"] = i % 4 != 0
+        settings.effect_stack.append(layer)
+
+    for solo_layer_id, solo_group_id in [
+        ("", ""), ("", "g1"), ("", "g2"), ("", "g3"), ("", "g4"),
+        (settings.effect_stack[0]["id"], ""),
+        (settings.effect_stack[55]["id"], "g2"),
+        ("missing-id", ""), ("", "unknown"),
+    ]:
+        settings.solo_layer_id = solo_layer_id
+        settings.solo_group_id = solo_group_id
+        runtime = runtime_effect_stack(settings)
+        normalized = normalize_effect_stack(settings.effect_stack, settings)
+        assert len(runtime) == len(normalized)
+        for authored, updated in zip(normalized, runtime, strict=True):
+            expected = step_effective_enabled_for_solo(
+                authored,
+                settings.layer_groups,
+                solo_layer_id=solo_layer_id,
+                solo_group_id=solo_group_id,
+            )
+            path = group_path(str(authored.get("group_id", "") or ""), settings.layer_groups)
+            assert updated["enabled"] is expected
+            assert updated.get("_group_path", []) == path
+            if path:
+                assert [g["id"] for g in updated["_group_settings"]] == path
+
+    # Make sure group settings are independent mutable dictionaries per layer.
+    settings.solo_layer_id = ""
+    settings.solo_group_id = ""
+    runtime = runtime_effect_stack(settings)
+    one, other = runtime[2], runtime[8]
+    assert one["_group_settings"] is not other["_group_settings"]
+    one["_group_settings"][0]["name"] = "Changed only in one result"
+    assert other["_group_settings"][0]["name"] == "G1"
