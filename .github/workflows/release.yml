@@ -57,7 +57,8 @@ jobs:
             libopengl0 \
             libxkbcommon0 \
             libxkbcommon-x11-0 \
-            libxcb-cursor0
+            libxcb-cursor0 \
+            nasm
           python -m pip install -e ".[dev]"
 
       # Linux owns the normal suite, but not the QtQuick runtime smoke test.

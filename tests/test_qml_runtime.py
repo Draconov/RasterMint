@@ -781,7 +781,47 @@ def test_autosave_can_restore_previous_session(tmp_path, monkeypatch):
         assert not recovered_backend.recoveryAvailable
         assert recovered_backend._source_image is not None
         assert recovered_backend._source_image.size == (24, 24)
+        # The original was deleted; the source must come from the embedded
+        # assets and stay available for another save/export.
+        assert recovered_backend._current_file is not None
+        assert Path(recovered_backend._current_file).is_file()
+        assert recovered_backend._current_file.is_relative_to(tmp_path / "restored-assets")
     finally:
         backend.shutdown()
         if recovered_backend is not None:
             recovered_backend.shutdown()
+
+
+def test_manual_project_save_is_portable_and_reopens_without_original(tmp_path, monkeypatch):
+    """Save Project must package assets, not just the automatic crash checkpoint."""
+    from PIL import Image
+    from rastermint.core.project import load_project_file
+
+    app = _app()
+    backend = RasterMintBackend(RasterImageProvider())
+    reopened = None
+    monkeypatch.setattr(RasterMintBackend, "schedulePreview", lambda self, force=False: None)
+    monkeypatch.setattr(RasterMintBackend, "refreshPresetThumbnails", lambda self: None)
+    source = tmp_path / "photo.png"
+    project = tmp_path / "portable.rastermint"
+    Image.new("RGB", (35, 21), (123, 45, 67)).save(source)
+    try:
+        backend.openFile(str(source))
+        backend.saveProject(str(project))
+        assert project.is_file(), "Save Project must create the requested file"
+        saved = load_project_file(project)
+        assert saved["source"]["path"].startswith("asset://")
+
+        source.unlink()
+        reopened = RasterMintBackend(RasterImageProvider())
+        reopened._project_asset_cache = tmp_path / "reopened-assets"
+        reopened.loadProject(str(project))
+        assert reopened._project_path == project
+        assert reopened._source_image is not None
+        assert reopened._source_image.size == (35, 21)
+        assert reopened._source_image.getpixel((0, 0)) == (123, 45, 67)
+        assert Path(reopened._current_file).is_file()
+    finally:
+        backend.shutdown()
+        if reopened is not None:
+            reopened.shutdown()

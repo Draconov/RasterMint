@@ -1844,7 +1844,7 @@ class RasterMintBackend(QObject):
                 },
                 "export": self._project_extra_state(),
             }
-            self._project_path = save_project_file(path, payload)
+            self._project_path = save_project_file(path, payload, package_assets=True)
             self.projectChanged.emit()
             self._set_status(f"Saved project: {self._project_path.name}")
         except Exception as exc:
@@ -1855,7 +1855,15 @@ class RasterMintBackend(QObject):
         try:
             from rastermint.core.project import load_project_file
             path = Path(_local_path(value))
-            payload = load_project_file(path)
+            # Extract embedded assets before resolving any referenced path.
+            # Old projects without bundled assets continue to load unchanged.
+            # The session backend provides a persistent, content-addressed
+            # cache so recovered projects remain usable after the originals
+            # have been moved or deleted.
+            asset_cache = getattr(self, "_project_asset_cache", None)
+            if asset_cache is None:
+                asset_cache = Path.home() / ".rastermint" / "extracted-assets"
+            payload = load_project_file(path, extract_assets_to=asset_cache)
             source = payload.get("source") if isinstance(payload.get("source"), dict) else {}
             source_path = Path(str(source.get("path", ""))) if str(source.get("path", "")) else None
             if source_path is not None:
