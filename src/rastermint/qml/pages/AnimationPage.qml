@@ -8,6 +8,7 @@ ScrollView {
     contentWidth: availableWidth
     property int selectedTrack: -1
     property int selectedKey: -1
+    property string pendingClipDeleteName: ""
     property var playbackModeValues: ["Quick", "Rendered"]
 
     function selectedTrackData() {
@@ -302,6 +303,17 @@ ScrollView {
             Layout.fillWidth: true
             MintComboBox { id: clipCombo; Layout.fillWidth: true; model: (backend.animationClipLibrary || []).map(function(item) { return item.name }) }
             MintButton { text: qsTr("Apply clip"); enabled: clipCombo.currentIndex >= 0 && targetCombo.currentIndex >= 0; onClicked: backend.applyAnimationClip(clipCombo.currentText, backend.animationTargetIds[targetCombo.currentIndex]) }
+            MintButton {
+                id: deleteSavedClipButton
+                text: "×"
+                enabled: clipCombo.currentIndex >= 0
+                onClicked: {
+                    root.pendingClipDeleteName = clipCombo.currentText
+                    deleteClipDialog.itemName = root.pendingClipDeleteName
+                    deleteClipDialog.open()
+                }
+                MintToolTip { visible: deleteSavedClipButton.hovered; text: qsTr("Remove %1").arg(clipCombo.currentText) }
+            }
         }
 
         MintLabel { text: qsTr("Animate"); color: theme.mutedTextColor }
@@ -396,5 +408,9 @@ ScrollView {
             MintButton { text: qsTr("Remove"); enabled: root.selectedTrack >= 0; onClicked: { backend.removeAnimationTrack(root.selectedTrack); root.selectedTrack = -1 } }
         }
         MintLabel { Layout.fillWidth: true; text: qsTr("Animated parameters are locked in the layer editor while their track is enabled."); color: theme.mutedTextColor; wrapMode: Text.WordWrap }
+    }
+    ConfirmLibraryDeleteDialog {
+        id: deleteClipDialog
+        onConfirmed: backend.deleteAnimationClip(root.pendingClipDeleteName)
     }
 }

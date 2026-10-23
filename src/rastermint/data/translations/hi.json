@@ -1003,6 +1003,9 @@
     "Exporting image": "चित्र निर्यात किया जा रहा है",
     "Preparing export": "निर्यात तैयार किया जा रहा है",
     "Export cancelled": "निर्यात रद्द किया गया",
-    "Preparing batch export": "बैच निर्यात तैयार किया जा रहा है"
+    "Preparing batch export": "बैच निर्यात तैयार किया जा रहा है",
+    "Remove %1 from library?": "लाइब्रेरी से %1 हटाएँ?",
+    "This cannot be undone.": "इस क्रिया को पूर्ववत नहीं किया जा सकता।",
+    "Presets in this category will be kept.": "इस श्रेणी के प्रीसेट सुरक्षित रहेंगे।"
   }
 }

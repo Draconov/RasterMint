@@ -1003,6 +1003,9 @@
     "Exporting image": "Đang xuất ảnh",
     "Preparing export": "Đang chuẩn bị xuất",
     "Export cancelled": "Đã hủy xuất",
-    "Preparing batch export": "Đang chuẩn bị xuất hàng loạt"
+    "Preparing batch export": "Đang chuẩn bị xuất hàng loạt",
+    "Remove %1 from library?": "Xóa %1 khỏi thư viện?",
+    "This cannot be undone.": "Không thể hoàn tác thao tác này.",
+    "Presets in this category will be kept.": "Các cài đặt sẵn trong danh mục này sẽ được giữ lại."
   }
 }

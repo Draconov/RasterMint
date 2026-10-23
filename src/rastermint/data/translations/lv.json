@@ -1003,6 +1003,9 @@
     "Exporting image": "Attēla eksportēšana",
     "Preparing export": "Eksporta sagatavošana",
     "Export cancelled": "Eksports atcelts",
-    "Preparing batch export": "Pakešu eksporta sagatavošana"
+    "Preparing batch export": "Pakešu eksporta sagatavošana",
+    "Remove %1 from library?": "Vai noņemt %1 no bibliotēkas?",
+    "This cannot be undone.": "Šo darbību nevar atsaukt.",
+    "Presets in this category will be kept.": "Šīs kategorijas priekšiestatījumi tiks saglabāti."
   }
 }

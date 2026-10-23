@@ -1003,6 +1003,9 @@
     "Exporting image": "تصویر برآمد ہو رہی ہے",
     "Preparing export": "برآمد تیار کی جا رہی ہے",
     "Export cancelled": "برآمد منسوخ کر دی گئی",
-    "Preparing batch export": "بیچ برآمد تیار کی جا رہی ہے"
+    "Preparing batch export": "بیچ برآمد تیار کی جا رہی ہے",
+    "Remove %1 from library?": "لائبریری سے %1 ہٹا دیں؟",
+    "This cannot be undone.": "یہ عمل واپس نہیں لیا جا سکتا۔",
+    "Presets in this category will be kept.": "اس زمرے کے پری سیٹس محفوظ رہیں گے۔"
   }
 }

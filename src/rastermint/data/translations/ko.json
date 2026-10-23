@@ -1003,6 +1003,9 @@
     "Exporting image": "이미지 내보내는 중",
     "Preparing export": "내보내기 준비 중",
     "Export cancelled": "내보내기 취소됨",
-    "Preparing batch export": "일괄 내보내기 준비 중"
+    "Preparing batch export": "일괄 내보내기 준비 중",
+    "Remove %1 from library?": "라이브러리에서 %1을(를) 삭제할까요?",
+    "This cannot be undone.": "이 작업은 취소할 수 없습니다.",
+    "Presets in this category will be kept.": "이 카테고리의 프리셋은 유지됩니다."
   }
 }

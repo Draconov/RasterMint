@@ -13,6 +13,9 @@ Item {
 
     property var expandedPresetCategories: ({})
     property string managePresetId: ""
+    property string pendingDeletePresetId: ""
+    property string pendingDeleteCategory: ""
+    property bool deletingPresetCategory: false
     property string managePresetName: ""
     property int mutationCount: 8
     property int mutationAmountPercent: 35
@@ -124,7 +127,8 @@ Item {
             var copy = {
                 "name": String(source.name || ""),
                 "ids": (source.ids || []).slice(0),
-                "userCategory": false
+                "userCategory": false,
+                "hasUserCategory": false
             }
             byName[copy.name.toLowerCase()] = result.length
             result.push(copy)
@@ -149,11 +153,13 @@ Item {
             if (byName[key] !== undefined) {
                 var existing = result[byName[key]]
                 existing.ids = existing.ids.concat(ids)
+                existing.hasUserCategory = true
             } else {
                 result.push({
                     "name": categoryName,
                     "ids": ids,
-                    "userCategory": true
+                    "userCategory": true,
+                    "hasUserCategory": true
                 })
                 byName[key] = result.length - 1
             }
@@ -367,9 +373,11 @@ Item {
                 height: 28
                 text: "×"
                 onClicked: {
-                    if (root.selectedPresetId === String(modelData.id))
-                        root.selectPreset("", "")
-                    backend.deletePresetFromLibrary(modelData.id)
+                    root.deletingPresetCategory = false
+                    root.pendingDeletePresetId = String(modelData.id)
+                    confirmDeletePresetDialog.itemName = String(modelData.name)
+                    confirmDeletePresetDialog.detailText = ""
+                    confirmDeletePresetDialog.open()
                 }
 
                 MintToolTip {
@@ -568,7 +576,7 @@ Item {
                             RowLayout {
                                 anchors.fill: parent
                                 anchors.leftMargin: 10
-                                anchors.rightMargin: 10
+                                anchors.rightMargin: Boolean(categorySection.categoryData.hasUserCategory) ? 42 : 10
                                 spacing: 8
 
                                 Text {
@@ -600,6 +608,27 @@ Item {
                                 anchors.fill: parent
                                 hoverEnabled: true
                                 onClicked: root.togglePresetCategory(categorySection.categoryData.name)
+                            }
+                            MintButton {
+                                id: removeCategoryButton
+                                visible: Boolean(categorySection.categoryData.hasUserCategory)
+                                anchors.right: parent.right
+                                anchors.rightMargin: 6
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: 28
+                                height: 28
+                                text: "×"
+                                onClicked: {
+                                    root.deletingPresetCategory = true
+                                    root.pendingDeleteCategory = String(categorySection.categoryData.name)
+                                    confirmDeletePresetDialog.itemName = root.pendingDeleteCategory
+                                    confirmDeletePresetDialog.detailText = qsTr("Presets in this category will be kept.")
+                                    confirmDeletePresetDialog.open()
+                                }
+                                MintToolTip {
+                                    visible: removeCategoryButton.hovered
+                                    text: qsTr("Remove %1").arg(categorySection.categoryData.name)
+                                }
                             }
                         }
 
@@ -802,6 +831,19 @@ Item {
                     }
                 }
                 MintButton { text: qsTr("Close"); onClicked: managePresetDialog.close() }
+            }
+        }
+    }
+
+    ConfirmLibraryDeleteDialog {
+        id: confirmDeletePresetDialog
+        onConfirmed: {
+            if (root.deletingPresetCategory) {
+                backend.deletePresetCategory(root.pendingDeleteCategory)
+            } else {
+                if (root.selectedPresetId === root.pendingDeletePresetId)
+                    root.selectPreset("", "")
+                backend.deletePresetFromLibrary(root.pendingDeletePresetId)
             }
         }
     }

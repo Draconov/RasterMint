@@ -1458,6 +1458,22 @@ class RasterMintBackend(QObject):
         self._set_status(f"Saved dither matrix: {clean}")
 
     @Slot(str)
+    def deleteCustomDitherMatrix(self, name: str) -> None:
+        """Remove only a user-saved matrix; leave the working editor draft intact."""
+        key = str(name or "").casefold()
+        record = next(
+            (item for item in self._dither_matrix_library
+             if str(item.get("name", "")).casefold() == key),
+            None,
+        )
+        if record is None:
+            return
+        self._dither_matrix_library.remove(record)
+        self._save_dither_matrix_library()
+        self.ditherMatrixLibraryChanged.emit()
+        self._set_status(f"Removed dither matrix: {record['name']}")
+
+    @Slot(str)
     def loadCustomDitherMatrix(self, name: str) -> None:
         record = next((item for item in self._dither_matrix_library if str(item.get("name", "")) == str(name)), None)
         if record:
@@ -4068,6 +4084,22 @@ class RasterMintBackend(QObject):
         self._save_animation_clip_library()
         self.settingsChanged.emit()
         self._set_status(f"Saved animation clip: {clean}")
+
+    @Slot(str)
+    def deleteAnimationClip(self, name: str) -> None:
+        """Delete a user-saved clip without changing already-applied tracks."""
+        key = str(name or "").casefold()
+        record = next(
+            (item for item in self._animation_clip_library
+             if str(item.get("name", "")).casefold() == key),
+            None,
+        )
+        if record is None:
+            return
+        self._animation_clip_library.remove(record)
+        self._save_animation_clip_library()
+        self.settingsChanged.emit()
+        self._set_status(f"Removed animation clip: {record['name']}")
 
     @Slot(str, str)
     def applyAnimationClip(self, name: str, target: str) -> None:

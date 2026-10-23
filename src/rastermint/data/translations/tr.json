@@ -1003,6 +1003,9 @@
     "Exporting image": "Görüntü dışa aktarılıyor",
     "Preparing export": "Dışa aktarma hazırlanıyor",
     "Export cancelled": "Dışa aktarma iptal edildi",
-    "Preparing batch export": "Toplu dışa aktarma hazırlanıyor"
+    "Preparing batch export": "Toplu dışa aktarma hazırlanıyor",
+    "Remove %1 from library?": "%1 kitaplıktan kaldırılsın mı?",
+    "This cannot be undone.": "Bu işlem geri alınamaz.",
+    "Presets in this category will be kept.": "Bu kategorideki hazır ayarlar korunacaktır."
   }
 }

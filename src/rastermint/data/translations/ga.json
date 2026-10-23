@@ -1003,6 +1003,9 @@
     "Exporting image": "Íomhá á heaspórtáil",
     "Preparing export": "Easpórtáil á hullmhú",
     "Export cancelled": "Easpórtáil curtha ar ceal",
-    "Preparing batch export": "Easpórtáil baisce á hullmhú"
+    "Preparing batch export": "Easpórtáil baisce á hullmhú",
+    "Remove %1 from library?": "An bhfuil tú ag iarraidh %1 a bhaint den leabharlann?",
+    "This cannot be undone.": "Ní féidir an gníomh seo a chealú.",
+    "Presets in this category will be kept.": "Coinneofar na réamhshocruithe sa chatagóir seo."
   }
 }

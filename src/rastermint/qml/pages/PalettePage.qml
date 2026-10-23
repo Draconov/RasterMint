@@ -7,6 +7,8 @@ import "../components"
 Item {
     id: root
     property int colorEditIndex: -1
+    property string pendingPaletteDeleteId: ""
+    property string pendingMatrixDeleteName: ""
     property var expandedPaletteCategories: ({})
     property string lastAppliedPaletteSignature: ""
     property var optimizedPaletteCounts: [2, 3, 6, 8, 12, 16, 32, 256]
@@ -527,7 +529,7 @@ Item {
                                                 RowLayout {
                                                     anchors.fill: parent
                                                     anchors.leftMargin: 6
-                                                    anchors.rightMargin: 6
+                                                    anchors.rightMargin: Boolean(modelData.user) ? 40 : 6
                                                     spacing: 8
 
                                                     ColumnLayout {
@@ -582,6 +584,26 @@ Item {
                                                             backend.optimizePalette(modelData.count, optimizer.currentText)
                                                         else
                                                             backend.applyPalette(modelData.id)
+                                                    }
+                                                }
+
+                                                MintButton {
+                                                    id: deleteUserPaletteButton
+                                                    visible: Boolean(modelData.user)
+                                                    width: 28
+                                                    height: 28
+                                                    anchors.right: parent.right
+                                                    anchors.rightMargin: 6
+                                                    anchors.verticalCenter: parent.verticalCenter
+                                                    text: "×"
+                                                    onClicked: {
+                                                        root.pendingPaletteDeleteId = String(modelData.id)
+                                                        deletePaletteDialog.itemName = String(modelData.name)
+                                                        deletePaletteDialog.open()
+                                                    }
+                                                    MintToolTip {
+                                                        visible: deleteUserPaletteButton.hovered
+                                                        text: qsTr("Remove %1").arg(modelData.name)
                                                     }
                                                 }
 
@@ -853,6 +875,17 @@ Item {
                         model: (backend.ditherMatrixLibrary || []).map(function(item) { return item.name })
                     }
                     MintButton { text: qsTr("Load matrix"); enabled: savedMatrixCombo.currentIndex >= 0; onClicked: backend.loadCustomDitherMatrix(savedMatrixCombo.currentText) }
+                    MintButton {
+                        id: deleteSavedMatrixButton
+                        text: "×"
+                        enabled: savedMatrixCombo.currentIndex >= 0
+                        onClicked: {
+                            root.pendingMatrixDeleteName = savedMatrixCombo.currentText
+                            deleteMatrixDialog.itemName = root.pendingMatrixDeleteName
+                            deleteMatrixDialog.open()
+                        }
+                        MintToolTip { visible: deleteSavedMatrixButton.hovered; text: qsTr("Remove %1").arg(savedMatrixCombo.currentText) }
+                    }
                 }
             }
 
@@ -1153,6 +1186,16 @@ Item {
                 }
             }
         }
+    }
+
+    ConfirmLibraryDeleteDialog {
+        id: deleteMatrixDialog
+        onConfirmed: backend.deleteCustomDitherMatrix(root.pendingMatrixDeleteName)
+    }
+
+    ConfirmLibraryDeleteDialog {
+        id: deletePaletteDialog
+        onConfirmed: backend.deletePaletteFromLibrary(root.pendingPaletteDeleteId)
     }
 
     MintColorPicker {

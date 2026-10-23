@@ -1003,6 +1003,9 @@
     "Exporting image": "ছবি এক্সপোর্ট করা হচ্ছে",
     "Preparing export": "এক্সপোর্ট প্রস্তুত করা হচ্ছে",
     "Export cancelled": "এক্সপোর্ট বাতিল করা হয়েছে",
-    "Preparing batch export": "ব্যাচ এক্সপোর্ট প্রস্তুত করা হচ্ছে"
+    "Preparing batch export": "ব্যাচ এক্সপোর্ট প্রস্তুত করা হচ্ছে",
+    "Remove %1 from library?": "লাইব্রেরি থেকে %1 সরাতে চান?",
+    "This cannot be undone.": "এই কাজটি পূর্বাবস্থায় ফেরানো যাবে না।",
+    "Presets in this category will be kept.": "এই বিভাগের প্রিসেটগুলো রাখা হবে।"
   }
 }

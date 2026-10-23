@@ -1003,6 +1003,9 @@
     "Exporting image": "Exportation de l’image",
     "Preparing export": "Préparation de l’exportation",
     "Export cancelled": "Exportation annulée",
-    "Preparing batch export": "Préparation de l’exportation par lot"
+    "Preparing batch export": "Préparation de l’exportation par lot",
+    "Remove %1 from library?": "Supprimer %1 de la bibliothèque ?",
+    "This cannot be undone.": "Cette action est irréversible.",
+    "Presets in this category will be kept.": "Les préréglages de cette catégorie seront conservés."
   }
 }

@@ -1003,6 +1003,9 @@
     "Exporting image": "מייצא תמונה",
     "Preparing export": "מכין ייצוא",
     "Export cancelled": "הייצוא בוטל",
-    "Preparing batch export": "מכין ייצוא באצווה"
+    "Preparing batch export": "מכין ייצוא באצווה",
+    "Remove %1 from library?": "להסיר את %1 מהספרייה?",
+    "This cannot be undone.": "לא ניתן לבטל פעולה זו.",
+    "Presets in this category will be kept.": "ההגדרות המוכנות בקטגוריה זו יישמרו."
   }
 }

@@ -1003,6 +1003,9 @@
     "Exporting image": "جارٍ تصدير الصورة",
     "Preparing export": "جارٍ تحضير التصدير",
     "Export cancelled": "تم إلغاء التصدير",
-    "Preparing batch export": "جارٍ تحضير التصدير الدفعي"
+    "Preparing batch export": "جارٍ تحضير التصدير الدفعي",
+    "Remove %1 from library?": "هل تريد إزالة %1 من المكتبة؟",
+    "This cannot be undone.": "لا يمكن التراجع عن هذا الإجراء.",
+    "Presets in this category will be kept.": "سيتم الاحتفاظ بالإعدادات المسبقة الموجودة في هذه الفئة."
   }
 }

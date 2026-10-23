@@ -1003,6 +1003,9 @@
     "Exporting image": "画像をエクスポート中",
     "Preparing export": "エクスポートを準備中",
     "Export cancelled": "エクスポートをキャンセルしました",
-    "Preparing batch export": "一括エクスポートを準備中"
+    "Preparing batch export": "一括エクスポートを準備中",
+    "Remove %1 from library?": "%1 をライブラリから削除しますか？",
+    "This cannot be undone.": "この操作は元に戻せません。",
+    "Presets in this category will be kept.": "このカテゴリ内のプリセットは保持されます。"
   }
 }

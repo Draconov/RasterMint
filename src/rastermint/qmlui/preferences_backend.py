@@ -845,6 +845,25 @@ class RasterMintBackend(BaseRasterMintBackend):
         self.presetLibraryChanged.emit()
         self._set_status(f"Preset category: {clean or 'Uncategorized'}")
 
+    @Slot(str)
+    def deletePresetCategory(self, category: str) -> None:
+        """Remove a user category assignment without deleting its presets."""
+        clean = str(category or "").strip()
+        if not clean:
+            return
+        categories = dict(self._preset_meta.get("categories", {}))
+        changed = False
+        for preset_id, value in list(categories.items()):
+            if str(value).casefold() == clean.casefold() and preset_id in self._user_presets:
+                del categories[preset_id]
+                changed = True
+        if not changed:
+            return
+        self._preset_meta["categories"] = categories
+        self._save_preset_meta()
+        self.presetLibraryChanged.emit()
+        self._set_status(f"Removed preset category: {clean}")
+
     @Property("QVariantList", notify=presetLibraryChanged)
     def allPresets(self) -> list[dict[str, object]]:
         builtins = [

@@ -1003,6 +1003,9 @@
     "Exporting image": "Експорт зображення",
     "Preparing export": "Підготовка експорту",
     "Export cancelled": "Експорт скасовано",
-    "Preparing batch export": "Підготовка пакетного експорту"
+    "Preparing batch export": "Підготовка пакетного експорту",
+    "Remove %1 from library?": "Видалити %1 з бібліотеки?",
+    "This cannot be undone.": "Цю дію неможливо скасувати.",
+    "Presets in this category will be kept.": "Пресети з цієї категорії залишаться збереженими."
   }
 }

@@ -1003,6 +1003,9 @@
     "Exporting image": "Mengekspor gambar",
     "Preparing export": "Menyiapkan ekspor",
     "Export cancelled": "Ekspor dibatalkan",
-    "Preparing batch export": "Menyiapkan ekspor massal"
+    "Preparing batch export": "Menyiapkan ekspor massal",
+    "Remove %1 from library?": "Hapus %1 dari pustaka?",
+    "This cannot be undone.": "Tindakan ini tidak dapat dibatalkan.",
+    "Presets in this category will be kept.": "Preset dalam kategori ini akan tetap disimpan."
   }
 }

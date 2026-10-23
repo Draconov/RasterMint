@@ -1003,6 +1003,9 @@
     "Exporting image": "Bild wird exportiert",
     "Preparing export": "Export wird vorbereitet",
     "Export cancelled": "Export abgebrochen",
-    "Preparing batch export": "Stapelexport wird vorbereitet"
+    "Preparing batch export": "Stapelexport wird vorbereitet",
+    "Remove %1 from library?": "%1 aus der Bibliothek entfernen?",
+    "This cannot be undone.": "Diese Aktion kann nicht rückgängig gemacht werden.",
+    "Presets in this category will be kept.": "Die Presets in dieser Kategorie bleiben erhalten."
   }
 }

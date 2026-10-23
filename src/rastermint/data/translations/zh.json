@@ -1003,6 +1003,9 @@
     "Exporting image": "正在导出图像",
     "Preparing export": "正在准备导出",
     "Export cancelled": "导出已取消",
-    "Preparing batch export": "正在准备批量导出"
+    "Preparing batch export": "正在准备批量导出",
+    "Remove %1 from library?": "要从素材库中移除 %1 吗？",
+    "This cannot be undone.": "此操作无法撤销。",
+    "Presets in this category will be kept.": "此分类中的预设将被保留。"
   }
 }

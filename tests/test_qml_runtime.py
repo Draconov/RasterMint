@@ -541,3 +541,52 @@ def test_crop_space_drag_continues_after_long_hold(tmp_path):
         assert not bool(pan_area.property("pressed"))
     finally:
         backend.shutdown()
+
+
+def test_user_saved_libraries_can_be_deleted_without_touching_builtin_content(tmp_path):
+    """Protect built-ins, delete only explicitly saved records and persist changes."""
+    from PySide6.QtCore import QSettings
+    from rastermint.qmlui.preferences_backend import RasterMintBackend as PreferencesBackend
+
+    app = _app()
+    backend = PreferencesBackend(RasterImageProvider())
+    try:
+        backend.app_settings = QSettings(
+            str(tmp_path / "rastermint-test.ini"), QSettings.Format.IniFormat
+        )
+        backend._dither_matrix_library = [
+            {"name": "User Matrix", "matrix": [[0, 1], [2, 3]]}
+        ]
+        backend.deleteCustomDitherMatrix("User Matrix")
+        assert backend.ditherMatrixLibrary == []
+        assert backend.app_settings.value(backend._DITHER_MATRIX_SETTINGS_KEY) == "[]"
+        backend.deleteCustomDitherMatrix("Builtin 2x2")  # safe no-op
+
+        backend._animation_clip_library = [
+            {"name": "User Clip", "track": {"target": "opacity"}}
+        ]
+        backend.deleteAnimationClip("User Clip")
+        assert backend.animationClipLibrary == []
+        assert backend.app_settings.value(backend._ANIMATION_CLIP_SETTINGS_KEY) == "[]"
+
+        palette_path = tmp_path / "user-palette.json"
+        palette_path.write_text('{"test":true}', encoding="utf-8")
+        backend._user_palettes = {
+            "my-palette": {"name": "My Palette", "file": str(palette_path)}
+        }
+        backend.deletePaletteFromLibrary("my-palette")
+        assert not palette_path.exists()
+        assert not backend._user_palettes
+        backend.deletePaletteFromLibrary("game-boy")  # built-in cannot be deleted
+
+        backend._user_presets = {"user-one": {}, "user-two": {}}
+        backend._preset_meta = {
+            "favorites": [], "recent": [],
+            "categories": {"user-one": "My Category", "user-two": "My Category"},
+        }
+        backend.deletePresetCategory("My Category")
+        assert backend._preset_meta["categories"] == {}
+        assert set(backend._user_presets) == {"user-one", "user-two"}
+        assert backend.presetUserCategories == []
+    finally:
+        backend.shutdown()
